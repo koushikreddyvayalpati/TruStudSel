@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from './supabaseClient';
+import { Auth } from 'aws-amplify';
 
 interface AuthContextType {
   user: any;
@@ -14,32 +14,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    const session = supabase.auth.session();
-    setUser(session?.user ?? null);
-
-    const { data: subscription } = supabase.auth.onAuthStateChange((_, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => {
-      subscription?.unsubscribe();
+    const fetchUser = async () => {
+      try {
+        const currentUser = await Auth.currentAuthenticatedUser();
+        setUser(currentUser);
+      } catch (error) {
+        console.log('No user signed in');
+      }
     };
+
+    fetchUser();
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { user, error } = await supabase.auth.signIn({ email, password });
-    if (error) throw error;
+    const { user } = await Auth.signIn(email, password);
     setUser(user);
   };
 
   const signUp = async (email: string, password: string) => {
-    const { user, error } = await supabase.auth.signUp({ email, password });
-    if (error) throw error;
+    const { user } = await Auth.signUp({
+      username: email,
+      password,
+    });
     setUser(user);
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await Auth.signOut();
     setUser(null);
   };
 

@@ -72,11 +72,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   trustText: {
-    fontSize: 34,
-    fontWeight: '300',
+    fontSize: 45,
+    fontWeight: '800',
     color: 'black', 
     marginBottom: 20,
-    fontFamily: 'Montserrat-Regular',
+    fontFamily: 'Montserrat-Bold',
     // Change text color to white for contrast
   },
   getStartedButton: {
