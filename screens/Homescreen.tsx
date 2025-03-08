@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useMemo  } from 'react';
 import { 
   View, 
   TextInput, 
@@ -8,14 +8,15 @@ import {
   ScrollView,
   SafeAreaView,
   Platform,
-  StatusBar
+  StatusBar,
+  FlatList
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import EvilIcon from 'react-native-vector-icons/EvilIcons';
 
 import Entypoicon from 'react-native-vector-icons/Entypo';
-import { useNavigation } from '@react-navigation/native';
+// import { useNavigation } from '@react-navigation/native';
 
 // Import the mobile icon and other icons
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -33,28 +34,34 @@ type HomescreenProps = {
   navigation: StackNavigationProp<RootStackParamList, 'Home'>;
 };
 
-type ProfileScreenProps = {
-  navigation: StackNavigationProp<RootStackParamList, 'Profile'>;
-};
+// type ProfileScreenProps = {
+//   navigation: StackNavigationProp<RootStackParamList, 'Profile'>;
+// };
 
 const Homescreen = ({ navigation }: HomescreenProps) => {
+  // const [isMenuOpen, setMenuOpen] = useState(false);
+
+  // const toggleMenu = () => {
+  //   setMenuOpen(!isMenuOpen);
+  // };
+
   console.log('HomeScreen is rendering');
   // Category data
-  const categories = [
+  const categories = useMemo(() => [
     { id: 1, name: 'Electronics' },
     { id: 2, name: 'Furniture' },
     { id: 3, name: 'Auto' },
     { id: 4, name: 'Fashion' },
     { id: 5, name: 'Sports' },
-  ];
+  ], []);
 
   // Product data
-  const products = [
+  const products = useMemo(() => [
     {
       id: 1,
       name: 'Nike Sneakers',
       price: '$34.00',
-      image: 'https://via.placeholder.com/150',
+      image: '../assets/images/shoe.jpeg',
       condition: 'Brand New',
       type: 'Rent',
       description: 'Vision Alta Men',
@@ -64,7 +71,7 @@ const Homescreen = ({ navigation }: HomescreenProps) => {
     { id: 3, name: 'Product 3', price: '$32.99', image: 'https://via.placeholder.com/150' },
     { id: 4, name: 'Product 4', price: '$15.75', image: 'https://via.placeholder.com/150' },
     { id: 5, name: 'Product 5', price: '$49.99', image: 'https://via.placeholder.com/150' },
-  ];
+  ], []);
 
   // New arrivals data
   const newArrivals = [
@@ -84,12 +91,41 @@ const Homescreen = ({ navigation }: HomescreenProps) => {
     { id: 5, name: 'Popular Item 5', price: '$39.99' },
   ];
 
+  const renderCategory = useCallback(({ item }: { item: any }) => (
+    <TouchableOpacity key={item.id} style={styles.categoryItem}>
+      <View style={styles.categoryCircleWrapper}>
+        <View style={styles.categoryCircle}>
+          {item.id === 1 && <Entypoicon name="game-controller" size={28} color="black" />}
+          {item.id === 2 && <Icon name="bed" size={28} color="black" />}
+          {item.id === 3 && <MaterialIcons name="directions-car" size={28} color="black" />}
+          {item.id === 4 && <FontAwesome name="shopping-bag" size={28} color="black" />}
+          {item.id === 5 && <MaterialIcons name="sports-cricket" size={28} color="black" />}
+        </View>
+      </View>
+      <Text style={styles.categoryText}>{item.name}</Text>
+    </TouchableOpacity>
+  ), []);
+
+  const renderProduct = useCallback(({ item }: { item: any }) => (
+    <TouchableOpacity 
+      key={item.id} 
+      style={styles.productCard}
+      onPress={() => navigation.navigate('ProductInfoPage', { product: item })}
+    >
+      <View style={styles.productImagePlaceholder} />
+      <View style={styles.productInfo}>
+        <Text style={styles.productName}>{item.name}</Text>
+        <Text style={styles.productPrice}>{item.price}</Text>
+      </View>
+    </TouchableOpacity>
+  ), [navigation]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         {/* Top navigation bar with menu and profile */}
         <View style={styles.topBar}>
-          <TouchableOpacity style={styles.menuButton}>
+          <TouchableOpacity style={styles.menuButton} onPress={() => console.log("Menu button pressed")}>
             <Text style={styles.menuIcon}>☰</Text>
           </TouchableOpacity>
           
@@ -134,60 +170,27 @@ const Homescreen = ({ navigation }: HomescreenProps) => {
         
         {/* Category Circles */}
         <View style={styles.categoryContainer}>
-          <ScrollView 
-            horizontal 
+          <FlatList
+            data={categories}
+            renderItem={renderCategory}
+            keyExtractor={item => item.id.toString()}
+            horizontal
             showsHorizontalScrollIndicator={false}
-          >
-            {categories.map((category, index) => (
-              <TouchableOpacity key={category.id} style={styles.categoryItem}>
-                <View style={styles.categoryCircleWrapper}>
-                  <View style={styles.categoryCircle}>
-                    {index === 0 && ( // Mobile icon for Electronics
-                      <Entypoicon name="game-controller" size={28} color="black" style={styles.mobileIcon} />
-                    )}
-                    {index === 1 && ( // Furniture icon for Furniture
-                      <Icon name="bed" size={28} color="black" />
-                    )}
-                    {index === 2 && ( // Automobile icon for Auto
-                      <MaterialIcons name="directions-car" size={28} color="black" />
-                    )}
-                    {index === 3 && ( // Shopping bag icon for Fashion
-                      <FontAwesome name="shopping-bag" size={28} color="black" />
-                    )}
-                    {index === 4 && ( // Cricket icon for Sports
-                      <MaterialIcons name="sports-cricket" size={28} color="black" />
-                    )}
-                  </View>
-                </View>
-                <Text style={styles.categoryText}>{category.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          />
         </View>
         
         {/* Scrollable container for all product sections */}
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* Featured Items Section */}
           <Text style={styles.sectionHeader}>Featured Items</Text>
-          <ScrollView
+          <FlatList
+            data={products}
+            renderItem={renderProduct}
+            keyExtractor={item => item.id.toString()}
             horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.productScrollView}
-          >
-            {products.map(product => (
-              <TouchableOpacity 
-                key={product.id} 
-                style={styles.productCard}
-                onPress={() => navigation.navigate('ProductInfoPage', { product: product })}
-              >
-                <View style={styles.productImagePlaceholder} />
-                <View style={styles.productInfo}>
-                  <Text style={styles.productName}>{product.name}</Text>
-                  <Text style={styles.productPrice}>{product.price}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          />
 
           {/* New Arrivals Section */}
           <Text style={styles.sectionHeader}>New Arrivals</Text>
@@ -252,7 +255,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    paddingTop: 15,
+    paddingTop: 0,
   },
   topBar: {
     flexDirection: 'row',
@@ -350,7 +353,7 @@ const styles = StyleSheet.create({
   },
   categoryContainer: {
     height: 110,
-    marginBottom: 30,
+  
     paddingTop: 5,
     paddingBottom: 15,
   },
@@ -419,7 +422,7 @@ const styles = StyleSheet.create({
   productPrice: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#f7b305',
+    color: 'black',
   },
   mobileIcon: {
     marginTop: 5,

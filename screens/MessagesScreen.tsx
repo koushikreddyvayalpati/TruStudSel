@@ -11,6 +11,9 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+
 
 const { width } = Dimensions.get('window');
 
@@ -29,10 +32,10 @@ const messagesData = [
 const MessagesScreen = () => {
   const navigation = useNavigation();
 
-  const renderItem = ({ item }) => (
+  const renderItem = ({ item }: { item: any }) => (
     <TouchableOpacity 
       style={styles.messageContainer}
-      onPress={() => navigation.navigate('MessageDetail', { contactName: item.name })}
+      onPress={() => navigation.navigate('MessageScreen', { contactName: item.name })}
       activeOpacity={0.8} // Adds subtle press feedback
     >
       <View style={[
@@ -63,18 +66,18 @@ const MessagesScreen = () => {
       <StatusBar barStyle="dark-content" backgroundColor="#f7b305" />
       <View style={styles.headerContainer}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Icon name="arrow-left" size={20} color="black" />
+          <MaterialIcons name="arrow-back-ios-new" size={22} color="black" />
         </TouchableOpacity>
         <Text style={styles.header}>Messages</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.actionButton}>
-            <Icon name="search" size={22} color="black" />
+            <Ionicons name="search-outline" size={22} color="black" />
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.actionButton}
             onPress={() => navigation.navigate('Home')}
           >
-            <Icon name="home" size={22} color="black" />
+            <Ionicons name="home-outline" size={22} color="black" />
           </TouchableOpacity>
         </View>
       </View>
@@ -86,7 +89,7 @@ const MessagesScreen = () => {
         ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
       <TouchableOpacity style={styles.composeButton}>
-        <Icon name="edit" size={24} color="#fff" />
+        <Icon name="edit" size={24} color="black" />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -103,17 +106,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: '#f7b305',
     padding: 15,
-    paddingTop: StatusBar.currentHeight + 10,
+    paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 10,
+    paddingBottom: 10,
     elevation: 4,
     shadowOpacity: 0.1,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
+
   },
   backButton: {
     padding: 10,
   },
   header: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '400',
     color: 'black',
   },
@@ -130,13 +135,13 @@ const styles = StyleSheet.create({
     padding: 15, // Increased padding for breathing room
     backgroundColor: '#fff',
     borderRadius: 12, // Rounded corners for modern look
-    marginHorizontal: 10, // Side margins for card effect
-    marginVertical: 5, // Vertical spacing between cards
+    marginHorizontal: 0, // Side margins for card effect
+    marginVertical: 0, // Vertical spacing between cards
     elevation: 2, // Subtle shadow for Android
     shadowColor: '#000', // Shadow for iOS
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 3,
+   
   },
   avatar: {
     width: 54, // Slightly larger avatar
@@ -198,9 +203,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 20,
     right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: '#f7b305',
     justifyContent: 'center',
     alignItems: 'center',

@@ -27,7 +27,7 @@ type RootStackParamList = {
 // Get device dimensions
 const { width } = Dimensions.get('window');
 
-// Sample posts data
+// Sample posts data hardcoded
 const initialPosts = [
   { id: 1, image: 'https://via.placeholder.com/150', caption: 'Post 1' },
   { id: 2, image: 'https://via.placeholder.com/150', caption: 'Post 2' },
@@ -42,7 +42,7 @@ const initialPosts = [
 const ProfileScreen = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList, 'Profile'>>();
 
-  // Sample user data
+  // Sample user data hardcoded
   const user = {
     name: "Koushik",
     email: "koushik@college.edu",
@@ -57,7 +57,7 @@ const ProfileScreen = () => {
 
   const [posts, setPosts] = useState(initialPosts);
 
-  // Function to load more posts (simulate fetching more data)
+  // Function to load more posts (simulate fetching more data)  
   const loadMorePosts = () => {
     const newPosts = [
       { id: posts.length + 1, image: 'https://via.placeholder.com/150', caption: `Post ${posts.length + 1}` },
@@ -178,7 +178,7 @@ const ProfileScreen = () => {
           <Text style={styles.availabilityButtonText}>Is it available?</Text>
         </TouchableOpacity>
       </View>
-      <BottomNavigation />
+      <BottomNavigation navigation={navigation} />
     </SafeAreaView>
   );
 };
@@ -323,18 +323,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
-    marginTop: 20,
-    marginBottom: 10,
-    backgroundColor: '#E6F0FA', // Professional light gray background
+     // Professional light gray background
     borderRadius: 8, // Slight rounding for a polished look
     padding: 5,
   },
   rowButton: {
     flex: 1,
+    backgroundColor: '#E6F0FA',
     alignItems: 'center',
-    paddingVertical: 8, // Vertical padding for better touch area
-    borderRightWidth: 1, // Separator between buttons
+    paddingVertical: 8, // Vertical padding for better touch area// Separator between buttons
     borderColor: '#BFDBFE',
+    margin: 5,
+    borderRadius: 20,
   },
   rowText: {
     fontSize: 16,
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
     fontWeight: '500', // Medium weight for emphasis
   },
   postContainer: {
-    width: (width * 0.85 - 10) / 3,
+    width: (width * 0.8 - 10) / 3,
     height: 150,
     marginBottom: 10,
     backgroundColor: '#ffffff',

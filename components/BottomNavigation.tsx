@@ -8,6 +8,8 @@ import {
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import Antdesign from 'react-native-vector-icons/AntDesign';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
 // Define the prop types
 type RootStackParamList = {
   Home: undefined;
@@ -28,7 +30,7 @@ try {
   Icon = null;
 }
 
-const BottomNavigation = ({ navigation }: BottomNavigationProps) => {
+const BottomNavigation = React.memo(({ navigation }: BottomNavigationProps) => {
   console.log('BottomNavigation is rendering');
   
   // Add a navigation handler
@@ -40,7 +42,7 @@ const BottomNavigation = ({ navigation }: BottomNavigationProps) => {
   const renderIcon = (iconName: string, fallbackText: string) => {
     if (Icon) {
       try {
-        return <Icon name={iconName} size={24} color="#333" />;
+        return <Icon name={iconName} size={24} color="black" />;
       } catch (e) {
         console.warn('Error rendering icon:', e);
       }
@@ -53,14 +55,14 @@ const BottomNavigation = ({ navigation }: BottomNavigationProps) => {
         'heart-outline': '♥',
         'search-outline': '⚲',
         'settings-outline': '⚙',
-        'message-outline': '💬',
+        'message-outline': 'chatbubbles',
       },
       android: {
         'home-outline': '⋙',
         'heart-outline': '♡',
         'search-outline': '⚲',
         'settings-outline': '⚙',
-        'message-outline': '💬',
+        'message-outline': 'chatbubbles',
       }
     });
     
@@ -73,7 +75,7 @@ const BottomNavigation = ({ navigation }: BottomNavigationProps) => {
         style={styles.navButton}
         onPress={() => navigateTo('Home')}
       >
-        {renderIcon('home-outline', '⌂')}
+        <Ionicons name="home-outline" size={24} color="black" />
         <Text style={styles.navText}>Home</Text>
       </TouchableOpacity>
       
@@ -82,7 +84,10 @@ const BottomNavigation = ({ navigation }: BottomNavigationProps) => {
         <Text style={styles.navText}>Wishlist</Text>
       </TouchableOpacity>
       
-      <TouchableOpacity style={styles.centerNavButton}>
+      <TouchableOpacity 
+        style={styles.centerNavButton}
+        onPress={() => navigateTo('PostingScreen')}
+      >
         <View style={styles.centerCircle}>
           <Antdesign name="plus" size={28} color="white" />
         </View>
@@ -97,12 +102,13 @@ const BottomNavigation = ({ navigation }: BottomNavigationProps) => {
         style={styles.navButton}
         onPress={() => navigateTo('MessagesScreen')}
       >
-        {renderIcon('settings-outline', '⚙')}
-        <Text style={styles.navText}>Settings</Text>
+        {/* {renderIcon('message-outline', 'chatbubbles')} */}
+        <Ionicons name="chatbubbles-outline" size={24} color="black" />
+        <Text style={styles.navText}>Chat</Text>
       </TouchableOpacity>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   bottomNav: {
@@ -119,8 +125,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 0,
     zIndex: 1000,
-    borderRadius: 20,
-    marginBottom: 10,
+    borderRadius: 25,
+    marginBottom: 15,
   },
   navButton: {
     flex: 1,

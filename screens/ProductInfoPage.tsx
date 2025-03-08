@@ -1,27 +1,15 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, Dimensions, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import { StackScreenProps } from '@react-navigation/stack';
+import { ParamListBase } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
-type ProductInfoPageProps = {
-  route: {
-    params: {
-      product: {
-        id: number;
-        name: string;
-        price: string;
-        image: string; // Assuming you have an image URL
-        condition: string; // New field
-        type: string; // New field
-        description: string; // New field
-      };
-    };
-  };
-  navigation: any; // Add navigation prop
-};
+// Define the props type for ProductInfoPage
+type ProductInfoPageProps = StackScreenProps<ParamListBase, 'ProductInfoPage'>;
 
-const ProductInfoPage = ({ route, navigation }: ProductInfoPageProps) => {
+const ProductInfoPage: React.FC<ProductInfoPageProps> = ({ route, navigation }) => {
   const { product } = route.params;
 
   return (
@@ -36,7 +24,7 @@ const ProductInfoPage = ({ route, navigation }: ProductInfoPageProps) => {
 
       {/* Warning Icon */}
       <TouchableOpacity style={styles.warningButton} onPress={() => alert('Warning!')}>
-        <Icon name="exclamation-triangle" size={18} color="black" />
+        <Icon name="exclamation-triangle" size={18} color="red" />
       </TouchableOpacity>
 
       {/* Product Image */}
@@ -68,11 +56,11 @@ const ProductInfoPage = ({ route, navigation }: ProductInfoPageProps) => {
           >
             <Text style={styles.profileText}>A</Text> {/* Placeholder for seller's initial */}
           </TouchableOpacity>
-          <Text style={styles.profileName}>Seller Name</Text> {/* Add seller's name here */}
+          <Text style={styles.profileName}>Koushik Reddy</Text> {/* Add seller's name here */}
         </View>
         <TouchableOpacity 
           style={styles.availabilityButton}
-          onPress={() => navigation.navigate('MessageScreen')} // Navigate to MessageScreen
+          onPress={() => navigation.navigate('MessageScreen', { contactName: 'Koushik Reddy' })} // Navigate to MessageScreen with seller name
         >
           <Text style={styles.availabilityButtonText}>Is it available?</Text>
         </TouchableOpacity>
@@ -84,7 +72,7 @@ const ProductInfoPage = ({ route, navigation }: ProductInfoPageProps) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'flex-start',
     padding: 20,
     backgroundColor: '#f0f0f0',
@@ -103,17 +91,16 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   card: {
-    marginTop: 20,
     width: width * 0.9,
     height: 300,
     backgroundColor: 'white',
     borderRadius: 10,
-    padding: 10,
+    padding: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 5,
     marginTop: 60,
   },
   productImage: {
@@ -124,43 +111,44 @@ const styles = StyleSheet.create({
   textContainer: {
     width: '100%',
     alignItems: 'flex-start',
-    marginTop: 10,
+    marginTop: 15,
   },
   productName: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
+    color: '#333',
   },
   priceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 5,
+    marginTop: 10,
   },
   productPrice: {
-    fontSize: 20,
-    color: 'black',
-    marginRight: 10,
+    fontSize: 22,
+    color: '#e67e22',
+    marginRight: 15,
   },
   productCondition: {
     fontSize: 16,
-    color: '#333',
-    marginRight: 10,
+    color: '#666',
+    marginRight: 15,
   },
   productType: {
     fontSize: 16,
-    color: '#333',
+    color: '#666',
   },
   descriptionBox: {
-    marginTop: 20,
-    padding: 15,
-    backgroundColor: '#FCE8B9',
+    marginTop: 25,
+    padding: 20,
+    backgroundColor: '#FFF8E1',
     borderRadius: 10,
     width: '100%',
-    height: 130,
+    height: 150,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 5,
   },
   descriptionText: {
     fontSize: 16,
@@ -169,11 +157,12 @@ const styles = StyleSheet.create({
   availabilityContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 25,
     width: '100%',
   },
   profileContainer: {
-    alignItems: 'center', // Center the profile circle and name
+    alignItems: 'center',
+    marginRight: 15,
   },
   profileCircle: {
     width: 48,
@@ -185,7 +174,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ccc',
     marginRight: 10,
-    marginTop: 12, // Space between profile and button
+    marginTop: 12,
   },
   profileText: {
     fontSize: 18,
@@ -194,15 +183,17 @@ const styles = StyleSheet.create({
   },
   profileName: {
     fontSize: 12,
+    fontWeight: 'bold',
     color: 'black',
-    marginTop: 5, // Space below the name
+    marginTop: 5,
   },
   availabilityButton: {
     padding: 15,
     backgroundColor: '#f7b305',
     borderRadius: 10,
     alignItems: 'center',
-    flex: 1, // Take remaining space
+    flex: 1,
+    marginLeft: 10,
   },
   availabilityButtonText: {
     fontSize: 16,

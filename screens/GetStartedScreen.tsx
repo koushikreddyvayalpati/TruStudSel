@@ -11,7 +11,7 @@ import {
 
 const { width } = Dimensions.get('window');
 
-const GetStartedScreen = ({ navigation }) => {
+const GetStartedScreen = ({ navigation }: { navigation: any }) => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>TruStudSel</Text>

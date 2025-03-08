@@ -40,6 +40,8 @@ import GetStartedScreen from './screens/GetStartedScreen';
 import SignInPage from './screens/SignInPage';
 import EmailVerificationPage from './screens/EmailVerificationPage';
 import OtpInputPage from './screens/OtpInputPage';
+import ProfileFillingPage from './screens/ProfileFillingPage';
+import PostingScreen from './screens/PostingScreen';
 // Define type for navigation parameters
 type RootStackParamList = {
   GetStarted: undefined;
@@ -51,6 +53,8 @@ type RootStackParamList = {
   SignIn: undefined;
   EmailVerification: undefined;
   OtpInput: undefined;
+  ProfileFillingPage: undefined;
+  PostingScreen: undefined;
 };
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
@@ -162,6 +166,14 @@ function App(): React.JSX.Element {
         <Stack.Screen 
           name="OtpInput" 
           component={OtpInputPage} 
+        />
+        <Stack.Screen 
+          name="ProfileFillingPage" 
+          component={ProfileFillingPage}
+        />
+        <Stack.Screen 
+          name="PostingScreen" 
+          component={PostingScreen} 
         />
       </Stack.Navigator>
     </NavigationContainer>

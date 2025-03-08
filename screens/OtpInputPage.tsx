@@ -7,7 +7,7 @@ import {
   TouchableOpacity 
 } from 'react-native';
 
-const OtpInputPage = ({ navigation }) => {
+const OtpInputPage = ({ navigation }: { navigation: any }) => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Enter OTP</Text>
@@ -23,6 +23,7 @@ const OtpInputPage = ({ navigation }) => {
         onPress={() => {
           console.log('Verify OTP button pressed');
           // Handle OTP verification logic here
+          navigation.navigate('ProfileFillingPage');
         }}
       >
         <Text style={styles.verifyText}>Verify OTP</Text>

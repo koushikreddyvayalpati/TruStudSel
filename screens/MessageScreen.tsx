@@ -7,12 +7,17 @@ import {
   TextInput,
   FlatList,
   Dimensions,
+  StatusBar,
+  SafeAreaView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 const { width } = Dimensions.get('window');
 
-const MessageScreen = ({ navigation }) => {
+const MessageScreen = ({ route ,navigation}: { route: any, navigation: any }) => {
+  const { contactName } = route.params; // Get the contact name from route params
+
   // Sample messages data
   const messages = [
     { id: '1', time: '10:30 PM', text: 'Is it available?', sender: 'me' },
@@ -22,12 +27,18 @@ const MessageScreen = ({ navigation }) => {
   ];
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton}>
-          <Icon name="arrow-left" size={20} color="black" />
+        <TouchableOpacity 
+        style={styles.backButton}
+        onPress={() => {
+          console.log('Navigating to Home');
+          navigation.navigate('Home');
+        }}
+        >
+          <Ionicons name="arrow-back-ios" size={22} color="black" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Fauziah</Text>
+        <Text style={styles.headerTitle}>{contactName}</Text>
         <TouchableOpacity 
           style={styles.callButton}
           onPress={() => {
@@ -93,7 +104,7 @@ const MessageScreen = ({ navigation }) => {
           <Icon name="paper-plane" size={20} color="black" />
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -103,12 +114,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
   },
   header: {
-    marginTop: 50,
+    marginTop:0,
     backgroundColor: '#f7b305',
     padding: 15,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 10,
   },
   headerTitle: {
     fontSize: 18,
@@ -169,11 +181,16 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
   },
   inputContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     alignItems: 'center',
     padding: 10,
     backgroundColor: 'white',
-    marginBottom: 5,
+    paddingBottom: 20,
+    borderRadius: 20,
   },
   input: {
     flex: 1,

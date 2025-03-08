@@ -5,12 +5,12 @@ import {
   StyleSheet, 
   TextInput, 
   TouchableOpacity, 
-  ProgressBarAndroid, // For Android
+// For Android
 // For iOS
 } from 'react-native';
 // import { ProgressViewIOS } from 'react-native-community/progress-view';
 
-const EmailVerificationPage = ({ navigation }) => {
+const EmailVerificationPage = ({ navigation }: { navigation: any }) => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Email Verification</Text>
