@@ -1,0 +1,17 @@
+{
+  "providers": [
+    "awscloudformation"
+  ],
+  "projectName": "TruStudSel",
+  "version": "3.1",
+  "frontend": "javascript",
+  "javascript": {
+    "framework": "react-native",
+    "config": {
+      "SourceDir": "/Users/vayalpatikoushikreddy/Desktop/Studentapp/TruStudSel",
+      "DistributionDir": "/",
+      "BuildCommand": "yarn ios",
+      "StartCommand": "yarn ios "
+    }
+  }
+}

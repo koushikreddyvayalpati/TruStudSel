@@ -1,0 +1,20 @@
+{
+  "staging": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-trustudsel-staging-a4f98-authRole",
+      "UnauthRoleArn": "arn:aws:iam::476114114632:role/amplify-trustudsel-staging-a4f98-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::476114114632:role/amplify-trustudsel-staging-a4f98-authRole",
+      "Region": "us-east-2",
+      "DeploymentBucketName": "amplify-trustudsel-staging-a4f98-deployment",
+      "UnauthRoleName": "amplify-trustudsel-staging-a4f98-unauthRole",
+      "StackName": "amplify-trustudsel-staging-a4f98",
+      "StackId": "arn:aws:cloudformation:us-east-2:476114114632:stack/amplify-trustudsel-staging-a4f98/713874c0-fc60-11ef-aa26-0692cc2277d3",
+      "AmplifyAppId": "dxj6lsswlq86c"
+    },
+    "categories": {
+      "auth": {
+        "TruStudSel": {}
+      }
+    }
+  }
+}

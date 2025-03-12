@@ -16,6 +16,7 @@ import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import MaterialIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
 import BottomNavigation from '../components/BottomNavigation';
+import { useAuth } from '../contexts/AuthContext';
 
 // Define the prop types
 type RootStackParamList = {
@@ -41,6 +42,7 @@ const initialPosts = [
 
 const ProfileScreen = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList, 'Profile'>>();
+  const { signOut } = useAuth();
 
   // Sample user data hardcoded
   const user = {
@@ -79,12 +81,17 @@ const ProfileScreen = () => {
         
         <TouchableOpacity 
           style={styles.dotsButton}
-          onPress={() => {
-            console.log('Three dots menu pressed');
-            // Handle the menu action here
+          onPress={async () => {
+            try {
+              await signOut();
+              console.log('Successfully signed out');
+              navigation.navigate('SignInPage');
+            } catch (error) {
+              console.error('Error signing out:', error);
+            }
           }}
         >
-          <Icon name="ellipsis-v" size={20} color="#333" />
+          <Text style={styles.rowText}>Sign Out</Text>
         </TouchableOpacity>
 
         <View style={styles.profileCard}>

@@ -2,7 +2,7 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { NavigationContainer } from '@react-navigation/native';
 import MessagesScreen from '../screens/MessagesScreen';
-import MessageScreen from '../screens/MessageScreen';// Assuming this is your main screen
+import MessageScreen from '../screens/MessageScreen';
 import SignInPage from '../screens/SignInPage';
 import EmailVerificationPage from '../screens/EmailVerificationPage';
 import OtpInputPage from '../screens/OtpInputPage';
@@ -16,6 +16,7 @@ import BottomNavigation from '../components/BottomNavigation';
 import HomeScreen from '../screens/Homescreen';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useColorScheme } from 'react-native';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 
 // Define type for navigation parameters
 type RootStackParamList = {
@@ -30,6 +31,8 @@ type RootStackParamList = {
   OtpInput: undefined;
   ProfileFillingPage: undefined;
   PostingScreen: undefined;
+  ForgotPassword: undefined;
+  SignInPage: undefined;
 };
 
 // Define HomeScreenNav props interface
@@ -98,6 +101,14 @@ const AppNavigator = () => {
         <Stack.Screen 
           name="PostingScreen" 
           component={PostingScreen} 
+        />
+        <Stack.Screen 
+          name="ForgotPassword" 
+          component={ForgotPasswordScreen} 
+        />
+        <Stack.Screen 
+          name="SignInPage" 
+          component={SignInPage} 
         />
       </Stack.Navigator>
     </NavigationContainer>

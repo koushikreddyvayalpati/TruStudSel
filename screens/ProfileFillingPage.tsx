@@ -8,9 +8,9 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
-const ProfileFillingPage = () => {
+const ProfileFillingPage = ({route}:{route:any}) => {
+  const {email,name} = route.params;
   const navigation = useNavigation();
-  const [name, setName] = React.useState('');
   const [university, setUniversity] = React.useState('');
   const [preferredCategory, setPreferredCategory] = React.useState('');
 
@@ -22,7 +22,13 @@ const ProfileFillingPage = () => {
         style={styles.input}
         placeholder="Name"
         value={name}
-        onChangeText={setName}
+        editable={false}
+      />
+      <TextInput 
+        style={styles.input}
+        placeholder="Email"
+        value={email}
+        editable={false}
       />
       
       <TextInput 

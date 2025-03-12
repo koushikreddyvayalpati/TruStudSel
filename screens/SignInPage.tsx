@@ -7,89 +7,91 @@ import {
   TouchableOpacity, 
   Dimensions, 
   ActivityIndicator,
-  Alert
+  Alert,
+  Image
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
-import { login } from '../services/authService'; // Import the auth service
+import { Auth } from 'aws-amplify';
 
 const { width } = Dimensions.get('window');
 
 const SignInPage = ({ navigation }: { navigation: any }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false); // Loading state
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    setLoading(true); // Set loading to true
+    if (!username || !password) {
+      Alert.alert('Error', 'Please enter both username and password');
+      return;
+    }
+    
+    setLoading(true);
     try {
-      const data = await login(username, password); // Call the login function
-      // Store token or user data as needed
-      navigation.navigate('Home'); // Navigate to Home on success
+      const user = await Auth.signIn(username, password);
+      console.log('Login successful:', user);
+      navigation.navigate('Home');
     } catch (error) {
-      Alert.alert('Login Error', error.message); // Show error message
+      console.error('Login error:', error);
+      Alert.alert('Login Error', error.message || 'Failed to sign in');
     } finally {
-      setLoading(false); // Reset loading state
+      setLoading(false);
     }
   };
 
   return (
     <>
-     
-    <View style={styles.titleContainer}>
-      <Text style={styles.title}>TruStudSel</Text>
-    </View>
-    <View style={styles.container}>
-      <View style={styles.inputContainer}>
-        <View style={styles.inputWrapper}>
-          <Icon name="user" size={20} color="#999" style={styles.icon} />
-          <TextInput 
-            style={styles.input}
-            placeholder="Username or Email"
-            placeholderTextColor="#999"
-            value={username}
-            onChangeText={setUsername}
-          />
-        </View>
-        <View style={styles.inputWrapper}>
-          <Icon name="lock" size={20} color="#999" style={styles.icon} />
-          <TextInput 
-            style={styles.input}
-            placeholder="Password"
-            secureTextEntry
-            placeholderTextColor="#999"
-            value={password}
-            onChangeText={setPassword}
-          />
-        </View>
+      <View style={styles.titleContainer}>
+        <Text style={styles.title}>TruStudSel</Text>
       </View>
-      <TouchableOpacity 
-        style={styles.loginButton}
-        onPress={handleLogin}
-        disabled={loading} // Disable button while loading
-      >
-        {loading ? (
-          <ActivityIndicator color="#fff" /> // Show loading indicator
-        ) : (
-          <Text style={styles.loginText}>Login</Text>
-        )}
-      </TouchableOpacity>
-      <TouchableOpacity 
-        style={styles.createAccountButton}
-        onPress={() => navigation.navigate('EmailVerification')}
-      >
-        <Text style={styles.createAccountText}>Create Account</Text>
-      </TouchableOpacity>
-      <TouchableOpacity 
-        onPress={() => {
-          console.log('Forgot Password pressed');
-          // Handle forgot password logic here
-        }}
-      >
-        <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-      </TouchableOpacity>
-    </View>
+      <View style={styles.container}>
+        <View style={styles.inputContainer}>
+          <View style={styles.inputWrapper}>
+            <Icon name="user" size={20} color="#999" style={styles.icon} />
+            <TextInput 
+              style={styles.input}
+              placeholder="Email"
+              placeholderTextColor="#999"
+              value={username}
+              onChangeText={setUsername}
+            />
+          </View>
+          <View style={styles.inputWrapper}>
+            <Icon name="lock" size={20} color="#999" style={styles.icon} />
+            <TextInput 
+              style={styles.input}
+              placeholder="Password"
+              secureTextEntry
+              placeholderTextColor="#999"
+              value={password}
+              onChangeText={setPassword}
+            />
+          </View>
+        </View>
+        <TouchableOpacity 
+          style={styles.loginButton}
+          onPress={handleLogin}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.loginText}>Login</Text>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.createAccountButton}
+          onPress={() => navigation.navigate('EmailVerification')}
+        >
+          <Text style={styles.createAccountText}>Create Account</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          onPress={() => navigation.navigate('ForgotPassword')}
+        >
+          <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+        </TouchableOpacity>
+      </View>
     </>
-    
   );
 };
 

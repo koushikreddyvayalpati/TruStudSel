@@ -1,32 +1,119 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   TextInput, 
-  TouchableOpacity 
+  TouchableOpacity, 
+  ActivityIndicator,
+  Alert 
 } from 'react-native';
+import { Auth } from 'aws-amplify';
 
-const OtpInputPage = ({ navigation }: { navigation: any }) => {
+const OtpInputPage = ({ route, navigation }: { route: any, navigation: any }) => {
+  const { email, tempPassword, name, phoneNumber } = route.params;
+  const [otp, setOtp] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSignUp = async () => {
+    if (!otp) {
+      Alert.alert('Error', 'Please enter the verification code');
+      return;
+    }
+    
+    if (!password) {
+      Alert.alert('Error', 'Please create a password');
+      return;
+    }
+    
+    // Password validation
+    if (password.length < 8) {
+      Alert.alert('Error', 'Password must be at least 8 characters long');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      // Confirm the sign up with the verification code
+      await Auth.confirmSignUp(email, otp);
+      
+      // Try to sign in with the temporary password
+      try {
+        await Auth.signIn(email, tempPassword);
+        
+        // If sign-in is successful, try to change the password
+        try {
+          const user = await Auth.currentAuthenticatedUser();
+          await Auth.changePassword(user, tempPassword, password);
+          
+          Alert.alert('Success', 'Account created successfully!', [
+            { 
+              text: 'OK', 
+              onPress: () => navigation.navigate('ProfileFillingPage',{ 
+                email,name
+              })
+            }
+          ]);
+        } catch (changePasswordError) {
+          console.error('Error changing password:', changePasswordError);
+          // If changing password fails, at least the account is created
+          Alert.alert('Account Created', 'Your account was created, but we couldn\'t set your password. Please use the forgot password option to set a new password.', [
+            { 
+              text: 'OK', 
+              onPress: () => navigation.navigate('ProfileFillingPage')
+            }
+          ]);
+        }
+      } catch (signInError) {
+        console.error('Error signing in after confirmation:', signInError);
+        // If sign-in fails, the account is still created
+        Alert.alert('Account Created', 'Your account was created successfully. Please sign in with your email and password.', [
+          { 
+            text: 'OK', 
+            onPress: () => navigation.navigate('SignIn')
+          }
+        ]);
+      }
+    } catch (error) {
+      console.error('Error confirming sign up:', error);
+      Alert.alert('Error', error.message || 'Failed to verify account');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Enter OTP</Text>
-      <Text style={styles.instruction}>Please enter the OTP sent to your email.</Text>
-      <TextInput 
+      <Text style={styles.title}>Verify Your Account</Text>
+      <Text style={styles.subtitle}>Enter the verification code sent to {email}</Text>
+      
+      <TextInput
         style={styles.input}
-        placeholder="Enter OTP"
-        placeholderTextColor="#999"
-        keyboardType="numeric"
+        placeholder="Verification Code"
+        value={otp}
+        onChangeText={setOtp}
+        keyboardType="number-pad"
       />
+      
+      <TextInput
+        style={styles.input}
+        placeholder="Create Password"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+      />
+      
       <TouchableOpacity 
-        style={styles.verifyButton}
-        onPress={() => {
-          console.log('Verify OTP button pressed');
-          // Handle OTP verification logic here
-          navigation.navigate('ProfileFillingPage');
-        }}
+        style={styles.button}
+        onPress={handleSignUp}
+        disabled={loading}
       >
-        <Text style={styles.verifyText}>Verify OTP</Text>
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>Create Account</Text>
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -35,42 +122,40 @@ const OtpInputPage = ({ navigation }: { navigation: any }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
+    padding: 20,
     justifyContent: 'center',
     backgroundColor: '#fff',
-    padding: 20,
   },
   title: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: 'bold',
+    marginBottom: 10,
     color: '#f7b305',
-    marginBottom: 20,
   },
-  instruction: {
+  subtitle: {
     fontSize: 16,
-    color: '#555',
-    marginBottom: 20,
+    marginBottom: 30,
+    color: '#666',
   },
   input: {
-    width: '100%',
     height: 50,
-    borderColor: '#ddd',
     borderWidth: 1,
+    borderColor: '#ddd',
     borderRadius: 5,
-    paddingHorizontal: 10,
     marginBottom: 20,
+    paddingHorizontal: 10,
   },
-  verifyButton: {
+  button: {
     backgroundColor: '#f7b305',
-    padding: 15,
+    height: 50,
     borderRadius: 5,
-    width: '100%',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  verifyText: {
+  buttonText: {
     color: '#fff',
+    fontSize: 16,
     fontWeight: 'bold',
-    fontSize: 18,
   },
 });
 

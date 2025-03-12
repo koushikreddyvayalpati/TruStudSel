@@ -1,47 +1,152 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   TextInput, 
   TouchableOpacity, 
-// For Android
-// For iOS
+  ActivityIndicator,
+  Alert 
 } from 'react-native';
+import { Auth } from 'aws-amplify';
 // import { ProgressViewIOS } from 'react-native-community/progress-view';
 
 const EmailVerificationPage = ({ navigation }: { navigation: any }) => {
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleContinue = async () => {
+    if (!email || !name || !phoneNumber) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return;
+    }
+    
+    // Validate phone number format
+    const phoneRegex = /^\+?[0-9]{10,15}$/;
+    if (!phoneRegex.test(phoneNumber)) {
+      Alert.alert('Error', 'Please enter a valid phone number');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      // Generate a temporary password for the initial sign-up
+      const tempPassword = Math.random().toString(36).slice(-8) + 'Aa1!';
+      
+      // Format phone number with + prefix if not already present
+      const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
+      
+      // Sign up the user with Cognito using the exact attribute names required by your schema
+      const signUpResponse = await Auth.signUp({
+        username: email,
+        password: tempPassword,
+        attributes: {
+          email,
+          phone_number: formattedPhone,
+          name,
+          'custom:phoneNumbers': formattedPhone,
+          'name.formatted': name,
+        }
+      });
+      
+      console.log('Sign up successful, verification code sent:', signUpResponse);
+      
+      // Pass all user data to OTP page
+      navigation.navigate('OtpInput', { 
+        email,
+        tempPassword,
+        name,
+        phoneNumber: formattedPhone
+      });
+      
+    } catch (error) {
+      console.error('Error:', error);
+      
+      // Handle specific error cases
+      if (error.code === 'UsernameExistsException') {
+        Alert.alert(
+          'Account Exists', 
+          'An account with this email already exists. Would you like to resend the verification code?',
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel'
+            },
+            {
+              text: 'Resend',
+              onPress: async () => {
+                try {
+                  await Auth.resendSignUp(email);
+                  Alert.alert('Success', 'Verification code has been resent');
+                  navigation.navigate('OtpInput', { 
+                    email,
+                    name,
+                    phoneNumber: phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`
+                  });
+                } catch (resendError) {
+                  Alert.alert('Error', resendError.message || 'Failed to resend verification code');
+                }
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Error', error.message || 'Something went wrong');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Email Verification</Text>
-      <View style={styles.progressContainer}>
-        {/* Progress Bar for Android */}
-        {/* <ProgressBarAndroid 
-          styleAttr="Horizontal" 
-          indeterminate={false} 
-          progress={100} // 10% progress
-          color="#f7b305"
-        /> */}
-        {/* Progress Bar for iOS */}
-        {/* <ProgressViewIOS 
-          progress={0.1} // 10% progress
-          color="#f7b305"
-        /> */}
-      </View>
-      <TextInput 
+      <Text style={styles.title}>Create Account</Text>
+      <Text style={styles.subtitle}>Please fill in your details</Text>
+      
+      <TextInput
         style={styles.input}
-        placeholder="Enter your .edu email"
-        placeholderTextColor="#999"
+        placeholder="Full Name"
+        value={name}
+        onChangeText={setName}
+        autoCapitalize="words"
       />
+      
+      <TextInput
+        style={styles.input}
+        placeholder="Email"
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+      />
+      
+      <TextInput
+        style={styles.input}
+        placeholder="Phone Number (with country code)"
+        value={phoneNumber}
+        onChangeText={setPhoneNumber}
+        keyboardType="phone-pad"
+      />
+      
       <TouchableOpacity 
-        style={styles.verifyButton}
-        onPress={() => {
-          console.log('Verify button pressed');
-          // Handle email verification logic here
-          navigation.navigate('OtpInput');
-        }}
+        style={styles.button}
+        onPress={handleContinue}
+        disabled={loading}
       >
-        <Text style={styles.verifyText}>Verify</Text>
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>Continue</Text>
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -50,41 +155,40 @@ const EmailVerificationPage = ({ navigation }: { navigation: any }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
+    padding: 20,
     justifyContent: 'center',
     backgroundColor: '#fff',
-    padding: 20,
   },
   title: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: 'bold',
+    marginBottom: 10,
     color: '#f7b305',
-    marginBottom: 20,
   },
-  progressContainer: {
-    width: '100%',
-    marginBottom: 20,
+  subtitle: {
+    fontSize: 16,
+    marginBottom: 30,
+    color: '#666',
   },
   input: {
-    width: '100%',
     height: 50,
-    borderColor: '#ddd',
     borderWidth: 1,
+    borderColor: '#ddd',
     borderRadius: 5,
-    paddingHorizontal: 10,
     marginBottom: 20,
+    paddingHorizontal: 10,
   },
-  verifyButton: {
+  button: {
     backgroundColor: '#f7b305',
-    padding: 15,
+    height: 50,
     borderRadius: 5,
-    width: '100%',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  verifyText: {
+  buttonText: {
     color: '#fff',
+    fontSize: 16,
     fontWeight: 'bold',
-    fontSize: 18,
   },
 });
 
