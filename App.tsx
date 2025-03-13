@@ -21,7 +21,6 @@ global.Buffer = Buffer;
 import { Amplify } from 'aws-amplify';
 import awsconfig from './aws-exports';
 import { AuthProvider } from './contexts/AuthContext';
-
 Amplify.configure(awsconfig);
 
 const App = () => {

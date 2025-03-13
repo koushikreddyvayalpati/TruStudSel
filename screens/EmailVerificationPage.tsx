@@ -25,8 +25,9 @@ const EmailVerificationPage = ({ navigation }: { navigation: any }) => {
     
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
+    const eduEmailRegex = /^[^\s@]+@[^\s@]+\.edu$/;
+    if (!emailRegex.test(email) || !eduEmailRegex.test(email)) {
+      Alert.alert('Error', 'Please enter a valid .edu email address');
       return;
     }
     
@@ -53,8 +54,8 @@ const EmailVerificationPage = ({ navigation }: { navigation: any }) => {
           email,
           phone_number: formattedPhone,
           name,
-          'custom:phoneNumbers': formattedPhone,
-          'name.formatted': name,
+          // 'custom:phoneNumbers': formattedPhone,
+          // 'name.formatted': name,
         }
       });
       
@@ -93,14 +94,14 @@ const EmailVerificationPage = ({ navigation }: { navigation: any }) => {
                     phoneNumber: phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`
                   });
                 } catch (resendError) {
-                  Alert.alert('Error', resendError.message || 'Failed to resend verification code');
+                  Alert.alert('Error', (resendError as Error).message || 'Failed to resend verification code');
                 }
               }
             }
           ]
         );
       } else {
-        Alert.alert('Error', error.message || 'Something went wrong');
+        Alert.alert('Error', (error as Error).message || 'Something went wrong');
       }
     } finally {
       setLoading(false);

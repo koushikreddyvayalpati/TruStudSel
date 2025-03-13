@@ -13,6 +13,8 @@ const ProfileFillingPage = ({route}:{route:any}) => {
   const navigation = useNavigation();
   const [university, setUniversity] = React.useState('');
   const [preferredCategory, setPreferredCategory] = React.useState('');
+  const [dob, setDob] = React.useState('');
+  const [profilePic, setProfilePic] = React.useState(null);
 
   return (
     <View style={styles.container}>
@@ -45,6 +47,13 @@ const ProfileFillingPage = ({route}:{route:any}) => {
         onChangeText={setPreferredCategory}
       />
       
+      <TextInput 
+        style={styles.input}
+        placeholder="Date of Birth"
+        value={dob}
+        onChangeText={setDob}
+      />
+      
       <TouchableOpacity 
         style={styles.button}
         onPress={() => {
@@ -54,6 +63,16 @@ const ProfileFillingPage = ({route}:{route:any}) => {
         }}
       >
         <Text style={styles.buttonText}>Next</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity 
+        style={styles.button}
+        onPress={() => {
+          // Logic to upload profile picture
+          console.log('Upload profile picture pressed');
+        }}
+      >
+        <Text style={styles.buttonText}>Upload Profile Picture</Text>
       </TouchableOpacity>
     </View>
   );

@@ -32,7 +32,7 @@ type RootStackParamList = {
   ProfileFillingPage: undefined;
   PostingScreen: undefined;
   ForgotPassword: undefined;
-  SignInPage: undefined;
+  SignInPage: undefined;// Add this for the drawer navigator
 };
 
 // Define HomeScreenNav props interface
@@ -62,8 +62,8 @@ const AppNavigator = () => {
         />
         <Stack.Screen 
           name="Home" 
-          component={HomeScreenWithNav}
-          options={{ animationEnabled: false }} 
+          component={HomeScreenWithNav} 
+          options={{ animationEnabled: true }} 
         />
         <Stack.Screen 
           name="Profile" 

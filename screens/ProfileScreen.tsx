@@ -127,10 +127,10 @@ const ProfileScreen = () => {
                 <Text style={styles.statNumber}>{user.stats.sold}</Text>
                 <Text style={styles.statLabel}>Sold</Text>
               </View>
-              <View style={styles.statItem}>
+              {/* <View style={styles.statItem}>
                 <Text style={styles.statNumber}>{user.stats.purchased}</Text>
                 <Text style={styles.statLabel}>Purchased</Text>
-              </View>
+              </View> */}
             </View>
             
             <View style={styles.infoRow}>

@@ -25,7 +25,6 @@ const SignInPage = ({ navigation }: { navigation: any }) => {
       Alert.alert('Error', 'Please enter both username and password');
       return;
     }
-    
     setLoading(true);
     try {
       const user = await Auth.signIn(username, password);
@@ -33,7 +32,7 @@ const SignInPage = ({ navigation }: { navigation: any }) => {
       navigation.navigate('Home');
     } catch (error) {
       console.error('Login error:', error);
-      Alert.alert('Login Error', error.message || 'Failed to sign in');
+      Alert.alert('Login Error', (error as Error).message || 'Failed to sign in');
     } finally {
       setLoading(false);
     }

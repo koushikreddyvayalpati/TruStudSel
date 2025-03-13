@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, Dimensions, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Image, Dimensions, TouchableOpacity, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { StackScreenProps } from '@react-navigation/stack';
 import { ParamListBase } from '@react-navigation/native';
@@ -27,9 +27,46 @@ const ProductInfoPage: React.FC<ProductInfoPageProps> = ({ route, navigation }) 
         <Icon name="exclamation-triangle" size={18} color="red" />
       </TouchableOpacity>
 
-      {/* Product Image */}
+      {/* Product Images - Scrollable */}
       <View style={styles.card}>
-        <Image source={{ uri: product.image }} style={styles.productImage} />
+        <ScrollView
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          style={styles.imageScrollView}
+        >
+          {product.images ? (
+            // If product has multiple images
+            product.images.map((image, index) => (
+              <Image 
+                key={index} 
+                source={{ uri: image }} 
+                style={styles.productImage} 
+              />
+            ))
+          ) : (
+            // Fallback to single image if images array not available
+            <Image 
+              source={{ uri: product.image }} 
+              style={styles.productImage} 
+            />
+          )}
+        </ScrollView>
+        
+        {/* Image pagination dots */}
+        {product.images && product.images.length > 1 && (
+          <View style={styles.paginationDots}>
+            {product.images.map((_, index) => (
+              <View 
+                key={index} 
+                style={[
+                  styles.paginationDot,
+                  { backgroundColor: index === 0 ? '#f7b305' : '#ccc' }
+                ]} 
+              />
+            ))}
+          </View>
+        )}
       </View>
 
       {/* Product Title, Price, Condition, and Type */}
@@ -102,9 +139,14 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 5,
     marginTop: 60,
+    position: 'relative',
+  },
+  imageScrollView: {
+    width: '100%',
+    height: '100%',
   },
   productImage: {
-    width: '100%',
+    width: width * 0.82, // Adjusted to account for padding
     height: '100%',
     borderRadius: 10,
   },
@@ -199,6 +241,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#fff',
     fontWeight: 'bold',
+  },
+  paginationDots: {
+    flexDirection: 'row',
+    position: 'absolute',
+    bottom: 10,
+    alignSelf: 'center',
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginHorizontal: 4,
   },
 });
 
