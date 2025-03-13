@@ -125,7 +125,10 @@ const Homescreen = ({ navigation }: HomescreenProps) => {
       <View style={styles.container}>
         {/* Top navigation bar with menu and profile */}
         <View style={styles.topBar}>
-          <TouchableOpacity style={styles.menuButton} onPress={() => console.log("Menu button pressed")}>
+          <TouchableOpacity 
+            style={styles.menuButton} 
+            onPress={() => navigation.openDrawer()}
+          >
             <Text style={styles.menuIcon}>☰</Text>
           </TouchableOpacity>
           
