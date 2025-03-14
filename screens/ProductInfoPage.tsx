@@ -34,6 +34,9 @@ const ProductInfoPage: React.FC<ProductInfoPageProps> = ({ route, navigation }) 
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           style={styles.imageScrollView}
+          decelerationRate="fast"
+          snapToInterval={width * 0.82}
+          snapToAlignment="center"
         >
           {product.images ? (
             // If product has multiple images
@@ -93,13 +96,13 @@ const ProductInfoPage: React.FC<ProductInfoPageProps> = ({ route, navigation }) 
           >
             <Text style={styles.profileText}>A</Text> {/* Placeholder for seller's initial */}
           </TouchableOpacity>
-          <Text style={styles.profileName}>Koushik Reddy</Text> {/* Add seller's name here */}
+          <Text style={styles.profileName}>Koushik Reddy</Text> {/* Ensure this is wrapped in <Text> */}
         </View>
         <TouchableOpacity 
           style={styles.availabilityButton}
           onPress={() => navigation.navigate('MessageScreen', { contactName: 'Koushik Reddy' })} // Navigate to MessageScreen with seller name
         >
-          <Text style={styles.availabilityButtonText}>Is it available?</Text>
+          <Text style={styles.availabilityButtonText}>Is it available?</Text> {/* Ensure this is wrapped in <Text> */}
         </TouchableOpacity>
       </View>
     </View>
@@ -236,6 +239,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     marginLeft: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   availabilityButtonText: {
     fontSize: 16,

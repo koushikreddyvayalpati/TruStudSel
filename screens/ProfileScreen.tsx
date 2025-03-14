@@ -8,7 +8,9 @@ import {
   Dimensions,
   FlatList,
   SafeAreaView,
-  StatusBar
+  StatusBar,
+  ScrollView,
+  Alert
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -42,10 +44,10 @@ const initialPosts = [
 
 const ProfileScreen = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList, 'Profile'>>();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
 
-  // Sample user data hardcoded
-  const user = {
+  const [posts, setPosts] = useState(initialPosts);
+  const user2 = {
     name: "Koushik",
     email: "koushik@college.edu",
     university: "State University",
@@ -57,8 +59,6 @@ const ProfileScreen = () => {
     isVerified: true,
   };
 
-  const [posts, setPosts] = useState(initialPosts);
-
   // Function to load more posts (simulate fetching more data)  
   const loadMorePosts = () => {
     const newPosts = [
@@ -67,6 +67,27 @@ const ProfileScreen = () => {
       { id: posts.length + 3, image: 'https://via.placeholder.com/150', caption: `Post ${posts.length + 3}` },
     ];
     setPosts([...posts, ...newPosts]);
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      console.log('Successfully signed out');
+      navigation.navigate('SignIn');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  // Get the first letter of the user's name for the profile circle
+  const getInitial = () => {
+    if (user?.name) {
+      return user.name.charAt(0).toUpperCase();
+    }
+    if (user?.username) {
+      return user.username.charAt(0).toUpperCase();
+    }
+    return 'U'; // Default if no name is available
   };
 
   return (
@@ -81,15 +102,7 @@ const ProfileScreen = () => {
         
         <TouchableOpacity 
           style={styles.dotsButton}
-          onPress={async () => {
-            try {
-              await signOut();
-              console.log('Successfully signed out');
-              navigation.navigate('SignInPage');
-            } catch (error) {
-              console.error('Error signing out:', error);
-            }
-          }}
+          onPress={handleSignOut}
         >
           <Text style={styles.rowText}>Sign Out</Text>
         </TouchableOpacity>
@@ -101,7 +114,7 @@ const ProfileScreen = () => {
                 <Image source={{ uri: user.profileImage }} style={styles.profileImage} />
               ) : (
                 <View style={styles.profileImagePlaceholder}>
-                  <Text style={styles.profileInitial}>{user.name.charAt(0)}</Text>
+                  <Text style={styles.profileInitial}>{getInitial()}</Text>
                 </View>
               )}
               {user.isVerified && (
@@ -114,7 +127,7 @@ const ProfileScreen = () => {
               )}
             </View>
             <View style={styles.nameContainer}>
-              <Text style={styles.profileName}>{user.name}</Text>
+              <Text style={styles.profileName}>{user2.name || 'User'}</Text>
               <TouchableOpacity style={styles.editButton}>
                 <Icon name="edit" size={16} color="#333" />
               </TouchableOpacity>
@@ -124,7 +137,7 @@ const ProfileScreen = () => {
           <View style={styles.profileRight}>
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{user.stats.sold}</Text>
+                <Text style={styles.statNumber}>{user2.stats.sold}</Text>
                 <Text style={styles.statLabel}>Sold</Text>
               </View>
               {/* <View style={styles.statItem}>
@@ -135,12 +148,12 @@ const ProfileScreen = () => {
             
             <View style={styles.infoRow}>
               <FontAwesome5 name="university" size={16} color="black" />
-              <Text style={styles.infoText}>{user.university}</Text>
+              <Text style={styles.infoText}>{user2.university}</Text>
             </View>
             
             <View style={styles.infoRow}>
               <MaterialIcons name="email" size={16} color="black" />
-              <Text style={styles.infoText}>{user.email}</Text>
+              <Text style={styles.infoText}>{user.email || 'No email available'}</Text>
             </View>
           </View>
         </View>
@@ -387,6 +400,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: 'white',
+  },
+  profileHeader: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  userName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginTop: 10,
+  },
+  userEmail: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 5,
   },
 });
 

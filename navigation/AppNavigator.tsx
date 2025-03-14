@@ -62,24 +62,18 @@ const AppNavigator = () => {
 };
 
 // Main screen with bottom navigation and drawer
-const MainScreenWithNav = ({ navigation, route }) => {
+const MainScreenWithNav = ({ navigation }) => {
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
-  const currentRouteName = route.name;
 
   // Add drawer open function to navigation
   React.useEffect(() => {
     navigation.openDrawer = () => setIsDrawerOpen(true);
   }, [navigation]);
 
-  // Determine which screen to show based on route params
-  const renderMainScreen = () => {
-    return <HomeScreen navigation={navigation} />;
-  };
-
   return (
     <View style={styles.container}>
-      {renderMainScreen()}
-      <BottomNavigation navigation={navigation} />
+      <HomeScreen navigation={navigation} />
+      {!isDrawerOpen && <BottomNavigation navigation={navigation} />}
       <SimpleDrawer 
         navigation={navigation} 
         isOpen={isDrawerOpen} 

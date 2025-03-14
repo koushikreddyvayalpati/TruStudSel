@@ -11,7 +11,7 @@ import {
   Image
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
-import { Auth } from 'aws-amplify';
+import { useAuth } from '../contexts/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -19,6 +19,7 @@ const SignInPage = ({ navigation }: { navigation: any }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const { signIn } = useAuth();
 
   const handleLogin = async () => {
     if (!username || !password) {
@@ -27,8 +28,13 @@ const SignInPage = ({ navigation }: { navigation: any }) => {
     }
     setLoading(true);
     try {
-      const user = await Auth.signIn(username, password);
+      const user = await signIn(username, password);
       console.log('Login successful:', user);
+      
+      // Get user attributes if available
+      const userAttributes = user.attributes || {};
+      console.log('User attributes:', userAttributes);
+      
       navigation.navigate('Home');
     } catch (error) {
       console.error('Login error:', error);

@@ -21,6 +21,7 @@ import Entypoicon from 'react-native-vector-icons/Entypo';
 // Import the mobile icon and other icons
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome'; // For shopping bag and cricket icons
+import { useAuth } from '../contexts/AuthContext';
 
 // Define the prop types for HomeScreen
 type RootStackParamList = {
@@ -34,16 +35,9 @@ type HomescreenProps = {
   navigation: StackNavigationProp<RootStackParamList, 'Home'>;
 };
 
-// type ProfileScreenProps = {
-//   navigation: StackNavigationProp<RootStackParamList, 'Profile'>;
-// };
 
 const Homescreen = ({ navigation }: HomescreenProps) => {
-  // const [isMenuOpen, setMenuOpen] = useState(false);
-
-  // const toggleMenu = () => {
-  //   setMenuOpen(!isMenuOpen);
-  // };
+  const { user } = useAuth();
 
   console.log('HomeScreen is rendering');
   // Category data
@@ -91,6 +85,19 @@ const Homescreen = ({ navigation }: HomescreenProps) => {
     { id: 5, name: 'Popular Item 5', price: '$39.99' },
   ];
 
+  // Get the first letter of the user's name for the profile circle
+  const getInitial = () => {
+    if (!user) return 'U';
+    
+    if (user.name) {
+      return user.name.charAt(0).toUpperCase();
+    }
+    if (user.username) {
+      return user.username.charAt(0).toUpperCase();
+    }
+    return 'U'; // Default if no name is available
+  };
+
   const renderCategory = useCallback(({ item }: { item: any }) => (
     <TouchableOpacity key={item.id} style={styles.categoryItem}>
       <View style={styles.categoryCircleWrapper}>
@@ -129,7 +136,7 @@ const Homescreen = ({ navigation }: HomescreenProps) => {
             style={styles.menuButton} 
             onPress={() => navigation.openDrawer()}
           >
-            <Text style={styles.menuIcon}>☰</Text>
+            <MaterialIcons name="menu" size={22} color="black" />
           </TouchableOpacity>
           
           <Text style={styles.truStudSelText}>TruStudSel</Text>
@@ -142,7 +149,7 @@ const Homescreen = ({ navigation }: HomescreenProps) => {
             }}
           >
             <View style={styles.profileCircle}>
-              <Text style={styles.profileText}>A</Text>
+              <Text style={styles.profileText}>{getInitial()}</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -234,16 +241,6 @@ const Homescreen = ({ navigation }: HomescreenProps) => {
           {/* Bottom padding to avoid content being hidden behind navigation */}
           <View style={{height: 70}} />
         </ScrollView>
-
-        <TouchableOpacity 
-          style={styles.availabilityButton}
-          onPress={() => {
-            console.log('Button pressed'); // Check if the button is pressed
-            navigation.navigate('MessageScreen');
-            console.log('Navigating to MessageScreen'); // Check if navigation is called
-          }} 
-        >
-        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -275,7 +272,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   truStudSelText: {
-    fontSize: 20,
+    fontSize: 19,
     fontFamily: 'LibreCaslonDisplay',
     color: '#efae1a',
   },
@@ -283,9 +280,9 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   profileCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: '#e0e0e0',
     justifyContent: 'center',
     alignItems: 'center',
@@ -293,7 +290,7 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
   },
   profileText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
   },
