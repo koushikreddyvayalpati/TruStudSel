@@ -163,7 +163,6 @@ const Homescreen = ({ navigation }: HomescreenProps) => {
           
           <View style={styles.topBarRight}>
             
-            
             <TouchableOpacity 
               style={styles.profileButton}
               onPress={() => {
