@@ -162,17 +162,7 @@ const Homescreen = ({ navigation }: HomescreenProps) => {
           <Text style={styles.truStudSelText}>TruStudSel</Text>
           
           <View style={styles.topBarRight}>
-            <TouchableOpacity 
-              style={styles.wishlistButton}
-              onPress={() => navigation.navigate('Wishlist', { wishlist })}
-            >
-              <FontAwesome name="heart" size={22} color="red" />
-              {wishlist.length > 0 && (
-                <View style={styles.wishlistBadge}>
-                  <Text style={styles.wishlistBadgeText}>{wishlist.length}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
+            
             
             <TouchableOpacity 
               style={styles.profileButton}
