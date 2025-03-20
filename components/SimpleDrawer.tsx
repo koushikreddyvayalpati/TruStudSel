@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: 16,
-    marginLeft: 65,
+    marginLeft: 85,
     color: '#333333',
     fontWeight: 'bold',
     flex: 1,

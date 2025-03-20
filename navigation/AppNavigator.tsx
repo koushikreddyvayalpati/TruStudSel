@@ -17,6 +17,7 @@ import PostingScreen from '../screens/PostingScreen';
 import GetStartedScreen from '../screens/GetStartedScreen';
 import ProductInfoPage from '../screens/ProductInfoPage';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
+import WishlistScreen from '../screens/WishlistScreen';
 
 // Components
 import BottomNavigation from '../components/BottomNavigation';
@@ -56,6 +57,7 @@ const AppNavigator = () => {
         <Stack.Screen name="MessageScreen" component={MessageScreen} />
         <Stack.Screen name="PostingScreen" component={PostingScreen} />
         <Stack.Screen name="ProductInfoPage" component={ProductInfoPage} />
+        <Stack.Screen name="Wishlist" component={WishlistScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

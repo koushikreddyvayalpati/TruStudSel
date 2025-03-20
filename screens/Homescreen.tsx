@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo  } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { 
   View, 
   TextInput, 
@@ -27,6 +27,7 @@ import { useAuth } from '../contexts/AuthContext';
 type RootStackParamList = {
   Home: undefined;
   Profile: undefined;
+  Wishlist: { wishlist: number[] };
   ProductInfoPage: { product: { id: number; name: string; price: string; image: string } };
   MessageScreen: undefined;
 };
@@ -38,6 +39,7 @@ type HomescreenProps = {
 
 const Homescreen = ({ navigation }: HomescreenProps) => {
   const { user } = useAuth();
+  const [wishlist, setWishlist] = useState<number[]>([]);
 
   console.log('HomeScreen is rendering');
   // Category data
@@ -61,10 +63,10 @@ const Homescreen = ({ navigation }: HomescreenProps) => {
       description: 'Vision Alta Men',
       images: ['https://via.placeholder.com/150', 'https://via.placeholder.com/200']
     },
-    { id: 2, name: 'Product 2', price: '$18.50', image: 'https://via.placeholder.com/150' },
-    { id: 3, name: 'Product 3', price: '$32.99', image: 'https://via.placeholder.com/150' },
-    { id: 4, name: 'Product 4', price: '$15.75', image: 'https://via.placeholder.com/150' },
-    { id: 5, name: 'Product 5', price: '$49.99', image: 'https://via.placeholder.com/150' },
+    { id: 2, name: 'Cricket bat', price: '$18.50', image: 'https://via.placeholder.com/150' },
+    { id: 3, name: 'Matress', price: '$32.99', image: 'https://via.placeholder.com/150' },
+    { id: 4, name: 'Lamp', price: '$15.75', image: 'https://via.placeholder.com/150' },
+    { id: 5, name: 'Polo Tshirt', price: '$49.99', image: 'https://via.placeholder.com/150' },
   ], []);
 
   // New arrivals data
@@ -98,6 +100,14 @@ const Homescreen = ({ navigation }: HomescreenProps) => {
     return 'U'; // Default if no name is available
   };
 
+  const toggleWishlist = (id: number) => {
+    setWishlist(prevWishlist => 
+      prevWishlist.includes(id) 
+        ? prevWishlist.filter(itemId => itemId !== id)
+        : [...prevWishlist, id]
+    );
+  };
+
   const renderCategory = useCallback(({ item }: { item: any }) => (
     <TouchableOpacity key={item.id} style={styles.categoryItem}>
       <View style={styles.categoryCircleWrapper}>
@@ -123,9 +133,19 @@ const Homescreen = ({ navigation }: HomescreenProps) => {
       <View style={styles.productInfo}>
         <Text style={styles.productName}>{item.name}</Text>
         <Text style={styles.productPrice}>{item.price}</Text>
+        <TouchableOpacity 
+          style={styles.wishlistButton} 
+          onPress={() => toggleWishlist(item.id)}
+        >
+          <FontAwesome 
+            name={wishlist.includes(item.id) ? "heart" : "heart-o"}
+            size={20} 
+            color="red" 
+          />
+        </TouchableOpacity>
       </View>
     </TouchableOpacity>
-  ), [navigation]);
+  ), [navigation, wishlist]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -141,17 +161,31 @@ const Homescreen = ({ navigation }: HomescreenProps) => {
           
           <Text style={styles.truStudSelText}>TruStudSel</Text>
           
-          <TouchableOpacity 
-            style={styles.profileButton}
-            onPress={() => {
-              console.log('Navigating to Profile');
-              navigation.navigate('Profile');
-            }}
-          >
-            <View style={styles.profileCircle}>
-              <Text style={styles.profileText}>{getInitial()}</Text>
-            </View>
-          </TouchableOpacity>
+          <View style={styles.topBarRight}>
+            <TouchableOpacity 
+              style={styles.wishlistButton}
+              onPress={() => navigation.navigate('Wishlist', { wishlist })}
+            >
+              <FontAwesome name="heart" size={22} color="red" />
+              {wishlist.length > 0 && (
+                <View style={styles.wishlistBadge}>
+                  <Text style={styles.wishlistBadgeText}>{wishlist.length}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.profileButton}
+              onPress={() => {
+                console.log('Navigating to Profile');
+                navigation.navigate('Profile');
+              }}
+            >
+              <View style={styles.profileCircle}>
+                <Text style={styles.profileText}>{getInitial()}</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
         
         {/* Search Bar */}
@@ -209,15 +243,7 @@ const Homescreen = ({ navigation }: HomescreenProps) => {
             showsHorizontalScrollIndicator={false}
             style={styles.productScrollView}
           >
-            {newArrivals.map(product => (
-              <TouchableOpacity key={product.id} style={styles.productCard}>
-                <View style={styles.productImagePlaceholder} />
-                <View style={styles.productInfo}>
-                  <Text style={styles.productName}>{product.name}</Text>
-                  <Text style={styles.productPrice}>{product.price}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+            {newArrivals.map(product => renderProduct({ item: product }))}
           </ScrollView>
 
           {/* Best Sellers Section */}
@@ -227,15 +253,7 @@ const Homescreen = ({ navigation }: HomescreenProps) => {
             showsHorizontalScrollIndicator={false}
             style={styles.productScrollView}
           >
-            {bestSellers.map(product => (
-              <TouchableOpacity key={product.id} style={styles.productCard}>
-                <View style={styles.productImagePlaceholder} />
-                <View style={styles.productInfo}>
-                  <Text style={styles.productName}>{product.name}</Text>
-                  <Text style={styles.productPrice}>{product.price}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+            {bestSellers.map(product => renderProduct({ item: product }))}
           </ScrollView>
           
           {/* Bottom padding to avoid content being hidden behind navigation */}
@@ -437,6 +455,31 @@ const styles = StyleSheet.create({
   availabilityButtonText: {
     fontSize: 12,
     color: '#333',
+  },
+  wishlistButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+  },
+  topBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  wishlistBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#333',
+    borderRadius: 10,
+    width: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  wishlistBadgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
 });
 

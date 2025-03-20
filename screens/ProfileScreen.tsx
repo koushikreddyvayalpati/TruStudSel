@@ -117,11 +117,11 @@ const ProfileScreen = () => {
                   <Text style={styles.profileInitial}>{getInitial()}</Text>
                 </View>
               )}
-              {user.isVerified && (
+              {user2.isVerified && (
                 <Icon 
                   name="check-circle" 
-                  size={24} 
-                  color="#1DA1F2"
+                  size={25}
+                  color="#007BFF"
                   style={styles.verifiedBadge}
                 />
               )}
@@ -206,7 +206,7 @@ const ProfileScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#ffffff',
     paddingTop: StatusBar.currentHeight,
   },
   headerContainer: {
@@ -242,18 +242,18 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     width: '95%',
     height: 155,
-    backgroundColor: 'F5F7FA',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 20,
     paddingLeft: 0,
     flexDirection: 'row',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#eaeaea',
     alignSelf: 'center',
   },
   profileLeft: {
@@ -274,15 +274,19 @@ const styles = StyleSheet.create({
     width: 90,
     height: 90,
     borderRadius: 45,
+    borderWidth: 2,
+    borderColor: '#f7b305',
   },
   profileImagePlaceholder: {
     paddingTop: 10,
     width: 90,
     height: 90,
     borderRadius: 45,
-    backgroundColor: '#2B6CB0',
+    backgroundColor: '#f7b305',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#eaeaea',
   },
   profileInitial: {
     fontSize: 36,
@@ -300,73 +304,78 @@ const styles = StyleSheet.create({
   },
   editButton: {
     marginLeft: 5,
+    padding: 3,
   },
   verifiedBadge: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#fff',
+    bottom: 5,
+    right: 5,
+    backgroundColor: 'transparent',
     borderRadius: 12,
     padding: 2,
+    elevation: 2,
   },
   statsRow: {
     flexDirection: 'row',
     marginBottom: 15,
   },
   statItem: {
-    flex: 1,
     alignItems: 'center',
     marginRight: 10,
+    backgroundColor: '#f7b305',
+    paddingVertical: 5,
+    paddingHorizontal: 15,
+    borderRadius: 8,
   },
   statNumber: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: 'black',
+    color: '#000',
   },
   statLabel: {
     fontSize: 12,
-    fontWeight: 'bold',
-    color: 'black',
+    fontWeight: '600',
+    color: '#4a5568',
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
     justifyContent: 'flex-start',
   },
   infoText: {
     fontSize: 14,
-    color: 'black',
-    marginLeft: 5,
+    color: '#4a5568',
+    marginLeft: 8,
   },
   textRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
-     // Professional light gray background
-    borderRadius: 8, // Slight rounding for a polished look
+    borderRadius: 8,
     padding: 5,
+    backgroundColor: '#ffffff',
   },
   rowButton: {
     flex: 1,
-    backgroundColor: '#E6F0FA',
+    backgroundColor: '#f7b305',
     alignItems: 'center',
-    paddingVertical: 8, // Vertical padding for better touch area// Separator between buttons
-    borderColor: '#BFDBFE',
+    paddingVertical: 8,
+    borderColor: '#eaeaea',
     margin: 5,
     borderRadius: 20,
   },
   rowText: {
     fontSize: 16,
-    color: '#2B6CB0', // Slightly softer dark gray for a professional tone
+    color: '#333333',
     textAlign: 'center',
-    fontWeight: '500', // Medium weight for emphasis
+    fontWeight: '500',
   },
   postContainer: {
     width: (width * 0.8 - 10) / 3,
     height: 150,
     marginBottom: 10,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#fff9e6',
     borderRadius: 10,
     elevation: 2,
     alignItems: 'center',
@@ -393,7 +402,7 @@ const styles = StyleSheet.create({
   availabilityButton: {
     marginTop: 20,
     padding: 10,
-    backgroundColor: '#333',
+    backgroundColor: '#f7b305',
     borderRadius: 5,
   },
   availabilityButtonText: {

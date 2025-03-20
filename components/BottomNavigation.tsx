@@ -78,15 +78,14 @@ const BottomNavigation = React.memo(({ navigation }: BottomNavigationProps) => {
         <Ionicons name="home-outline" size={24} color="black" />
         <Text style={styles.navText}>Home</Text>
       </TouchableOpacity>
-      
-      <TouchableOpacity style={styles.navButton}>
+      <TouchableOpacity style={styles.navButton}
+      onPress={() => navigateTo('Wishlist' as keyof RootStackParamList)}>
         {renderIcon('heart-outline', '♥')}
         <Text style={styles.navText}>Wishlist</Text>
       </TouchableOpacity>
-      
       <TouchableOpacity 
         style={styles.centerNavButton}
-        onPress={() => navigateTo('PostingScreen')}
+        onPress={() => navigateTo('Posting' as keyof RootStackParamList)}
       >
         <View style={styles.centerCircle}>
           <Antdesign name="plus" size={28} color="white" />
