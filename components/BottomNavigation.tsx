@@ -85,7 +85,7 @@ const BottomNavigation = React.memo(({ navigation }: BottomNavigationProps) => {
       </TouchableOpacity>
       <TouchableOpacity 
         style={styles.centerNavButton}
-        onPress={() => navigateTo('Posting' as keyof RootStackParamList)}
+        onPress={() => navigateTo('PostingScreen' as keyof RootStackParamList)}
       >
         <View style={styles.centerCircle}>
           <Antdesign name="plus" size={28} color="white" />
