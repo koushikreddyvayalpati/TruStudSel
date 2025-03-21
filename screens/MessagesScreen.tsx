@@ -65,7 +65,7 @@ const MessagesScreen = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#f7b305" />
       <View style={styles.headerContainer}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => navigation.navigate('Home')} style={styles.backButton}>
           <MaterialIcons name="arrow-back-ios-new" size={22} color="black" />
         </TouchableOpacity>
         <Text style={styles.header}>Messages</Text>
@@ -77,7 +77,7 @@ const MessagesScreen = () => {
             style={styles.actionButton}
             onPress={() => navigation.navigate('Home')}
           >
-            <Ionicons name="home-outline" size={22} color="black" />
+            <Icon name="home" size={22} color="black" />
           </TouchableOpacity>
         </View>
       </View>
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   header: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '400',
     color: 'black',
   },

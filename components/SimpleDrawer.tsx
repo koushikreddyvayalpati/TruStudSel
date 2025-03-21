@@ -23,6 +23,7 @@ interface SimpleDrawerProps {
 const SimpleDrawer = ({ navigation, isOpen, onClose }: SimpleDrawerProps) => {
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const [iconScale] = useState(new Animated.Value(1));
+  const [isSignOutPressed, setIsSignOutPressed] = useState(false);
 
   React.useEffect(() => {
     if (isOpen) {
@@ -56,15 +57,15 @@ const SimpleDrawer = ({ navigation, isOpen, onClose }: SimpleDrawerProps) => {
   };
 
   const navigateTo = (screenName: string) => {
-    onClose();
-    setTimeout(() => {
+    if (!isSignOutPressed) {
       animateIcon();
       navigation.navigate(screenName);
-    }, 300);
+      onClose();
+    }
   };
 
   const handleSignOut = async () => {
-    onClose();
+    setIsSignOutPressed(true);
     try {
       await Auth.signOut();
       setTimeout(() => {
@@ -75,11 +76,23 @@ const SimpleDrawer = ({ navigation, isOpen, onClose }: SimpleDrawerProps) => {
     }
   };
 
+  React.useEffect(() => {
+    if (!isOpen) {
+      setIsSignOutPressed(false);
+    }
+  }, [isOpen]);
+
+  const closeDrawer = () => {
+    if (!isSignOutPressed) {
+      onClose();
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
     <View style={styles.container}>
-      <TouchableWithoutFeedback onPress={onClose}>
+      <TouchableWithoutFeedback onPress={closeDrawer}>
         <View style={styles.overlay} />
       </TouchableWithoutFeedback>
       

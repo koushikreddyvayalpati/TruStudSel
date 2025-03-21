@@ -32,11 +32,11 @@ const MessageScreen = ({ route ,navigation}: { route: any, navigation: any }) =>
         <TouchableOpacity 
         style={styles.backButton}
         onPress={() => {
-          console.log('Navigating to Home');
-          navigation.navigate('Home');
+          console.log('Navigating to Messaging Screen');
+          navigation.goBack();
         }}
         >
-          <Ionicons name="arrow-back-ios" size={22} color="black" />
+          <Ionicons name="chevron-back" size={22} color="black" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{contactName}</Text>
         <TouchableOpacity 
