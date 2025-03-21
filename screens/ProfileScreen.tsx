@@ -394,8 +394,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   gridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'flex-start',
     padding: 5,
   },

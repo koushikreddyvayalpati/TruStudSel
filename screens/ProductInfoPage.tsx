@@ -10,7 +10,8 @@ const { width } = Dimensions.get('window');
 type ProductInfoPageProps = StackScreenProps<ParamListBase, 'ProductInfoPage'>;
 
 const ProductInfoPage: React.FC<ProductInfoPageProps> = ({ route, navigation }) => {
-  const { product } = route.params;
+  // Safely extract product from route params
+  const product = route.params?.product || {};
 
   return (
     <View style={styles.container}>
@@ -38,7 +39,7 @@ const ProductInfoPage: React.FC<ProductInfoPageProps> = ({ route, navigation }) 
           snapToInterval={width * 0.82}
           snapToAlignment="center"
         >
-          {product.images ? (
+          {product.images && product.images.length > 0 ? (
             // If product has multiple images
             product.images.map((image, index) => (
               <Image 
@@ -50,7 +51,7 @@ const ProductInfoPage: React.FC<ProductInfoPageProps> = ({ route, navigation }) 
           ) : (
             // Fallback to single image if images array not available
             <Image 
-              source={{ uri: product.image }} 
+              source={{ uri: product.image || '' }} 
               style={styles.productImage} 
             />
           )}
@@ -74,17 +75,17 @@ const ProductInfoPage: React.FC<ProductInfoPageProps> = ({ route, navigation }) 
 
       {/* Product Title, Price, Condition, and Type */}
       <View style={styles.textContainer}>
-        <Text style={styles.productName}>{product.name}</Text>
+        <Text style={styles.productName}>{product.name || ''}</Text>
         <View style={styles.priceContainer}>
-          <Text style={styles.productPrice}>{product.price}</Text>
-          <Text style={styles.productCondition}>{product.condition}</Text>
-          <Text style={styles.productType}>{product.type}</Text>
+          <Text style={styles.productPrice}>{product.price || ''}</Text>
+          <Text style={styles.productCondition}>{product.condition || ''}</Text>
+          <Text style={styles.productType}>{product.type || ''}</Text>
         </View>
       </View>
 
       {/* Description Box */}
       <View style={styles.descriptionBox}>
-        <Text style={styles.descriptionText}>{product.description}</Text>
+        <Text style={styles.descriptionText}>{product.description || ''}</Text>
       </View>
 
       {/* Availability Button with Seller Profile */}
@@ -94,15 +95,15 @@ const ProductInfoPage: React.FC<ProductInfoPageProps> = ({ route, navigation }) 
             style={styles.profileCircle}
             onPress={() => navigation.navigate('Profile')}
           >
-            <Text style={styles.profileText}>A</Text> {/* Placeholder for seller's initial */}
+            <Text style={styles.profileText}>A</Text>
           </TouchableOpacity>
-          <Text style={styles.profileName}>Koushik Reddy</Text> {/* Ensure this is wrapped in <Text> */}
+          <Text style={styles.profileName}>Koushik Reddy</Text>
         </View>
         <TouchableOpacity 
           style={styles.availabilityButton}
-          onPress={() => navigation.navigate('MessageScreen', { contactName: 'Koushik Reddy' })} // Navigate to MessageScreen with seller name
+          onPress={() => navigation.navigate('MessageScreen', { contactName: 'Koushik Reddy' })}
         >
-          <Text style={styles.availabilityButtonText}>Is it available?</Text> {/* Ensure this is wrapped in <Text> */}
+          <Text style={styles.availabilityButtonText}>Is it available?</Text>
         </TouchableOpacity>
       </View>
     </View>

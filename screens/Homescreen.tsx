@@ -9,7 +9,8 @@ import {
   SafeAreaView,
   Platform,
   StatusBar,
-  FlatList
+  FlatList,
+  Image
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -61,9 +62,9 @@ const Homescreen = ({ navigation }: HomescreenProps) => {
       condition: 'Brand New',
       type: 'Rent',
       description: 'Vision Alta Men',
-      images: ['https://via.placeholder.com/150', 'https://via.placeholder.com/200']
+      images: [require('../assets/koushik.png'), 'https://via.placeholder.com/200']
     },
-    { id: 2, name: 'Cricket bat', price: '$18.50', image: 'https://via.placeholder.com/150' },
+    { id: 2, name: 'Cricket bat', price: '$18.50', image: require('../assets/koushik.png') },
     { id: 3, name: 'Matress', price: '$32.99', image: 'https://via.placeholder.com/150' },
     { id: 4, name: 'Lamp', price: '$15.75', image: 'https://via.placeholder.com/150' },
     { id: 5, name: 'Polo Tshirt', price: '$49.99', image: 'https://via.placeholder.com/150' },
@@ -129,7 +130,12 @@ const Homescreen = ({ navigation }: HomescreenProps) => {
       style={styles.productCard}
       onPress={() => navigation.navigate('ProductInfoPage', { product: item })}
     >
-      <View style={styles.productImagePlaceholder} />
+      <Image 
+        source={{ uri: item.image }} 
+        style={[styles.productImagePlaceholder, { width: 150, height: 120 }]} 
+        resizeMode="cover" 
+        onError={() => console.log('Error loading image:', item.image)}
+      />
       <View style={styles.productInfo}>
         <Text style={styles.productName}>{item.name}</Text>
         <Text style={styles.productPrice}>{item.price}</Text>
@@ -415,7 +421,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   productImagePlaceholder: {
-    height: 120,
     backgroundColor: '#e0e0e0',
   },
   productInfo: {

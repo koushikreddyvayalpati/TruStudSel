@@ -105,14 +105,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#f7b305',
-    padding: 15,
-    paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 10,
+    padding: 10,
+    paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 5 : 5,
     paddingBottom: 10,
     elevation: 4,
     shadowOpacity: 0.1,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
-
   },
   backButton: {
     padding: 10,
