@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, Dimensions, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Image, Dimensions, TouchableOpacity, ScrollView, Animated } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { StackScreenProps } from '@react-navigation/stack';
 import { ParamListBase } from '@react-navigation/native';
@@ -10,8 +10,21 @@ const { width } = Dimensions.get('window');
 type ProductInfoPageProps = StackScreenProps<ParamListBase, 'ProductInfoPage'>;
 
 const ProductInfoPage: React.FC<ProductInfoPageProps> = ({ route, navigation }) => {
-  // Safely extract product from route params
   const product = route.params?.product || {};
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const scrollX = new Animated.Value(0);
+
+  // Sample reviews for the seller
+  const sellerReviews = [
+    { id: 1, name: 'Alice', rating: 5, text: 'Excellent communication and fast shipping!' },
+    { id: 2, name: 'Bob', rating: 4, text: 'Great seller, item as described, would buy again.' },
+    { id: 3, name: 'Charlie', rating: 5, text: 'Super friendly and helpful, highly recommend!' },
+  ];
+
+  const handleScroll = (event: any) => {
+    const index = Math.floor(event.nativeEvent.contentOffset.x / (width * 0.82));
+    setCurrentIndex(index);
+  };
 
   return (
     <View style={styles.container}>
@@ -28,7 +41,7 @@ const ProductInfoPage: React.FC<ProductInfoPageProps> = ({ route, navigation }) 
         <Icon name="exclamation-triangle" size={18} color="red" />
       </TouchableOpacity>
 
-      {/* Product Images - Scrollable */}
+      {/* Product Images - Scrollable with Animation */}
       <View style={styles.card}>
         <ScrollView
           horizontal
@@ -38,18 +51,19 @@ const ProductInfoPage: React.FC<ProductInfoPageProps> = ({ route, navigation }) 
           decelerationRate="fast"
           snapToInterval={width * 0.82}
           snapToAlignment="center"
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
         >
           {product.images && product.images.length > 0 ? (
-            // If product has multiple images
             product.images.map((image, index) => (
-              <Image 
-                key={index} 
-                source={{ uri: image }} 
-                style={styles.productImage} 
-              />
+              <Animated.View key={index} style={{ opacity: currentIndex === index ? 1 : 0.5 }}>
+                <Image 
+                  source={{ uri: image }} 
+                  style={styles.productImage} 
+                />
+              </Animated.View>
             ))
           ) : (
-            // Fallback to single image if images array not available
             <Image 
               source={{ uri: product.image || '' }} 
               style={styles.productImage} 
@@ -65,7 +79,7 @@ const ProductInfoPage: React.FC<ProductInfoPageProps> = ({ route, navigation }) 
                 key={index} 
                 style={[
                   styles.paginationDot,
-                  { backgroundColor: index === 0 ? '#f7b305' : '#ccc' }
+                  { backgroundColor: index === currentIndex ? '#f7b305' : '#ccc' }
                 ]} 
               />
             ))}
@@ -106,6 +120,22 @@ const ProductInfoPage: React.FC<ProductInfoPageProps> = ({ route, navigation }) 
           <Text style={styles.availabilityButtonText}>Is it available?</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Seller Reviews Section */}
+      <View style={styles.reviewsContainer}>
+        <Text style={styles.reviewsTitle}>Top Reviews of the Seller</Text>
+        {sellerReviews.map(review => (
+          <View key={review.id} style={styles.reviewItem}>
+            <Text style={styles.reviewName}>{review.name}</Text>
+            <View style={styles.ratingContainer}>
+              {[...Array(review.rating)].map((_, index) => (
+                <Icon key={index} name="star" size={16} color="#f7b305" />
+              ))}
+            </View>
+            <Text style={styles.reviewText}>{review.text}</Text>
+          </View>
+        ))}
+      </View>
     </View>
   );
 };
@@ -117,7 +147,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     padding: 20,
     backgroundColor: '#f0f0f0',
-    marginBottom: 20,
   },
   backButton: {
     position: 'absolute',
@@ -139,18 +168,17 @@ const styles = StyleSheet.create({
     padding: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 5,
     marginTop: 60,
-    position: 'relative',
   },
   imageScrollView: {
     width: '100%',
     height: '100%',
   },
   productImage: {
-    width: width * 0.82, // Adjusted to account for padding
+    width: width * 0.82,
     height: '100%',
     borderRadius: 10,
   },
@@ -160,7 +188,7 @@ const styles = StyleSheet.create({
     marginTop: 15,
   },
   productName: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
   },
@@ -170,7 +198,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   productPrice: {
-    fontSize: 22,
+    fontSize: 20,
     color: '#e67e22',
     marginRight: 15,
   },
@@ -185,14 +213,14 @@ const styles = StyleSheet.create({
   },
   descriptionBox: {
     marginTop: 25,
-    padding: 20,
+    padding: 15,
     backgroundColor: '#FFF8E1',
     borderRadius: 10,
     width: '100%',
     height: 150,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 5,
   },
@@ -220,7 +248,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ccc',
     marginRight: 10,
-    marginTop: 12,
   },
   profileText: {
     fontSize: 18,
@@ -262,6 +289,37 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     marginHorizontal: 4,
+  },
+  reviewsContainer: {
+    marginTop: 20,
+    padding: 15,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 10,
+    width: '100%',
+  },
+  reviewsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  reviewItem: {
+    marginBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
+    paddingBottom: 10,
+  },
+  reviewName: {
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  reviewText: {
+    fontSize: 14,
+    color: '#666',
   },
 });
 
