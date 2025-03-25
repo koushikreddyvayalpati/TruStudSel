@@ -1,14 +1,19 @@
 /**
  * SVG Mock
  * 
- * This file mocks SVG imports for Jest tests
+ * This file mocks SVG imports for Jest tests.
+ * This is NOT a test file - tests for this mock should be in svgMock.test.js
  */
 
-// Export a simple React component that renders nothing but has the props
-// that are passed to it to ensure proper testing
-const SvgMock = 'SvgMock';
-SvgMock.ReactComponent = props => Object.assign({}, props, { 
-  testID: props.testID || 'svg-mock',
-});
+// Create a mock object with both a string value and ReactComponent function
+const svgMock = 'SvgMock';
 
-module.exports = SvgMock; 
+// This is needed because the SVG imports in React Native expect a React component
+svgMock.ReactComponent = function(props) {
+  return {
+    ...props,
+    testID: props.testID || 'svg-mock'
+  };
+};
+
+module.exports = svgMock; 
