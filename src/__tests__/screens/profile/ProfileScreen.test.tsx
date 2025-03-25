@@ -21,7 +21,7 @@ jest.mock('react-native-vector-icons/FontAwesome5', () => 'Icon');
 jest.mock('react-native-vector-icons/MaterialCommunityIcons', () => 'Icon');
 
 // Mock the Button component
-jest.mock('../../../../src/components/Button', () => {
+jest.mock('../../../../src/components/common/Button', () => {
   return {
     Button: ({ label, onPress }) => (
       <button testID={`button-${label}`} onPress={onPress}>

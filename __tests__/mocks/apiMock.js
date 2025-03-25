@@ -206,4 +206,20 @@ const setupApiMocks = () => {
   };
 };
 
-module.exports = setupApiMocks; 
+module.exports = setupApiMocks;
+
+// Add a simple test to avoid Jest error
+describe('API Mock', () => {
+  it('should export a function', () => {
+    expect(typeof setupApiMocks).toBe('function');
+  });
+  
+  it('should return mock data and handlers', () => {
+    const mocks = setupApiMocks();
+    expect(mocks.mockProducts).toBeDefined();
+    expect(mocks.mockMessages).toBeDefined();
+    expect(mocks.mockProfile).toBeDefined();
+    expect(mocks.handlers).toBeDefined();
+    expect(typeof mocks.resetMocks).toBe('function');
+  });
+});

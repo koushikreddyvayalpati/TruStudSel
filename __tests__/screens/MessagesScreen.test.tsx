@@ -1,22 +1,55 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import MessagesScreen from '../../src/screens/messages/MessagesScreen';
-import { useNavigation } from '@react-navigation/native';
 import { ThemeProvider } from '../../src/contexts/ThemeContext';
+
+// Mock navigation hook
+jest.mock('@react-navigation/native', () => {
+  const mockNavigate = jest.fn();
+  return {
+    ...jest.requireActual('@react-navigation/native'),
+    useNavigation: () => ({
+      navigate: mockNavigate,
+      goBack: jest.fn(),
+    }),
+  };
+});
+
+// Mock AWS Amplify
+jest.mock('aws-amplify', () => {
+  return {
+    Auth: {
+      currentAuthenticatedUser: jest.fn(() => Promise.resolve({
+        attributes: { email: 'test@example.com' }
+      })),
+      signOut: jest.fn(() => Promise.resolve()),
+    },
+  };
+});
+
+// Mock @react-native-community/netinfo
+jest.mock('@react-native-community/netinfo', () => {
+  return {
+    addEventListener: jest.fn(() => {
+      return jest.fn();
+    }),
+    fetch: jest.fn(() => Promise.resolve({
+      isConnected: true,
+      isInternetReachable: true,
+    })),
+  };
+});
 
 // Import the API mocks
 const setupApiMocks = require('../mocks/apiMock');
 
+// Now we can import components that require the mocked modules
+import MessagesScreen from '../../src/screens/messages/MessagesScreen';
+import { useNavigation } from '@react-navigation/native';
+
 describe('MessagesScreen', () => {
   // Setup API mocks before running tests
   const apiMocks = setupApiMocks();
-  
-  // Mock navigation
-  const mockNavigate = jest.fn();
-  (useNavigation as jest.Mock).mockImplementation(() => ({
-    navigate: mockNavigate,
-    goBack: jest.fn(),
-  }));
+  const mockNavigate = useNavigation().navigate;
   
   beforeEach(() => {
     // Clear all mocks between tests

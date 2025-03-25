@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
-import { View, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { MainStackParamList, HomeScreenNavigationProp } from '../types/navigation.types';
 
 // Import migrated screens from new structure
@@ -14,17 +14,7 @@ import { WishlistScreen } from '../screens/wishlist';
 // Import layout components from new structure
 import { BottomNavigation, Drawer } from '../components/layout';
 
-// Create a placeholder for screens that haven't been migrated yet
-const PlaceholderScreen = ({ navigation, route }: any) => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-    <Text style={{ fontSize: 18, marginBottom: 20 }}>
-      {route.name} is not yet implemented
-    </Text>
-    <Text style={{ color: 'blue' }} onPress={() => navigation.goBack()}>
-      Go Back
-    </Text>
-  </View>
-);
+
 
 const Stack = createStackNavigator<MainStackParamList>();
 

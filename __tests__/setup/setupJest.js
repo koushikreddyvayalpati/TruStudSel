@@ -44,13 +44,6 @@ jest.spyOn(console, 'error').mockImplementation((...args) => {
   console.warn(...args);
 });
 
-// Reset all mocks automatically between tests
-// This should be executed in individual test files, not in the setup
-// beforeEach(() => {
-//   jest.clearAllMocks();
-//   global.fetch.mockClear();
-// });
-
-// Instead, ensure the mocks are reset initially
+// Reset all mocks initially
 jest.clearAllMocks();
 global.fetch.mockClear(); 
