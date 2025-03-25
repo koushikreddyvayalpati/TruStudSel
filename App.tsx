@@ -9,7 +9,6 @@ import 'react-native-gesture-handler';
 import React from 'react';
 import {StatusBar,useColorScheme} from 'react-native';
 import {Colors} from 'react-native/Libraries/NewAppScreen';
-import AppNavigator from './navigation/AppNavigator';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './contexts/AuthContext';
 import { Amplify } from 'aws-amplify';
@@ -32,7 +31,7 @@ const App = () => {
           barStyle={isDarkMode ? 'light-content' : 'dark-content'}
           backgroundColor={isDarkMode ? Colors.darker : Colors.lighter}
         />
-        <AppNavigator />
+        
       </AuthProvider>
     </SafeAreaProvider>
   );
