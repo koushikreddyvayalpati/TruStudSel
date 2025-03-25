@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
@@ -6,45 +6,59 @@ import {
   TouchableOpacity,
   TextInput,
   FlatList,
-  Dimensions,
   StatusBar,
   SafeAreaView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
+import { MainStackParamList } from '../../types/navigation.types';
 
-const { width } = Dimensions.get('window');
+interface MessageItem {
+  id: string;
+  time: string;
+  text: string;
+  sender: 'me' | 'friend';
+}
 
-const MessageScreen = ({ route ,navigation}: { route: any, navigation: any }) => {
-  const { contactName } = route.params; // Get the contact name from route params
+type MessageScreenRouteProp = RouteProp<MainStackParamList, 'MessageScreen'>;
+
+const MessageScreen = () => {
+  const navigation = useNavigation<NavigationProp<MainStackParamList>>();
+  const route = useRoute<MessageScreenRouteProp>();
+  const [messageText, setMessageText] = useState('');
+  
+  const { recipientName } = route.params;
 
   // Sample messages data
-  const messages = [
+  const messages: MessageItem[] = [
     { id: '1', time: '10:30 PM', text: 'Is it available?', sender: 'me' },
     { id: '2', time: '10:38 PM', text: 'Yes, it is available', sender: 'friend' },
     { id: '3', time: '07:00 PM', text: 'Is there any discount?', sender: 'friend' },
     { id: '4', time: '10:30 PM', text: 'No, there is no discount', sender: 'me' },
   ];
 
+  const sendMessage = () => {
+    if (messageText.trim()) {
+      console.log('Sending message:', messageText);
+      setMessageText('');
+    }
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, { backgroundColor: '#f0f0f0' }]}>
+      <View style={[styles.header, { backgroundColor: '#f7b305' }]}>
         <TouchableOpacity 
-        style={styles.backButton}
-        onPress={() => {
-          console.log('Navigating to Messaging Screen');
-          navigation.goBack();
-        }}
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          testID="back-button"
         >
           <Ionicons name="chevron-back" size={22} color="black" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{contactName}</Text>
+        <Text style={[styles.headerTitle, { color: "black" }]}>{recipientName}</Text>
         <TouchableOpacity 
           style={styles.callButton}
-          onPress={() => {
-            console.log('Navigating to Home');
-            navigation.navigate('Home');
-          }}
+          onPress={() => navigation.navigate('Home')}
         >
           <Icon name="home" size={20} color="black" />
         </TouchableOpacity>
@@ -62,20 +76,29 @@ const MessageScreen = ({ route ,navigation}: { route: any, navigation: any }) =>
             ]}
           >
             {item.sender === 'friend' && (
-              <View style={styles.profileCircle}>
-                <Text style={styles.profileInitial}>F</Text>
+              <View style={[styles.profileCircle, { backgroundColor: '#e0e0e0' }]}>
+                <Text style={[styles.profileInitial, { color: 'black' }]}>
+                  {recipientName.charAt(0)}
+                </Text>
               </View>
             )}
             <View 
               style={[
-                item.sender === 'me' ? styles.myMessage : styles.friendMessage,
+                item.sender === 'me' 
+                  ? [styles.myMessage, { backgroundColor: '#f7b305' }]
+                  : [styles.friendMessage, { backgroundColor: 'white' }],
                 { 
                   marginLeft: item.sender === 'me' ? 60 : 0,
                   marginRight: item.sender === 'friend' ? 60 : 0
                 }
               ]}
             >
-              <Text style={styles.messageText}>{item.text}</Text>
+              <Text style={[
+                styles.messageText, 
+                { color: 'black' }
+              ]}>
+                {item.text}
+              </Text>
               <Text 
                 style={[
                   styles.messageTime,
@@ -95,12 +118,22 @@ const MessageScreen = ({ route ,navigation}: { route: any, navigation: any }) =>
         contentContainerStyle={{ paddingBottom: 20 }}
       />
 
-      <View style={styles.inputContainer}>
+      <View style={[styles.inputContainer, { backgroundColor: 'white' }]}>
         <TextInput 
-          style={styles.input}
+          style={[styles.input, { 
+            borderColor: '#ddd', 
+            color: 'black',
+            backgroundColor: 'white'
+          }]}
           placeholder="Type a message..."
+          placeholderTextColor="gray"
+          value={messageText}
+          onChangeText={setMessageText}
         />
-        <TouchableOpacity style={styles.sendButton}>
+        <TouchableOpacity 
+          style={[styles.sendButton, { backgroundColor: '#f7b305' }]}
+          onPress={sendMessage}
+        >
           <Icon name="paper-plane" size={20} color="black" />
         </TouchableOpacity>
       </View>
@@ -111,11 +144,8 @@ const MessageScreen = ({ route ,navigation}: { route: any, navigation: any }) =>
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
   },
   header: {
-    marginTop:0,
-    backgroundColor: '#f7b305',
     padding: 15,
     flexDirection: 'row',
     alignItems: 'center',
@@ -124,7 +154,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    color: 'black',
     fontWeight: 'bold',
   },
   backButton: {
@@ -145,7 +174,6 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#e0e0e0',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
@@ -153,10 +181,8 @@ const styles = StyleSheet.create({
   profileInitial: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: 'black',
   },
   myMessage: {
-    backgroundColor: '#f7b305',
     borderRadius: 10,
     padding: 10,
     maxWidth: '80%',
@@ -164,7 +190,6 @@ const styles = StyleSheet.create({
     marginLeft: 30,
   },
   friendMessage: {
-    backgroundColor: 'white',
     borderRadius: 10,
     padding: 10,
     maxWidth: '80%',
@@ -172,8 +197,7 @@ const styles = StyleSheet.create({
     marginRight: 30,
   },
   messageText: {
-    color: 'black',
-    fontSize: 16,  // Added for better readability
+    fontSize: 16,
     lineHeight: 20,
   },
   messageTime: {
@@ -188,20 +212,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 10,
-    backgroundColor: 'white',
     paddingBottom: 20,
     borderRadius: 20,
   },
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#ddd',
     borderRadius: 20,
     padding: 10,
     marginRight: 10,
   },
   sendButton: {
-    backgroundColor: '#f7b305',
     borderRadius: 20,
     padding: 10,
   },

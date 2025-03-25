@@ -9,10 +9,13 @@ export * from './auth';
 export * from './home';
 
 // Profile screens
-// export * from './profile';
+export * from './profile';
 
 // Product screens
-// export * from './products';
+export * from './products';
 
 // Message screens
-// export * from './messages'; 
+export * from './messages';
+
+// Wishlist screens
+export * from './wishlist'; 

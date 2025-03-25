@@ -8,19 +8,49 @@ import {
   TouchableOpacity, 
   ScrollView, 
   Animated, 
-  SafeAreaView 
+  SafeAreaView,
+  Alert
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
-import { useTheme } from '../../contexts/ThemeContext';
+import { ProductInfoScreenRouteProp, ProductInfoScreenNavigationProp } from '../../types/navigation.types';
 
 const { width } = Dimensions.get('window');
 
-// Sample product data
-const sampleProduct = {
-  id: '1',
+// Extended Product type that includes seller information
+interface ExtendedProduct {
+  id: number;
+  name: string;
+  price: string;
+  image: string;
+  description?: string;
+  condition?: string;
+  type?: string;
+  images?: any[];
+  seller?: {
+    name: string;
+    rating?: number;
+  };
+}
+
+// Base product type from params
+interface BaseProduct {
+  id: number;
+  name: string;
+  price: string;
+  image: string;
+  description?: string;
+  condition?: string;
+  type?: string;
+  images?: any[];
+}
+
+// Sample product data (fallback if route params are missing)
+const sampleProduct: ExtendedProduct = {
+  id: 1,
   name: 'Product Name',
   price: '$24.99',
+  image: 'https://via.placeholder.com/300',
   condition: 'New',
   type: 'Electronics',
   description: 'This is a sample product description. It includes details about the product, its features, and its benefits.',
@@ -43,11 +73,26 @@ const sellerReviews = [
 ];
 
 const ProductsScreen = () => {
-  const navigation = useNavigation();
-  const { colors, shadows } = useTheme();
+  const navigation = useNavigation<ProductInfoScreenNavigationProp>();
+  const route = useRoute<ProductInfoScreenRouteProp>();
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollX = new Animated.Value(0);
-  const product = sampleProduct;
+  
+  // Use the product from route params if available, otherwise use the sample product
+  const routeProduct = route.params?.product as BaseProduct | undefined;
+  
+  // Create an extended product object with seller information if not provided
+  const product: ExtendedProduct = routeProduct 
+    ? {
+        ...routeProduct,
+        seller: sampleProduct.seller // Use sample seller data since routeProduct may not have seller info
+      }
+    : sampleProduct;
+  
+  // Handle case where product might not have images array
+  const productImages = product.images 
+    ? (Array.isArray(product.images) ? product.images : [product.image]) 
+    : [product.image || 'https://via.placeholder.com/300'];
 
   const handleScroll = (event: any) => {
     const index = Math.floor(event.nativeEvent.contentOffset.x / (width * 0.82));
@@ -55,23 +100,33 @@ const ProductsScreen = () => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: '#f0f0f0' }]}>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Back Button with Icon */}
         <TouchableOpacity 
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Icon name="arrow-left" size={18} color={colors.text} />
+          <Icon name="arrow-left" size={18} color="black" />
         </TouchableOpacity>
 
         {/* Warning Icon */}
-        <TouchableOpacity style={styles.warningButton} onPress={() => alert('Report this item?')}>
-          <Icon name="exclamation-triangle" size={18} color={colors.error} />
+        <TouchableOpacity 
+          style={styles.warningButton} 
+          onPress={() => Alert.alert('Report Item', 'Do you want to report this item?')}
+        >
+          <Icon name="exclamation-triangle" size={18} color="red" />
         </TouchableOpacity>
 
         {/* Product Images - Scrollable with Animation */}
-        <View style={[styles.card, { backgroundColor: colors.card, ...shadows.medium }]}>
+        <View style={[styles.card, { 
+          backgroundColor: 'white',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.3,
+          shadowRadius: 6,
+          elevation: 5
+        }]}>
           <ScrollView
             horizontal
             pagingEnabled
@@ -86,32 +141,25 @@ const ProductsScreen = () => {
             )}
             scrollEventThrottle={16}
           >
-            {product.images && product.images.length > 0 ? (
-              product.images.map((image, index) => (
-                <Animated.View key={index} style={{ opacity: currentIndex === index ? 1 : 0.5 }}>
-                  <Image 
-                    source={{ uri: image }} 
-                    style={styles.productImage} 
-                  />
-                </Animated.View>
-              ))
-            ) : (
-              <Image 
-                source={{ uri: 'https://via.placeholder.com/300' }} 
-                style={styles.productImage} 
-              />
-            )}
+            {productImages.map((image, index) => (
+              <Animated.View key={index} style={{ opacity: currentIndex === index ? 1 : 0.5 }}>
+                <Image 
+                  source={{ uri: typeof image === 'string' ? image : 'https://via.placeholder.com/300' }} 
+                  style={styles.productImage} 
+                />
+              </Animated.View>
+            ))}
           </ScrollView>
           
           {/* Image pagination dots */}
-          {product.images && product.images.length > 1 && (
+          {productImages.length > 1 && (
             <View style={styles.paginationDots}>
-              {product.images.map((_, index) => (
+              {productImages.map((_, index) => (
                 <View 
                   key={index} 
                   style={[
                     styles.paginationDot,
-                    { backgroundColor: index === currentIndex ? colors.primary : colors.border }
+                    { backgroundColor: index === currentIndex ? '#f7b305' : '#ccc' }
                   ]} 
                 />
               ))}
@@ -121,50 +169,108 @@ const ProductsScreen = () => {
 
         {/* Product Title, Price, Condition, and Type */}
         <View style={styles.textContainer}>
-          <Text style={[styles.productName, { color: colors.text }]}>{product.name}</Text>
+          <Text style={[styles.productName, { color: '#333' }]}>{product.name}</Text>
           <View style={styles.priceContainer}>
-            <Text style={[styles.productPrice, { color: colors.primary }]}>{product.price}</Text>
-            <Text style={[styles.productCondition, { color: colors.textSecondary }]}>{product.condition}</Text>
-            <Text style={[styles.productType, { color: colors.textSecondary }]}>{product.type}</Text>
+            <Text style={[styles.productPrice, { color: '#e67e22' }]}>{product.price}</Text>
+            {product.condition && (
+              <Text style={[styles.productCondition, { color: '#666' }]}>{product.condition}</Text>
+            )}
+            {product.type && (
+              <Text style={[styles.productType, { color: '#666' }]}>{product.type}</Text>
+            )}
           </View>
         </View>
 
         {/* Description Box */}
-        <View style={[styles.descriptionBox, { backgroundColor: colors.cardAlt, ...shadows.small }]}>
-          <Text style={[styles.descriptionText, { color: colors.text }]}>{product.description}</Text>
+        <View style={[styles.descriptionBox, { 
+          backgroundColor: '#FFF8E1',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.3,
+          shadowRadius: 6,
+          elevation: 5, 
+          height: 150
+        }]}>
+          <Text style={[styles.descriptionText, { color: '#333' }]}>
+            {product.description || 'No description available for this product.'}
+          </Text>
         </View>
 
         {/* Availability Button with Seller Profile */}
         <View style={styles.availabilityContainer}>
-          <View style={styles.profileContainer}>
-            <TouchableOpacity 
-              style={[styles.profileCircle, { backgroundColor: colors.background }]}
-              onPress={() => navigation.navigate('Profile')}
-            >
-              <Text style={[styles.profileText, { color: colors.text }]}>{product.seller.name.charAt(0)}</Text>
-            </TouchableOpacity>
-            <Text style={[styles.profileName, { color: colors.text }]}>{product.seller.name}</Text>
+          <View style={[styles.profileContainer, { alignItems: 'center', marginRight: 15 }]}>
+            {product.seller && (
+              <>
+                <TouchableOpacity 
+                  style={[styles.profileCircle, { 
+                    backgroundColor: '#e0e0e0',
+                    borderWidth: 1,
+                    borderColor: '#ccc'
+                  }]}
+                  onPress={() => navigation.navigate('Profile')}
+                >
+                  <Text style={[styles.profileText, { color: '#333' }]}>
+                    {product.seller.name ? product.seller.name.charAt(0) : 'S'}
+                  </Text>
+                </TouchableOpacity>
+                <Text style={[styles.profileName, { 
+                  color: 'black',
+                  fontSize: 12,
+                  fontWeight: 'bold',
+                  marginTop: 5
+                }]}>
+                  {product.seller.name}
+                </Text>
+              </>
+            )}
           </View>
           <TouchableOpacity 
-            style={[styles.availabilityButton, { backgroundColor: colors.primary }]}
-            onPress={() => navigation.navigate('MessageScreen', { contactName: product.seller.name })}
+            style={[styles.availabilityButton, { 
+              backgroundColor: '#f7b305',
+              padding: 15,
+              borderRadius: 10,
+              alignItems: 'center',
+              flex: 1,
+              marginLeft: 10,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.3,
+              shadowRadius: 4,
+              elevation: 5
+            }]}
+            onPress={() => navigation.navigate('MessageScreen', { 
+              conversationId: 'new', 
+              recipientName: product.seller?.name || 'Seller' 
+            })}
           >
-            <Text style={[styles.availabilityButtonText, { color: colors.white }]}>Is it available?</Text>
+            <Text style={[styles.availabilityButtonText, { color: '#fff' }]}>Is it available?</Text>
           </TouchableOpacity>
         </View>
 
         {/* Seller Reviews Section */}
-        <View style={styles.reviewsContainer}>
-          <Text style={[styles.reviewsTitle, { color: colors.text }]}>Top Reviews of the Seller</Text>
+        <View style={[styles.reviewsContainer, { 
+          backgroundColor: '#f0f0f0',
+          padding: 15,
+          borderRadius: 10,
+          width: '100%',
+          marginTop: 20
+        }]}>
+          <Text style={[styles.reviewsTitle, { color: '#333' }]}>Top Reviews of the Seller</Text>
+          
           {sellerReviews.map(review => (
-            <View key={review.id} style={[styles.reviewItem, { backgroundColor: colors.card, ...shadows.small }]}>
-              <Text style={[styles.reviewName, { color: colors.text }]}>{review.name}</Text>
-              <View style={styles.ratingContainer}>
+            <View key={review.id} style={[styles.reviewItem, {
+              marginBottom: 10,
+              borderBottomWidth: 1,
+              borderBottomColor: '#ccc',
+              paddingBottom: 10
+            }]}>
+              <Text style={[styles.reviewName, { color: '#333', fontWeight: 'bold' }]}>{review.name}</Text>
+              <View style={[styles.ratingContainer, { marginBottom: 5 }]}>
                 {[...Array(review.rating)].map((_, index) => (
-                  <Icon key={index} name="star" size={16} color={colors.primary} />
+                  <Icon key={index} name="star" size={16} color="#f7b305" />
                 ))}
               </View>
-              <Text style={[styles.reviewText, { color: colors.textSecondary }]}>{review.text}</Text>
+              <Text style={[styles.reviewText, { color: '#666' }]}>{review.text}</Text>
             </View>
           ))}
         </View>
@@ -176,18 +282,20 @@ const ProductsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
     padding: 20,
   },
   backButton: {
     position: 'absolute',
-    top: 10,
+    top: 40,
     left: 10,
     padding: 10,
     zIndex: 10,
   },
   warningButton: {
     position: 'absolute',
-    top: 10,
+    top: 40,
     right: 10,
     padding: 10,
     zIndex: 10,
@@ -198,7 +306,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 15,
     marginTop: 60,
-    alignSelf: 'center',
   },
   imageScrollView: {
     width: '100%',
@@ -211,9 +318,13 @@ const styles = StyleSheet.create({
   },
   paginationDots: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
     marginTop: 10,
+    position: 'absolute',
+    bottom: 10,
+    alignSelf: 'center', 
+    width: '100%'
   },
   paginationDot: {
     width: 8,
@@ -237,6 +348,7 @@ const styles = StyleSheet.create({
   },
   productPrice: {
     fontSize: 20,
+    fontWeight: 'bold',
     marginRight: 15,
   },
   productCondition: {
@@ -251,22 +363,18 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 10,
     width: '100%',
-    minHeight: 120,
   },
   descriptionText: {
     fontSize: 16,
-    lineHeight: 22,
   },
   availabilityContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginTop: 25,
     width: '100%',
   },
   profileContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
   },
   profileCircle: {
     width: 48,
@@ -274,32 +382,23 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ccc',
-    marginRight: 10,
   },
   profileText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
   },
   profileName: {
     fontSize: 16,
-    fontWeight: 'bold',
   },
   availabilityButton: {
     paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
   availabilityButtonText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
   },
   reviewsContainer: {
-    marginTop: 30,
-    width: '100%',
     marginBottom: 20,
   },
   reviewsTitle: {
@@ -308,22 +407,16 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   reviewItem: {
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
   },
   reviewName: {
     fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 5,
   },
   ratingContainer: {
     flexDirection: 'row',
-    marginBottom: 8,
+    marginVertical: 5,
   },
   reviewText: {
     fontSize: 14,
-    lineHeight: 20,
   },
 });
 

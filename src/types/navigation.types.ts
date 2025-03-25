@@ -10,7 +10,7 @@ export type AuthStackParamList = {
   SignIn: undefined;
   SignUp: undefined;
   EmailVerification: { email: string };
-  OtpInput: { email: string };
+  OtpInput: { email: string; name?: string; phoneNumber?: string; tempPassword?: string };
   ProfileFillingPage: { email: string; username: string };
   ForgotPassword: undefined;
 };
@@ -88,6 +88,11 @@ export type ProfileFillingScreenProps = {
 export type MessageScreenProps = {
   navigation: MessageScreenNavigationProp;
   route: MessageScreenRouteProp;
+};
+
+export type PostingScreenProps = {
+  navigation: PostingScreenNavigationProp;
+  route: RouteProp<RootStackParamList, 'PostingScreen'>;
 };
 
 export type ProductInfoScreenProps = {

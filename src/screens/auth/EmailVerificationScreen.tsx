@@ -1,73 +1,89 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
-  TouchableOpacity, 
-  ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView
+  SafeAreaView,
+  TouchableOpacity
 } from 'react-native';
 import { Auth } from 'aws-amplify';
-import { EmailVerificationScreenProps } from '../../types/navigation.types';
+import { useNavigation } from '@react-navigation/native';
+import { EmailVerificationScreenProps, SignInScreenNavigationProp } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
 import { TextInput } from '../../components/common';
-import * as validation from '../../utils/validation';
 
-const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ navigation, route }) => {
+// For consistent logging in development
+const SCREEN_NAME = 'EmailVerification';
+
+const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route }) => {
+  // Get navigation using useNavigation hook like in SignInScreen
+  const navigation = useNavigation<SignInScreenNavigationProp>();
   const { theme } = useTheme();
   const [email, setEmail] = useState(route.params?.email || '');
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
-  const [emailError, setEmailError] = useState('');
-  const [phoneError, setPhoneError] = useState('');
 
-  const validateInputs = (): boolean => {
-    let isValid = true;
-    
-    // Check for empty fields
-    if (!email || !name || !phoneNumber) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return false;
-    }
-    
-    // Validate email format (must be .edu domain)
-    let eduError = '';
-    const emailValidationError = validation.getEmailValidationError(email);
-    if (emailValidationError) {
-      eduError = emailValidationError;
-    } else if (!email.endsWith('.edu')) {
-      eduError = 'Please enter a valid .edu email address';
-    }
-    
-    if (eduError) {
-      setEmailError(eduError);
-      isValid = false;
+  // Function to log important actions for easier debugging
+  const logDebug = (message: string, data?: any) => {
+    if (data) {
+      console.log(`[${SCREEN_NAME}] ${message}`, data);
     } else {
-      setEmailError('');
+      console.log(`[${SCREEN_NAME}] ${message}`);
     }
-    
-    // Validate phone number format
-    const phoneValidationError = validation.getPhoneValidationError(phoneNumber);
-    if (phoneValidationError) {
-      setPhoneError(phoneValidationError);
-      isValid = false;
-    } else {
-      setPhoneError('');
-    }
-    
-    return isValid;
   };
 
+  // Simple navigation handler with logging
+  const goBack = useCallback(() => {
+    logDebug('Attempting to go back to SignIn');
+    
+    // Try direct navigation - simple approach
+    try {
+      logDebug('Using navigation.goBack()');
+      navigation.goBack();
+    } catch (e) {
+      logDebug('Navigation error:', e);
+      
+      // Fallback to reset navigation
+      try {
+        logDebug('Fallback: Using navigation.reset()');
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'SignIn' }],
+        });
+      } catch (resetError) {
+        logDebug('Reset navigation error:', resetError);
+        Alert.alert('Navigation Error', 'Unable to navigate back. Please restart the app.');
+      }
+    }
+  }, [navigation]);
+
   const handleContinue = async () => {
-    if (!validateInputs()) {
+    logDebug('Continue button pressed');
+    
+    if (!name.trim()) {
+      Alert.alert('Error', 'Please enter your full name');
+      return;
+    }
+    
+    // Check if email is a .edu email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.edu$/i;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Please enter a valid .edu email address');
+      return;
+    }
+    
+    // Validate phone number (10-15 digits, with optional + prefix)
+    const phoneRegex = /^\+?\d{10,15}$/;
+    if (!phoneRegex.test(phoneNumber)) {
+      Alert.alert('Error', 'Please enter a valid phone number (10-15 digits)');
       return;
     }
     
     setLoading(true);
+    logDebug('Processing signup');
+    
     try {
       // Generate a temporary password for the initial sign-up
       const tempPassword = Math.random().toString(36).slice(-8) + 'Aa1!';
@@ -75,26 +91,29 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ navig
       // Format phone number with + prefix if not already present
       const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
       
-      // Sign up the user with Cognito
+      // Sign up the user with Cognito using the exact attribute names required by your schema
       const signUpResponse = await Auth.signUp({
         username: email,
         password: tempPassword,
         attributes: {
           email,
           phone_number: formattedPhone,
-          name,
+          name
         }
       });
       
-      console.log('Sign up successful, verification code sent:', signUpResponse);
+      logDebug('Sign up successful, verification code sent:', signUpResponse);
       
-      // Pass all user data to OTP page
-      navigation.navigate('OtpInput', { 
+      // Navigate to OTP screen with all required parameters
+      navigation.navigate('OtpInput', {
         email,
+        tempPassword,
+        name,
+        phoneNumber: formattedPhone
       });
       
     } catch (error: any) {
-      console.error('Error:', error);
+      logDebug('Error during signup:', error);
       
       // Handle specific error cases
       if (error.code === 'UsernameExistsException') {
@@ -114,16 +133,18 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ navig
                   Alert.alert('Success', 'Verification code has been resent');
                   navigation.navigate('OtpInput', { 
                     email,
+                    name,
+                    phoneNumber: phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`
                   });
-                } catch (resendError) {
-                  Alert.alert('Error', (resendError as Error).message || 'Failed to resend verification code');
+                } catch (resendError: any) {
+                  Alert.alert('Error', resendError.message || 'Failed to resend verification code');
                 }
               }
             }
           ]
         );
       } else {
-        Alert.alert('Error', (error as Error).message || 'Something went wrong');
+        Alert.alert('Error', error.message || 'Something went wrong');
       }
     } finally {
       setLoading(false);
@@ -131,71 +152,78 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ navig
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
-    >
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.contentContainer}>
-          <Text style={[styles.title, { color: theme.colors.primary }]}>Create Account</Text>
-          <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>Please fill in your details</Text>
-          
-          <TextInput
-            label="Full Name"
-            value={name}
-            onChangeText={setName}
-            placeholder="Enter your full name"
-            autoCapitalize="words"
-            containerStyle={styles.inputContainer}
-          />
-          
-          <TextInput
-            label="Email"
-            value={email}
-            onChangeText={(text) => {
-              setEmail(text);
-              if (emailError) setEmailError('');
-            }}
-            placeholder="Enter your .edu email"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            error={emailError}
-            containerStyle={styles.inputContainer}
-          />
-          
-          <TextInput
-            label="Phone Number"
-            value={phoneNumber}
-            onChangeText={(text) => {
-              setPhoneNumber(text);
-              if (phoneError) setPhoneError('');
-            }}
-            placeholder="Enter with country code (e.g., +1...)"
-            keyboardType="phone-pad"
-            error={phoneError}
-            containerStyle={styles.inputContainer}
-          />
-          
-          <TouchableOpacity 
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={styles.header}>
+        <TouchableOpacity 
+          onPress={goBack} 
+          style={styles.backButton}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.backButtonText, { color: theme.colors.primary }]}>Back</Text>
+        </TouchableOpacity>
+      </View>
+      
+      <View style={styles.contentContainer}>
+        <Text style={[styles.title, { color: theme.colors.primary }]}>Create Account</Text>
+        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>Please fill in your details</Text>
+        
+        <TextInput
+          label="Full Name"
+          value={name}
+          onChangeText={setName}
+          placeholder="Enter your full name"
+          autoCapitalize="words"
+          containerStyle={styles.inputContainer}
+        />
+        
+        <TextInput
+          label="Email (.edu only)"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="Enter your .edu email"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          containerStyle={styles.inputContainer}
+        />
+        
+        <TextInput
+          label="Phone Number"
+          value={phoneNumber}
+          onChangeText={setPhoneNumber}
+          placeholder="Enter with country code (e.g., +1...)"
+          keyboardType="phone-pad"
+          containerStyle={styles.inputContainer}
+        />
+        
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
             style={[
-              styles.button, 
-              { backgroundColor: theme.colors.primary }
+              styles.continueButton,
+              {
+                backgroundColor: loading ? 'rgba(150,150,150,0.5)' : theme.colors.primary,
+              }
             ]}
             onPress={handleContinue}
             disabled={loading}
+            activeOpacity={0.7}
           >
-            {loading ? (
-              <ActivityIndicator color={theme.colors.buttonText} />
-            ) : (
-              <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
-                Continue
-              </Text>
-            )}
+            <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
+              {loading ? "Loading..." : "Continue"}
+            </Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        
+        <TouchableOpacity 
+          style={styles.backTextContainer}
+          onPress={goBack}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.backText, { color: theme.colors.primary }]}>
+            Return to Sign In
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 };
 
@@ -203,17 +231,28 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  header: {
+    height: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+  },
+  backButton: {
+    padding: 10,
+    marginTop: 5,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
   contentContainer: {
     padding: 20,
     flex: 1,
-    justifyContent: 'center',
-    minHeight: '100%',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 10,
-    marginTop: 60,
   },
   subtitle: {
     fontSize: 16,
@@ -222,17 +261,31 @@ const styles = StyleSheet.create({
   inputContainer: {
     marginBottom: 16,
   },
-  button: {
+  buttonContainer: {
+    width: '100%',
+    marginTop: 30,
+    alignItems: 'center',
+  },
+  continueButton: {
+    width: '100%',
     height: 50,
-    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24,
+    borderRadius: 10,
   },
   buttonText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
   },
+  backTextContainer: {
+    marginTop: 20,
+    padding: 15,
+    alignSelf: 'center',
+  },
+  backText: {
+    fontSize: 16,
+    textAlign: 'center',
+  }
 });
 
 export default EmailVerificationScreen; 

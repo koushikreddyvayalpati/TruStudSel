@@ -20,7 +20,6 @@ import FontAwesome from 'react-native-vector-icons/FontAwesome';
 
 // Import from contexts with new structure
 import { useAuth } from '../../contexts';
-import { useTheme } from '../../hooks';
 
 // Import types
 import { HomeScreenNavigationProp } from '../../types/navigation.types';
@@ -31,7 +30,6 @@ type HomescreenProps = {
 
 const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
   const { user } = useAuth();
-  const { theme } = useTheme();
   const [wishlist, setWishlist] = useState<number[]>([]);
 
   // Category data
@@ -103,7 +101,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
   const renderCategory = useCallback(({ item }: { item: any }) => (
     <TouchableOpacity key={item.id} style={styles.categoryItem}>
       <View style={styles.categoryCircleWrapper}>
-        <View style={styles.categoryCircle}>
+        <View style={[styles.categoryCircle, { backgroundColor: '#f7b305' }]}>
           {item.id === 1 && <Entypoicon name="game-controller" size={28} color="black" />}
           {item.id === 2 && <Icon name="bed" size={28} color="black" />}
           {item.id === 3 && <MaterialIcons name="directions-car" size={28} color="black" />}
@@ -111,14 +109,14 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
           {item.id === 5 && <MaterialIcons name="sports-cricket" size={28} color="black" />}
         </View>
       </View>
-      <Text style={styles.categoryText}>{item.name}</Text>
+      <Text style={[styles.categoryText, { color: '#333' }]}>{item.name}</Text>
     </TouchableOpacity>
   ), []);
 
   const renderProduct = useCallback(({ item }: { item: any }) => (
     <TouchableOpacity 
       key={item.id} 
-      style={styles.productCard}
+      style={[styles.productCard, { backgroundColor: 'white' }]}
       onPress={() => navigation.navigate('ProductInfoPage', { product: item })}
     >
       <Image 
@@ -126,9 +124,9 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
         style={styles.productImagePlaceholder} 
         resizeMode="cover" 
       />
-      <View style={styles.productInfo}>
-        <Text style={styles.productName}>{item.name}</Text>
-        <Text style={styles.productPrice}>{item.price}</Text>
+      <View style={[styles.productInfo, { backgroundColor: 'white' }]}>
+        <Text style={[styles.productName, { color: '#333' }]}>{item.name}</Text>
+        <Text style={[styles.productPrice, { color: 'black' }]}>{item.price}</Text>
         <TouchableOpacity 
           style={styles.wishlistButton} 
           onPress={() => toggleWishlist(item.id)}
@@ -144,7 +142,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
   ), [navigation, wishlist]);
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'white' }]}>
       <View style={styles.container}>
         {/* Top navigation bar with menu and profile */}
         <View style={styles.topBar}>
@@ -152,10 +150,10 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
             style={styles.menuButton} 
             onPress={() => navigation.openDrawer ? navigation.openDrawer() : null}
           >
-            <MaterialIcons name="menu" size={22} color={theme.colors.text} />
+            <MaterialIcons name="menu" size={22} color="#333" />
           </TouchableOpacity>
           
-          <Text style={[styles.truStudSelText, { color: theme.colors.primary }]}>TruStudSel</Text>
+          <Text style={[styles.truStudSelText, { color: '#efae1a' }]}>TruStudSel</Text>
           
           <View style={styles.topBarRight}>
             <TouchableOpacity 
@@ -164,34 +162,34 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
                 navigation.navigate('Profile');
               }}
             >
-              <View style={[styles.profileCircle, { backgroundColor: theme.colors.secondary }]}>
-                <Text style={[styles.profileText, { color: theme.colors.background }]}>{getInitial()}</Text>
+              <View style={[styles.profileCircle, { backgroundColor: '#e0e0e0' }]}>
+                <Text style={[styles.profileText, { color: '#333' }]}>{getInitial()}</Text>
               </View>
             </TouchableOpacity>
           </View>
         </View>
         
         {/* Search Bar */}
-        <View style={[styles.searchBox, { backgroundColor: theme.colors.surface }]}>
-          <EvilIcon name="search" size={20} color={theme.colors.text} />
+        <View style={[styles.searchBox, { backgroundColor: 'white', borderColor: 'gray' }]}>
+          <EvilIcon name="search" size={20} color="black" />
           <TextInput 
             placeholder="Search..." 
-            style={styles.input}
-            placeholderTextColor={theme.colors.placeholder}
+            style={[styles.input, { color: 'black' }]}
+            placeholderTextColor="gray"
           />
         </View>
         
         {/* Row with text and buttons */}
         <View style={styles.rowContainer}>
-          <Text style={[styles.plainText, { color: theme.colors.text }]}>All Items</Text>
+          <Text style={[styles.plainText, { color: 'black' }]}>All Items</Text>
           <View style={styles.buttonContainer}>
-            <TouchableOpacity style={[styles.smallButton, styles.sortButton, { backgroundColor: theme.colors.surface }]}>
-              <Text style={[styles.buttonText, { color: theme.colors.text }]}> Sort</Text>
-              <Icon name="sort" size={14} color={theme.colors.text} />
+            <TouchableOpacity style={[styles.smallButton, styles.sortButton, { backgroundColor: '#f7b305', borderColor: '#ddd' }]}>
+              <Text style={[styles.buttonText, { color: 'black' }]}> Sort</Text>
+              <Icon name="sort" size={14} color="black" />
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.smallButton, styles.filterButton, { backgroundColor: theme.colors.surface }]}>
-              <Text style={[styles.buttonText, { color: theme.colors.text }]}> Filter</Text>
-              <Icon name="filter" size={14} color={theme.colors.text} />
+            <TouchableOpacity style={[styles.smallButton, styles.filterButton, { backgroundColor: '#f7b305', borderColor: '#ddd' }]}>
+              <Text style={[styles.buttonText, { color: 'black' }]}> Filter</Text>
+              <Icon name="filter" size={14} color="black" />
             </TouchableOpacity>
           </View>
         </View>
@@ -210,7 +208,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
         {/* Scrollable container for all product sections */}
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* Featured Items Section */}
-          <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>Featured Items</Text>
+          <Text style={[styles.sectionHeader, { color: '#333' }]}>Featured Items</Text>
           <FlatList
             data={products}
             renderItem={renderProduct}
@@ -221,26 +219,27 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
           />
 
           {/* New Arrivals Section */}
-          <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>New Arrivals</Text>
-          <FlatList
-            data={newArrivals}
-            renderItem={renderProduct}
-            keyExtractor={item => item.id.toString()}
+          <Text style={[styles.sectionHeader, { color: '#333' }]}>New Arrivals</Text>
+          <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.productScrollView}
-          />
+          >
+            {newArrivals.map(product => renderProduct({ item: product }))}
+          </ScrollView>
 
           {/* Best Sellers Section */}
-          <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>Best Sellers</Text>
-          <FlatList
-            data={bestSellers}
-            renderItem={renderProduct}
-            keyExtractor={item => item.id.toString()}
+          <Text style={[styles.sectionHeader, { color: '#333' }]}>Best Sellers</Text>
+          <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.productScrollView}
-          />
+          >
+            {bestSellers.map(product => renderProduct({ item: product }))}
+          </ScrollView>
+          
+          {/* Bottom padding to avoid content being hidden behind navigation */}
+          <View style={{height: 70}} />
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -254,142 +253,161 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    padding: 16,
+    padding: 20,
+    paddingTop: 0,
   },
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
-  },
-  topBarRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 20,
   },
   menuButton: {
-    padding: 8,
+    padding: 5,
+  },
+  menuIcon: {
+    fontSize: 24,
+    color: '#333',
   },
   truStudSelText: {
+    fontSize: 19,
+    fontFamily: 'LibreCaslonDisplay',
+  },
+  profileButton: {
+    padding: 5,
+  },
+  profileCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  profileText: {
     fontSize: 20,
     fontWeight: 'bold',
   },
-  profileButton: {
-    marginLeft: 10,
-  },
-  profileCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
   searchBox: {
+    height: 40,
+    borderWidth: 1,
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    marginBottom: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
-    borderRadius: 10,
-    marginVertical: 10,
+    gap: 10,
   },
   input: {
-    flex: 1,
-    marginLeft: 10,
+    height: 40,
   },
   rowContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: 10,
+    marginBottom: 15,
   },
   plainText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
   },
   buttonContainer: {
     flexDirection: 'row',
   },
   smallButton: {
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 5,
+    marginLeft: 10,
+    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 8,
-    borderRadius: 15,
-    marginLeft: 10,
   },
   sortButton: {
-    paddingHorizontal: 12,
   },
   filterButton: {
-    paddingHorizontal: 12,
   },
   buttonText: {
     fontSize: 12,
+    marginLeft: 0,
+    marginRight: 5,
   },
   categoryContainer: {
-    marginVertical: 15,
+    height: 110,
+    paddingTop: 5,
+    paddingBottom: 15,
   },
   categoryItem: {
     alignItems: 'center',
-    marginRight: 20,
+    marginHorizontal: 7,
+    width: 65,
   },
   categoryCircleWrapper: {
-    width: 60,
-    height: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: 5,
+    marginBottom: 5,
   },
   categoryCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#f0f0f0',
-    alignItems: 'center',
+    width: 55,
+    height: 55,
+    borderRadius: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   categoryText: {
-    marginTop: 5,
     fontSize: 12,
+    textAlign: 'center',
+    marginTop: 5,
   },
   sectionHeader: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     marginVertical: 10,
   },
   productScrollView: {
-    paddingBottom: 15,
+    marginBottom: 20,
   },
   productCard: {
-    marginRight: 15,
     width: 150,
-    borderRadius: 10,
+    marginRight: 15,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
     overflow: 'hidden',
   },
   productImagePlaceholder: {
     width: 150,
     height: 120,
-    backgroundColor: '#e1e1e1',
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
+    backgroundColor: '#e0e0e0',
   },
   productInfo: {
     padding: 10,
-    backgroundColor: '#f9f9f9',
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
   },
   productName: {
-    fontWeight: 'bold',
+    fontSize: 14,
     marginBottom: 5,
   },
   productPrice: {
-    color: '#666',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   wishlistButton: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 10,
+    right: 10,
+  },
+  topBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
 

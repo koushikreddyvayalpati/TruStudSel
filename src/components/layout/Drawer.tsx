@@ -9,21 +9,24 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { Auth } from 'aws-amplify';
+import { NavigationProp } from '@react-navigation/native';
+import { MainStackParamList } from '../../types/navigation.types';
+import { useAuth } from '../../hooks';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.8;
 
-interface SimpleDrawerProps {
-  navigation: any;
+interface DrawerProps {
+  navigation: NavigationProp<MainStackParamList>;
   isOpen: boolean;
   onClose: () => void;
 }
 
-const SimpleDrawer = ({ navigation, isOpen, onClose }: SimpleDrawerProps) => {
+const Drawer = ({ navigation, isOpen, onClose }: DrawerProps) => {
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const [iconScale] = useState(new Animated.Value(1));
   const [isSignOutPressed, setIsSignOutPressed] = useState(false);
+  const { signOut } = useAuth();
 
   React.useEffect(() => {
     if (isOpen) {
@@ -56,10 +59,10 @@ const SimpleDrawer = ({ navigation, isOpen, onClose }: SimpleDrawerProps) => {
     ]).start();
   };
 
-  const navigateTo = (screenName: string) => {
+  const navigateTo = (screenName: keyof MainStackParamList) => {
     if (!isSignOutPressed) {
       animateIcon();
-      navigation.navigate(screenName);
+      navigation.navigate(screenName as any);
       onClose();
     }
   };
@@ -67,10 +70,7 @@ const SimpleDrawer = ({ navigation, isOpen, onClose }: SimpleDrawerProps) => {
   const handleSignOut = async () => {
     setIsSignOutPressed(true);
     try {
-      await Auth.signOut();
-      setTimeout(() => {
-        navigation.navigate('SignIn');
-      }, 300);
+      await signOut();
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -221,4 +221,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SimpleDrawer; 
+export default Drawer; 

@@ -1,21 +1,30 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import { MainStackParamList, HomeScreenNavigationProp } from '../types/navigation.types';
 
 // Import migrated screens from new structure
 import { HomeScreen } from '../screens/home';
 import { ProfileScreen } from '../screens/profile';
 import { ProductsScreen } from '../screens/products';
-import { MessagesScreen } from '../screens/messages';
+import { MessagesScreen, MessageScreen } from '../screens/messages';
+import { PostingScreen } from '../screens/posting';
+import { WishlistScreen } from '../screens/wishlist';
 
-// These imports will need to be updated once we migrate the existing screens
-const MessageScreen = require('../../screens/MessageScreen').default;
-const PostingScreen = require('../../screens/PostingScreen').default;
-const WishlistScreen = require('../../screens/WishlistScreen').default;
+// Import layout components from new structure
+import { BottomNavigation, Drawer } from '../components/layout';
 
-// Import layout components
-const BottomNavigation = require('../../components/BottomNavigation').default;
+// Create a placeholder for screens that haven't been migrated yet
+const PlaceholderScreen = ({ navigation, route }: any) => (
+  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+    <Text style={{ fontSize: 18, marginBottom: 20 }}>
+      {route.name} is not yet implemented
+    </Text>
+    <Text style={{ color: 'blue' }} onPress={() => navigation.goBack()}>
+      Go Back
+    </Text>
+  </View>
+);
 
 const Stack = createStackNavigator<MainStackParamList>();
 
@@ -62,18 +71,24 @@ const MainNavigator: React.FC = () => {
 
 // Wrapper component for Home screen with bottom navigation
 const HomeWithBottomNav: React.FC<{ navigation: HomeScreenNavigationProp }> = ({ navigation }) => {
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  
   // Add drawer open function to navigation
   React.useEffect(() => {
     navigation.openDrawer = () => {
-      // This would be implemented when we integrate the actual drawer
-      console.log('Open drawer functionality');
+      setIsDrawerOpen(true);
     };
   }, [navigation]);
 
   return (
     <View style={styles.container}>
       <HomeScreen navigation={navigation} />
-      <BottomNavigation navigation={navigation} />
+      <BottomNavigation />
+      <Drawer 
+        navigation={navigation as any} 
+        isOpen={isDrawerOpen} 
+        onClose={() => setIsDrawerOpen(false)} 
+      />
     </View>
   );
 };

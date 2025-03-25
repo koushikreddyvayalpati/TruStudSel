@@ -15,7 +15,6 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import MaterialIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../contexts/AuthContext';
-import { useTheme } from '../../hooks';
 import { Button } from '../../components/common';
 
 // Get device dimensions
@@ -34,8 +33,6 @@ const initialPosts = [
 const ProfileScreen = () => {
   const navigation = useNavigation();
   const { signOut, user } = useAuth();
-  const { theme } = useTheme();
-  const { colors } = theme;
 
   const [posts, setPosts] = useState(initialPosts);
   const user2 = {
@@ -81,13 +78,13 @@ const ProfileScreen = () => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: '#ffffff' }]}>
       <View style={styles.content}>
         <TouchableOpacity 
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Icon name="chevron-left" size={20} color={colors.text} />
+          <Icon name="chevron-left" size={20} color="#333" />
         </TouchableOpacity>
         
         <Button 
@@ -97,76 +94,93 @@ const ProfileScreen = () => {
           style={styles.signOutButton}
         />
 
-        <View style={[styles.profileCard, { backgroundColor: colors.card }]}>
+        <View style={[styles.profileCard, { 
+          backgroundColor: '#ffffff',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 2,
+          borderWidth: 1,
+          borderColor: '#eaeaea'
+        }]}>
           <View style={styles.profileLeft}>
-            <View style={[styles.profileImageContainer, { backgroundColor: colors.background }]}>
+            <View style={styles.profileImageContainer}>
               {user2.profileImage ? (
                 <Image source={{ uri: user2.profileImage }} style={styles.profileImage} />
               ) : (
-                <View style={[styles.profileImagePlaceholder, { backgroundColor: colors.primary }]}>
-                  <Text style={[styles.profileInitial, { color: '#FFFFFF' }]}>{getInitial()}</Text>
+                <View style={[styles.profileImagePlaceholder, { backgroundColor: '#f7b305', borderWidth: 2, borderColor: '#eaeaea' }]}>
+                  <Text style={[styles.profileInitial, { color: 'white' }]}>{getInitial()}</Text>
                 </View>
               )}
               {user2.isVerified && (
                 <Icon 
                   name="check-circle" 
                   size={25}
-                  color={colors.primary}
+                  color="#f7b305"
                   style={styles.verifiedBadge}
                 />
               )}
             </View>
             <View style={styles.nameContainer}>
-              <Text style={[styles.profileName, { color: colors.text }]}>{user2.name || 'User'}</Text>
+              <Text style={[styles.profileName, { color: '#333' }]}>{user2.name || 'User'}</Text>
               <TouchableOpacity style={styles.editButton}>
-                <Icon name="edit" size={16} color={colors.text} />
+                <Icon name="edit" size={16} color="#333" />
               </TouchableOpacity>
             </View>
           </View>
           
           <View style={styles.profileRight}>
             <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Text style={[styles.statNumber, { color: colors.text }]}>{user2.stats.sold}</Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Sold</Text>
+              <View style={[styles.statItem, { backgroundColor: '#f7b305', paddingVertical: 5, paddingHorizontal: 15, borderRadius: 8 }]}>
+                <Text style={[styles.statNumber, { color: '#000' }]}>{user2.stats.sold}</Text>
+                <Text style={[styles.statLabel, { color: '#4a5568' }]}>Sold</Text>
               </View>
             </View>
             
             <View style={styles.infoRow}>
-              <FontAwesome5 name="university" size={16} color={colors.textSecondary} />
-              <Text style={[styles.infoText, { color: colors.textSecondary }]}>{user2.university}</Text>
+              <FontAwesome5 name="university" size={16} color="#4a5568" />
+              <Text style={[styles.infoText, { color: '#4a5568' }]}>{user2.university}</Text>
             </View>
             
             <View style={styles.infoRow}>
-              <MaterialIcons name="email" size={16} color={colors.textSecondary} />
-              <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+              <MaterialIcons name="email" size={16} color="#4a5568" />
+              <Text style={[styles.infoText, { color: '#4a5568' }]}>
                 {user?.email || 'No email available'}
               </Text>
             </View>
           </View>
         </View>
         
-        <View style={[styles.textRow, { borderColor: colors.border }]}>
-          <TouchableOpacity style={[styles.rowButton, { borderColor: colors.border }]}>
-            <Text style={[styles.rowText, { color: colors.text }]}>InMarket</Text>
+        <View style={[styles.textRow, { borderColor: '#eaeaea' }]}>
+          <TouchableOpacity style={[styles.rowButton, { backgroundColor: '#f7b305', margin: 5, borderRadius: 20 }]}>
+            <Text style={[styles.rowText, { color: '#333333' }]}>InMarket</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.rowButton, { borderColor: colors.border }]}>
-            <Text style={[styles.rowText, { color: colors.text }]}>Sold</Text>
+          <TouchableOpacity style={[styles.rowButton, { backgroundColor: '#f7b305', margin: 5, borderRadius: 20 }]}>
+            <Text style={[styles.rowText, { color: '#333333' }]}>Sold</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.rowButton, { borderColor: colors.border }]}>
-            <Text style={[styles.rowText, { color: colors.text }]}>Purchased</Text>
+          <TouchableOpacity style={[styles.rowButton, { backgroundColor: '#f7b305', margin: 5, borderRadius: 20 }]}>
+            <Text style={[styles.rowText, { color: '#333333' }]}>Purchased</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.rowButton, { borderRightWidth: 0, borderColor: colors.border }]}>
-            <Text style={[styles.rowText, { color: colors.text }]}>Archive</Text>
+          <TouchableOpacity style={[styles.rowButton, { backgroundColor: '#f7b305', margin: 5, borderRadius: 20 }]}>
+            <Text style={[styles.rowText, { color: '#333333' }]}>Archive</Text>
           </TouchableOpacity>
         </View>
 
         <FlatList
           data={posts}
           renderItem={({ item }) => (
-            <View style={[styles.postContainer, { backgroundColor: colors.card }]}>
+            <View style={[styles.postContainer, { 
+              backgroundColor: '#fff9e6',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 2,
+              elevation: 2,
+              margin: 9
+            }]}>
               <Image source={{ uri: item.image }} style={styles.postImage} />
-              <Text style={[styles.postCaption, { color: colors.text }]}>{item.caption}</Text>
+              <Text style={[styles.postCaption, { color: '#333' }]}>{item.caption}</Text>
             </View>
           )}
           keyExtractor={item => item.id.toString()}
@@ -180,7 +194,7 @@ const ProfileScreen = () => {
           title="Is it available?"
           onPress={() => navigation.navigate('MessageScreen' as never)}
           variant="primary"
-          style={styles.availabilityButton}
+          style={[styles.availabilityButton, { backgroundColor: '#f7b305' }]}
         />
       </View>
     </SafeAreaView>
@@ -212,29 +226,34 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingLeft: 0,
     flexDirection: 'row',
+    alignSelf: 'center',
   },
   profileLeft: {
-    width: '35%',
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingRight: 5,
+  },
+  profileRight: {
+    flex: 2,
     justifyContent: 'center',
   },
   profileImageContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 5,
+    marginBottom: 10,
+    position: 'relative',
   },
   profileImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 2,
+    borderColor: '#f7b305',
   },
   profileImagePlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    paddingTop: 10,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -244,16 +263,16 @@ const styles = StyleSheet.create({
   },
   verifiedBadge: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: 'white',
+    bottom: 5,
+    right: 5,
+    backgroundColor: 'transparent',
     borderRadius: 12,
-    overflow: 'hidden',
+    padding: 2,
+    elevation: 2,
   },
   nameContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
   },
   profileName: {
     fontSize: 16,
@@ -263,70 +282,76 @@ const styles = StyleSheet.create({
   editButton: {
     padding: 4,
   },
-  profileRight: {
-    width: '65%',
-    paddingHorizontal: 10,
-  },
   statsRow: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 15,
   },
   statItem: {
-    marginRight: 20,
+    alignItems: 'center',
+    marginRight: 10,
   },
   statNumber: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: 12,
+    fontWeight: '600',
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
+    justifyContent: 'flex-start',
   },
   infoText: {
-    marginLeft: 8,
     fontSize: 14,
+    marginLeft: 8,
   },
   textRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    paddingVertical: 10,
+    width: '100%',
+    borderRadius: 8,
+    padding: 5,
+    backgroundColor: '#ffffff',
   },
   rowButton: {
     flex: 1,
     alignItems: 'center',
     paddingVertical: 8,
-    borderRightWidth: 1,
   },
   rowText: {
-    fontSize: 14,
+    fontSize: 16,
+    textAlign: 'center',
     fontWeight: '500',
   },
   gridContainer: {
-    paddingBottom: 20,
+    justifyContent: 'flex-start',
+    padding: 5,
   },
   postContainer: {
-    width: (width - 32 - 16) / 3, // Account for padding and gap
-    margin: 4,
-    borderRadius: 8,
-    overflow: 'hidden',
+    width: (width * 0.8 - 10) / 3,
+    height: 150,
+    marginBottom: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   postImage: {
     width: '100%',
-    height: 100,
+    height: '80%',
+    borderRadius: 10,
   },
   postCaption: {
-    padding: 8,
+    marginTop: 5,
     fontSize: 12,
+    textAlign: 'center',
   },
   availabilityButton: {
     marginTop: 20,
+    padding: 10,
+    borderRadius: 5,
   },
 });
 

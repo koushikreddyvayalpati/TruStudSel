@@ -13,7 +13,6 @@ import { useNavigation, NavigationProp } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useTheme } from '../../contexts/ThemeContext';
 import { MainStackParamList } from '../../types/navigation.types';
 
 const { width } = Dimensions.get('window');
@@ -40,33 +39,39 @@ const messagesData: MessageData[] = [
 
 const MessagesScreen = () => {
   const navigation = useNavigation<NavigationProp<MainStackParamList>>();
-  const { theme } = useTheme();
 
   const renderItem = ({ item }: { item: MessageData }) => (
     <TouchableOpacity 
       style={[
         styles.messageContainer, 
-        { backgroundColor: theme.colors.card, ...theme.shadows.sm }
+        { 
+          backgroundColor: '#fff',
+          elevation: 2,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.1,
+          shadowRadius: 2
+        }
       ]}
       onPress={() => navigation.navigate('MessageScreen', { conversationId: item.id, recipientName: item.name })}
       activeOpacity={0.8}
     >
       <View style={[
         styles.avatar,
-        { backgroundColor: item.status === 'online' ? theme.colors.success : theme.colors.textSecondary },
+        { backgroundColor: item.status === 'online' ? '#4CAF50' : '#B0BEC5' },
       ]}>
         <Text style={styles.avatarText}>{item.name.charAt(0)}</Text>
         {item.status === 'online' && (
-          <View style={[styles.onlineIndicatorAvatar, { backgroundColor: theme.colors.success, borderColor: theme.colors.card }]} />
+          <View style={[styles.onlineIndicatorAvatar, { backgroundColor: '#4CAF50', borderColor: '#fff' }]} />
         )}
       </View>
       <View style={styles.messageContent}>
         <View style={styles.headerRow}>
-          <Text style={[styles.senderName, { color: theme.colors.text }]}>{item.name}</Text>
-          <Text style={[styles.messageTime, { color: theme.colors.textSecondary }]}>{item.time}</Text>
+          <Text style={[styles.senderName, { color: '#222' }]}>{item.name}</Text>
+          <Text style={[styles.messageTime, { color: '#999' }]}>{item.time}</Text>
         </View>
         <Text 
-          style={[styles.messageText, { color: theme.colors.textSecondary }]} 
+          style={[styles.messageText, { color: '#777' }]} 
           numberOfLines={1}
           ellipsizeMode="tail"
         >
@@ -77,26 +82,26 @@ const MessagesScreen = () => {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.colors.primary} />
-      <View style={[styles.headerContainer, { backgroundColor: theme.colors.primary }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: '#fff' }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#f7b305" />
+      <View style={[styles.headerContainer, { backgroundColor: '#f7b305' }]}>
         <TouchableOpacity 
           onPress={() => navigation.navigate('Home')} 
           style={styles.backButton}
           testID="back-button"
         >
-          <MaterialIcons name="arrow-back-ios-new" size={22} color="#FFFFFF" />
+          <MaterialIcons name="arrow-back-ios-new" size={22} color="black" />
         </TouchableOpacity>
-        <Text style={[styles.header, { color: "#FFFFFF" }]}>Messages</Text>
+        <Text style={[styles.header, { color: "black" }]}>Messages</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="search-outline" size={22} color="#FFFFFF" />
+            <Ionicons name="search-outline" size={22} color="black" />
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.actionButton}
             onPress={() => navigation.navigate('Home')}
           >
-            <Icon name="home" size={22} color="#FFFFFF" />
+            <Icon name="home" size={22} color="black" />
           </TouchableOpacity>
         </View>
       </View>
@@ -105,10 +110,18 @@ const MessagesScreen = () => {
         renderItem={renderItem}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContainer}
-        ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: theme.colors.border }]} />}
+        ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: '#f0f0f0' }]} />}
       />
-      <TouchableOpacity style={[styles.composeButton, { backgroundColor: theme.colors.primary, ...theme.shadows.md }]}>
-        <Icon name="edit" size={24} color="#FFFFFF" />
+      <TouchableOpacity 
+        style={[styles.composeButton, { 
+          backgroundColor: '#f7b305',
+          elevation: 6,
+          shadowOpacity: 0.2,
+          shadowRadius: 4,
+          shadowOffset: { width: 0, height: 2 }
+        }]}
+      >
+        <Icon name="edit" size={24} color="black" />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -211,10 +224,6 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 6,
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
   },
   listContainer: {
     paddingVertical: 10,
@@ -222,4 +231,4 @@ const styles = StyleSheet.create({
   }
 });
 
-export default MessagesScreen; 
+export default MessagesScreen;
