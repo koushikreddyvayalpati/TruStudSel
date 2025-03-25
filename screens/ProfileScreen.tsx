@@ -110,8 +110,8 @@ const ProfileScreen = () => {
         <View style={styles.profileCard}>
           <View style={styles.profileLeft}>
             <View style={styles.profileImageContainer}>
-              {user.profileImage ? (
-                <Image source={{ uri: user.profileImage }} style={styles.profileImage} />
+              {user2.profileImage ? (
+                <Image source={{ uri: user2.profileImage }} style={styles.profileImage} />
               ) : (
                 <View style={styles.profileImagePlaceholder}>
                   <Text style={styles.profileInitial}>{getInitial()}</Text>
