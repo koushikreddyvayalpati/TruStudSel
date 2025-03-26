@@ -82,6 +82,114 @@ describe('HomeScreen', () => {
     expect(seeAllLinks).toBeTruthy();
   });
   
+  // Update test for the sort dropdown
+  it('opens sort dropdown when sort button is pressed', async () => {
+    const { getByText, queryByText } = render(<HomeScreen navigation={useNavigation()} />);
+    
+    // Initially, the dropdown options are not visible
+    expect(queryByText('Price: Low to High')).toBeNull();
+    
+    // Find and press the sort button
+    const sortButton = getByText('Sort');
+    fireEvent.press(sortButton);
+    
+    // Now the dropdown options should be visible
+    await waitFor(() => {
+      // Check for sort options
+      expect(getByText('Default')).toBeTruthy();
+      expect(getByText('Price: Low to High')).toBeTruthy();
+      expect(getByText('Price: High to Low')).toBeTruthy();
+      expect(getByText('Newest First')).toBeTruthy();
+      expect(getByText('Popularity')).toBeTruthy();
+    });
+    
+    // Select a sort option
+    const sortOption = getByText('Price: Low to High');
+    fireEvent.press(sortOption);
+    
+    // Dropdown should be closed after selection
+    await waitFor(() => {
+      expect(queryByText('Price: Low to High')).toBeNull();
+    });
+  });
+  
+  // Add test for the filter dropdown
+  it('opens filter dropdown when filter button is pressed', async () => {
+    const { getByText, queryByText } = render(<HomeScreen navigation={useNavigation()} />);
+    
+    // Initially, the dropdown options are not visible
+    expect(queryByText('Brand New')).toBeNull();
+    
+    // Find and press the filter button
+    const filterButton = getByText('Filter');
+    fireEvent.press(filterButton);
+    
+    // Now the dropdown options should be visible
+    await waitFor(() => {
+      // Check for filter options
+      expect(getByText('Brand New')).toBeTruthy();
+      expect(getByText('Used')).toBeTruthy();
+      expect(getByText('For Rent')).toBeTruthy();
+      expect(getByText('For Sale')).toBeTruthy();
+      expect(getByText('Free Items')).toBeTruthy();
+    });
+    
+    // Select a filter option
+    const filterOption = getByText('Brand New');
+    fireEvent.press(filterOption);
+    
+    // Filter option should be selected, but dropdown should remain open
+    // since filters are multi-select
+    await waitFor(() => {
+      expect(getByText('Brand New')).toBeTruthy();
+    });
+    
+    // Press the filter button again to close the dropdown
+    fireEvent.press(filterButton);
+    
+    // Dropdown should be closed
+    await waitFor(() => {
+      expect(queryByText('Brand New')).toBeNull();
+    });
+    
+    // The filter count should be displayed
+    const filterButtonWithCount = getByText('Filter (1)');
+    expect(filterButtonWithCount).toBeTruthy();
+  });
+  
+  // Test that opening one dropdown closes the other
+  it('closes sort dropdown when filter dropdown is opened and vice versa', async () => {
+    const { getByText, queryByText } = render(<HomeScreen navigation={useNavigation()} />);
+    
+    // Open sort dropdown
+    const sortButton = getByText('Sort');
+    fireEvent.press(sortButton);
+    
+    // Sort dropdown should be visible
+    await waitFor(() => {
+      expect(getByText('Default')).toBeTruthy();
+    });
+    
+    // Now open filter dropdown
+    const filterButton = getByText('Filter');
+    fireEvent.press(filterButton);
+    
+    // Filter dropdown should be visible and sort dropdown should be closed
+    await waitFor(() => {
+      expect(getByText('Brand New')).toBeTruthy();
+      expect(queryByText('Default')).toBeNull();
+    });
+    
+    // Now open sort dropdown again
+    fireEvent.press(sortButton);
+    
+    // Sort dropdown should be visible and filter dropdown should be closed
+    await waitFor(() => {
+      expect(getByText('Default')).toBeTruthy();
+      expect(queryByText('Brand New')).toBeNull();
+    });
+  });
+  
   it('shows the first initial of user name in profile circle', () => {
     const { getByText } = render(<HomeScreen navigation={useNavigation()} />);
     expect(getByText('T')).toBeTruthy(); // First initial of "Test User"

@@ -185,12 +185,30 @@ const ProductSection: React.FC<{
   </View>
 );
 
+// Define sort options
+type SortOption = {
+  id: string;
+  label: string;
+};
+
+// Define filter options type
+type FilterOption = {
+  id: string;
+  label: string;
+};
+
 const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
   const { user } = useAuth();
   const [wishlist, setWishlist] = useState<number[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeCategory, setActiveCategory] = useState<number | null>(null);
+  // Sort states
+  const [sortDropdownVisible, setSortDropdownVisible] = useState(false);
+  const [selectedSortOption, setSelectedSortOption] = useState<string>('default');
+  // Add filter states
+  const [filterDropdownVisible, setFilterDropdownVisible] = useState(false);
+  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   
   // Category data with icon identifiers for type safety
   const categories = useMemo<Category[]>(() => [
@@ -288,6 +306,66 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
     console.log(`See all pressed for: ${section}`);
   }, []);
 
+  // Define sort options
+  const sortOptions = useMemo<SortOption[]>(() => [
+    { id: 'default', label: 'Default' },
+    { id: 'price_low_high', label: 'Price: Low to High' },
+    { id: 'price_high_low', label: 'Price: High to Low' },
+    { id: 'newest', label: 'Newest First' },
+    { id: 'popularity', label: 'Popularity' },
+  ], []);
+
+  // Add a handler for sort option selection
+  const handleSortOptionSelect = useCallback((optionId: string) => {
+    setSelectedSortOption(optionId);
+    setSortDropdownVisible(false);
+    
+    // Here you would implement the actual sorting logic
+    console.log(`Sort option selected: ${optionId}`);
+    
+    // Example of how you might sort the products (implement according to your data structure)
+    // if (optionId === 'price_low_high') {
+    //   // Sort products by price low to high
+    // } else if (optionId === 'price_high_low') {
+    //   // Sort products by price high to low
+    // }
+  }, []);
+
+  // Define filter options
+  const filterOptions = useMemo<FilterOption[]>(() => [
+    { id: 'new', label: 'Brand New' },
+    { id: 'used', label: 'Used' },
+    { id: 'rent', label: 'For Rent' },
+    { id: 'sell', label: 'For Sale' },
+    { id: 'free', label: 'Free Items' },
+  ], []);
+
+  // Add a handler for filter option selection
+  const handleFilterOptionSelect = useCallback((optionId: string) => {
+    setSelectedFilters(prevFilters => {
+      // Toggle the filter on/off
+      if (prevFilters.includes(optionId)) {
+        return prevFilters.filter(id => id !== optionId);
+      } else {
+        return [...prevFilters, optionId];
+      }
+    });
+    
+    // Here you would implement the actual filtering logic
+    console.log(`Filter option toggled: ${optionId}`);
+  }, []);
+
+  // Close other dropdown when one is opened
+  const handleSortButtonClick = useCallback(() => {
+    setSortDropdownVisible(!sortDropdownVisible);
+    if (filterDropdownVisible) setFilterDropdownVisible(false);
+  }, [sortDropdownVisible, filterDropdownVisible]);
+
+  const handleFilterButtonClick = useCallback(() => {
+    setFilterDropdownVisible(!filterDropdownVisible);
+    if (sortDropdownVisible) setSortDropdownVisible(false);
+  }, [filterDropdownVisible, sortDropdownVisible]);
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: 'white' }]}>
       <View style={styles.container}>
@@ -339,14 +417,83 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
             }
           </Text>
           <View style={styles.buttonContainer}>
-            <TouchableOpacity style={[styles.smallButton, styles.sortButton, { backgroundColor: '#f7b305', borderColor: '#ddd' }]}>
-              <Text style={[styles.buttonText, { color: 'black' }]}> Sort</Text>
-              <Icon name="sort" size={14} color="black" />
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.smallButton, styles.filterButton, { backgroundColor: '#f7b305', borderColor: '#ddd' }]}>
-              <Text style={[styles.buttonText, { color: 'black' }]}> Filter</Text>
-              <Icon name="filter" size={14} color="black" />
-            </TouchableOpacity>
+            <View style={{ position: 'relative' }}>
+              <TouchableOpacity 
+                style={[styles.smallButton, styles.sortButton, { backgroundColor: '#f7b305', borderColor: '#ddd' }]}
+                onPress={handleSortButtonClick}
+              >
+                <Text style={[styles.buttonText, { color: 'black' }]}> Sort</Text>
+                <Icon name="sort" size={14} color="black" />
+              </TouchableOpacity>
+              
+              {/* Sort Dropdown */}
+              {sortDropdownVisible && (
+                <View style={styles.dropdown}>
+                  {sortOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option.id}
+                      style={[
+                        styles.dropdownItem,
+                        selectedSortOption === option.id && styles.selectedDropdownItem
+                      ]}
+                      onPress={() => handleSortOptionSelect(option.id)}
+                    >
+                      <Text 
+                        style={[
+                          styles.dropdownItemText,
+                          selectedSortOption === option.id && styles.selectedDropdownItemText
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                      {selectedSortOption === option.id && (
+                        <MaterialIcons name="check" size={18} color="#f7b305" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+            
+            <View style={{ position: 'relative' }}>
+              <TouchableOpacity 
+                style={[styles.smallButton, styles.filterButton, { backgroundColor: '#f7b305', borderColor: '#ddd' }]}
+                onPress={handleFilterButtonClick}
+              >
+                <Text style={[styles.buttonText, { color: 'black' }]}>
+                  {selectedFilters.length > 0 ? ` Filter (${selectedFilters.length})` : ' Filter'}
+                </Text>
+                <Icon name="filter" size={14} color="black" />
+              </TouchableOpacity>
+              
+              {/* Filter Dropdown */}
+              {filterDropdownVisible && (
+                <View style={styles.dropdown}>
+                  {filterOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option.id}
+                      style={[
+                        styles.dropdownItem,
+                        selectedFilters.includes(option.id) && styles.selectedDropdownItem
+                      ]}
+                      onPress={() => handleFilterOptionSelect(option.id)}
+                    >
+                      <Text 
+                        style={[
+                          styles.dropdownItemText,
+                          selectedFilters.includes(option.id) && styles.selectedDropdownItemText
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                      {selectedFilters.includes(option.id) && (
+                        <MaterialIcons name="check" size={18} color="#f7b305" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
           </View>
         </View>
         
@@ -602,6 +749,39 @@ const styles = StyleSheet.create({
   emptyText: {
     color: '#777',
     fontSize: 14,
+  },
+  dropdown: {
+    position: 'absolute',
+    top: 40,
+    right: 0,
+    width: Math.min(200, width * 0.5),
+    backgroundColor: 'white',
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    zIndex: 1000,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  selectedDropdownItem: {
+    backgroundColor: '#f9f9f9',
+  },
+  dropdownItemText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  selectedDropdownItemText: {
+    fontWeight: 'bold',
+    color: '#f7b305',
   },
 });
 
