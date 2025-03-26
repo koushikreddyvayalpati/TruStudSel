@@ -348,17 +348,19 @@ const ProductsScreen = () => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
       
-      {/* Simplified Header with only back button and report warning */}
+      {/* Enhanced Header with even-width buttons */}
       <View style={styles.header}>
         <TouchableOpacity 
-          style={styles.backButton}
+          style={styles.headerButton}
           onPress={() => navigation.goBack()}
         >
           <Ionicons name="chevron-back" size={24} color="#333" />
         </TouchableOpacity>
         
+        <Text style={styles.headerTitle} numberOfLines={1}>Product Details</Text>
+        
         <TouchableOpacity 
-          style={styles.reportButton}
+          style={styles.headerButton}
           onPress={() => Alert.alert('Report Item', 'Do you want to report this item?')}
         >
           <Ionicons name="flag-outline" size={22} color="#e74c3c" />
@@ -538,7 +540,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     paddingVertical: 12,
     backgroundColor: 'white',
     borderBottomWidth: 1,
@@ -555,15 +557,32 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  backButton: {
-    padding: 10,
+  headerButton: {
+    width: 40,
+    height: 40,
     borderRadius: 20,
     backgroundColor: '#f8f8f8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
   },
-  reportButton: {
-    padding: 10,
-    borderRadius: 20,
-    backgroundColor: '#fff0f0',
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
+    flex: 1,
+    marginHorizontal: 10,
   },
   scrollView: {
     flex: 1,
