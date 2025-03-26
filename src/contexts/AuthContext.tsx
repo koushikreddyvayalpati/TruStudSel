@@ -68,9 +68,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const processUserData = (cognitoUser: any): UserData => {
     console.log('Processing Cognito user:', cognitoUser);
     
-    return {
+    // Extract email from attributes or username if it looks like an email
+    let email = cognitoUser.attributes?.email || '';
+    if (!email && cognitoUser.username && cognitoUser.username.includes('@')) {
+      email = cognitoUser.username;
+      console.log('Using username as email:', email);
+    }
+    
+    const userData = {
       username: cognitoUser.username,
-      email: cognitoUser.attributes?.email || '',
+      email: email,
       name: cognitoUser.attributes?.name || 
             cognitoUser.attributes?.['custom:name'] || 
             cognitoUser.username,
@@ -83,6 +90,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       },
       attributes: cognitoUser.attributes,
     };
+    
+    console.log('Processed user data:', userData);
+    return userData;
   };
 
   // Check if user is already signed in
@@ -120,6 +130,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     try {
       const cognitoUser = await Auth.signIn(username, password);
+      
+      // If username looks like an email and there's no email in attributes, add it
+      if (username.includes('@') && (!cognitoUser.attributes || !cognitoUser.attributes.email)) {
+        console.log('Adding email from username to attributes:', username);
+        if (!cognitoUser.attributes) {
+          cognitoUser.attributes = {};
+        }
+        cognitoUser.attributes.email = username;
+      }
+      
       const userData = processUserData(cognitoUser);
       
       setState({

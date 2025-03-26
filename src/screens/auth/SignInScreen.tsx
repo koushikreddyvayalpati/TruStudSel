@@ -33,6 +33,11 @@ const SignInScreen: React.FC = () => {
       // Get user attributes if available
       const userAttributes = user.attributes || {};
       console.log('User attributes:', userAttributes);
+      
+      // Set the email as username if email is empty
+      if (!userAttributes.email && username.includes('@')) {
+        console.log('Setting email from username:', username);
+      }
     } catch (error) {
       console.error('Login error:', error);
       Alert.alert('Login Error', (error as Error).message || 'Failed to sign in');

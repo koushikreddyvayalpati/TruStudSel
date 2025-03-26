@@ -22,6 +22,22 @@ interface DrawerProps {
   onClose: () => void;
 }
 
+// Create a global event emitter for drawer state
+export const drawerEventEmitter = {
+  listeners: new Set<(isOpen: boolean) => void>(),
+  
+  addListener(callback: (isOpen: boolean) => void) {
+    this.listeners.add(callback);
+    return () => {
+      this.listeners.delete(callback);
+    };
+  },
+  
+  emit(isOpen: boolean) {
+    this.listeners.forEach(callback => callback(isOpen));
+  }
+};
+
 const Drawer = ({ navigation, isOpen, onClose }: DrawerProps) => {
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const [iconScale] = useState(new Animated.Value(1));
@@ -35,12 +51,16 @@ const Drawer = ({ navigation, isOpen, onClose }: DrawerProps) => {
         duration: 300,
         useNativeDriver: true,
       }).start();
+      // Emit drawer open event
+      drawerEventEmitter.emit(true);
     } else {
       Animated.timing(translateX, {
         toValue: -DRAWER_WIDTH,
         duration: 300,
         useNativeDriver: true,
       }).start();
+      // Emit drawer close event
+      drawerEventEmitter.emit(false);
     }
   }, [isOpen, translateX]);
 
@@ -85,6 +105,7 @@ const Drawer = ({ navigation, isOpen, onClose }: DrawerProps) => {
   const closeDrawer = () => {
     if (!isSignOutPressed) {
       onClose();
+      drawerEventEmitter.emit(false);
     }
   };
 

@@ -34,18 +34,24 @@ const ProfileScreen = () => {
   const navigation = useNavigation();
   const { signOut, user } = useAuth();
 
+  // Log user object to debug why email might be missing
+  console.log('Auth user object:', user);
+
   const [posts, setPosts] = useState(initialPosts);
   const user2 = {
-    name: "Koushik",
-    email: "koushik@college.edu",
-    university: "State University",
+    name:"Koushik",
+    email: user?.email || user?.username || "No email available",
+    university: user?.university || "State University",
     stats: {
       sold: 24,
       purchased: 18
     },
-    profileImage: null,
+    profileImage: user?.profileImage || null,
     isVerified: true,
   };
+
+  // Log the user2 object that will be displayed
+  console.log('User2 object for display:', user2);
 
   // Function to load more posts  
   const loadMorePosts = () => {
@@ -75,6 +81,17 @@ const ProfileScreen = () => {
       return user.username.charAt(0).toUpperCase();
     }
     return 'U'; // Default if no name is available
+  };
+
+  // Custom verified badge component with white check mark
+  const VerifiedBadge = () => {
+    return (
+      <View style={styles.verifiedBadge}>
+        <View style={[styles.verifiedBadgeCircle, { backgroundColor: '#4CAF50' }]}>
+          <Icon name="check" size={14} color="#FFFFFF" />
+        </View>
+      </View>
+    );
   };
 
   return (
@@ -114,12 +131,7 @@ const ProfileScreen = () => {
                 </View>
               )}
               {user2.isVerified && (
-                <Icon 
-                  name="check-circle" 
-                  size={25}
-                  color="#f7b305"
-                  style={styles.verifiedBadge}
-                />
+                <VerifiedBadge />
               )}
             </View>
             <View style={styles.nameContainer}>
@@ -146,7 +158,7 @@ const ProfileScreen = () => {
             <View style={styles.infoRow}>
               <MaterialIcons name="email" size={16} color="#4a5568" />
               <Text style={[styles.infoText, { color: '#4a5568' }]}>
-                {user?.email || 'No email available'}
+                {user2.email}
               </Text>
             </View>
           </View>
@@ -269,6 +281,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 2,
     elevation: 2,
+  },
+  verifiedBadgeCircle: {
+    width: 25,
+    height: 25,
+    borderRadius: 12.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   nameContainer: {
     flexDirection: 'row',

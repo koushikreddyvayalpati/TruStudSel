@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 import Antdesign from 'react-native-vector-icons/AntDesign';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { HomeScreenNavigationProp } from '../../types/navigation.types';
+import { drawerEventEmitter } from './Drawer';
 
 /**
  * BottomNavigation component
@@ -16,6 +17,23 @@ import { HomeScreenNavigationProp } from '../../types/navigation.types';
  */
 const BottomNavigation: React.FC = () => {
   const navigation = useNavigation<HomeScreenNavigationProp>();
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  
+  // Listen for drawer events
+  useEffect(() => {
+    const removeListener = drawerEventEmitter.addListener((isOpen) => {
+      setIsDrawerOpen(isOpen);
+    });
+    
+    return () => {
+      removeListener();
+    };
+  }, []);
+  
+  // Don't render if drawer is open
+  if (isDrawerOpen) {
+    return null;
+  }
   
   // Function to render an icon with text
   const renderNavItem = (
