@@ -45,7 +45,7 @@ const BottomNavigation: React.FC = () => {
     if (isCenter) {
       return (
         <TouchableOpacity style={styles.centerNavButton} onPress={onPress}>
-          <View style={[styles.centerCircle, { backgroundColor: '#333333' }]}>
+          <View style={[styles.centerCircle, { backgroundColor: 'black' }]}>
             {icon}
           </View>
         </TouchableOpacity>
