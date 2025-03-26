@@ -278,199 +278,293 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         <View style={styles.contentContainer}>
           <View style={styles.header}>
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <TouchableOpacity 
+              style={styles.backButton} 
+              onPress={() => navigation.goBack()}
+            >
               <Icon name="chevron-left" size={20} color={theme.colors.text} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Upload Item</Text>
+            <View style={styles.headerSpacer} />
           </View>
           
-          {/* Multiple Image Upload Section */}
-          <View style={styles.imagesSection}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-              Photos {errors.images && <Text style={styles.errorText}>({errors.images})</Text>}
-            </Text>
-            <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>
-              Add up to 5 photos to showcase your item
-            </Text>
+          {/* Enhanced Photo Upload Section */}
+          <View style={styles.sectionWrapper}>
+            <View style={styles.sectionHeaderRow}>
+              <View>
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                  Photos {errors.images && <Text style={styles.errorText}>({errors.images})</Text>}
+                </Text>
+                <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>
+                  Add up to 5 photos to showcase your item
+                </Text>
+              </View>
+              <Text style={[styles.photoCount, { color: theme.colors.primary }]}>
+                {images.length}/5
+              </Text>
+            </View>
             
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imagesContainer}>
-              {images.map((image, index) => (
-                <View key={index} style={styles.imageWrapper}>
-                  <Image source={{ uri: image }} style={styles.thumbnailImage} />
-                  <TouchableOpacity 
-                    style={styles.removeImageButton}
-                    onPress={() => handleRemoveImage(index)}
-                  >
-                    <Icon name="times-circle" size={22} color="#e74c3c" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-              
-              {images.length < 5 && (
+            <View style={styles.photoGalleryContainer}>
+              {/* Main photo upload button */}
+              {images.length === 0 ? (
                 <TouchableOpacity 
-                  style={[styles.addImageButton, { borderColor: theme.colors.border }]} 
+                  style={[styles.mainPhotoButton, { borderColor: theme.colors.border }]} 
                   onPress={handleImageUpload}
                 >
-                  <Icon name="plus" size={24} color={theme.colors.primary} />
-                  <Text style={[styles.addImageText, { color: theme.colors.textSecondary }]}>
-                    Add Photo
+                  <View style={styles.addImageIconContainer}>
+                    <Icon name="camera" size={28} color={theme.colors.primary} />
+                    <Text style={[styles.mainPhotoText, { color: theme.colors.text }]}>
+                      Add Main Photo
+                    </Text>
+                    <Text style={[styles.photoTip, { color: theme.colors.textSecondary }]}>
+                      This will be the cover image
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.mainPhotoWrapper}>
+                  <Image 
+                    source={{ uri: images[0] }} 
+                    style={styles.mainPhoto} 
+                    resizeMode="cover"
+                  />
+                  <TouchableOpacity 
+                    style={styles.removeMainPhotoButton}
+                    onPress={() => handleRemoveImage(0)}
+                  >
+                    <Icon name="trash" size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+                  <View style={styles.mainPhotoLabel}>
+                    <Text style={styles.mainPhotoLabelText}>Main Photo</Text>
+                  </View>
+                </View>
+              )}
+              
+              {/* Additional photos row */}
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.additionalPhotosContainer}
+              >
+                {images.slice(1).map((image, index) => (
+                  <View key={index} style={styles.thumbnailWrapper}>
+                    <Image source={{ uri: image }} style={styles.thumbnailImage} />
+                    <TouchableOpacity 
+                      style={styles.removeThumbnailButton}
+                      onPress={() => handleRemoveImage(index + 1)}
+                    >
+                      <Icon name="times" size={14} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                
+                {images.length > 0 && images.length < 5 && (
+                  <TouchableOpacity 
+                    style={[styles.addThumbnailButton, { borderColor: theme.colors.border }]} 
+                    onPress={handleImageUpload}
+                  >
+                    <Icon name="plus" size={20} color={theme.colors.primary} />
+                  </TouchableOpacity>
+                )}
+              </ScrollView>
+              
+              {/* Photo upload tips */}
+              {images.length === 0 && (
+                <View style={styles.photoTipsContainer}>
+                  <View style={styles.photoTipRow}>
+                    <Icon name="check-circle" size={14} color={theme.colors.primary} style={styles.tipIcon} />
+                    <Text style={[styles.photoTipText, { color: theme.colors.textSecondary }]}>
+                      Use good lighting and clean background
+                    </Text>
+                  </View>
+                  <View style={styles.photoTipRow}>
+                    <Icon name="check-circle" size={14} color={theme.colors.primary} style={styles.tipIcon} />
+                    <Text style={[styles.photoTipText, { color: theme.colors.textSecondary }]}>
+                      Include multiple angles
+                    </Text>
+                  </View>
+                  <View style={styles.photoTipRow}>
+                    <Icon name="check-circle" size={14} color={theme.colors.primary} style={styles.tipIcon} />
+                    <Text style={[styles.photoTipText, { color: theme.colors.textSecondary }]}>
+                      Show any defects or wear
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          </View>
+          
+          {/* Sell/Rent Toggle Section */}
+          <View style={styles.sectionWrapper}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Listing Type</Text>
+            <View style={styles.toggleWrapper}>
+              <View style={styles.toggleContainer}>
+                <TouchableOpacity 
+                  style={[
+                    styles.toggleButton, 
+                    { backgroundColor: isSell ? theme.colors.primary : 'transparent' }
+                  ]} 
+                  onPress={() => setIsSell(true)}
+                >
+                  <Text style={[
+                    styles.toggleText, 
+                    { color: isSell ? theme.colors.buttonText : theme.colors.text }
+                  ]}>
+                    Sell
                   </Text>
                 </TouchableOpacity>
-              )}
-            </ScrollView>
+                <TouchableOpacity 
+                  style={[
+                    styles.toggleButton, 
+                    { backgroundColor: !isSell ? theme.colors.primary : 'transparent' }
+                  ]} 
+                  onPress={() => setIsSell(false)}
+                >
+                  <Text style={[
+                    styles.toggleText, 
+                    { color: !isSell ? theme.colors.buttonText : theme.colors.text }
+                  ]}>
+                    Rent
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
           
-          <View style={styles.toggleContainer}>
-            <TouchableOpacity 
-              style={[
-                styles.toggleButton, 
-                { backgroundColor: isSell ? theme.colors.primary : theme.colors.surface }
-              ]} 
-              onPress={() => setIsSell(true)}
-            >
-              <Text style={[
-                styles.toggleText, 
-                { color: isSell ? theme.colors.buttonText : theme.colors.text }
-              ]}>
-                Sell
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[
-                styles.toggleButton, 
-                { backgroundColor: !isSell ? theme.colors.primary : theme.colors.surface }
-              ]} 
-              onPress={() => setIsSell(false)}
-            >
-              <Text style={[
-                styles.toggleText, 
-                { color: !isSell ? theme.colors.buttonText : theme.colors.text }
-              ]}>
-                Rent
-              </Text>
-            </TouchableOpacity>
-          </View>
-          
-          <TextInput
-            label="Title"
-            value={title}
-            onChangeText={(text) => {
-              setTitle(text);
-              if (errors.title) {
-                setErrors(prev => ({...prev, title: undefined}));
-              }
-            }}
-            placeholder="Enter item title"
-            containerStyle={styles.inputContainer}
-            error={errors.title}
-          />
-          
-          {/* Type Dropdown */}
-          <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>
-              Type {errors.type && <Text style={styles.errorText}>({errors.type})</Text>}
-            </Text>
-            <TouchableOpacity 
-              style={[
-                styles.dropdown, 
-                { 
-                  borderColor: errors.type ? '#e74c3c' : theme.colors.border, 
-                  backgroundColor: theme.colors.surface 
+          {/* Item Details Section */}
+          <View style={styles.sectionWrapper}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Item Details</Text>
+            
+            <TextInput
+              label="Title"
+              value={title}
+              onChangeText={(text) => {
+                setTitle(text);
+                if (errors.title) {
+                  setErrors(prev => ({...prev, title: undefined}));
                 }
-              ]} 
-              onPress={() => setTypeModalVisible(true)}
-            >
-              <Text style={[styles.dropdownText, { 
-                color: displayType ? theme.colors.text : theme.colors.textSecondary 
-              }]}>
-                {displayType || "Select item type"}
-              </Text>
-              <Icon name="chevron-down" size={16} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-          
-          {/* Subcategory Dropdown - Only shown if selected type has subcategories */}
-          {hasSubcategories && selectedType && (
+              }}
+              placeholder="Enter item title"
+              containerStyle={styles.inputContainer}
+              error={errors.title}
+            />
+            
+            {/* Type Dropdown */}
             <View style={styles.inputContainer}>
-              <Text style={[styles.label, { color: theme.colors.text }]}>Subcategory</Text>
+              <Text style={[styles.label, { color: theme.colors.text }]}>
+                Type {errors.type && <Text style={styles.errorText}>({errors.type})</Text>}
+              </Text>
               <TouchableOpacity 
-                style={[styles.dropdown, { borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]} 
-                onPress={() => setSubcategoryModalVisible(true)}
+                style={[
+                  styles.dropdown, 
+                  { 
+                    borderColor: errors.type ? '#e74c3c' : theme.colors.border, 
+                    backgroundColor: theme.colors.surface 
+                  }
+                ]} 
+                onPress={() => setTypeModalVisible(true)}
               >
                 <Text style={[styles.dropdownText, { 
-                  color: displaySubcategory ? theme.colors.text : theme.colors.textSecondary 
+                  color: displayType ? theme.colors.text : theme.colors.textSecondary 
                 }]}>
-                  {displaySubcategory || `Select ${selectedType.name.toLowerCase()} subcategory`}
+                  {displayType || "Select item type"}
                 </Text>
                 <Icon name="chevron-down" size={16} color={theme.colors.textSecondary} />
               </TouchableOpacity>
             </View>
-          )}
-          
-          <TextInput
-            label="Description"
-            value={description}
-            onChangeText={(text) => {
-              setDescription(text);
-              if (errors.description) {
-                setErrors(prev => ({...prev, description: undefined}));
-              }
-            }}
-            placeholder="Describe your item (condition, features, etc.)"
-            multiline
-            textAlignVertical="top"
-            containerStyle={styles.textAreaContainer}
-            inputStyle={styles.textArea}
-            error={errors.description}
-          />
-          
-          <TextInput
-            label={`Price${isSell ? '' : ' (per day)'}`}
-            value={price}
-            onChangeText={(text) => {
-              setPrice(text);
-              if (errors.price) {
-                setErrors(prev => ({...prev, price: undefined}));
-              }
-            }}
-            placeholder={`Enter price in $${isSell ? '' : ' per day'}`}
-            keyboardType="numeric"
-            containerStyle={styles.inputContainer}
-            error={errors.price}
-          />
-          
-          {/* Condition Dropdown */}
-          <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>
-              Condition {errors.condition && <Text style={styles.errorText}>({errors.condition})</Text>}
-            </Text>
-            <TouchableOpacity 
-              style={[
-                styles.dropdown, 
-                { 
-                  borderColor: errors.condition ? '#e74c3c' : theme.colors.border, 
-                  backgroundColor: theme.colors.surface 
-                }
-              ]} 
-              onPress={() => setConditionModalVisible(true)}
-            >
-              <Text style={[styles.dropdownText, { 
-                color: displayCondition ? theme.colors.text : theme.colors.textSecondary 
-              }]}>
-                {displayCondition || "Select item condition"}
-              </Text>
-              <Icon name="chevron-down" size={16} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
-            {selectedCondition && (
-              <Text style={[styles.conditionDescription, { color: theme.colors.textSecondary }]}>
-                {selectedCondition.description}
-              </Text>
+            
+            {/* Subcategory Dropdown - Only shown if selected type has subcategories */}
+            {hasSubcategories && selectedType && (
+              <View style={styles.inputContainer}>
+                <Text style={[styles.label, { color: theme.colors.text }]}>Subcategory</Text>
+                <TouchableOpacity 
+                  style={[styles.dropdown, { borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]} 
+                  onPress={() => setSubcategoryModalVisible(true)}
+                >
+                  <Text style={[styles.dropdownText, { 
+                    color: displaySubcategory ? theme.colors.text : theme.colors.textSecondary 
+                  }]}>
+                    {displaySubcategory || `Select ${selectedType.name.toLowerCase()} subcategory`}
+                  </Text>
+                  <Icon name="chevron-down" size={16} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
             )}
+            
+            <TextInput
+              label="Description"
+              value={description}
+              onChangeText={(text) => {
+                setDescription(text);
+                if (errors.description) {
+                  setErrors(prev => ({...prev, description: undefined}));
+                }
+              }}
+              placeholder="Describe your item (condition, features, etc.)"
+              multiline
+              textAlignVertical="top"
+              containerStyle={styles.textAreaContainer}
+              inputStyle={styles.textArea}
+              error={errors.description}
+            />
           </View>
           
+          {/* Pricing & Condition Section */}
+          <View style={styles.sectionWrapper}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Pricing & Condition</Text>
+            
+            <TextInput
+              label={`Price${isSell ? '' : ' (per day)'}`}
+              value={price}
+              onChangeText={(text) => {
+                setPrice(text);
+                if (errors.price) {
+                  setErrors(prev => ({...prev, price: undefined}));
+                }
+              }}
+              placeholder={`Enter price in $${isSell ? '' : ' per day'}`}
+              keyboardType="numeric"
+              containerStyle={styles.inputContainer}
+              error={errors.price}
+            />
+            
+            {/* Condition Dropdown */}
+            <View style={styles.inputContainer}>
+              <Text style={[styles.label, { color: theme.colors.text }]}>
+                Condition {errors.condition && <Text style={styles.errorText}>({errors.condition})</Text>}
+              </Text>
+              <TouchableOpacity 
+                style={[
+                  styles.dropdown, 
+                  { 
+                    borderColor: errors.condition ? '#e74c3c' : theme.colors.border, 
+                    backgroundColor: theme.colors.surface 
+                  }
+                ]} 
+                onPress={() => setConditionModalVisible(true)}
+              >
+                <Text style={[styles.dropdownText, { 
+                  color: displayCondition ? theme.colors.text : theme.colors.textSecondary 
+                }]}>
+                  {displayCondition || "Select item condition"}
+                </Text>
+                <Icon name="chevron-down" size={16} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+              {selectedCondition && (
+                <Text style={[styles.conditionDescription, { color: theme.colors.textSecondary }]}>
+                  {selectedCondition.description}
+                </Text>
+              )}
+            </View>
+          </View>
+          
+          {/* Post Button */}
           <TouchableOpacity 
             style={[
               styles.button, 
@@ -486,9 +580,12 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
             {isLoading ? (
               <ActivityIndicator color={theme.colors.buttonText} size="small" />
             ) : (
-              <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
-                Post Item
-              </Text>
+              <View style={styles.buttonContent}>
+                <Icon name="check" size={18} color={theme.colors.buttonText} style={styles.buttonIcon} />
+                <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
+                  Post Item
+                </Text>
+              </View>
             )}
           </TouchableOpacity>
         </View>
@@ -505,8 +602,11 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
           <View style={[styles.modalContent, { backgroundColor: theme.colors.background }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Select Item Type</Text>
-              <TouchableOpacity onPress={() => setTypeModalVisible(false)}>
-                <Icon name="times" size={24} color={theme.colors.text} />
+              <TouchableOpacity 
+                style={styles.modalCloseButton}
+                onPress={() => setTypeModalVisible(false)}
+              >
+                <Icon name="times" size={22} color={theme.colors.text} />
               </TouchableOpacity>
             </View>
             <FlatList
@@ -544,8 +644,11 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
                 <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
                   Select {selectedType.name} Subcategory
                 </Text>
-                <TouchableOpacity onPress={() => setSubcategoryModalVisible(false)}>
-                  <Icon name="times" size={24} color={theme.colors.text} />
+                <TouchableOpacity 
+                  style={styles.modalCloseButton}
+                  onPress={() => setSubcategoryModalVisible(false)}
+                >
+                  <Icon name="times" size={22} color={theme.colors.text} />
                 </TouchableOpacity>
               </View>
               <FlatList
@@ -581,8 +684,11 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
           <View style={[styles.modalContent, { backgroundColor: theme.colors.background }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Select Condition</Text>
-              <TouchableOpacity onPress={() => setConditionModalVisible(false)}>
-                <Icon name="times" size={24} color={theme.colors.text} />
+              <TouchableOpacity 
+                style={styles.modalCloseButton}
+                onPress={() => setConditionModalVisible(false)}
+              >
+                <Icon name="times" size={22} color={theme.colors.text} />
               </TouchableOpacity>
             </View>
             <FlatList
@@ -618,68 +724,247 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 24,
+  },
   contentContainer: {
-    padding: 20,
-    paddingTop: 50,
+    padding: 16,
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 25,
+    justifyContent: 'space-between',
+    marginBottom: 24,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   backButton: {
     padding: 10,
-    marginRight: 10,
+    backgroundColor: 'rgba(0,0,0,0.03)',
+    borderRadius: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
+    letterSpacing: -0.3,
+  },
+  headerSpacer: {
+    width: 35, // Same width as back button to ensure title stays centered
+  },
+  sectionWrapper: {
+    marginBottom: 20,
+    backgroundColor: 'white',
+    borderRadius: 14,
+    padding: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     marginBottom: 8,
+    letterSpacing: -0.3,
   },
   sectionSubtitle: {
     fontSize: 14,
     marginBottom: 12,
+    lineHeight: 18,
   },
-  imagesSection: {
-    marginBottom: 25,
+  photoCount: {
+    fontSize: 15,
+    fontWeight: '600',
   },
-  imagesContainer: {
-    flexDirection: 'row',
-    marginBottom: 10,
+  photoGalleryContainer: {
+    marginTop: 4,
   },
-  imageWrapper: {
-    position: 'relative',
-    marginRight: 12,
-  },
-  thumbnailImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-  },
-  removeImageButton: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 2,
-  },
-  addImageButton: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-    borderWidth: 1,
+  mainPhotoButton: {
+    width: '100%',
+    height: 180,
+    borderWidth: 1.5,
     borderStyle: 'dashed',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.02)',
+    marginBottom: 14,
+  },
+  addImageIconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mainPhotoText: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  photoTip: {
+    fontSize: 13,
+  },
+  mainPhotoWrapper: {
+    width: '100%',
+    height: 180,
+    borderRadius: 12,
+    marginBottom: 14,
+    position: 'relative',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  mainPhoto: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+  },
+  removeMainPhotoButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 15,
+    width: 30,
+    height: 30,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  addImageText: {
+  mainPhotoLabel: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  mainPhotoLabelText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  additionalPhotosContainer: {
+    flexDirection: 'row',
+    paddingBottom: 8,
+  },
+  thumbnailWrapper: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 10,
+    position: 'relative',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+  },
+  removeThumbnailButton: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addThumbnailButton: {
+    width: 80,
+    height: 80,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.02)',
+  },
+  photoTipsContainer: {
+    marginTop: 12,
+    marginBottom: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+  },
+  photoTipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  tipIcon: {
+    marginRight: 8,
+  },
+  photoTipText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  toggleWrapper: {
+    alignItems: 'center',
     marginTop: 8,
-    fontSize: 14,
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    padding: 3,
+    width: '70%',
+  },
+  toggleButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  toggleText: {
+    fontWeight: '600',
+    fontSize: 15,
   },
   inputContainer: {
     marginBottom: 16,
@@ -690,56 +975,66 @@ const styles = StyleSheet.create({
   textArea: {
     height: 120,
     paddingTop: 12,
-  },
-  toggleContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 25,
-  },
-  toggleButton: {
-    flex: 1,
-    padding: 15,
+    fontSize: 15,
+    textAlignVertical: 'top',
     borderRadius: 10,
-    alignItems: 'center',
-    marginHorizontal: 5,
-  },
-  toggleText: {
-    fontWeight: 'bold',
-    fontSize: 16,
   },
   button: {
-    height: 55,
-    borderRadius: 10,
+    height: 50,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 40,
+    marginTop: 8,
+    marginBottom: 30,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonIcon: {
+    marginRight: 8,
   },
   buttonText: {
     fontSize: 16,
     fontWeight: 'bold',
+    letterSpacing: 0.2,
   },
   label: {
     marginBottom: 8,
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
   dropdown: {
-    height: 55,
-    borderWidth: 1,
+    height: 48,
+    borderWidth: 1.5,
     borderRadius: 10,
-    paddingHorizontal: 15,
+    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   dropdownText: {
-    fontSize: 16,
+    fontSize: 15,
   },
   conditionDescription: {
     marginTop: 6,
-    fontSize: 14,
+    fontSize: 13,
     fontStyle: 'italic',
+    lineHeight: 18,
+    paddingHorizontal: 3,
   },
   modalOverlay: {
     flex: 1,
@@ -749,38 +1044,60 @@ const styles = StyleSheet.create({
   modalContent: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingBottom: 30,
+    paddingHorizontal: 16,
+    paddingBottom: 24,
     maxHeight: '70%',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 15,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#eeeeee',
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+    marginBottom: 4,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    letterSpacing: -0.3,
+  },
+  modalCloseButton: {
+    padding: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.05)',
   },
   optionItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 5,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 8,
+    marginVertical: 2,
   },
   optionText: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '600',
   },
   optionDescription: {
-    fontSize: 14,
-    marginTop: 4,
+    fontSize: 13,
+    marginTop: 3,
+    opacity: 0.7,
+    lineHeight: 17,
   },
   conditionOption: {
     flex: 1,
@@ -788,7 +1105,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#e74c3c',
     fontWeight: 'normal',
-    fontSize: 14,
+    fontSize: 13,
   },
 });
 
