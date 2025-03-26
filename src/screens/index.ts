@@ -17,5 +17,8 @@ export * from './products';
 // Message screens
 export * from './messages';
 
+// Posting screens
+export * from './posting';
+
 // Wishlist screens
 export * from './wishlist'; 

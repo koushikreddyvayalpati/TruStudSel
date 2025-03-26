@@ -3,9 +3,9 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { View, StyleSheet } from 'react-native';
 import { MainStackParamList, HomeScreenNavigationProp } from '../types/navigation.types';
 
-// Import migrated screens from new structure
+// Import screens from barrel files
 import { HomeScreen } from '../screens/home';
-import { ProfileScreen } from '../screens/profile';
+import { ProfileScreen, EditProfileScreen } from '../screens/profile';
 import { ProductsScreen } from '../screens/products';
 import { MessagesScreen, MessageScreen } from '../screens/messages';
 import { PostingScreen } from '../screens/posting';
@@ -13,8 +13,6 @@ import { WishlistScreen } from '../screens/wishlist';
 
 // Import layout components from new structure
 import { BottomNavigation, Drawer } from '../components/layout';
-
-
 
 const Stack = createStackNavigator<MainStackParamList>();
 
@@ -34,6 +32,10 @@ const MainNavigator: React.FC = () => {
       <Stack.Screen 
         name="Profile" 
         component={ProfileScreen} 
+      />
+      <Stack.Screen 
+        name="EditProfile" 
+        component={EditProfileScreen} 
       />
       <Stack.Screen 
         name="MessagesScreen" 

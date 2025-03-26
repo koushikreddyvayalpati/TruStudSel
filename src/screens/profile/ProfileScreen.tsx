@@ -16,6 +16,7 @@ import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import MaterialIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/common';
+import { ProfileScreenNavigationProp } from '../../types/navigation.types';
 
 // Get device dimensions
 const { width } = Dimensions.get('window');
@@ -31,7 +32,7 @@ const initialPosts = [
 ];
 
 const ProfileScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<ProfileScreenNavigationProp>();
   const { signOut, user } = useAuth();
 
   // Log user object to debug why email might be missing
@@ -70,6 +71,11 @@ const ProfileScreen = () => {
     } catch (error) {
       console.error('Error signing out:', error);
     }
+  };
+
+  // Navigate to Edit Profile Screen
+  const handleEditProfile = () => {
+    navigation.navigate('EditProfile');
   };
 
   // Get the first letter of the user's name for the profile circle
@@ -136,7 +142,7 @@ const ProfileScreen = () => {
             </View>
             <View style={styles.nameContainer}>
               <Text style={[styles.profileName, { color: '#333' }]}>{user2.name || 'User'}</Text>
-              <TouchableOpacity style={styles.editButton}>
+              <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
                 <Icon name="edit" size={16} color="#333" />
               </TouchableOpacity>
             </View>
@@ -151,13 +157,13 @@ const ProfileScreen = () => {
             </View>
             
             <View style={styles.infoRow}>
-              <FontAwesome5 name="university" size={16} color="#4a5568" />
-              <Text style={[styles.infoText, { color: '#4a5568' }]}>{user2.university}</Text>
+              <FontAwesome5 name="university" size={16} color="black" />
+              <Text style={[styles.infoText, { color: 'black' }]}>{user2.university}</Text>
             </View>
             
             <View style={styles.infoRow}>
-              <MaterialIcons name="email" size={16} color="#4a5568" />
-              <Text style={[styles.infoText, { color: '#4a5568' }]}>
+              <MaterialIcons name="email" size={16} color="black" />
+              <Text style={[styles.infoText, { color: 'black' }]}>
                 {user2.email}
               </Text>
             </View>

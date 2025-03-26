@@ -19,6 +19,7 @@ export type AuthStackParamList = {
 export type MainStackParamList = {
   Home: undefined;
   Profile: undefined;
+  EditProfile: undefined;
   MessagesScreen: undefined;
   MessageScreen: { conversationId: string; recipientName: string };
   PostingScreen: undefined;
@@ -55,6 +56,7 @@ export type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, '
 };
 
 export type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Profile'>;
+export type EditProfileScreenNavigationProp = StackNavigationProp<RootStackParamList, 'EditProfile'>;
 export type MessagesScreenNavigationProp = StackNavigationProp<RootStackParamList, 'MessagesScreen'>;
 export type MessageScreenNavigationProp = StackNavigationProp<RootStackParamList, 'MessageScreen'>;
 export type PostingScreenNavigationProp = StackNavigationProp<RootStackParamList, 'PostingScreen'>;
