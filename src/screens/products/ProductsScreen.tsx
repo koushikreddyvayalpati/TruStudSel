@@ -643,7 +643,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 5,
   },
   shareButton: {
     padding: 8,
@@ -662,7 +663,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    marginBottom: 20,
+    marginBottom: 0,
   },
   productPrice: {
     fontSize: 24,
@@ -726,6 +727,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
+    height: 100,
     borderColor: '#eeeeee',
     ...Platform.select({
       ios: {
