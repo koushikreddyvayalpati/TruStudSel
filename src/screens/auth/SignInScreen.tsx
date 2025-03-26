@@ -10,7 +10,8 @@ import { SignInScreenNavigationProp } from '../../types/navigation.types';
 import { useAuth } from '../../contexts';
 import { useTheme } from '../../hooks';
 import { TextInput, BridgelessButton } from '../../components/common';
-
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
 const SignInScreen: React.FC = () => {
   const navigation = useNavigation<SignInScreenNavigationProp>();
   const { theme } = useTheme();
@@ -52,7 +53,7 @@ const SignInScreen: React.FC = () => {
           value={username}
           onChangeText={setUsername}
           placeholder="Enter your email"
-          leftIcon={<Text style={{ color: theme.colors.primary }}>📧</Text>}
+          leftIcon={<FontAwesome name="user" size={22} color="grey" />}
           containerStyle={styles.inputContainer}
         />
         
@@ -63,7 +64,7 @@ const SignInScreen: React.FC = () => {
           placeholder="Enter your password"
           secureTextEntry
           isPassword
-          leftIcon={<Text style={{ color: theme.colors.primary }}>🔒</Text>}
+          leftIcon={<MaterialIcons name="lock" size={22} color="grey" />}
           containerStyle={styles.inputContainer}
         />
         
@@ -116,6 +117,7 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     paddingHorizontal: 20,
+    marginTop: 120,
   },
   inputContainer: {
     marginBottom: 16,

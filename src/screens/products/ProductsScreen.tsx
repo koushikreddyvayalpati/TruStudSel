@@ -12,6 +12,7 @@ import {
   Alert
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { ProductInfoScreenRouteProp, ProductInfoScreenNavigationProp } from '../../types/navigation.types';
 
@@ -104,15 +105,15 @@ const ProductsScreen = () => {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Back Button with Icon */}
         <TouchableOpacity 
-          style={styles.backButton}
+          style={[styles.backButton, { top: 0 }]}
           onPress={() => navigation.goBack()}
         >
-          <Icon name="arrow-left" size={18} color="black" />
+          <Ionicons name="chevron-back" size={24} color="black" />
         </TouchableOpacity>
 
         {/* Warning Icon */}
         <TouchableOpacity 
-          style={styles.warningButton} 
+          style={[styles.warningButton, { top: 0 }]}
           onPress={() => Alert.alert('Report Item', 'Do you want to report this item?')}
         >
           <Icon name="exclamation-triangle" size={18} color="red" />
@@ -125,7 +126,8 @@ const ProductsScreen = () => {
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.3,
           shadowRadius: 6,
-          elevation: 5
+          elevation: 5,
+          marginTop: 50
         }]}>
           <ScrollView
             horizontal
@@ -289,14 +291,14 @@ const styles = StyleSheet.create({
   backButton: {
     position: 'absolute',
     top: 40,
-    left: 10,
+    left: 0,
     padding: 10,
     zIndex: 10,
   },
   warningButton: {
     position: 'absolute',
     top: 40,
-    right: 10,
+    right: 0,
     padding: 10,
     zIndex: 10,
   },
@@ -305,7 +307,7 @@ const styles = StyleSheet.create({
     height: 300,
     borderRadius: 10,
     padding: 15,
-    marginTop: 60,
+    marginTop: 10,
   },
   imageScrollView: {
     width: '100%',
