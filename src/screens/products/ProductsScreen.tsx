@@ -520,18 +520,19 @@ const ProductsScreen = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#ffffff',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#ffffff',
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
     color: '#333',
+    fontWeight: '500',
   },
   header: {
     flexDirection: 'row',
@@ -547,18 +548,22 @@ const styles = StyleSheet.create({
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
-        shadowRadius: 2,
+        shadowRadius: 3,
       },
       android: {
-        elevation: 2,
+        elevation: 3,
       },
     }),
   },
   backButton: {
-    padding: 8,
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: '#f8f8f8',
   },
   reportButton: {
-    padding: 8,
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: '#fff0f0',
   },
   scrollView: {
     flex: 1,
@@ -580,12 +585,12 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
       },
       android: {
-        elevation: 3,
+        elevation: 4,
       },
     }),
   },
@@ -599,10 +604,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 15,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
   paginationDot: {
     width: 8,
@@ -611,8 +616,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   productInfoContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingHorizontal: 20,
+    paddingTop: 16,
     backgroundColor: 'white',
   },
   titleContainer: {
@@ -622,27 +627,29 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   shareButton: {
-    padding: 4,
+    padding: 8,
+    backgroundColor: '#f8f8f8',
+    borderRadius: 20,
   },
   productName: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#222',
     letterSpacing: 0.3,
     flex: 1,
-    paddingRight: 10,
+    paddingRight: 14,
   },
   priceAndTagsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   productPrice: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#e67e22',
-    marginRight: 12,
+    marginRight: 16,
   },
   tagsContainer: {
     flexDirection: 'row',
@@ -652,13 +659,13 @@ const styles = StyleSheet.create({
   },
   tagItem: {
     backgroundColor: '#f8f8f8',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 16,
     marginRight: 8,
     marginBottom: 4,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#eeeeee',
   },
   tagText: {
     fontSize: 13,
@@ -666,16 +673,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   sectionContainer: {
-    marginTop: 16,
-    paddingBottom: 16,
+    marginTop: 20,
+    paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#eeeeee',
   },
   sectionTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 12,
+    color: '#222',
+    marginBottom: 14,
     letterSpacing: 0.3,
   },
   sectionTitleRow: {
@@ -690,26 +697,41 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   descriptionContainer: {
-    marginTop: 8,
-    paddingBottom: 16,
+    marginTop: 10,
+    paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#eeeeee',
   },
   descriptionBox: {
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#fafafa',
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
     borderColor: '#eeeeee',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
   },
   descriptionText: {
     fontSize: 16,
     lineHeight: 24,
-    color: '#333',
+    color: '#444',
   },
   readMoreButton: {
     marginTop: 12,
     alignSelf: 'flex-end',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 15,
+    backgroundColor: 'rgba(247, 179, 5, 0.1)',
   },
   readMoreText: {
     fontSize: 14,
@@ -718,17 +740,28 @@ const styles = StyleSheet.create({
   },
   
   sellerSection: {
-    marginTop: 16,
-    paddingBottom: 16,
+    marginTop: 20,
+    paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#eeeeee',
   },
   sellerProfileContainer: {
-    backgroundColor: '#f9f9f9',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: '#fafafa',
+    borderRadius: 16,
+    padding: 20,
     borderWidth: 1,
     borderColor: '#eeeeee',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   sellerInfoContainer: {
     flexDirection: 'row',
@@ -736,14 +769,25 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   profileCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 55,
+    height: 55,
+    borderRadius: 28,
     backgroundColor: '#f7b305',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.8)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   profileText: {
     fontSize: 22,
@@ -756,7 +800,7 @@ const styles = StyleSheet.create({
   sellerName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#222',
     marginBottom: 4,
   },
   ratingContainer: {
@@ -770,10 +814,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingHorizontal: 18,
+    borderRadius: 12,
     marginRight: 8,
     backgroundColor: '#f7b305',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   messageButton: {
     backgroundColor: '#f7b305',
@@ -785,12 +840,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   reviewItem: {
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#fafafa',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#eeeeee',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
   },
   reviewHeader: {
     flexDirection: 'row',
@@ -814,28 +880,34 @@ const styles = StyleSheet.create({
   similarProductItem: {
     width: 160,
     marginRight: 12,
-    borderRadius: 12,
+    borderRadius: 16,
     backgroundColor: 'white',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#eeeeee',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   similarProductImage: {
     width: '100%',
     height: 120,
   },
   similarProductInfo: {
-    padding: 10,
+    padding: 12,
   },
   similarProductName: {
     fontSize: 15,
     color: '#333',
-    marginBottom: 4,
+    marginBottom: 6,
     fontWeight: '500',
   },
   similarProductPrice: {
@@ -898,47 +970,40 @@ const styles = StyleSheet.create({
     right: 20,
     zIndex: 10,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    padding: 8,
-    borderRadius: 20,
+    padding: 10,
+    borderRadius: 25,
   },
   zoomedImage: {
     width: width,
     height: height * 0.7,
   },
-  quickInfoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    flexWrap: 'wrap',
-    paddingHorizontal: 4,
-  },
-  quickInfoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 16,
-    marginBottom: 8,
-  },
-  quickInfoText: {
-    fontSize: 14,
-    color: '#555',
-    marginLeft: 6,
-  },
   actionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
-    marginTop: 8,
+    marginBottom: 24,
+    marginTop: 12,
   },
   inlineActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 12,
     flex: 1,
     marginHorizontal: 4,
     justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   inlineButtonText: {
     color: 'white',
