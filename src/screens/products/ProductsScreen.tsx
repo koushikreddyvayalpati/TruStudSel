@@ -723,11 +723,11 @@ const styles = StyleSheet.create({
     borderBottomColor: '#eeeeee',
   },
   descriptionBox: {
-    backgroundColor: '#fafafa',
+    backgroundColor: '#FDB51C1A',
     borderRadius: 12,
     padding: 16,
-    borderWidth: 1,
     height: 100,
+    borderWidth: 1,
     borderColor: '#eeeeee',
     ...Platform.select({
       ios: {
