@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
-import { View, StyleSheet } from 'react-native';
-import { MainStackParamList, HomeScreenNavigationProp } from '../types/navigation.types';
+import { createDrawerNavigator } from '@react-navigation/drawer';
+import { MainStackParamList } from '../types/navigation.types';
 
 // Import screens from barrel files
 import { HomeScreen } from '../screens/home';
@@ -11,15 +11,16 @@ import { MessagesScreen, MessageScreen } from '../screens/messages';
 import { PostingScreen } from '../screens/posting';
 import { WishlistScreen } from '../screens/wishlist';
 
-// Import layout components from new structure
-import { BottomNavigation, Drawer } from '../components/layout';
+// Import layout components
+import { BottomNavigation, CustomDrawerContent } from '../components/layout';
 
 const Stack = createStackNavigator<MainStackParamList>();
+const Drawer = createDrawerNavigator();
 
 /**
- * Main navigator component that handles all authenticated app screens
+ * Stack navigator for all main screens
  */
-const MainNavigator: React.FC = () => {
+const MainStack = () => {
   return (
     <Stack.Navigator
       initialRouteName="Home"
@@ -61,35 +62,42 @@ const MainNavigator: React.FC = () => {
   );
 };
 
-// Wrapper component for Home screen with bottom navigation
-const HomeWithBottomNav: React.FC<{ navigation: HomeScreenNavigationProp }> = ({ navigation }) => {
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  
-  // Add drawer open function to navigation
-  React.useEffect(() => {
-    navigation.openDrawer = () => {
-      setIsDrawerOpen(true);
-    };
-  }, [navigation]);
-
+/**
+ * Main navigator component that handles all authenticated app screens
+ * Now uses a drawer navigator as the root
+ */
+const MainNavigator: React.FC = () => {
   return (
-    <View style={styles.container}>
-      <HomeScreen navigation={navigation} />
-      <BottomNavigation />
-      <Drawer 
-        navigation={navigation as any} 
-        isOpen={isDrawerOpen} 
-        onClose={() => setIsDrawerOpen(false)} 
+    <Drawer.Navigator
+      initialRouteName="MainStack"
+      drawerContent={(props) => <CustomDrawerContent {...props} />}
+      screenOptions={{
+        headerShown: false,
+        drawerStyle: {
+          width: '80%',
+          backgroundColor: '#FFFFFF',
+          borderTopRightRadius: 20,
+          borderBottomRightRadius: 20,
+        },
+      }}
+    >
+      <Drawer.Screen 
+        name="MainStack" 
+        component={MainStack}
+        options={{ drawerLabel: 'Home' }}
       />
-    </View>
+    </Drawer.Navigator>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    position: 'relative',
-  },
-});
+// Wrapper component for Home screen with bottom navigation
+const HomeWithBottomNav: React.FC = () => {
+  return (
+    <>
+      <HomeScreen />
+      <BottomNavigation />
+    </>
+  );
+};
 
 export default MainNavigator; 

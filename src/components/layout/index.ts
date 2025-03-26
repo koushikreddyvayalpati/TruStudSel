@@ -1,2 +1,2 @@
 export { default as BottomNavigation } from './BottomNavigation';
-export { default as Drawer } from './Drawer'; 
+export { default as CustomDrawerContent } from './CustomDrawerContent'; 

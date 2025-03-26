@@ -20,6 +20,9 @@ import 'react-native-get-random-values';
 import { Buffer } from 'buffer';
 global.Buffer = Buffer;
 
+// Import AppNavigator
+import AppNavigator from './src/navigation/AppNavigator';
+
 Amplify.configure(awsconfig);
 
 const App = () => {
@@ -31,7 +34,7 @@ const App = () => {
           barStyle={isDarkMode ? 'light-content' : 'dark-content'}
           backgroundColor={isDarkMode ? Colors.darker : Colors.lighter}
         />
-        
+        <AppNavigator />
       </AuthProvider>
     </SafeAreaProvider>
   );

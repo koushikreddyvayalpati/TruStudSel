@@ -20,12 +20,14 @@ import EvilIcon from 'react-native-vector-icons/EvilIcons';
 import Entypoicon from 'react-native-vector-icons/Entypo';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
 
 // Import from contexts with new structure
 import { useAuth } from '../../contexts';
 
 // Import types
-import { HomeScreenNavigationProp } from '../../types/navigation.types';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { MainStackParamList } from '../../types/navigation.types';
 
 // Define types for better type safety
 interface Category {
@@ -47,8 +49,10 @@ interface Product {
 
 type ProductSectionType = 'featured' | 'newArrivals' | 'bestSellers';
 
+type NavigationProp = StackNavigationProp<MainStackParamList>;
+
 interface HomescreenProps {
-  navigation: HomeScreenNavigationProp;
+  navigation?: NavigationProp;
 }
 
 // Component to display section headers with potential actions
@@ -197,7 +201,9 @@ type FilterOption = {
   label: string;
 };
 
-const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
+const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) => {
+  const navigation = useNavigation<NavigationProp>();
+  const nav = propNavigation || navigation;
   const { user } = useAuth();
   const [wishlist, setWishlist] = useState<number[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -277,8 +283,8 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
   }, []);
 
   const handleProductPress = useCallback((product: Product) => {
-    navigation.navigate('ProductInfoPage', { product });
-  }, [navigation]);
+    nav.navigate('ProductInfoPage', { product });
+  }, [nav]);
 
   const handleCategoryPress = useCallback((category: Category) => {
     setActiveCategory(prevCategory => 
@@ -373,7 +379,8 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
         <View style={styles.topBar}>
           <TouchableOpacity 
             style={styles.menuButton} 
-            onPress={() => navigation.openDrawer ? navigation.openDrawer() : null}
+            onPress={() => nav.dispatch(DrawerActions.openDrawer())}
+            testID="menu-button"
           >
             <MaterialIcons name="menu" size={22} color="#333" />
           </TouchableOpacity>
@@ -384,8 +391,9 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
             <TouchableOpacity 
               style={styles.profileButton}
               onPress={() => {
-                navigation.navigate('Profile');
+                nav.navigate('Profile');
               }}
+              testID="profile-button"
             >
               <View style={[styles.profileCircle, { backgroundColor: '#e0e0e0' }]}>
                 <Text style={[styles.profileText, { color: '#333' }]}>{getInitial()}</Text>

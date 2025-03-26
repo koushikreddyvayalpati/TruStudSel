@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -8,32 +8,17 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import Antdesign from 'react-native-vector-icons/AntDesign';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { HomeScreenNavigationProp } from '../../types/navigation.types';
-import { drawerEventEmitter } from './Drawer';
+import { MainStackParamList } from '../../types/navigation.types';
+import { StackNavigationProp } from '@react-navigation/stack';
+
+type NavigationProp = StackNavigationProp<MainStackParamList>;
 
 /**
  * BottomNavigation component
  * Displays a bottom navigation bar with Home, Wishlist, Post, Search and Chat options
  */
 const BottomNavigation: React.FC = () => {
-  const navigation = useNavigation<HomeScreenNavigationProp>();
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  
-  // Listen for drawer events
-  useEffect(() => {
-    const removeListener = drawerEventEmitter.addListener((isOpen) => {
-      setIsDrawerOpen(isOpen);
-    });
-    
-    return () => {
-      removeListener();
-    };
-  }, []);
-  
-  // Don't render if drawer is open
-  if (isDrawerOpen) {
-    return null;
-  }
+  const navigation = useNavigation<NavigationProp>();
   
   // Function to render an icon with text
   const renderNavItem = (
@@ -59,11 +44,11 @@ const BottomNavigation: React.FC = () => {
       </TouchableOpacity>
     );
   };
-
+  
   return (
-    <View style={[styles.bottomNav, { backgroundColor: '#f7b305' }]}>
+    <View style={styles.container}>
       {renderNavItem(
-        <Ionicons name="home-outline" size={24} color="black" />,
+        <Antdesign name="home" size={24} color="black" />,
         'Home',
         () => navigation.navigate('Home')
       )}
@@ -75,16 +60,19 @@ const BottomNavigation: React.FC = () => {
       )}
       
       {renderNavItem(
-        <Antdesign name="plus" size={28} color="white" />,
+        <Ionicons name="add" size={30} color="white" />,
         '',
         () => navigation.navigate('PostingScreen'),
         true
       )}
       
       {renderNavItem(
-        <Ionicons name="search-outline" size={24} color="black" />,
+        <Ionicons name="search" size={24} color="black" />,
         'Search',
-        () => console.log('Search pressed')
+        () => {
+          // To be implemented - search functionality
+          console.log('Search pressed');
+        }
       )}
       
       {renderNavItem(
@@ -97,55 +85,42 @@ const BottomNavigation: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  bottomNav: {
+  container: {
     position: 'absolute',
     bottom: 0,
-    left: 10,
-    right: 10,
+    left: 0,
+    right: 0,
+    backgroundColor: '#f7b305',
+    height: 70,
     flexDirection: 'row',
-    height: 60,
-    borderTopWidth: 1,
-    borderTopColor: 'transparent',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingHorizontal: 0,
-    zIndex: 1000,
-    borderRadius: 25,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    paddingBottom: 10,
   },
   navButton: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
   },
   navText: {
-    fontSize: 10,
+    fontSize: 12,
     marginTop: 2,
   },
   centerNavButton: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    height: 56,
-    paddingBottom: 10,
+    justifyContent: 'center',
+    flex: 1,
   },
   centerCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     alignItems: 'center',
-    marginBottom: 10,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    justifyContent: 'center',
+    marginBottom: 15,
+    backgroundColor: 'black',
   },
 });
 

@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 10,
-    paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 15,
+    paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 10,
     paddingBottom: 15,
     backgroundColor: '#f7b305',
     ...Platform.select({
