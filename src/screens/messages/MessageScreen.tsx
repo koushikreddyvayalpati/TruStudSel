@@ -1,142 +1,305 @@
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
+import {
+  View,
+  Text,
   StyleSheet,
-  TouchableOpacity,
   TextInput,
+  TouchableOpacity,
   FlatList,
-  StatusBar,
+  KeyboardAvoidingView,
+  Platform,
   SafeAreaView,
+  StatusBar,
+  ActivityIndicator,
+  Keyboard,
+  Animated,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/FontAwesome';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
 import { MainStackParamList } from '../../types/navigation.types';
 
 interface MessageItem {
   id: string;
   time: string;
   text: string;
-  sender: 'me' | 'friend';
+  sender: 'user' | 'other';
+  status?: 'sent' | 'delivered' | 'read';
 }
 
 type MessageScreenRouteProp = RouteProp<MainStackParamList, 'MessageScreen'>;
 
 const MessageScreen = () => {
-  const navigation = useNavigation<NavigationProp<MainStackParamList>>();
+  const navigation = useNavigation();
   const route = useRoute<MessageScreenRouteProp>();
-  const [messageText, setMessageText] = useState('');
   
-  const { recipientName } = route.params;
-
-  // Sample messages data
-  const messages: MessageItem[] = [
-    { id: '1', time: '10:30 PM', text: 'Is it available?', sender: 'me' },
-    { id: '2', time: '10:38 PM', text: 'Yes, it is available', sender: 'friend' },
-    { id: '3', time: '07:00 PM', text: 'Is there any discount?', sender: 'friend' },
-    { id: '4', time: '10:30 PM', text: 'No, there is no discount', sender: 'me' },
-  ];
-
-  const sendMessage = () => {
-    if (messageText.trim()) {
-      console.log('Sending message:', messageText);
-      setMessageText('');
+  // Get parameters from navigation
+  const { recipientName } = route.params || {};
+  const isOnline = useMemo(() => Math.random() > 0.5, []); // Randomly determine online status for demo
+  
+  // State for messages and input
+  const [messages, setMessages] = useState<MessageItem[]>([
+    { id: '1', time: 'Yesterday, 10:30 PM', text: 'Hey, are you still selling that calculus textbook?', sender: 'user', status: 'read' },
+    { id: '2', time: 'Yesterday, 10:32 PM', text: 'Yes, it\'s still available! Are you interested?', sender: 'other' },
+    { id: '3', time: 'Yesterday, 10:34 PM', text: 'Great! What condition is it in? And would you be willing to meet on campus?', sender: 'user', status: 'read' },
+    { id: '4', time: 'Yesterday, 10:40 PM', text: 'It\'s in excellent condition, barely used. And yes, I can meet you on campus. How about tomorrow at the library?', sender: 'other' },
+    { id: '5', time: 'Today, 8:15 AM', text: 'That works for me. What time were you thinking?', sender: 'user', status: 'read' },
+    { id: '6', time: 'Today, 8:30 AM', text: 'How about 2pm? I\'ll be at the main entrance.', sender: 'other' },
+    { id: '7', time: 'Today, 8:32 AM', text: 'Perfect, see you then!', sender: 'user', status: 'read' },
+  ]);
+  const [inputText, setInputText] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Refs
+  const flatListRef = useRef<FlatList<MessageItem>>(null);
+  const inputRef = useRef<TextInput>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Animation values
+  const typingIndicatorOpacity = useRef(new Animated.Value(0)).current;
+  const typingDotScale = useRef(new Animated.Value(1)).current;
+  
+  // Function to scroll to bottom of messages
+  const scrollToBottom = useCallback(() => {
+    if (flatListRef.current && messages.length > 0) {
+      flatListRef.current.scrollToEnd({ animated: true });
     }
-  };
+  }, [messages.length]);
+  
+  // Effect to scroll to bottom on load and when new messages arrive
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      scrollToBottom();
+    }, 100);
+    
+    return () => clearTimeout(timeoutId);
+  }, [messages, scrollToBottom]);
+  
+  // Animate typing dots
+  useEffect(() => {
+    if (isTyping) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(typingDotScale, {
+            toValue: 1.3,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(typingDotScale, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      typingDotScale.setValue(1);
+    }
+    
+    return () => {
+      typingDotScale.setValue(1);
+    };
+  }, [isTyping, typingDotScale]);
 
+  // Handle sending a message
+  const handleSend = useCallback(() => {
+    if (!inputText.trim()) return;
+    
+    Keyboard.dismiss();
+    
+    const newMessage: MessageItem = {
+      id: Date.now().toString(),
+      time: 'Just now',
+      text: inputText.trim(),
+      sender: 'user',
+      status: 'sent',
+    };
+    
+    setMessages(prevMessages => [...prevMessages, newMessage]);
+    setInputText('');
+    
+    // Simulate typing indicator from other person
+    setIsLoading(true);
+    
+    setTimeout(() => {
+      setIsLoading(false);
+      
+      // Show typing indicator
+      setIsTyping(true);
+      Animated.timing(typingIndicatorOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+      
+      // After some time, add a reply
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      typingTimeoutRef.current = setTimeout(() => {
+        // Hide typing indicator
+        setIsTyping(false);
+        Animated.timing(typingIndicatorOpacity, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+        
+        // Add simulated response
+        const responses = [
+          "I'll get back to you on that soon.",
+          "Let me check and get back to you.",
+          "Sounds good!",
+          "Great, thanks!",
+        ];
+        
+        const responseIndex = Math.floor(Math.random() * responses.length);
+        
+        const replyMessage: MessageItem = {
+          id: (Date.now() + 1).toString(),
+          time: 'Just now',
+          text: responses[responseIndex],
+          sender: 'other',
+        };
+        
+        setMessages(prevMessages => [...prevMessages, replyMessage]);
+      }, 1500 + Math.random() * 1500); // Random typing time between 1.5 and 3 seconds
+    }, 1000);
+  }, [inputText, typingIndicatorOpacity]);
+  
+  // Render individual message
+  const renderMessage = useCallback(({ item, index }: { item: MessageItem; index: number }) => {
+    const isUser = item.sender === 'user';
+    const showTime = index === 0 || item.time.split(',')[0] !== messages[index - 1]?.time.split(',')[0];
+    
+    return (
+      <View style={styles.messageWrapper}>
+        {showTime && (
+          <View style={styles.dateContainer}>
+            <Text style={styles.dateText}>{item.time.split(',')[0]}</Text>
+          </View>
+        )}
+        
+        <View style={[
+          styles.messageBubble,
+          isUser ? styles.userBubble : styles.otherBubble,
+        ]}>
+          <Text style={[
+            styles.messageText,
+            isUser ? styles.userText : styles.otherText,
+          ]}>
+            {item.text}
+          </Text>
+          
+          <Text style={styles.timeText}>{item.time.includes(',') ? item.time.split(', ')[1] : item.time}</Text>
+          
+          {isUser && item.status && (
+            <View style={styles.statusContainer}>
+              {item.status === 'sent' && <Ionicons name="checkmark" size={14} color="#8E8E8E" />}
+              {item.status === 'delivered' && <Ionicons name="checkmark-done" size={14} color="#8E8E8E" />}
+              {item.status === 'read' && <Ionicons name="checkmark-done" size={14} color="#4fc3f7" />}
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  }, [messages]);
+  
+  // Render typing indicator
+  const renderTypingIndicator = useCallback(() => {
+    if (!isTyping) return null;
+    
+    return (
+      <Animated.View style={[styles.typingContainer, { opacity: typingIndicatorOpacity }]}>
+        <View style={styles.typingBubble}>
+          <View style={styles.typingDot} />
+          <Animated.View style={[
+            styles.typingDot, 
+            { transform: [{ scale: typingDotScale }] }
+          ]} />
+          <View style={styles.typingDot} />
+        </View>
+      </Animated.View>
+    );
+  }, [isTyping, typingIndicatorOpacity, typingDotScale]);
+  
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: '#f0f0f0' }]}>
-      <View style={[styles.header, { backgroundColor: '#f7b305' }]}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#f7b305" />
+      
+      {/* Header */}
+      <View style={styles.header}>
         <TouchableOpacity 
-          style={styles.backButton}
+          style={styles.backButton} 
           onPress={() => navigation.goBack()}
           testID="back-button"
         >
-          <Ionicons name="chevron-back" size={22} color="black" />
+          <MaterialIcons name="arrow-back-ios-new" size={22} color="#333" />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: "black" }]}>{recipientName}</Text>
-        <TouchableOpacity 
-          style={styles.callButton}
-          onPress={() => navigation.navigate('Home')}
-        >
-          <Icon name="home" size={20} color="black" />
+        
+        <View style={styles.headerInfo}>
+          <Text style={styles.headerName}>{recipientName || 'Chat'}</Text>
+          <Text style={styles.headerStatus}>
+            {isOnline ? 'Online' : 'Offline'}
+          </Text>
+        </View>
+        
+        <TouchableOpacity style={styles.headerButton}>
+          <MaterialIcons name="more-vert" size={22} color="#333" />
         </TouchableOpacity>
       </View>
-
+      
+      {/* Messages list */}
       <FlatList
+        ref={flatListRef}
         data={messages}
-        renderItem={({ item }) => (
-          <View 
-            style={[
-              styles.messageContainer,
-              { 
-                justifyContent: item.sender === 'me' ? 'flex-end' : 'flex-start' 
-              }
-            ]}
-          >
-            {item.sender === 'friend' && (
-              <View style={[styles.profileCircle, { backgroundColor: '#e0e0e0' }]}>
-                <Text style={[styles.profileInitial, { color: 'black' }]}>
-                  {recipientName.charAt(0)}
-                </Text>
-              </View>
-            )}
-            <View 
-              style={[
-                item.sender === 'me' 
-                  ? [styles.myMessage, { backgroundColor: '#f7b305' }]
-                  : [styles.friendMessage, { backgroundColor: 'white' }],
-                { 
-                  marginLeft: item.sender === 'me' ? 60 : 0,
-                  marginRight: item.sender === 'friend' ? 60 : 0
-                }
-              ]}
-            >
-              <Text style={[
-                styles.messageText, 
-                { color: 'black' }
-              ]}>
-                {item.text}
-              </Text>
-              <Text 
-                style={[
-                  styles.messageTime,
-                  { 
-                    marginTop: 4,
-                    color: item.sender === 'me' ? '#666' : 'gray'
-                  }
-                ]}
-              >
-                {item.time}
-              </Text>
-            </View>
-          </View>
-        )}
+        renderItem={renderMessage}
         keyExtractor={item => item.id}
-        style={styles.messageList}
-        contentContainerStyle={{ paddingBottom: 20 }}
+        contentContainerStyle={styles.messagesContainer}
+        showsVerticalScrollIndicator={false}
+        onLayout={scrollToBottom}
       />
-
-      <View style={[styles.inputContainer, { backgroundColor: 'white' }]}>
-        <TextInput 
-          style={[styles.input, { 
-            borderColor: '#ddd', 
-            color: 'black',
-            backgroundColor: 'white'
-          }]}
-          placeholder="Type a message..."
-          placeholderTextColor="gray"
-          value={messageText}
-          onChangeText={setMessageText}
-        />
-        <TouchableOpacity 
-          style={[styles.sendButton, { backgroundColor: '#f7b305' }]}
-          onPress={sendMessage}
-        >
-          <Icon name="paper-plane" size={20} color="black" />
-        </TouchableOpacity>
-      </View>
+      
+      {/* Typing indicator */}
+      {renderTypingIndicator()}
+      
+      {/* Message input */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+      >
+        <View style={styles.inputContainer}>
+          <View style={styles.textInputContainer}>
+            <TextInput
+              ref={inputRef}
+              style={styles.input}
+              placeholder="Type a message..."
+              placeholderTextColor="#999"
+              value={inputText}
+              onChangeText={setInputText}
+              multiline
+              maxLength={500}
+            />
+          </View>
+          
+          <TouchableOpacity 
+            style={[
+              styles.sendButton,
+              !inputText.trim() ? styles.sendButtonDisabled : null
+            ]}
+            onPress={handleSend}
+            disabled={!inputText.trim() || isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Ionicons name="send" size={20} color="#fff" />
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -144,87 +307,199 @@ const MessageScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F5F5F5',
   },
   header: {
-    padding: 15,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 10,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    backgroundColor: '#f7b305',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   backButton: {
-    padding: 5,
+    padding: 8,
   },
-  callButton: {
-    padding: 5,
+  headerInfo: {
+    flex: 1,
+    flexDirection: 'column',
+    marginLeft: 10,
   },
-  messageList: {
+  headerName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  headerStatus: {
+    fontSize: 12,
+    color: '#555',
+  },
+  headerButton: {
+    padding: 8,
+    marginLeft: 10,
+  },
+  messagesContainer: {
     padding: 10,
+    paddingBottom: 16,
   },
-  messageContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginVertical: 5,
+  messageWrapper: {
+    marginBottom: 8,
   },
-  profileCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
+  dateContainer: {
     alignItems: 'center',
-    marginRight: 10,
+    marginVertical: 16,
   },
-  profileInitial: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  dateText: {
+    fontSize: 12,
+    color: '#888',
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
-  myMessage: {
-    borderRadius: 10,
-    padding: 10,
+  messageBubble: {
     maxWidth: '80%',
+    padding: 12,
+    borderRadius: 18,
+    marginBottom: 2,
+  },
+  userBubble: {
     alignSelf: 'flex-end',
-    marginLeft: 30,
+    backgroundColor: '#f7b305',
+    borderBottomRightRadius: 4,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
   },
-  friendMessage: {
-    borderRadius: 10,
-    padding: 10,
-    maxWidth: '80%',
+  otherBubble: {
     alignSelf: 'flex-start',
-    marginRight: 30,
+    backgroundColor: '#fff',
+    borderBottomLeftRadius: 4,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
   },
   messageText: {
-    fontSize: 16,
+    fontSize: 15,
     lineHeight: 20,
+    marginRight: 40,
   },
-  messageTime: {
-    fontSize: 11,
+  userText: {
+    color: '#333',
+  },
+  otherText: {
+    color: '#333',
+  },
+  timeText: {
+    fontSize: 10,
+    color: 'rgba(0,0,0,0.5)',
     alignSelf: 'flex-end',
-  },
-  inputContainer: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    right: 10,
+    bottom: 6,
+  },
+  statusContainer: {
+    position: 'absolute',
+    right: 24,
+    bottom: 6,
+  },
+  typingContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  typingBubble: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#fff',
+    borderRadius: 18,
     padding: 10,
-    paddingBottom: 20,
+    width: 60,
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
+  },
+  typingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#888',
+    marginHorizontal: 2,
+    opacity: 0.6,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  textInputContainer: {
+    flex: 1,
+    backgroundColor: '#F0F0F0',
     borderRadius: 20,
+    paddingHorizontal: 12,
+    minHeight: 40,
+    justifyContent: 'center',
   },
   input: {
     flex: 1,
-    borderWidth: 1,
-    borderRadius: 20,
-    padding: 10,
-    marginRight: 10,
+    fontSize: 16,
+    color: '#333',
+    maxHeight: 100,
+    paddingTop: Platform.OS === 'ios' ? 10 : 6,
+    paddingBottom: Platform.OS === 'ios' ? 10 : 6,
   },
   sendButton: {
+    width: 40,
+    height: 40,
     borderRadius: 20,
-    padding: 10,
+    backgroundColor: '#f7b305',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  sendButtonDisabled: {
+    backgroundColor: '#E0E0E0',
   },
 });
 
