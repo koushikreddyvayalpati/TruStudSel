@@ -10,7 +10,10 @@ import {
   Platform,
   StatusBar,
   FlatList,
-  Image
+  Image,
+  ActivityIndicator,
+  RefreshControl,
+  Dimensions
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import EvilIcon from 'react-native-vector-icons/EvilIcons';
@@ -24,25 +27,182 @@ import { useAuth } from '../../contexts';
 // Import types
 import { HomeScreenNavigationProp } from '../../types/navigation.types';
 
-type HomescreenProps = {
+// Define types for better type safety
+interface Category {
+  id: number;
+  name: string;
+  icon: 'electronics' | 'furniture' | 'auto' | 'fashion' | 'sports';
+}
+
+interface Product {
+  id: number;
+  name: string;
+  price: string;
+  image: string;
+  condition?: string;
+  type?: string;
+  description?: string;
+  images?: string[];
+}
+
+type ProductSectionType = 'featured' | 'newArrivals' | 'bestSellers';
+
+interface HomescreenProps {
   navigation: HomeScreenNavigationProp;
+}
+
+// Component to display section headers with potential actions
+const SectionHeader: React.FC<{
+  title: string;
+  onSeeAll?: () => void;
+}> = ({ title, onSeeAll }) => (
+  <View style={styles.sectionHeaderContainer}>
+    <Text style={[styles.sectionHeader, { color: '#333' }]}>{title}</Text>
+    {onSeeAll && (
+      <TouchableOpacity onPress={onSeeAll}>
+        <Text style={styles.seeAllText}>See All</Text>
+      </TouchableOpacity>
+    )}
+  </View>
+);
+
+// Component for rendering a category item
+const CategoryItem: React.FC<{
+  item: Category;
+  onPress: (category: Category) => void;
+}> = ({ item, onPress }) => {
+  const renderIcon = () => {
+    switch (item.icon) {
+      case 'electronics':
+        return <Entypoicon name="game-controller" size={28} color="black" />;
+      case 'furniture':
+        return <Icon name="bed" size={28} color="black" />;
+      case 'auto':
+        return <MaterialIcons name="directions-car" size={28} color="black" />;
+      case 'fashion':
+        return <FontAwesome name="shopping-bag" size={28} color="black" />;
+      case 'sports':
+        return <MaterialIcons name="sports-cricket" size={28} color="black" />;
+      default:
+        return <Icon name="question" size={28} color="black" />;
+    }
+  };
+
+  return (
+    <TouchableOpacity 
+      style={styles.categoryItem}
+      onPress={() => onPress(item)}
+    >
+      <View style={styles.categoryCircleWrapper}>
+        <View style={[styles.categoryCircle, { backgroundColor: '#f7b305' }]}>
+          {renderIcon()}
+        </View>
+      </View>
+      <Text style={[styles.categoryText, { color: '#333' }]}>{item.name}</Text>
+    </TouchableOpacity>
+  );
 };
+
+// Component for rendering a product item
+const ProductItem: React.FC<{
+  item: Product;
+  wishlist: number[];
+  onToggleWishlist: (id: number) => void;
+  onPress: (product: Product) => void;
+}> = ({ item, wishlist, onToggleWishlist, onPress }) => (
+  <TouchableOpacity 
+    style={[styles.productCard, { backgroundColor: 'white' }]}
+    onPress={() => onPress(item)}
+  >
+    <Image 
+      source={{ uri: item.image }} 
+      style={styles.productImagePlaceholder}
+      resizeMode="cover"
+    />
+    <View style={[styles.productInfo, { backgroundColor: 'white' }]}>
+      <Text style={[styles.productName, { color: '#333' }]}>{item.name}</Text>
+      <Text style={[styles.productPrice, { color: 'black' }]}>{item.price}</Text>
+      <TouchableOpacity 
+        style={styles.wishlistButton} 
+        onPress={() => onToggleWishlist(item.id)}
+      >
+        <FontAwesome 
+          name={wishlist.includes(item.id) ? "heart" : "heart-o"}
+          size={20} 
+          color="red" 
+        />
+      </TouchableOpacity>
+    </View>
+  </TouchableOpacity>
+);
+
+// Product section component for reusability
+const ProductSection: React.FC<{
+  title: string;
+  data: Product[];
+  wishlist: number[];
+  onToggleWishlist: (id: number) => void;
+  onProductPress: (product: Product) => void;
+  onSeeAll?: () => void;
+  isLoading?: boolean;
+}> = ({ 
+  title, 
+  data, 
+  wishlist, 
+  onToggleWishlist, 
+  onProductPress,
+  onSeeAll,
+  isLoading = false
+}) => (
+  <View>
+    <SectionHeader title={title} onSeeAll={onSeeAll} />
+    {isLoading ? (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="small" color="#f7b305" />
+      </View>
+    ) : data.length === 0 ? (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>No products available</Text>
+      </View>
+    ) : (
+      <FlatList
+        data={data}
+        renderItem={({ item }) => (
+          <ProductItem 
+            item={item} 
+            wishlist={wishlist} 
+            onToggleWishlist={onToggleWishlist} 
+            onPress={onProductPress}
+          />
+        )}
+        keyExtractor={item => item.id.toString()}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.productScrollView}
+        contentContainerStyle={styles.productListContainer}
+      />
+    )}
+  </View>
+);
 
 const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
   const { user } = useAuth();
   const [wishlist, setWishlist] = useState<number[]>([]);
-
-  // Category data
-  const categories = useMemo(() => [
-    { id: 1, name: 'Electronics' },
-    { id: 2, name: 'Furniture' },
-    { id: 3, name: 'Auto' },
-    { id: 4, name: 'Fashion' },
-    { id: 5, name: 'Sports' },
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<number | null>(null);
+  
+  // Category data with icon identifiers for type safety
+  const categories = useMemo<Category[]>(() => [
+    { id: 1, name: 'Electronics', icon: 'electronics' },
+    { id: 2, name: 'Furniture', icon: 'furniture' },
+    { id: 3, name: 'Auto', icon: 'auto' },
+    { id: 4, name: 'Fashion', icon: 'fashion' },
+    { id: 5, name: 'Sports', icon: 'sports' },
   ], []);
 
-  // Product data
-  const products = useMemo(() => [
+  // Product data with proper typing
+  const products = useMemo<Product[]>(() => [
     {
       id: 1,
       name: 'Nike Sneakers',
@@ -60,7 +220,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
   ], []);
 
   // New arrivals data
-  const newArrivals = useMemo(() => [
+  const newArrivals = useMemo<Product[]>(() => [
     { id: 1, name: 'New Item 1', price: '$21.99', image: 'https://via.placeholder.com/150' },
     { id: 2, name: 'New Item 2', price: '$34.50', image: 'https://via.placeholder.com/150' },
     { id: 3, name: 'New Item 3', price: '$19.99', image: 'https://via.placeholder.com/150' },
@@ -69,7 +229,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
   ], []);
 
   // Best sellers data
-  const bestSellers = useMemo(() => [
+  const bestSellers = useMemo<Product[]>(() => [
     { id: 1, name: 'Popular Item 1', price: '$22.99', image: 'https://via.placeholder.com/150' },
     { id: 2, name: 'Popular Item 2', price: '$17.50', image: 'https://via.placeholder.com/150' },
     { id: 3, name: 'Popular Item 3', price: '$31.99', image: 'https://via.placeholder.com/150' },
@@ -78,7 +238,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
   ], []);
 
   // Get the first letter of the user's name for the profile circle
-  const getInitial = () => {
+  const getInitial = useCallback(() => {
     if (!user) return 'U';
     
     if (user.name) {
@@ -88,58 +248,45 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
       return user.username.charAt(0).toUpperCase();
     }
     return 'U'; // Default if no name is available
-  };
+  }, [user]);
 
-  const toggleWishlist = (id: number) => {
+  const toggleWishlist = useCallback((id: number) => {
     setWishlist(prevWishlist => 
       prevWishlist.includes(id) 
         ? prevWishlist.filter(itemId => itemId !== id)
         : [...prevWishlist, id]
     );
-  };
+  }, []);
 
-  const renderCategory = useCallback(({ item }: { item: any }) => (
-    <TouchableOpacity key={item.id} style={styles.categoryItem}>
-      <View style={styles.categoryCircleWrapper}>
-        <View style={[styles.categoryCircle, { backgroundColor: '#f7b305' }]}>
-          {item.id === 1 && <Entypoicon name="game-controller" size={28} color="black" />}
-          {item.id === 2 && <Icon name="bed" size={28} color="black" />}
-          {item.id === 3 && <MaterialIcons name="directions-car" size={28} color="black" />}
-          {item.id === 4 && <FontAwesome name="shopping-bag" size={28} color="black" />}
-          {item.id === 5 && <MaterialIcons name="sports-cricket" size={28} color="black" />}
-        </View>
-      </View>
-      <Text style={[styles.categoryText, { color: '#333' }]}>{item.name}</Text>
-    </TouchableOpacity>
-  ), []);
+  const handleProductPress = useCallback((product: Product) => {
+    navigation.navigate('ProductInfoPage', { product });
+  }, [navigation]);
 
-  const renderProduct = useCallback(({ item }: { item: any }) => (
-    <TouchableOpacity 
-      key={item.id} 
-      style={[styles.productCard, { backgroundColor: 'white' }]}
-      onPress={() => navigation.navigate('ProductInfoPage', { product: item })}
-    >
-      <Image 
-        source={{ uri: item.image }} 
-        style={styles.productImagePlaceholder} 
-        resizeMode="cover" 
-      />
-      <View style={[styles.productInfo, { backgroundColor: 'white' }]}>
-        <Text style={[styles.productName, { color: '#333' }]}>{item.name}</Text>
-        <Text style={[styles.productPrice, { color: 'black' }]}>{item.price}</Text>
-        <TouchableOpacity 
-          style={styles.wishlistButton} 
-          onPress={() => toggleWishlist(item.id)}
-        >
-          <FontAwesome 
-            name={wishlist.includes(item.id) ? "heart" : "heart-o"}
-            size={20} 
-            color="red" 
-          />
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  ), [navigation, wishlist]);
+  const handleCategoryPress = useCallback((category: Category) => {
+    setActiveCategory(prevCategory => 
+      prevCategory === category.id ? null : category.id
+    );
+    // Here you could filter products by category if needed
+    console.log(`Category selected: ${category.name}`);
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    // Simulate data refresh
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 1000);
+  }, []);
+
+  const handleSearch = useCallback(() => {
+    // Implement search functionality here
+    console.log(`Searching for: ${searchQuery}`);
+  }, [searchQuery]);
+
+  const handleSeeAll = useCallback((section: ProductSectionType) => {
+    // Navigate to a page showing all products of a specific section
+    console.log(`See all pressed for: ${section}`);
+  }, []);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: 'white' }]}>
@@ -176,12 +323,21 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
             placeholder="Search..." 
             style={[styles.input, { color: 'black' }]}
             placeholderTextColor="gray"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={handleSearch}
+            returnKeyType="search"
           />
         </View>
         
         {/* Row with text and buttons */}
         <View style={styles.rowContainer}>
-          <Text style={[styles.plainText, { color: 'black' }]}>All Items</Text>
+          <Text style={[styles.plainText, { color: 'black' }]}>
+            {activeCategory 
+              ? categories.find(c => c.id === activeCategory)?.name || 'All Items'
+              : 'All Items'
+            }
+          </Text>
           <View style={styles.buttonContainer}>
             <TouchableOpacity style={[styles.smallButton, styles.sortButton, { backgroundColor: '#f7b305', borderColor: '#ddd' }]}>
               <Text style={[styles.buttonText, { color: 'black' }]}> Sort</Text>
@@ -198,7 +354,12 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
         <View style={styles.categoryContainer}>
           <FlatList
             data={categories}
-            renderItem={renderCategory}
+            renderItem={({ item }) => (
+              <CategoryItem 
+                item={item} 
+                onPress={handleCategoryPress}
+              />
+            )}
             keyExtractor={item => item.id.toString()}
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -206,37 +367,41 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
         </View>
         
         {/* Scrollable container for all product sections */}
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+          }
+        >
           {/* Featured Items Section */}
-          <Text style={[styles.sectionHeader, { color: '#333' }]}>Featured Items</Text>
-          <FlatList
+          <ProductSection 
+            title="Featured Items"
             data={products}
-            renderItem={renderProduct}
-            keyExtractor={item => item.id.toString()}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.productScrollView}
+            wishlist={wishlist}
+            onToggleWishlist={toggleWishlist}
+            onProductPress={handleProductPress}
+            onSeeAll={() => handleSeeAll('featured')}
           />
 
           {/* New Arrivals Section */}
-          <Text style={[styles.sectionHeader, { color: '#333' }]}>New Arrivals</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.productScrollView}
-          >
-            {newArrivals.map(product => renderProduct({ item: product }))}
-          </ScrollView>
+          <ProductSection 
+            title="New Arrivals"
+            data={newArrivals}
+            wishlist={wishlist}
+            onToggleWishlist={toggleWishlist}
+            onProductPress={handleProductPress}
+            onSeeAll={() => handleSeeAll('newArrivals')}
+          />
 
           {/* Best Sellers Section */}
-          <Text style={[styles.sectionHeader, { color: '#333' }]}>Best Sellers</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.productScrollView}
-          >
-            {bestSellers.map(product => renderProduct({ item: product }))}
-          </ScrollView>
+          <ProductSection 
+            title="Best Sellers"
+            data={bestSellers}
+            wishlist={wishlist}
+            onToggleWishlist={toggleWishlist}
+            onProductPress={handleProductPress}
+            onSeeAll={() => handleSeeAll('bestSellers')}
+          />
           
           {/* Bottom padding to avoid content being hidden behind navigation */}
           <View style={{height: 70}} />
@@ -245,6 +410,8 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation }) => {
     </SafeAreaView>
   );
 };
+
+const { width } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -301,6 +468,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   input: {
+    flex: 1,
     height: 40,
   },
   rowContainer: {
@@ -365,13 +533,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 5,
   },
+  sectionHeaderContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 10,
+  },
   sectionHeader: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginVertical: 10,
+  },
+  seeAllText: {
+    fontSize: 14,
+    color: '#f7b305',
   },
   productScrollView: {
     marginBottom: 20,
+  },
+  productListContainer: {
+    paddingRight: 20,
   },
   productCard: {
     width: 150,
@@ -408,6 +588,20 @@ const styles = StyleSheet.create({
   topBarRight: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  loadingContainer: {
+    height: 150,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    height: 150,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: '#777',
+    fontSize: 14,
   },
 });
 
