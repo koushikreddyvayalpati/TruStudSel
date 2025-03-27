@@ -332,7 +332,7 @@ const ProfileScreen: React.FC = () => {
   // ListHeaderComponent for FlatList
   const ListHeaderComponent = useCallback(() => (
     <>
-      {/* Profile Banner - Using a neutral dark background */}
+      {/* Profile Banner - Using a black background */}
       <View style={styles.bannerContainer}>
         <View style={styles.bannerContent}>
           <TouchableOpacity 
@@ -340,7 +340,7 @@ const ProfileScreen: React.FC = () => {
             onPress={handleGoBack}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <MaterialIcons name="arrow-back" size={24} color="#FFF" />
+            <MaterialIcons name="arrow-back" size={24} color="black" />
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -348,7 +348,7 @@ const ProfileScreen: React.FC = () => {
             onPress={handleSignOut}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <MaterialIcons name="logout" size={24} color="#FFF" />
+            <MaterialIcons name="logout" size={24} color="black" />
           </TouchableOpacity>
         </View>
       </View>
@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: HEADER_MAX_HEIGHT,
-    backgroundColor: '#f7b305',
+    backgroundColor: '#000000',
     zIndex: 100,
     paddingTop: StatusBar.currentHeight || 0,
     paddingBottom: 8,
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
   bannerContainer: {
     height: PROFILE_BANNER_HEIGHT,
     width: '100%',
-    backgroundColor: '#2d3436', // Deep slate color that works with any profile image
+    backgroundColor: '#f7b305', // Pure black background
   },
   bannerContent: {
     flex: 1,
@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'rgba(247, 179, 5, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
@@ -537,7 +537,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'rgba(247, 179, 5, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
     width: PROFILE_IMAGE_SIZE,
     height: PROFILE_IMAGE_SIZE,
     borderRadius: PROFILE_IMAGE_SIZE / 2,
-    backgroundColor: 'black',
+    backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
@@ -608,7 +608,7 @@ const styles = StyleSheet.create({
   profileInitial: {
     fontSize: 38,
     fontWeight: 'bold',
-    color: '#FFF',
+    color: 'white',
   },
   verifiedBadge: {
     position: 'absolute',
@@ -656,7 +656,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   editProfileButton: {
-    backgroundColor: 'rgba(27, 116, 228, 0.08)',
+    backgroundColor: 'white',
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 6,
@@ -715,7 +715,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 14,
-    color: 'black',
+    color: '#000000',
     fontWeight: '400',
   },
   statDivider: {
@@ -739,7 +739,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   activeTabButton: {
-    backgroundColor: '#f7b305',
+    backgroundColor: '#000000',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -758,7 +758,7 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   activeTabText: {
-    color: 'white', // Your gold theme color
+    color: 'white',
     fontWeight: '600',
   },
   postsSection: {
@@ -891,7 +891,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: 'black', // Your gold theme color
+    backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
