@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,15 @@ import { StackNavigationProp } from '@react-navigation/stack';
 
 type NavigationProp = StackNavigationProp<MainStackParamList>;
 
+// Define navigation item type for better structure
+type BottomNavItem = {
+  key: string;
+  label: string;
+  icon: React.ReactNode;
+  onPress: () => void;
+  isCenter?: boolean;
+};
+
 /**
  * BottomNavigation component
  * Displays a bottom navigation bar with Home, Wishlist, Post, Search and Chat options
@@ -20,66 +29,77 @@ type NavigationProp = StackNavigationProp<MainStackParamList>;
 const BottomNavigation: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   
-  // Function to render an icon with text
-  const renderNavItem = (
-    icon: React.ReactNode,
-    text: string,
-    onPress?: () => void,
-    isCenter = false
-  ) => {
-    if (isCenter) {
+  // Memoize navigation items for better performance
+  const navigationItems = useMemo<BottomNavItem[]>(() => [
+    {
+      key: 'home',
+      label: 'Home',
+      icon: <Antdesign name="home" size={24} color="black" />,
+      onPress: () => navigation.navigate('Home'),
+    },
+    {
+      key: 'wishlist',
+      label: 'Wishlist',
+      icon: <Ionicons name="heart-outline" size={24} color="black" />,
+      onPress: () => navigation.navigate('Wishlist', { wishlist: [] }),
+    },
+    {
+      key: 'post',
+      label: '',
+      icon: <Ionicons name="add" size={30} color="white" />,
+      onPress: () => navigation.navigate('PostingScreen'),
+      isCenter: true,
+    },
+    {
+      key: 'search',
+      label: 'Search',
+      icon: <Ionicons name="search" size={24} color="black" />,
+      onPress: () => {
+        // To be implemented - search functionality
+        console.log('Search pressed');
+      },
+    },
+    {
+      key: 'chat',
+      label: 'Chat',
+      icon: <Ionicons name="chatbubbles-outline" size={24} color="black" />,
+      onPress: () => navigation.navigate('MessagesScreen'),
+    },
+  ], [navigation]);
+  
+  // Memoize the render function to prevent unnecessary re-renders
+  const renderNavItem = useCallback((item: BottomNavItem) => {
+    if (item.isCenter) {
       return (
-        <TouchableOpacity style={styles.centerNavButton} onPress={onPress}>
-          <View style={[styles.centerCircle, { backgroundColor: 'black' }]}>
-            {icon}
+        <TouchableOpacity 
+          key={item.key}
+          style={styles.centerNavButton} 
+          onPress={item.onPress}
+          accessibilityLabel={item.label || 'Post'}
+        >
+          <View style={styles.centerCircle}>
+            {item.icon}
           </View>
         </TouchableOpacity>
       );
     }
     
     return (
-      <TouchableOpacity style={styles.navButton} onPress={onPress}>
-        {icon}
-        <Text style={[styles.navText, { color: 'black' }]}>{text}</Text>
+      <TouchableOpacity 
+        key={item.key}
+        style={styles.navButton} 
+        onPress={item.onPress}
+        accessibilityLabel={item.label}
+      >
+        {item.icon}
+        <Text style={styles.navText}>{item.label}</Text>
       </TouchableOpacity>
     );
-  };
+  }, []);
   
   return (
     <View style={styles.container}>
-      {renderNavItem(
-        <Antdesign name="home" size={24} color="black" />,
-        'Home',
-        () => navigation.navigate('Home')
-      )}
-      
-      {renderNavItem(
-        <Ionicons name="heart-outline" size={24} color="black" />,
-        'Wishlist',
-        () => navigation.navigate('Wishlist', { wishlist: [] })
-      )}
-      
-      {renderNavItem(
-        <Ionicons name="add" size={30} color="white" />,
-        '',
-        () => navigation.navigate('PostingScreen'),
-        true
-      )}
-      
-      {renderNavItem(
-        <Ionicons name="search" size={24} color="black" />,
-        'Search',
-        () => {
-          // To be implemented - search functionality
-          console.log('Search pressed');
-        }
-      )}
-      
-      {renderNavItem(
-        <Ionicons name="chatbubbles-outline" size={24} color="black" />,
-        'Chat',
-        () => navigation.navigate('MessagesScreen')
-      )}
+      {navigationItems.map(renderNavItem)}
     </View>
   );
 };
@@ -107,6 +127,7 @@ const styles = StyleSheet.create({
   navText: {
     fontSize: 12,
     marginTop: 2,
+    color: 'black',
   },
   centerNavButton: {
     alignItems: 'center',
@@ -124,4 +145,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default BottomNavigation; 
+export default React.memo(BottomNavigation); 
