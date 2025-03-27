@@ -710,12 +710,12 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#e67e22',
+    color: '#f7b305',
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 14,
-    color: '#555',
+    color: 'black',
     fontWeight: '400',
   },
   statDivider: {
@@ -739,7 +739,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   activeTabButton: {
-    backgroundColor: '#fff',
+    backgroundColor: '#f7b305',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -758,7 +758,7 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   activeTabText: {
-    color: '#f7b305', // Your gold theme color
+    color: 'white', // Your gold theme color
     fontWeight: '600',
   },
   postsSection: {
@@ -805,7 +805,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 8,
     right: 8,
-    backgroundColor: '#e67e22',
+    backgroundColor: '#f7b305',
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 12,
@@ -891,7 +891,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#f7b305', // Your gold theme color
+    backgroundColor: 'black', // Your gold theme color
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
