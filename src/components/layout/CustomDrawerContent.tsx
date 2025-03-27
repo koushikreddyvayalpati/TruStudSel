@@ -30,10 +30,12 @@ const CustomDrawerContent = (props: DrawerContentComponentProps) => {
   const handleSignOut = useCallback(async () => {
     try {
       await signOut();
+      // Close drawer after signing out
+      navigation.closeDrawer();
     } catch (error) {
       console.error('Error signing out:', error);
     }
-  }, [signOut]);
+  }, [signOut, navigation]);
 
   // Define navigation items in a structured way for better scalability
   const navigationItems: DrawerNavigationItem[] = useMemo(() => [
@@ -80,7 +82,27 @@ const CustomDrawerContent = (props: DrawerContentComponentProps) => {
       if (item.onPress) {
         item.onPress();
       } else if (item.navigateTo) {
-        navigation.navigate(item.navigateTo, item.params);
+        try {
+          // First try to navigate directly to the screen
+          navigation.navigate(item.navigateTo, item.params);
+          
+          // Close drawer after navigation
+          navigation.closeDrawer();
+        } catch (error) {
+          // If that fails, try to navigate through the main stack
+          console.error(`Error navigating to ${item.navigateTo}:`, error);
+          
+          // Fallback to nested navigation
+          try {
+            navigation.navigate('MainStack', {
+              screen: item.navigateTo,
+              params: item.params
+            });
+            navigation.closeDrawer();
+          } catch (nestedError) {
+            console.error(`Error in nested navigation to ${item.navigateTo}:`, nestedError);
+          }
+        }
       }
     };
 

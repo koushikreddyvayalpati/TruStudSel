@@ -12,11 +12,15 @@ import {
   RefreshControl,
   Platform,
 } from 'react-native';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { MainStackParamList } from '../../types/navigation.types';
+
+// Navigation prop type with stack methods
+type MessagesScreenNavigationProp = StackNavigationProp<MainStackParamList, 'MessagesScreen'>;
 
 // Remove unused 'width' variable
 // const { width } = Dimensions.get('window');
@@ -45,7 +49,7 @@ const messagesData: MessageData[] = [
 ];
 
 const MessagesScreen = () => {
-  const navigation = useNavigation<NavigationProp<MainStackParamList>>();
+  const navigation = useNavigation<MessagesScreenNavigationProp>();
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -198,7 +202,7 @@ const MessagesScreen = () => {
           /* Normal Header */
           <>
             <TouchableOpacity 
-              onPress={() => navigation.navigate('Home')} 
+              onPress={() => navigation.goBack()} 
               style={styles.backButton}
               testID="back-button"
             >
@@ -208,16 +212,8 @@ const MessagesScreen = () => {
             <Text style={styles.header}>Messages</Text>
             
             <View style={styles.headerActions}>
-              <TouchableOpacity style={styles.actionButton} onPress={toggleSearch}>
-                <Ionicons name="search-outline" size={22} color="#333" />
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.actionButton}
-                onPress={() => navigation.navigate('Home')}
-              >
-                <Icon name="home" size={22} color="#333" />
-              </TouchableOpacity>
+              {/* Removed redundant search button since it's in bottom nav */}
+              {/* Removed redundant home button since it's in bottom nav */}
             </View>
           </>
         )}

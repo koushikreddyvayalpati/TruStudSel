@@ -3,6 +3,7 @@
  */
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
+import { DrawerNavigationProp } from '@react-navigation/drawer';
 
 // Auth Stack Param List
 export type AuthStackParamList = {
@@ -51,9 +52,7 @@ export type ProfileFillingScreenNavigationProp = StackNavigationProp<RootStackPa
 export type ForgotPasswordScreenNavigationProp = StackNavigationProp<RootStackParamList, 'ForgotPassword'>;
 
 // Extended Navigation Type for Home Screen with drawer functionality
-export type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'> & {
-  openDrawer?: () => void;
-};
+export type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'> & DrawerNavigationProp<any>;
 
 export type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Profile'>;
 export type EditProfileScreenNavigationProp = StackNavigationProp<RootStackParamList, 'EditProfile'>;

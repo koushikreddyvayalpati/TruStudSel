@@ -379,8 +379,15 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
         <View style={styles.topBar}>
           <TouchableOpacity 
             style={styles.menuButton} 
-            onPress={() => nav.dispatch(DrawerActions.openDrawer())}
+            onPress={() => {
+              try {
+                nav.dispatch(DrawerActions.openDrawer());
+              } catch (error) {
+                console.warn('Failed to open drawer:', error);
+              }
+            }}
             testID="menu-button"
+            accessibilityLabel="Open menu"
           >
             <MaterialIcons name="menu" size={22} color="#333" />
           </TouchableOpacity>

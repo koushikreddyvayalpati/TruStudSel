@@ -35,7 +35,21 @@ const BottomNavigation: React.FC = () => {
       key: 'home',
       label: 'Home',
       icon: <Antdesign name="home" size={24} color="black" />,
-      onPress: () => navigation.navigate('Home'),
+      onPress: () => {
+        try {
+          // Use popToTop to return to home from any nested stack
+          const state = navigation.getState();
+          if (state.routes.length > 1) {
+            navigation.popToTop();
+          } else {
+            navigation.navigate('Home');
+          }
+        } catch (error) {
+          // Fallback if popToTop fails
+          navigation.navigate('Home');
+          console.warn('Navigation error:', error);
+        }
+      },
     },
     {
       key: 'wishlist',

@@ -24,7 +24,12 @@ const MainStack = () => {
   return (
     <Stack.Navigator
       initialRouteName="Home"
-      screenOptions={{ headerShown: false }}
+      screenOptions={{
+        headerShown: false,
+        cardStyle: { backgroundColor: 'white' },
+        gestureEnabled: true,
+        gestureDirection: 'horizontal',
+      }}
     >
       <Stack.Screen 
         name="Home" 
@@ -41,10 +46,16 @@ const MainStack = () => {
       <Stack.Screen 
         name="MessagesScreen" 
         component={MessagesScreen} 
+        options={{ 
+          headerShown: false,
+        }}
       />
       <Stack.Screen 
         name="MessageScreen" 
         component={MessageScreen} 
+        options={{ 
+          headerShown: false,
+        }}
       />
       <Stack.Screen 
         name="PostingScreen" 
@@ -79,12 +90,30 @@ const MainNavigator: React.FC = () => {
           borderTopRightRadius: 20,
           borderBottomRightRadius: 20,
         },
+        swipeEnabled: true, // Enable drawer swipe from edge
+        swipeEdgeWidth: 50, // Width of the edge area that detects swipes
+        overlayColor: 'rgba(0, 0, 0, 0.5)', // Overlay color when drawer is open
       }}
     >
       <Drawer.Screen 
         name="MainStack" 
         component={MainStack}
         options={{ drawerLabel: 'Home' }}
+      />
+      <Drawer.Screen 
+        name="Profile" 
+        component={ProfileScreen}
+        options={{ drawerLabel: 'Profile', drawerItemStyle: { display: 'none' } }}
+      />
+      <Drawer.Screen 
+        name="MessagesScreen" 
+        component={MessagesScreen}
+        options={{ drawerLabel: 'Messages', drawerItemStyle: { display: 'none' } }}
+      />
+      <Drawer.Screen 
+        name="Wishlist" 
+        component={WishlistScreen}
+        options={{ drawerLabel: 'Wishlist', drawerItemStyle: { display: 'none' } }}
       />
     </Drawer.Navigator>
   );

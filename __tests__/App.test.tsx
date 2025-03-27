@@ -2,13 +2,11 @@
  * @format
  */
 
-import React from 'react';
-import ReactTestRenderer from 'react-test-renderer';
 
 // Mock react-native-gesture-handler before importing App
 jest.mock('react-native-gesture-handler', () => {
   return {
-    GestureHandlerRootView: ({ children }) => children,
+    GestureHandlerRootView: ({ children }: { children: React.ReactNode }) => children,
     Swipeable: () => 'Swipeable',
     Directions: {
       RIGHT: 1,

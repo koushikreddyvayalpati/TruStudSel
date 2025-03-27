@@ -15,6 +15,7 @@ import {
   Animated,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { MainStackParamList } from '../../types/navigation.types';
@@ -27,10 +28,12 @@ interface MessageItem {
   status?: 'sent' | 'delivered' | 'read';
 }
 
+// Define proper navigation type for MessageScreen
+type MessageScreenNavigationProp = StackNavigationProp<MainStackParamList, 'MessageScreen'>;
 type MessageScreenRouteProp = RouteProp<MainStackParamList, 'MessageScreen'>;
 
 const MessageScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<MessageScreenNavigationProp>();
   const route = useRoute<MessageScreenRouteProp>();
   
   // Get parameters from navigation
@@ -233,7 +236,15 @@ const MessageScreen = () => {
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton} 
-          onPress={() => navigation.goBack()}
+          onPress={() => {
+            // Ensure we properly go back to the MessagesScreen
+            try {
+              navigation.goBack();
+            } catch (error) {
+              console.warn('Navigation error:', error);
+              navigation.navigate('MessagesScreen');
+            }
+          }}
           testID="back-button"
         >
           <MaterialIcons name="arrow-back-ios-new" size={22} color="#333" />
@@ -245,10 +256,6 @@ const MessageScreen = () => {
             {isOnline ? 'Online' : 'Offline'}
           </Text>
         </View>
-        
-        <TouchableOpacity style={styles.headerButton}>
-          <MaterialIcons name="more-vert" size={22} color="#333" />
-        </TouchableOpacity>
       </View>
       
       {/* Messages list */}
@@ -333,21 +340,18 @@ const styles = StyleSheet.create({
   },
   headerInfo: {
     flex: 1,
-    flexDirection: 'column',
-    marginLeft: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerName: {
     fontSize: 18,
     fontWeight: '600',
     color: '#333',
+    textAlign: 'center',
   },
   headerStatus: {
     fontSize: 12,
     color: '#555',
-  },
-  headerButton: {
-    padding: 8,
-    marginLeft: 10,
   },
   messagesContainer: {
     padding: 10,
