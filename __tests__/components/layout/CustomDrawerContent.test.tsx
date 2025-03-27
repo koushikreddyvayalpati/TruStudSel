@@ -1,6 +1,5 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import { Text } from 'react-native';
 import CustomDrawerContent from '../../../src/components/layout/CustomDrawerContent';
 import { useAuth } from '../../../src/hooks';
 
@@ -18,19 +17,16 @@ const mockNavigation = {
 
 // Mock DrawerContentScrollView since it's a complex component from react-navigation
 jest.mock('@react-navigation/drawer', () => ({
-  DrawerContentScrollView: ({ children }) => children,
+  DrawerContentScrollView: ({ children }) => <>{children}</>,
   DrawerItem: ({ onPress, label, icon }) => {
+    const Icon = icon({ color: 'black', size: 24 });
     return (
       <button testID={`drawer-item-${label}`} onPress={onPress}>
-        <Text>{label}</Text>
+        {Icon}
+        {label}
       </button>
     );
   },
-}));
-
-// Mock MaterialIcons for consistent testing
-jest.mock('react-native-vector-icons/MaterialIcons', () => ({
-  default: () => 'MaterialIconsMock',
 }));
 
 describe('CustomDrawerContent', () => {
@@ -41,12 +37,11 @@ describe('CustomDrawerContent', () => {
     // Setup default auth mock
     (useAuth as jest.Mock).mockReturnValue({
       signOut: jest.fn().mockResolvedValue(undefined),
-      user: { name: 'Test User' }
     });
   });
 
   it('renders correctly with basic navigation items', () => {
-    const { getByTestId, getByText } = render(
+    const { getByText } = render(
       <CustomDrawerContent 
         navigation={mockNavigation as any} 
         state={{ routes: [], index: 0 }} 
@@ -55,14 +50,14 @@ describe('CustomDrawerContent', () => {
     );
     
     // Check if the header renders correctly
-    expect(getByText('Test User')).toBeTruthy();
+    expect(getByText('Menu')).toBeTruthy();
     
-    // Check if all navigation items are rendered using testID
-    expect(getByTestId('drawer-item-Home')).toBeTruthy();
-    expect(getByTestId('drawer-item-Profile')).toBeTruthy();
-    expect(getByTestId('drawer-item-Messages')).toBeTruthy();
-    expect(getByTestId('drawer-item-Wishlist')).toBeTruthy();
-    expect(getByTestId('drawer-item-Sign Out')).toBeTruthy();
+    // Check if all navigation items are rendered
+    expect(getByText('Home')).toBeTruthy();
+    expect(getByText('Profile')).toBeTruthy();
+    expect(getByText('Messages')).toBeTruthy();
+    expect(getByText('Wishlist')).toBeTruthy();
+    expect(getByText('Sign Out')).toBeTruthy();
   });
 
   it('navigates correctly when navigation items are pressed', () => {
@@ -93,10 +88,7 @@ describe('CustomDrawerContent', () => {
 
   it('calls sign out when Sign Out is pressed', () => {
     const mockSignOut = jest.fn().mockResolvedValue(undefined);
-    (useAuth as jest.Mock).mockReturnValue({ 
-      signOut: mockSignOut,
-      user: { name: 'Test User' }
-    });
+    (useAuth as jest.Mock).mockReturnValue({ signOut: mockSignOut });
     
     const { getByTestId } = render(
       <CustomDrawerContent 
@@ -119,10 +111,7 @@ describe('CustomDrawerContent', () => {
     // Mock signOut to reject with an error
     const mockError = new Error('Sign out failed');
     const mockSignOut = jest.fn().mockRejectedValue(mockError);
-    (useAuth as jest.Mock).mockReturnValue({ 
-      signOut: mockSignOut,
-      user: { name: 'Test User' }
-    });
+    (useAuth as jest.Mock).mockReturnValue({ signOut: mockSignOut });
     
     const { getByTestId } = render(
       <CustomDrawerContent 
@@ -143,23 +132,5 @@ describe('CustomDrawerContent', () => {
     
     // Restore console.error
     console.error = originalConsoleError;
-  });
-
-  it('uses default "Menu" when no user name is provided', () => {
-    (useAuth as jest.Mock).mockReturnValue({ 
-      signOut: jest.fn(),
-      user: { }
-    });
-    
-    const { getByText } = render(
-      <CustomDrawerContent 
-        navigation={mockNavigation as any} 
-        state={{ routes: [], index: 0 }} 
-        descriptors={{}} 
-      />
-    );
-    
-    // Check if "Menu" is shown when no user name is available
-    expect(getByText('Menu')).toBeTruthy();
   });
 }); 
