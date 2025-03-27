@@ -30,15 +30,15 @@ const GetStartedScreen: React.FC<GetStartedScreenProps> = ({ navigation }) => {
         resizeMode="cover"
       />
       <ImageBackground 
-        source={require('../../../assets/Yellow.png')}
+        //source={require('../../../assets/Yellow.png')}
         style={styles.trustContainer}
         resizeMode="cover"
       >
-        <Text style={styles.trustText}>Trust</Text>
+        <Text style={styles.trustText}>True</Text>
         <Text style={styles.trustText}>Student</Text>
         <Text style={styles.trustText}>Sell</Text>
         <TouchableOpacity 
-          style={[styles.getStartedButton, { backgroundColor: theme.colors.secondary }]}
+          style={[styles.getStartedButton, { backgroundColor: theme.colors.secondaryDark }]}
           onPress={() => navigation.navigate('SignIn')}
         >
           <Text style={[styles.getStartedText, { color: theme.colors.buttonText }]}>Get Started</Text>
@@ -54,20 +54,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-start',
     paddingTop: 50,
-    marginTop: 10,
+    marginTop: 20,
   },
   image: {
-    width: width * 0.99,
-    height: width * 0.9,
+    width: width * 1,
+    height: width * 0.85,
+    marginTop: 10,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: 44,
+    fontWeight: 700,
+    fontFamily: 'Montserrat',
+
   },
   subtitle: {
-    fontSize: 24,
-    fontWeight: '600',
+    fontSize: 34,
+    fontWeight: '700',
     marginBottom: 20,
+    fontFamily: 'Montserrat',
   },
   trustContainer: {
     flex: 1,
@@ -75,13 +79,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: '100%',
     alignItems: 'center',
+    backgroundColor: '#f7b305',
   },
   trustText: {
-    fontSize: 45,
-    fontWeight: '800',
+    fontSize: 40,
+    fontWeight: '700',
     color: 'black',
     marginBottom: 20,
-    fontFamily: 'Montserrat-Bold',
+    fontFamily: 'Montserrat-bold',
   },
   getStartedButton: {
     padding: 15,
@@ -90,9 +95,10 @@ const styles = StyleSheet.create({
     width: width * 0.7,
   },
   getStartedText: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 22,
+    fontWeight: '600',
     textAlign: 'center',
+    fontFamily: 'Montserrat',
   },
 });
 

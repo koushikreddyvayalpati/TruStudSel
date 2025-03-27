@@ -37,27 +37,27 @@ export const fontFamily = {
 
 // Font sizes
 export const fontSize = {
-  xs: 12,
+  xs: 13,
   sm: 14,
   md: 16,
   lg: 18,
   xl: 20,
   '2xl': 24,
-  '3xl': 30,
-  '4xl': 36,
+  '3xl': 28,
+  '4xl': 32,
   '5xl': 48,
 };
 
 // Line heights
 export const lineHeight = {
-  xs: 16,
+  xs: 18,
   sm: 20,
   md: 24,
   lg: 28,
   xl: 32,
   '2xl': 36,
-  '3xl': 42,
-  '4xl': 48,
+  '3xl': 40,
+  '4xl': 44,
   '5xl': 64,
 };
 

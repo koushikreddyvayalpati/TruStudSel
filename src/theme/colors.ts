@@ -6,13 +6,13 @@
 export const palette = {
   // Brand colors
   primary: '#f7b305',
-  primaryDark: '#e5a504',
+  primaryDark: '#d99b04',
   primaryLight: '#f9c437',
   
   // Secondary brand colors
-  secondary: '#333333',
-  secondaryDark: '#1a1a1a',
-  secondaryLight: '#4d4d4d',
+  secondary: '#000000',
+  secondaryDark: '#000000',
+  secondaryLight: '#333333',
   
   // Neutrals
   white: '#ffffff',
