@@ -3,18 +3,21 @@ import {
   View, 
   Text, 
   StyleSheet, 
-  Alert
+  Alert,
+  TextStyle,
+  Pressable,
+  ActivityIndicator,
+  Image
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SignInScreenNavigationProp } from '../../types/navigation.types';
 import { useAuth } from '../../contexts';
-import { useTheme } from '../../hooks';
-import { TextInput, BridgelessButton } from '../../components/common';
+import { TextInput } from '../../components/common';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
+
 const SignInScreen: React.FC = () => {
   const navigation = useNavigation<SignInScreenNavigationProp>();
-  const { theme } = useTheme();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -47,13 +50,18 @@ const SignInScreen: React.FC = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.titleContainer}>
-        <Text style={[styles.title, { color: theme.colors.primary }]}>TruStudSel</Text>
+    <View style={styles.container}>
+      <View style={styles.logoContainer}>
+        <Text style={styles.logoText}>TruStudSel</Text>
+        <Image 
+          source={require('../../../assets/gradhat.png')} 
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
       </View>
       
       <View style={styles.formContainer}>
-        <TextInput
+      <TextInput
           label="Email"
           value={username}
           onChangeText={setUsername}
@@ -73,34 +81,39 @@ const SignInScreen: React.FC = () => {
           containerStyle={styles.inputContainer}
         />
         
-        <BridgelessButton
-          title="Login"
-          onPress={handleLogin}
-          isLoading={loading}
-          buttonStyle={{ backgroundColor: theme.colors.primary, marginTop: 16 }}
-          textStyle={{ color: theme.colors.buttonText, fontWeight: 'bold', fontSize: 18 }}
-          loadingColor={theme.colors.buttonText}
-          accessibilityLabel="Login to your account"
-        />
-        
-        <BridgelessButton
-          title="Create Account"
-          onPress={() => navigation.navigate('EmailVerification', { email: '' })}
-          buttonStyle={[styles.createAccountButton, { 
-            borderColor: theme.colors.primary,
-            backgroundColor: theme.colors.background 
-          }]}
-          textStyle={{ color: theme.colors.primary, fontWeight: 'bold', fontSize: 18 }}
-          accessibilityLabel="Create a new account"
-        />
-        
-        <BridgelessButton
-          title="Forgot Password?"
+        <Text 
+          style={styles.forgotPassword}
           onPress={() => navigation.navigate('ForgotPassword')}
-          buttonStyle={{ backgroundColor: 'transparent', marginTop: 20 }}
-          textStyle={{ color: theme.colors.error, fontSize: 16 }}
-          accessibilityLabel="Reset your password"
-        />
+        >
+          Forgot Password?
+        </Text>
+        
+        <Pressable
+          onPress={handleLogin}
+          style={({ pressed }) => [
+            styles.loginButton,
+            pressed && styles.buttonPressed
+          ]}
+          android_ripple={{ color: 'rgba(255, 255, 255, 0.3)' }}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="white" size="small" />
+          ) : (
+            <Text style={styles.buttonText}>Login</Text>
+          )}
+        </Pressable>
+        
+        <Pressable
+          onPress={() => navigation.navigate('EmailVerification', { email: '' })}
+          style={({ pressed }) => [
+            styles.createAccountButton,
+            pressed && styles.buttonPressed
+          ]}
+          android_ripple={{ color: 'rgba(255, 255, 255, 0.3)' }}
+        >
+          <Text style={styles.buttonText}>Create Account</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -109,30 +122,118 @@ const SignInScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'white',
   },
-  titleContainer: {
+  logoContainer: {
     alignItems: 'center',
-    justifyContent: 'flex-start',
     paddingTop: 60,
-    paddingBottom: 40,
+    paddingBottom: 0,
   },
-  title: {
-    fontSize: 28,
+  logoText: {
+    fontSize: 32,
     fontWeight: '600',
+    color: '#f7b305',
+    marginTop: 30,
+    letterSpacing: 0,
+    fontFamily:'Montserrat'
+  },
+  logoImage: {
+    width: 230,
+    height: 230,
+    marginRight: 50,
+  },
+  userIcon: {
+    textAlign: 'center',
   },
   formContainer: {
-    paddingHorizontal: 20,
-    marginTop: 120,
+    paddingHorizontal: 30,
+    marginTop: 0,
+    paddingTop: 10,
+    flex: 1,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    height: 52,
+    shadowColor: 'rgba(0,0,0,0.03)',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  inputIcon: {
+    marginRight: 12,
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.5,
+    color: '#888',
   },
   inputContainer: {
     marginBottom: 16,
+    backgroundColor: 'f3f3f3',
+  },
+  input: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: '#333',
+    letterSpacing: 0.2,
+  },
+  forgotPassword: {
+    color: '#4A90E2',
+    textAlign: 'right',
+    marginBottom: 10,
+    marginTop: 5,
+    fontSize: 14,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
+  },
+  loginButton: {
+    backgroundColor: '#f7b305',
+    borderRadius: 10,
+    padding: 16,
+    marginVertical: 10,
+    shadowColor: 'rgba(0,0,0,0.1)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   createAccountButton: {
-    marginTop: 16,
-    padding: 15,
-    borderRadius: 8,
-    borderWidth: 1,
-  }
+    backgroundColor: '#f7b305',
+    borderRadius: 10,
+    padding: 16,
+    marginTop: 15,
+    shadowColor: 'rgba(0,0,0,0.1)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonText: {
+    color: 'white',
+    fontWeight: '700',
+    fontSize: 17,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  buttonPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.985 }],
+    backgroundColor: '#e6a700',
+  },
 });
 
 export default SignInScreen; 
