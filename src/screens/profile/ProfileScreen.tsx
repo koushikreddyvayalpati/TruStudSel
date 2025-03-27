@@ -329,16 +329,11 @@ const ProfileScreen: React.FC = () => {
     index,
   }), []);
 
-  // ListHeaderComponent for FlatList - extracted for better organization
+  // ListHeaderComponent for FlatList
   const ListHeaderComponent = useCallback(() => (
     <>
-      {/* Profile Banner - Using a gold gradient */}
-      <LinearGradient
-        colors={['#3a2e1d', '#d9980a', '#f7b305']}
-        start={{x: 0, y: 0}}
-        end={{x: 1, y: 1}}
-        style={styles.bannerContainer}
-      >
+      {/* Profile Banner - Using a neutral dark background */}
+      <View style={styles.bannerContainer}>
         <View style={styles.bannerContent}>
           <TouchableOpacity 
             style={styles.backButton}
@@ -356,7 +351,7 @@ const ProfileScreen: React.FC = () => {
             <MaterialIcons name="logout" size={24} color="#FFF" />
           </TouchableOpacity>
         </View>
-      </LinearGradient>
+      </View>
       
       {/* Profile Info Section */}
       <ProfileHeader 
@@ -510,9 +505,7 @@ const styles = StyleSheet.create({
   bannerContainer: {
     height: PROFILE_BANNER_HEIGHT,
     width: '100%',
-    backgroundColor: 'black', // Primary blue color - matches the theme
-    // You could also use a gradient here for a more premium look:
-    // Or a darker color like '#0a2e58' for a more professional look
+    backgroundColor: '#2d3436', // Deep slate color that works with any profile image
   },
   bannerContent: {
     flex: 1,
@@ -606,7 +599,7 @@ const styles = StyleSheet.create({
     width: PROFILE_IMAGE_SIZE,
     height: PROFILE_IMAGE_SIZE,
     borderRadius: PROFILE_IMAGE_SIZE / 2,
-    backgroundColor: '#f7b305',
+    backgroundColor: 'black',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
@@ -765,7 +758,7 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   activeTabText: {
-    color: '#f7b305',
+    color: '#f7b305', // Your gold theme color
     fontWeight: '600',
   },
   postsSection: {
@@ -898,7 +891,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#f7b305',
+    backgroundColor: '#f7b305', // Your gold theme color
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
