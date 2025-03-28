@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -15,7 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../contexts/AuthContext';
-import { TextInput, Button } from '../../components/common';
+import { TextInput } from '../../components/common';
 import { EditProfileScreenNavigationProp } from '../../types/navigation.types';
 
 const EditProfileScreen = () => {
@@ -23,9 +23,11 @@ const EditProfileScreen = () => {
   const { user, updateUserAttributes, updateUserInfo } = useAuth();
   
   const [name, setName] = useState(user?.name || '');
-  const [university, setUniversity] = useState(user?.university || '');
   const [loading, setLoading] = useState(false);
   const [profilePicture] = useState(user?.profileImage || null);
+  
+  // Memoize the university value to avoid unnecessary re-renders
+  const university = useMemo(() => user?.university || '', [user?.university]);
   
   // Function to handle profile update
   const handleUpdateProfile = async () => {
@@ -36,16 +38,15 @@ const EditProfileScreen = () => {
     
     setLoading(true);
     try {
-      // Update user attributes in backend
+      // Update user attributes in backend - only updating name
       await updateUserAttributes({
         'name': name,
-        'custom:university': university,
       });
       
       // Update local user info
       updateUserInfo({
         name,
-        university
+        university, // Preserve existing university
       });
       
       Alert.alert('Success', 'Profile updated successfully');
@@ -84,70 +85,99 @@ const EditProfileScreen = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
-        <ScrollView style={styles.scrollView}>
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <TouchableOpacity 
               style={styles.backButton}
               onPress={() => navigation.goBack()}
             >
-              <Icon name="arrow-left" size={20} color="#333" />
+              <Icon name="arrow-left" size={18} color="#000" />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Edit Profile</Text>
             <View style={{ width: 40 }} />
           </View>
           
-          <View style={styles.profilePictureContainer}>
-            {profilePicture ? (
-              <Image source={{ uri: profilePicture }} style={styles.profilePicture} />
-            ) : (
-              <View style={styles.profilePicturePlaceholder}>
-                <Text style={styles.profileInitial}>{getInitial()}</Text>
-              </View>
-            )}
+          <View style={styles.profileSection}>
+            <View style={styles.profilePictureContainer}>
+              {profilePicture ? (
+                <Image 
+                  source={{ uri: profilePicture }} 
+                  style={styles.profilePicture} 
+                />
+              ) : (
+                <View style={styles.profilePicturePlaceholder}>
+                  <View style={styles.profileGradient} />
+                  <Text style={styles.profileInitial}>{getInitial()}</Text>
+                </View>
+              )}
+              
+              <TouchableOpacity 
+                style={styles.uploadPictureButton}
+                onPress={handleUploadProfilePicture}
+              >
+                <Icon name="camera" size={14} color="#1b74e4" />
+              </TouchableOpacity>
+            </View>
             
-            <TouchableOpacity 
-              style={styles.uploadPictureButton}
-              onPress={handleUploadProfilePicture}
-            >
-              <Icon name="camera" size={16} color="#fff" />
-            </TouchableOpacity>
+            <Text style={styles.namePreview}>{name || 'Your Name'}</Text>
+            <Text style={styles.universityPreview}>{university || 'University'}</Text>
           </View>
           
           <View style={styles.form}>
-            <TextInput
-              label="Name"
-              value={name}
-              onChangeText={setName}
-              placeholder="Enter your name"
-              containerStyle={styles.inputContainer}
-              leftIcon={<MaterialIcons name="account" size={22} color="grey" />}
-            />
+            <View style={styles.formCard}>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>FULL NAME</Text>
+                <TextInput
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Enter your full name"
+                  containerStyle={styles.inputContainer}
+                  leftIcon={<MaterialIcons name="account-outline" size={22} color="#222" />}
+                />
+              </View>
+              
+              <View style={styles.divider} />
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>EMAIL</Text>
+                <View style={styles.disabledField}>
+                  <MaterialIcons name="email-outline" size={22} color="#222" style={styles.disabledFieldIcon} />
+                  <Text style={styles.disabledFieldText}>{user?.email || 'No email available'}</Text>
+                  <View style={styles.lockIconContainer}>
+                    <Icon name="lock" size={12} color="#999" />
+                  </View>
+                </View>
+              </View>
+              
+              <View style={styles.divider} />
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>UNIVERSITY</Text>
+                <View style={styles.disabledField}>
+                  <MaterialIcons name="school-outline" size={22} color="#222" style={styles.disabledFieldIcon} />
+                  <Text style={styles.disabledFieldText}>{university || 'No university set'}</Text>
+                  <View style={styles.lockIconContainer}>
+                    <Icon name="lock" size={12} color="#999" />
+                  </View>
+                </View>
+              </View>
+            </View>
             
-            <TextInput
-              label="Email"
-              value={user?.email || ''}
-              placeholder="Your email"
-              editable={false}
-              containerStyle={styles.inputContainer}
-              leftIcon={<MaterialIcons name="email" size={22} color="grey" />}
-            />
-            
-            <TextInput
-              label="University"
-              value={university}
-              onChangeText={setUniversity}
-              placeholder="Enter your university"
-              containerStyle={styles.inputContainer}
-              leftIcon={<MaterialIcons name="school" size={22} color="grey" />}
-            />
-            
-            <Button
-              title="Save Changes"
+            <TouchableOpacity
+              style={[styles.saveButton, loading && styles.saveButtonLoading]}
               onPress={handleUpdateProfile}
-              variant="primary"
-              style={styles.saveButton}
-              loading={loading}
-            />
+              disabled={loading}
+            >
+              {loading ? (
+                <View style={styles.loadingContainer}>
+                  <View style={styles.loadingDot} />
+                  <View style={[styles.loadingDot, styles.loadingDotMiddle]} />
+                  <View style={styles.loadingDot} />
+                </View>
+              ) : (
+                <Text style={styles.saveButtonText}>SAVE CHANGES</Text>
+              )}
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -158,7 +188,7 @@ const EditProfileScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f9f9f9',
   },
   scrollView: {
     flex: 1,
@@ -172,61 +202,213 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   backButton: {
-    padding: 10,
+    padding: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
   },
-  profilePictureContainer: {
+  profileSection: {
     alignItems: 'center',
     marginBottom: 30,
+  },
+  profilePictureContainer: {
     position: 'relative',
+    marginBottom: 12,
   },
   profilePicture: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 2,
-    borderColor: '#f7b305',
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    borderWidth: 3,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   profilePicturePlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
     backgroundColor: '#f7b305',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#eaeaea',
+    borderWidth: 3,
+    borderColor: '#fff',
+    shadowColor: '#f7b305',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  profileGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'black',
+    opacity: 0.9,
   },
   profileInitial: {
-    fontSize: 36,
+    fontSize: 42,
     fontWeight: 'bold',
     color: 'white',
+    zIndex: 2,
+  },
+  namePreview: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111',
+    marginBottom: 4,
+  },
+  universityPreview: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 5,
   },
   uploadPictureButton: {
     position: 'absolute',
     bottom: 0,
-    right: '35%',
-    backgroundColor: '#333',
+    right: 0,
+    backgroundColor: 'white',
     width: 32,
     height: 32,
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: '#1b74e4',
+    shadowColor: 'rgba(0, 0, 0, 0.2)',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
   },
   form: {
     marginBottom: 20,
   },
+  formCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.03)',
+  },
+  fieldGroup: {
+    marginBottom: 4,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#777',
+    marginBottom: 8,
+    letterSpacing: 0.8,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
+    marginVertical: 20,
+  },
   inputContainer: {
-    marginBottom: 16,
+    marginBottom: 0,
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    height: 48,
+  },
+  disabledField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    height: 48,
+  },
+  disabledFieldIcon: {
+    marginRight: 12,
+  },
+  disabledFieldText: {
+    fontSize: 15,
+    color: '#999',
+    flex: 1,
+  },
+  lockIconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   saveButton: {
-    marginTop: 20,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: '#f7b305',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  saveButtonLoading: {
+    backgroundColor: '#222',
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+    letterSpacing: 1,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#f7b305',
+    marginHorizontal: 2,
+    opacity: 0.8,
+  },
+  loadingDotMiddle: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    opacity: 1,
   },
 });
 

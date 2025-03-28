@@ -4,7 +4,6 @@ import {
   Text, 
   StyleSheet, 
   Alert,
-  TextStyle,
   Pressable,
   ActivityIndicator,
   Image
