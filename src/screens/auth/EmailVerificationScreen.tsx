@@ -5,13 +5,15 @@ import {
   StyleSheet, 
   Alert,
   SafeAreaView,
-  TouchableOpacity
+  TouchableOpacity,
+  Image
 } from 'react-native';
 import { Auth } from 'aws-amplify';
 import { useNavigation } from '@react-navigation/native';
 import { EmailVerificationScreenProps, SignInScreenNavigationProp } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
 import { TextInput } from '../../components/common';
+import Entypo from 'react-native-vector-icons/Entypo';
 
 // For consistent logging in development
 const SCREEN_NAME = 'EmailVerification';
@@ -159,14 +161,19 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
           style={styles.backButton}
           activeOpacity={0.7}
         >
-          <Text style={[styles.backButtonText, { color: theme.colors.primary }]}>Back</Text>
+          <Entypo name="chevron-left" size={28} color={theme.colors.secondary} />
         </TouchableOpacity>
-      </View>
-      
+      </View> 
       <View style={styles.contentContainer}>
-        <Text style={[styles.title, { color: theme.colors.primary }]}>Create Account</Text>
+        <Text style={[styles.title, { color: theme.colors.secondary }]}>Create Account</Text>
+        <View style={styles.imageContainer}>
+          <Image 
+            source={require('../../../assets/amico.png')} 
+            style={styles.image}
+            resizeMode="contain"
+          />
+        </View>
         <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>Please fill in your details</Text>
-        
         <TextInput
           label="Full Name"
           value={name}
@@ -212,16 +219,6 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
             </Text>
           </TouchableOpacity>
         </View>
-        
-        <TouchableOpacity 
-          style={styles.backTextContainer}
-          onPress={goBack}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.backText, { color: theme.colors.primary }]}>
-            Return to Sign In
-          </Text>
-        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -239,7 +236,9 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 10,
+    paddingLeft: 0,
     marginTop: 5,
+    marginRight: 10,
   },
   backButtonText: {
     fontSize: 16,
@@ -250,9 +249,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 24,
+    fontSize: 36,
     fontWeight: 'bold',
     marginBottom: 10,
+    fontFamily: 'Montserrat',
   },
   subtitle: {
     fontSize: 16,
@@ -285,7 +285,15 @@ const styles = StyleSheet.create({
   backText: {
     fontSize: 16,
     textAlign: 'center',
-  }
+  },
+  imageContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  image: {
+    width: 200,
+    height: 200,
+  },
 });
 
 export default EmailVerificationScreen; 
