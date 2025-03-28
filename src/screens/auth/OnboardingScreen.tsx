@@ -88,13 +88,13 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   imageContainer: {
-    marginTop: 60,
+    marginTop: 80,
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   image: {
-    marginTop: 10,
+    marginTop: 30,
     width: width * 0.8,
     height: width * 0.8,
   },
