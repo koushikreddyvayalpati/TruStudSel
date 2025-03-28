@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { colors } from '../../constants';
+import Entypo from 'react-native-vector-icons/Entypo';
 
 export type TextInputProps = RNTextInputProps & {
   label?: string;
@@ -91,9 +92,11 @@ const TextInput: React.FC<TextInputProps> = ({
             style={styles.rightIcon}
             onPress={togglePasswordVisibility}
           >
-            <Text style={styles.togglePasswordText}>
-              {showPassword ? 'Hide' : 'Show'}
-            </Text>
+            <Entypo 
+              name={showPassword ?  "eye":  "eye-with-line" } 
+              size={20} 
+              color={colors.secondary}
+            />
           </TouchableOpacity>
         )}
         

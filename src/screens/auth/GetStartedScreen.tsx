@@ -39,7 +39,7 @@ const GetStartedScreen: React.FC<GetStartedScreenProps> = ({ navigation }) => {
         <Text style={styles.trustText}>Sell</Text>
         <TouchableOpacity 
           style={[styles.getStartedButton, { backgroundColor: theme.colors.secondaryDark }]}
-          onPress={() => navigation.navigate('SignIn')}
+          onPress={() => navigation.navigate('Onboarding')}
         >
           <Text style={[styles.getStartedText, { color: theme.colors.buttonText }]}>Get Started</Text>
         </TouchableOpacity>

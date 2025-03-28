@@ -8,6 +8,7 @@ import { DrawerNavigationProp } from '@react-navigation/drawer';
 // Auth Stack Param List
 export type AuthStackParamList = {
   GetStarted: undefined;
+  Onboarding: undefined;
   SignIn: undefined;
   SignUp: undefined;
   EmailVerification: { email: string };
@@ -44,6 +45,7 @@ export type RootStackParamList = AuthStackParamList & MainStackParamList;
 
 // Navigation props for each screen
 export type GetStartedScreenNavigationProp = StackNavigationProp<RootStackParamList, 'GetStarted'>;
+export type OnboardingScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Onboarding'>;
 export type SignInScreenNavigationProp = StackNavigationProp<RootStackParamList, 'SignIn'>;
 export type SignUpScreenNavigationProp = StackNavigationProp<RootStackParamList, 'SignUp'>;
 export type EmailVerificationScreenNavigationProp = StackNavigationProp<RootStackParamList, 'EmailVerification'>;

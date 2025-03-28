@@ -53,7 +53,7 @@ const SignInScreen: React.FC = () => {
       <View style={styles.logoContainer}>
         <Text style={styles.logoText}>TruStudSel</Text>
         <Image 
-          source={require('../../../assets/gradhat.png')} 
+          source={require('../../../assets/Group.jpg')} 
           style={styles.logoImage}
           resizeMode="contain"
         />
@@ -137,9 +137,10 @@ const styles = StyleSheet.create({
     fontFamily:'Montserrat'
   },
   logoImage: {
-    width: 230,
-    height: 230,
-    marginRight: 50,
+    width: 220,
+    height: 220,
+    marginLeft: 10,
+    marginTop: 10,
   },
   userIcon: {
     textAlign: 'center',

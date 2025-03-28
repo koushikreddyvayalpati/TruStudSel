@@ -7,6 +7,7 @@ import { AuthStackParamList } from '../types/navigation.types';
 import { 
   SignInScreen, 
   GetStartedScreen, 
+  OnboardingScreen,
   EmailVerificationScreen,
   OtpInputScreen,
   ProfileFillingScreen,
@@ -30,6 +31,10 @@ const AuthNavigator: React.FC = () => {
       <Stack.Screen 
         name="GetStarted"
         component={GetStartedScreen} 
+      />
+      <Stack.Screen 
+        name="Onboarding"
+        component={OnboardingScreen} 
       />
       <Stack.Screen 
         name="SignIn"

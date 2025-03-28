@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -9,7 +9,8 @@ import {
   Platform,
   ScrollView,
   Image,
-  SafeAreaView
+  SafeAreaView,
+  InteractionManager
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -28,6 +29,19 @@ const EditProfileScreen = () => {
   
   // Memoize the university value to avoid unnecessary re-renders
   const university = useMemo(() => user?.university || '', [user?.university]);
+  
+  // Add cleanup for any animation-related operations
+  useEffect(() => {
+    // Defer non-critical operations to avoid animation warnings
+    const interactionPromise = InteractionManager.runAfterInteractions(() => {
+      // Any animations or heavy operations should be started here
+    });
+    
+    return () => {
+      // Cleanup any subscriptions or pending interactions
+      interactionPromise.cancel();
+    };
+  }, []);
   
   // Function to handle profile update
   const handleUpdateProfile = async () => {

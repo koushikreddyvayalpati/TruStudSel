@@ -600,8 +600,9 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   truStudSelText: {
-    fontSize: 19,
-    fontFamily: 'LibreCaslonDisplay',
+    fontSize: 24,
+    fontFamily: 'Montserrat',
+    fontWeight: '600',
   },
   profileButton: {
     padding: 5,
