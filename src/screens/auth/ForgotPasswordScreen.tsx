@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   TouchableOpacity, 
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -13,7 +12,7 @@ import {
 import { Auth } from 'aws-amplify';
 import { ForgotPasswordScreenNavigationProp } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
-import { TextInput } from '../../components/common';
+import { TextInput, LoadingOverlay } from '../../components/common';
 import * as validation from '../../utils/validation';
 
 interface ForgotPasswordScreenProps {
@@ -28,9 +27,21 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
   const [confirmPassword, setConfirmPassword] = useState('');
   const [step, setStep] = useState(1); // 1: Enter email, 2: Enter code and new password
   const [loading, setLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(0);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  
+  // Define loading steps for each process
+  const sendCodeLoadingSteps = useMemo(() => [
+    { id: 'sending', message: 'Sending verification code...' },
+    { id: 'success', message: 'Code sent successfully!' }
+  ], []);
+  
+  const resetPasswordLoadingSteps = useMemo(() => [
+    { id: 'resetting', message: 'Resetting your password...' },
+    { id: 'success', message: 'Password reset successful!' }
+  ], []);
 
   const validateEmail = (): boolean => {
     if (!email) {
@@ -82,14 +93,22 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
     }
     
     setLoading(true);
+    setLoadingStep(0);
+    
     try {
       await Auth.forgotPassword(email);
-      setStep(2);
+      
+      // Show success message briefly
+      setLoadingStep(1);
+      setTimeout(() => {
+        setLoading(false);
+        setStep(2);
+      }, 1000);
+      
     } catch (error: any) {
       console.error('Error:', error);
-      Alert.alert('Error', error.message || 'Failed to send verification code');
-    } finally {
       setLoading(false);
+      Alert.alert('Error', error.message || 'Failed to send verification code');
     }
   };
 
@@ -99,16 +118,24 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
     }
     
     setLoading(true);
+    setLoadingStep(0);
+    
     try {
       await Auth.forgotPasswordSubmit(email, code, newPassword);
-      Alert.alert('Success', 'Password reset successfully', [
-        { text: 'OK', onPress: () => navigation.navigate('SignIn') }
-      ]);
+      
+      // Show success message briefly
+      setLoadingStep(1);
+      setTimeout(() => {
+        setLoading(false);
+        Alert.alert('Success', 'Password reset successfully', [
+          { text: 'OK', onPress: () => navigation.navigate('SignIn') }
+        ]);
+      }, 1000);
+      
     } catch (error: any) {
       console.error('Error:', error);
-      Alert.alert('Error', error.message || 'Failed to reset password');
-    } finally {
       setLoading(false);
+      Alert.alert('Error', error.message || 'Failed to reset password');
     }
   };
 
@@ -131,6 +158,22 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
+      {/* Loading overlay for sending code */}
+      <LoadingOverlay
+        visible={loading && step === 1}
+        steps={sendCodeLoadingSteps}
+        currentStep={loadingStep}
+        showProgressDots={true}
+      />
+      
+      {/* Loading overlay for resetting password */}
+      <LoadingOverlay
+        visible={loading && step === 2}
+        steps={resetPasswordLoadingSteps}
+        currentStep={loadingStep}
+        showProgressDots={true}
+      />
+      
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.contentContainer}>
           <Text style={[styles.title, { color: theme.colors.primary }]}>Reset Password</Text>
@@ -158,18 +201,14 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
               <TouchableOpacity 
                 style={[
                   styles.button, 
-                  { backgroundColor: theme.colors.primary }
+                  { backgroundColor: loading ? 'rgba(150,150,150,0.5)' : theme.colors.primary }
                 ]}
                 onPress={handleSendCode}
                 disabled={loading}
               >
-                {loading ? (
-                  <ActivityIndicator color={theme.colors.buttonText} />
-                ) : (
-                  <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
-                    Send Code
-                  </Text>
-                )}
+                <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
+                  Send Code
+                </Text>
               </TouchableOpacity>
             </>
           ) : (
@@ -223,18 +262,14 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
               <TouchableOpacity 
                 style={[
                   styles.button, 
-                  { backgroundColor: theme.colors.primary }
+                  { backgroundColor: loading ? 'rgba(150,150,150,0.5)' : theme.colors.primary }
                 ]}
                 onPress={handleResetPassword}
                 disabled={loading}
               >
-                {loading ? (
-                  <ActivityIndicator color={theme.colors.buttonText} />
-                ) : (
-                  <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
-                    Reset Password
-                  </Text>
-                )}
+                <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
+                  Reset Password
+                </Text>
               </TouchableOpacity>
             </>
           )}
@@ -242,8 +277,12 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
           <TouchableOpacity 
             style={styles.backButton}
             onPress={handleBackPress}
+            disabled={loading}
           >
-            <Text style={[styles.backButtonText, { color: theme.colors.primary }]}>
+            <Text style={[
+              styles.backButtonText, 
+              { color: loading ? 'rgba(150,150,150,0.5)' : theme.colors.primary }
+            ]}>
               {step === 1 ? 'Back to Login' : 'Back'}
             </Text>
           </TouchableOpacity>

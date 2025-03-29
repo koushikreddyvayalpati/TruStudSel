@@ -1,17 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   Alert,
   Pressable,
-  ActivityIndicator,
   Image
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SignInScreenNavigationProp } from '../../types/navigation.types';
 import { useAuth } from '../../contexts';
-import { TextInput } from '../../components/common';
+import { TextInput, LoadingOverlay } from '../../components/common';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 
@@ -20,7 +19,15 @@ const SignInScreen: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(0);
   const { signIn } = useAuth();
+
+  // Define loading steps
+  const loadingSteps = useMemo(() => [
+    { id: 'signing', message: 'Signing you in...' },
+    { id: 'verifying', message: 'Verifying your account...' },
+    { id: 'success', message: 'Login successful!' },
+  ], []);
 
   const handleLogin = async () => {
     if (!username || !password) {
@@ -28,7 +35,12 @@ const SignInScreen: React.FC = () => {
       return;
     }
     setLoading(true);
+    setLoadingStep(0);
+    
     try {
+      // Show verifying step after a brief delay
+      setTimeout(() => setLoadingStep(1), 800);
+      
       const user = await signIn(username, password);
       console.log('Login successful:', user);
       
@@ -40,16 +52,30 @@ const SignInScreen: React.FC = () => {
       if (!userAttributes.email && username.includes('@')) {
         console.log('Setting email from username:', username);
       }
+      
+      // Show success message briefly before continuing
+      setLoadingStep(2);
+      setTimeout(() => {
+        setLoading(false);
+      }, 800);
+      
     } catch (error) {
       console.error('Login error:', error);
-      Alert.alert('Login Error', (error as Error).message || 'Failed to sign in');
-    } finally {
       setLoading(false);
+      Alert.alert('Login Error', (error as Error).message || 'Failed to sign in');
     }
   };
 
   return (
     <View style={styles.container}>
+      {/* Loading overlay */}
+      <LoadingOverlay
+        visible={loading}
+        steps={loadingSteps}
+        currentStep={loadingStep}
+        showProgressDots={true}
+      />
+      
       <View style={styles.logoContainer}>
         <Text style={styles.logoText}>TruStudSel</Text>
         <Image 
@@ -91,16 +117,13 @@ const SignInScreen: React.FC = () => {
           onPress={handleLogin}
           style={({ pressed }) => [
             styles.loginButton,
-            pressed && styles.buttonPressed
+            pressed && styles.buttonPressed,
+            loading && styles.buttonDisabled
           ]}
           android_ripple={{ color: 'rgba(255, 255, 255, 0.3)' }}
           disabled={loading}
         >
-          {loading ? (
-            <ActivityIndicator color="white" size="small" />
-          ) : (
-            <Text style={styles.buttonText}>Login</Text>
-          )}
+          <Text style={styles.buttonText}>Login</Text>
         </Pressable>
         
         <Pressable
@@ -110,6 +133,7 @@ const SignInScreen: React.FC = () => {
             pressed && styles.buttonPressed
           ]}
           android_ripple={{ color: 'rgba(255, 255, 255, 0.3)' }}
+          disabled={loading}
         >
           <Text style={styles.buttonText}>Create Account</Text>
         </Pressable>
@@ -233,6 +257,10 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     transform: [{ scale: 0.985 }],
     backgroundColor: '#e6a700',
+  },
+  buttonDisabled: {
+    backgroundColor: '#d0d0d0',
+    opacity: 0.7,
   },
 });
 

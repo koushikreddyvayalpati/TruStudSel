@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -17,7 +17,7 @@ import { Auth } from 'aws-amplify';
 import { OtpInputScreenProps } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
 import { useAuth } from '../../contexts';
-import { TextInput } from '../../components/common';
+import { TextInput, LoadingOverlay } from '../../components/common';
 import Entypo from 'react-native-vector-icons/Entypo';
 
 const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) => {
@@ -34,9 +34,22 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [loadingStep, setLoadingStep] = useState(0);
   
   // Single OTP input
   const [otpValue, setOtpValue] = useState('');
+  
+  // Define loading steps
+  const otpLoadingSteps = useMemo(() => [
+    { id: 'verifying', message: 'Verifying your code...' },
+    { id: 'success', message: 'Code verified successfully!' }
+  ], []);
+  
+  const passwordLoadingSteps = useMemo(() => [
+    { id: 'creating', message: 'Creating your password...' },
+    { id: 'success', message: 'Password set successfully!' },
+    { id: 'preparing', message: 'Preparing your account...' }
+  ], []);
   
   useEffect(() => {
     // Listen for keyboard events
@@ -79,18 +92,23 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
     }
     
     setLoading(true);
+    setLoadingStep(0);
     
     try {
       // Confirm sign up with the verification code
       await Auth.confirmSignUp(email, otpValue);
       
-      // Switch to password creation step
-      setVerificationStep('password');
+      // Show success message briefly
+      setLoadingStep(1);
+      setTimeout(() => {
+        setLoading(false);
+        // Switch to password creation step
+        setVerificationStep('password');
+      }, 1000);
       
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to verify code');
-    } finally {
       setLoading(false);
+      Alert.alert('Error', error.message || 'Failed to verify code');
     }
   };
   
@@ -232,6 +250,7 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
     }
     
     setLoading(true);
+    setLoadingStep(0);
     
     try {
       // If tempPassword exists, sign in with it and change password
@@ -243,19 +262,32 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
         const user = await Auth.currentAuthenticatedUser();
         await Auth.changePassword(user, tempPassword, password);
         
+        // Show success message
+        setLoadingStep(1);
+        
         // Refresh the session to update auth state
         await refreshSession();
         
-        console.log('User successfully authenticated and password set');
-        
-        // Navigate to profile filling page
-        navigation.navigate('ProfileFillingPage', { 
-          email, 
-          username: name || '',
-          isAuthenticated: true
-        });
+        // Show preparing message
+        setTimeout(() => {
+          setLoadingStep(2);
+          
+          // Navigate after a brief delay
+          setTimeout(() => {
+            setLoading(false);
+            console.log('User successfully authenticated and password set');
+            
+            // Navigate to profile filling page
+            navigation.navigate('ProfileFillingPage', { 
+              email, 
+              username: name || '',
+              isAuthenticated: true
+            });
+          }, 800);
+        }, 1000);
       } else {
         // If no temp password (shouldn't happen in normal flow)
+        setLoading(false);
         Alert.alert(
           'Success',
           'Your account has been verified and password set. Please sign in.',
@@ -268,9 +300,8 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
         );
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to set password');
-    } finally {
       setLoading(false);
+      Alert.alert('Error', error.message || 'Failed to set password');
     }
   };
   
@@ -358,6 +389,22 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {/* OTP verification loading overlay */}
+      <LoadingOverlay
+        visible={loading && verificationStep === 'otp'}
+        steps={otpLoadingSteps}
+        currentStep={loadingStep}
+        showProgressDots={true}
+      />
+      
+      {/* Password creation loading overlay */}
+      <LoadingOverlay
+        visible={loading && verificationStep === 'password'}
+        steps={passwordLoadingSteps}
+        currentStep={loadingStep}
+        showProgressDots={true}
+      />
+      
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoidingView}

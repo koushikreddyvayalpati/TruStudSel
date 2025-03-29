@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -9,14 +9,12 @@ import {
   Platform,
   ScrollView,
   BackHandler,
-  DevSettings,
-  ActivityIndicator,
-  Modal
+  DevSettings
 } from 'react-native';
 import { ProfileFillingScreenProps } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
 import { useAuth } from '../../contexts';
-import { TextInput } from '../../components/common';
+import { TextInput, LoadingOverlay } from '../../components/common';
 import { Auth } from 'aws-amplify';
 import { CommonActions } from '@react-navigation/native';
 
@@ -30,8 +28,15 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
   const [university, setUniversity] = useState('');
   const [loading, setLoading] = useState(false);
   const [navigating, setNavigating] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState('Updating your profile...');
   const [loadingStep, setLoadingStep] = useState(0);
+  
+  // Define loading steps
+  const loadingSteps = useMemo(() => [
+    { id: 'updating', message: 'Updating your profile...' },
+    { id: 'success', message: 'Profile saved successfully!' },
+    { id: 'preparing', message: 'Preparing your account...' },
+    { id: 'navigating', message: 'Taking you to home screen...' }
+  ], []);
   
   // Log initial state for debugging
   useEffect(() => {
@@ -51,6 +56,17 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
     
     checkAuth();
   }, [isAuthenticated, wasAuthenticated, email, username]);
+ 
+  // Update loading message based on step
+  useEffect(() => {
+    if (navigating && loadingStep < loadingSteps.length - 1) {
+      const timer = setTimeout(() => {
+        setLoadingStep(prev => prev + 1);
+      }, 800); // Change message every 800ms
+      
+      return () => clearTimeout(timer);
+    }
+  }, [navigating, loadingStep, loadingSteps.length]);
   
   // Block hardware back button to prevent navigation issues
   useEffect(() => {
@@ -70,25 +86,6 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
       console.log('User authenticated from previous step');
     }
   }, [wasAuthenticated]);
-
-  // Update loading message based on step
-  useEffect(() => {
-    const messages = [
-      'Updating your profile...',
-      'Profile saved successfully!',
-      'Preparing your account...',
-      'Taking you to home screen...'
-    ];
-    
-    if (navigating && loadingStep < messages.length) {
-      setLoadingMessage(messages[loadingStep]);
-      const timer = setTimeout(() => {
-        setLoadingStep(prev => prev + 1);
-      }, 800); // Change message every 800ms for a nice effect
-      
-      return () => clearTimeout(timer);
-    }
-  }, [navigating, loadingStep]);
 
   const handleSubmit = async () => {
     if (!fullName.trim()) {
@@ -139,19 +136,18 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
         // Make sure our authentication state is properly set
         await refreshSession();
         
-        // Proceed with small delay to show profile saved message
-        setLoadingStep(1); // Show "Profile saved successfully!"
-        
-        setTimeout(async () => {
-          try {
-            setLoadingStep(2); // Show "Preparing your account..."
+        // Proceed with staged navigation
+        setTimeout(() => {
+          setLoadingStep(1); // Success message
+          
+          setTimeout(() => {
+            setLoadingStep(2); // Preparing account
             
-            // Small delay to show "Preparing" message
-            setTimeout(async () => {
-              setLoadingStep(3); // Show "Taking you to home screen..."
+            setTimeout(() => {
+              setLoadingStep(3); // Taking to home
               
-              // Final delay before actual navigation
-              setTimeout(async () => {
+              // Final delay before navigation
+              setTimeout(() => {
                 // In development, use DevSettings to reload the app
                 if (__DEV__ && DevSettings) {
                   console.log('Reloading app to update navigation...');
@@ -168,15 +164,8 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
                 }
               }, 600);
             }, 600);
-          } catch (error) {
-            console.error('Navigation error after delay:', error);
-            setNavigating(false);
-            Alert.alert(
-              'Navigation Issue',
-              'Please restart the app to go to the home screen.'
-            );
-          }
-        }, 800);
+          }, 800);
+        }, 100);
         
       } catch (error) {
         console.error('Navigation error:', error);
@@ -208,36 +197,13 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
-      {/* Loading overlay modal for navigation */}
-      <Modal
+      {/* Use the new LoadingOverlay component */}
+      <LoadingOverlay
         visible={navigating}
-        transparent={true}
-        animationType="fade"
-      >
-        <View style={styles.loadingOverlay}>
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-            <Text style={styles.loadingText}>{loadingMessage}</Text>
-            
-            {/* Progress dots */}
-            <View style={styles.progressDotsContainer}>
-              {[0, 1, 2, 3].map((dot) => (
-                <View 
-                  key={dot}
-                  style={[
-                    styles.progressDot,
-                    { 
-                      backgroundColor: dot <= loadingStep 
-                        ? theme.colors.primary 
-                        : 'rgba(200,200,200,0.5)' 
-                    }
-                  ]}
-                />
-              ))}
-            </View>
-          </View>
-        </View>
-      </Modal>
+        steps={loadingSteps}
+        currentStep={loadingStep}
+        showProgressDots={true}
+      />
       
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.contentContainer}>
@@ -376,45 +342,6 @@ const styles = StyleSheet.create({
   },
   bioInput: {
     // Add any specific styles for the bio input if needed
-  },
-  loadingOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingContainer: {
-    padding: 20,
-    backgroundColor: 'white',
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    minWidth: 250,
-    minHeight: 150,
-  },
-  loadingText: {
-    marginTop: 15,
-    fontSize: 16,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  progressDotsContainer: {
-    flexDirection: 'row',
-    marginTop: 15,
-  },
-  progressDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginHorizontal: 5,
   },
 });
 
