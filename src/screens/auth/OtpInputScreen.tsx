@@ -1,390 +1,393 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   Alert,
+  SafeAreaView,
+  TouchableOpacity,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  TouchableOpacity,
-  Pressable
+  Keyboard,
+  TextInput as RNTextInput
 } from 'react-native';
 import { Auth } from 'aws-amplify';
-import { OtpInputScreenProps, AuthStackParamList, MainStackParamList } from '../../types/navigation.types';
+import { OtpInputScreenProps } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
-import { TextInput, BridgelessButton } from '../../components/common';
-import { CommonActions } from '@react-navigation/native';
-
-// For consistent logging in development
-const SCREEN_NAME = 'OtpInput';
+import { useAuth } from '../../contexts';
+import { TextInput } from '../../components/common';
+import Entypo from 'react-native-vector-icons/Entypo';
 
 const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) => {
   const { theme } = useTheme();
-  const { email } = route.params;
-  const [otp, setOtp] = useState('');
+  const { refreshSession } = useAuth();
+  const { email, tempPassword, name } = route.params;
+  
+  // State variables
+  const [loading, setLoading] = useState(false);
+  const [countdown, setCountdown] = useState(30);
+  const [canResend, setCanResend] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [verificationStep, setVerificationStep] = useState('otp'); // 'otp' or 'password'
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  
+  // Single OTP input
+  const [otpValue, setOtpValue] = useState('');
+  
+  useEffect(() => {
+    // Listen for keyboard events
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
 
-  // Function to log important actions for easier debugging
-  const logDebug = (message: string, data?: any) => {
-    if (data) {
-      console.log(`[${SCREEN_NAME}] ${message}`, data);
-    } else {
-      console.log(`[${SCREEN_NAME}] ${message}`);
+    // Start countdown for resend button
+    const timer = setInterval(() => {
+      setCountdown((prevCount) => {
+        if (prevCount <= 1) {
+          clearInterval(timer);
+          setCanResend(true);
+          return 0;
+        }
+        return prevCount - 1;
+      });
+    }, 1000);
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+      clearInterval(timer);
+    };
+  }, []);
+  
+  useEffect(() => {
+    console.log('Current OTP:', otpValue);
+  }, [otpValue]);
+  
+  const handleVerifyCode = async () => {
+    if (otpValue.length !== 6) {
+      Alert.alert('Error', 'Please enter a valid 6-digit code');
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      // Confirm sign up with the verification code
+      await Auth.confirmSignUp(email, otpValue);
+      
+      // Switch to password creation step
+      setVerificationStep('password');
+      
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to verify code');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleOtpChange = (text: string) => {
+    // Allow only numbers and max 6 digits
+    const numericText = text.replace(/[^0-9]/g, '');
+    if (numericText.length <= 6) {
+      setOtpValue(numericText);
     }
   };
 
-  // Direct navigation function using multiple methods to ensure it works
-  const navigateToScreen = useCallback((screenName: keyof AuthStackParamList | keyof MainStackParamList, params?: any) => {
-    logDebug(`Navigating to ${screenName}`);
-    
-    // Method 1: Standard navigation
-    try {
-      navigation.navigate(screenName, params);
-      logDebug(`Navigate to ${screenName} - Method 1 Success`);
-      return;
-    } catch (e) {
-      logDebug(`Navigate to ${screenName} - Method 1 Failed: ${e}`);
-    }
-    
-    // Method 2: CommonActions
-    try {
-      navigation.dispatch(
-        CommonActions.navigate({
-          name: screenName,
-          params
-        })
-      );
-      logDebug(`Navigate to ${screenName} - Method 2 Success`);
-      return;
-    } catch (e) {
-      logDebug(`Navigate to ${screenName} - Method 2 Failed: ${e}`);
-    }
-    
-    // Method 3: Reset navigation
-    try {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: screenName, params }]
-      });
-      logDebug(`Navigate to ${screenName} - Method 3 Success`);
-      return;
-    } catch (e) {
-      logDebug(`Navigate to ${screenName} - Method 3 Failed: ${e}`);
-      Alert.alert('Navigation Error', `Could not navigate to ${screenName}. Please try again.`);
-    }
-  }, [navigation]);
+  const renderOtpVerification = () => (
+    <>
+      <Text style={[styles.title, { color: theme.colors.secondary }]}>
+        Verification
+      </Text>
+      
+      {!keyboardVisible && (
+        <View style={styles.imageContainer}>
+          <Image 
+            source={require('../../../assets/sms.png')} 
+            style={styles.image}
+            resizeMode="contain"
+          />
+        </View>
+      )}
+      
+      <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+        Please enter the 6-digit code sent to {email}
+      </Text>
+      
+      {/* New Simplified OTP Input */}
+      <View style={styles.otpMainContainer}>
+        {/* OTP Display */}
+        <View style={styles.otpDisplayContainer}>
+          {Array(6).fill(0).map((_, index) => (
+            <View 
+              key={index} 
+              style={[
+                styles.otpDigitDisplay,
+                { 
+                  borderColor: index < otpValue.length 
+                    ? theme.colors.primary 
+                    : theme.colors.border
+                }
+              ]}
+            >
+              <Text style={[styles.otpDigitText, { color: theme.colors.secondary }]}>
+                {index < otpValue.length ? otpValue[index] : ''}
+              </Text>
+            </View>
+          ))}
+        </View>
+        
+        {/* Native Text Input that's styled to match the app's design */}
+        <RNTextInput
+          style={[
+            styles.otpInput,
+            { 
+              borderColor: otpValue.length === 6 
+                ? theme.colors.primary 
+                : '#ccc' 
+            }
+          ]}
+          value={otpValue}
+          onChangeText={handleOtpChange}
+          keyboardType="number-pad"
+          maxLength={6}
+          autoFocus={true}
+          placeholder="Enter 6-digit code"
+          placeholderTextColor="#aaa"
+        />
+        
+        <Text style={styles.otpHelpText}>
+          Please enter the verification code sent to your email
+        </Text>
+      </View>
+      
+      <TouchableOpacity
+        onPress={handleResendCode}
+        disabled={!canResend}
+        style={styles.resendContainer}
+      >
+        <Text style={[
+          styles.resendText,
+          { color: canResend ? theme.colors.primary : theme.colors.textSecondary }
+        ]}>
+          {canResend 
+            ? 'Resend Code' 
+            : `Resend code in ${countdown}s`
+          }
+        </Text>
+      </TouchableOpacity>
+      
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[
+            styles.verifyButton,
+            { 
+              backgroundColor: loading 
+                ? 'rgba(150,150,150,0.5)' 
+                : otpValue.length === 6 
+                  ? theme.colors.primary 
+                  : 'rgba(200,200,200,0.5)' 
+            }
+          ]}
+          onPress={handleVerifyCode}
+          disabled={loading || otpValue.length !== 6}
+        >
+          <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
+            {loading ? "Verifying..." : "Verify"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </>
+  );
 
-  const handleSignUp = useCallback(async () => {
-    logDebug("Create Account button pressed");
-    
-    // Basic validation
-    if (!otp) {
-      Alert.alert('Error', 'Please enter the verification code');
-      return;
-    }
-    
-    if (!password) {
-      Alert.alert('Error', 'Please create a password');
-      return;
-    }
-    
+  const handleCreatePassword = async () => {
+    // Validate password
     if (password.length < 8) {
-      Alert.alert('Error', 'Password must be at least 8 characters long');
+      setPasswordError('Password must be at least 8 characters');
       return;
     }
     
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      setPasswordError('Passwords do not match');
       return;
     }
     
-    logDebug("All validation passed, proceeding with confirmation");
+    // Password strength check
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    
+    if (!(hasUpperCase && hasLowerCase && hasNumber && hasSpecialChar)) {
+      setPasswordError('Password must contain uppercase, lowercase, number, and special character');
+      return;
+    }
+    
     setLoading(true);
     
     try {
-      logDebug("Confirming sign up for email:", email);
-      // Confirm the sign up with the verification code
-      await Auth.confirmSignUp(email, otp);
-      logDebug("Sign up confirmed successfully");
-      
-      try {
-        logDebug("Attempting to sign in with new credentials");
-        // After confirmation, sign in with the new credentials
-        await Auth.signIn(email, password);
-        logDebug("Sign in successful");
+      // If tempPassword exists, sign in with it and change password
+      if (tempPassword) {
+        // Sign in with temporary password
+        await Auth.signIn(email, tempPassword);
         
-        Alert.alert('Success', 'Account created and verified successfully!', [
-          { 
-            text: 'OK', 
-            onPress: () => {
-              logDebug("Will navigate to ProfileFillingPage");
-              navigateToScreen('ProfileFillingPage', { 
-                email, 
-                username: email
-              });
+        // Change password from temp to new password
+        const user = await Auth.currentAuthenticatedUser();
+        await Auth.changePassword(user, tempPassword, password);
+        
+        // Refresh the session to update auth state
+        await refreshSession();
+        
+        console.log('User successfully authenticated and password set');
+        
+        // Navigate to profile filling page
+        navigation.navigate('ProfileFillingPage', { 
+          email, 
+          username: name || '',
+          isAuthenticated: true
+        });
+      } else {
+        // If no temp password (shouldn't happen in normal flow)
+        Alert.alert(
+          'Success',
+          'Your account has been verified and password set. Please sign in.',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.navigate('SignIn')
             }
-          }
-        ]);
-      } catch (signInError) {
-        logDebug('Error signing in after confirmation:', signInError);
-        // If sign-in fails, the account is still created
-        Alert.alert('Account Created', 'Your account was created successfully. Please sign in with your email and password.', [
-          { 
-            text: 'OK', 
-            onPress: () => {
-              logDebug("Will navigate to SignIn");
-              navigateToScreen('SignIn');
-            }
-          }
-        ]);
+          ]
+        );
       }
     } catch (error: any) {
-      logDebug('Error confirming sign up:', error);
-      
-      // Handle specific error cases
-      if (error.code === 'CodeMismatchException') {
-        Alert.alert('Error', 'Invalid verification code. Please try again.');
-      } else if (error.code === 'ExpiredCodeException') {
-        Alert.alert('Error', 'Verification code has expired. Please request a new one.');
-      } else {
-        Alert.alert('Error', error.message || 'Failed to verify account');
-      }
+      Alert.alert('Error', error.message || 'Failed to set password');
     } finally {
       setLoading(false);
     }
-  }, [email, otp, password, confirmPassword, navigateToScreen]);
-
-  const handleResendCode = useCallback(async () => {
-    logDebug("Resend Verification Code button pressed");
+  };
+  
+  const handleResendCode = async () => {
+    if (!canResend) return;
     
     try {
-      logDebug("Resending code for email:", email);
       await Auth.resendSignUp(email);
-      logDebug("Code resent successfully");
-      Alert.alert('Success', 'Verification code has been resent to your email');
+      Alert.alert('Success', 'Verification code has been resent');
+      setCountdown(30);
+      setCanResend(false);
     } catch (error: any) {
-      logDebug("Error resending code:", error);
-      let errorMessage = 'Failed to resend code';
-      
-      if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      // Handle specific error codes
-      if (error.code === 'LimitExceededException') {
-        errorMessage = 'You have requested too many codes. Please try again later.';
-      }
-      
-      Alert.alert('Error', errorMessage);
+      Alert.alert('Error', error.message || 'Failed to resend verification code');
     }
-  }, [email]);
+  };
 
-  const goBackToEmailVerification = useCallback(() => {
-    logDebug("Back to Email Verification button pressed");
-    
-    // Try multiple navigation methods to ensure at least one works
-    
-    // Method 1: Use our custom navigate
-    try {
-      navigateToScreen('EmailVerification', { email });
-      logDebug("Navigate to EmailVerification using navigateToScreen");
-      return;
-    } catch (e) {
-      logDebug("NavigateToScreen failed:", e);
-    }
-    
-    // Method 2: Try direct navigation.navigate
-    try {
-      navigation.navigate('EmailVerification', { email });
-      logDebug("Navigate to EmailVerification using direct navigation.navigate");
-      return;
-    } catch (e) {
-      logDebug("Direct navigation.navigate failed:", e);
-    }
-    
-    // Method 3: Try navigation goBack
-    try {
-      navigation.goBack();
-      logDebug("Navigation using goBack");
-      return;
-    } catch (e) {
-      logDebug("Navigation goBack failed:", e);
-    }
-    
-    // Method 4: Reset navigation stack as last resort
-    try {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'EmailVerification', params: { email } }]
-      });
-      logDebug("Navigation using reset");
-      return;
-    } catch (e) {
-      logDebug("Navigation reset failed:", e);
-      Alert.alert('Navigation Error', 'Unable to go back to Email Verification. Please restart the app.');
-    }
-  }, [email, navigation, navigateToScreen]);
-
-  // Log when component mounts
-  useEffect(() => {
-    logDebug(`Screen mounted with email: ${email}`);
-    return () => {
-      logDebug('Screen unmounted');
-    };
-  }, [email]);
+  const renderPasswordCreation = () => (
+    <>
+      <Text style={[styles.title, { color: theme.colors.secondary }]}>
+        Create Password
+      </Text>
+      
+      {!keyboardVisible && (
+        <View style={styles.imageContainer}>
+          <Image 
+            source={require('../../../assets/sms.png')} 
+            style={styles.image}
+            resizeMode="contain"
+          />
+        </View>
+      )}
+      
+      <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+        Your email has been verified. Please create a strong password for your account.
+      </Text>
+      
+      <TextInput
+        label="New Password"
+        value={password}
+        onChangeText={(text) => {
+          setPassword(text);
+          setPasswordError('');
+        }}
+        placeholder="Enter new password"
+        secureTextEntry
+        isPassword
+        containerStyle={styles.passwordInputContainer}
+        error={passwordError}
+        touched={!!passwordError}
+      />
+      
+      <TextInput
+        label="Confirm Password"
+        value={confirmPassword}
+        onChangeText={(text) => {
+          setConfirmPassword(text);
+          setPasswordError('');
+        }}
+        placeholder="Confirm your password"
+        secureTextEntry
+        isPassword
+        containerStyle={styles.passwordInputContainer}
+      />
+      
+      <Text style={styles.passwordRequirements}>
+        Password must contain at least 8 characters including uppercase, lowercase, number and special character.
+      </Text>
+      
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[
+            styles.verifyButton,
+            { backgroundColor: loading ? 'rgba(150,150,150,0.5)' : theme.colors.primary }
+          ]}
+          onPress={handleCreatePassword}
+          disabled={loading || !password || !confirmPassword}
+        >
+          <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
+            {loading ? "Creating..." : "Create Password"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </>
+  );
 
   return (
-    <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
-          style={styles.keyboardAvoidingView}
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidingView}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
         >
-          <View style={styles.contentContainer}>
-            <Text style={[styles.title, { color: theme.colors.primary }]}>
-              Verify Your Account
-            </Text>
-            <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-              We've sent a code to {email}
-            </Text>
-            
-            <TextInput
-              label="Verification Code"
-              value={otp}
-              onChangeText={(text) => {
-                // Allow only digits
-                setOtp(text.replace(/\D/g, ''));
-              }}
-              placeholder="Enter verification code"
-              keyboardType="number-pad"
-              containerStyle={styles.inputContainer}
-            />
-            
-            <TextInput
-              label="Create Password"
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Create a strong password"
-              secureTextEntry
-              containerStyle={styles.inputContainer}
-            />
-            
-            <TextInput
-              label="Confirm Password"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Confirm your password"
-              secureTextEntry
-              isPassword
-              containerStyle={styles.inputContainer}
-            />
-
-            <View style={styles.buttonContainer}>
-              <BridgelessButton
-                title="Create Account"
-                onPress={() => {
-                  console.log('Direct onPress called from Create Account button');
-                  handleSignUp();
-                }}
-                isLoading={loading}
-                loadingColor={theme.colors.buttonText}
-                buttonStyle={[styles.signUpButton, { 
-                  minHeight: 60, 
-                  minWidth: '100%', 
-                  padding: 20,
-                  marginBottom: 20,
-                  backgroundColor: theme.colors.primary
-                }]}
-                textStyle={{ 
-                  color: theme.colors.buttonText, 
-                  fontSize: 18,
-                  fontWeight: 'bold' 
-                }}
-                hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-                accessibilityLabel="Create your account"
-              />
-              
-              <BridgelessButton
-                title="Resend Verification Code"
-                onPress={() => {
-                  console.log('Direct onPress called from Resend button');
-                  handleResendCode();
-                }}
-                buttonStyle={[styles.resendButton, { 
-                  minHeight: 60, 
-                  minWidth: '100%', 
-                  padding: 20,
-                  marginBottom: 20,
-                  backgroundColor: 'transparent',
-                  borderColor: theme.colors.primary,
-                  borderWidth: 1
-                }]}
-                textStyle={{ 
-                  color: theme.colors.primary, 
-                  fontSize: 18,
-                  fontWeight: 'bold'
-                }}
-                hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-                accessibilityLabel="Resend verification code"
-              />
-              
-              {/* Direct implementation of Back button for iOS Bridgeless mode */}
-              <Pressable
-                onPress={() => {
-                  console.log('Direct Pressable onPress for Back button');
-                  goBackToEmailVerification();
-                }}
-                accessibilityLabel="Go back to email verification"
-                accessibilityRole="button"
-                style={({ pressed }) => [
-                  styles.backButton,
-                  {
-                    minHeight: 60, 
-                    width: '100%', 
-                    padding: 20,
-                    borderRadius: 10,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    backgroundColor: pressed ? '#f7f7f7' : 'transparent',
-                  }
-                ]}
-                hitSlop={{ top: 30, bottom: 30, left: 30, right: 30 }}
-              >
-                <Text style={{ 
-                  color: theme.colors.primary, 
-                  fontSize: 18, 
-                  fontWeight: 'bold',
-                  textAlign: 'center'
-                }}>
-                  Back to Email Verification
-                </Text>
-              </Pressable>
-              
-              {/* Additional TouchableOpacity as a backup for iOS */}
-              {Platform.OS === 'ios' && (
-                <TouchableOpacity
-                  style={[
-                    StyleSheet.absoluteFill,
-                    { bottom: 0, top: 160 } // Positioned below the two other buttons
-                  ]}
-                  onPress={() => {
-                    console.log('Backup TouchableOpacity for Back button');
-                    goBackToEmailVerification();
-                  }}
-                  activeOpacity={0.9}
-                >
-                  <View style={{ flex: 1 }} />
-                </TouchableOpacity>
-              )}
-            </View>
+          <View style={styles.header}>
+            <TouchableOpacity 
+              onPress={() => {
+                if (verificationStep === 'password') {
+                  setVerificationStep('otp');
+                } else {
+                  navigation.goBack();
+                }
+              }} 
+              style={styles.backButton}
+            >
+              <Entypo name="chevron-left" size={28} color={theme.colors.secondary} />
+            </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
-      </ScrollView>
-    </View>
+          
+          <View style={styles.contentContainer}>
+            {verificationStep === 'otp' ? renderOtpVerification() : renderPasswordCreation()}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
@@ -392,61 +395,123 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  header: {
+    height: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+  },
+  backButton: {
+    padding: 10,
+    paddingLeft: 0,
+  },
   contentContainer: {
     padding: 20,
     flex: 1,
-    justifyContent: 'center',
-    minHeight: '100%',
   },
   title: {
-    fontSize: 24,
+    fontSize: 36,
     fontWeight: 'bold',
     marginBottom: 10,
-    marginTop: 60,
+    fontFamily: 'Montserrat',
+  },
+  imageContainer: {
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  image: {
+    width: 180,
+    height: 180,
   },
   subtitle: {
     fontSize: 16,
     marginBottom: 30,
+    textAlign: 'center',
   },
-  inputContainer: {
+  otpMainContainer: {
+    width: '100%',
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  otpDisplayContainer: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  otpDigitDisplay: {
+    width: 45,
+    height: 60,
+    borderWidth: 2,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 5,
+  },
+  otpDigitText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  passwordInputContainer: {
     marginBottom: 16,
+  },
+  passwordRequirements: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 8,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  resendContainer: {
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  resendText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
   buttonContainer: {
     width: '100%',
-    marginTop: 30,
-    paddingHorizontal: 20,
+    marginTop: 20,
   },
-  signUpButton: {
+  verifyButton: {
     width: '100%',
-    borderRadius: 10,
-    marginBottom: 15,
-  },
-  resendButton: {
-    width: '100%',
-    borderRadius: 10,
-    marginBottom: 15,
-  },
-  backButton: {
-    width: '100%',
-    borderRadius: 10,
-  },
-  debugButton: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
+    height: 50,
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'transparent',
+    borderRadius: 10,
   },
-  debugButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
+  buttonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
   },
-  textButton: {
-    backgroundColor: 'transparent',
-    padding: 10,
+  otpInput: {
+    width: '100%',
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    fontSize: 18,
+    textAlign: 'center',
+    marginTop: 10,
+    backgroundColor: '#f9f9f9',
   },
-  keyboardAvoidingView: {
-    flex: 1,
+  otpHelpText: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 8,
+    marginBottom: 20,
+    textAlign: 'center',
   },
 });
 
