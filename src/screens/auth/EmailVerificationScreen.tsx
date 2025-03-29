@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -26,6 +26,26 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
+  const [progressPercent, setProgressPercent] = useState(0);
+
+  // Animate progress from 0 to 30% when screen loads
+  useEffect(() => {
+    // Start at 0%
+    setProgressPercent(0);
+    
+    // Animate to 30% over time
+    const timer = setTimeout(() => {
+      setProgressPercent(10);
+      setTimeout(() => {
+        setProgressPercent(20);
+        setTimeout(() => {
+          setProgressPercent(30);
+        }, 300);
+      }, 300);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   // Function to log important actions for easier debugging
   const logDebug = (message: string, data?: any) => {
@@ -86,14 +106,22 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
     setLoading(true);
     logDebug('Processing signup');
     
+    // Start progress at 30% (we were already at this point)
+    
     try {
-      // Generate a temporary password for the initial sign-up
-      const tempPassword = Math.random().toString(36).slice(-8) + 'Aa1!';
-      
       // Format phone number with + prefix if not already present
       const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
       
-      // Sign up the user with Cognito using the exact attribute names required by your schema
+      // Update progress to 50%
+      setProgressPercent(50);
+      
+      // Generate a temporary password for the initial sign-up
+      const tempPassword = Math.random().toString(36).slice(-8) + 'Aa1!';
+      
+      // Simulate some delay for visual feedback (remove in production)
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Sign up the user with Cognito
       const signUpResponse = await Auth.signUp({
         username: email,
         password: tempPassword,
@@ -104,7 +132,19 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
         }
       });
       
+      // Update progress to 80%
+      setProgressPercent(80);
+      
+      // Simulate some delay for visual feedback (remove in production)
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Update to 100% complete
+      setProgressPercent(100);
+      
       logDebug('Sign up successful, verification code sent:', signUpResponse);
+      
+      // Short delay before navigating
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Navigate to OTP screen with all required parameters
       navigation.navigate('OtpInput', {
@@ -116,6 +156,9 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
       
     } catch (error: any) {
       logDebug('Error during signup:', error);
+      
+      // Reset progress on error
+      setProgressPercent(30); // Keep at initial progress
       
       // Handle specific error cases
       if (error.code === 'UsernameExistsException') {
@@ -131,7 +174,15 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
               text: 'Resend',
               onPress: async () => {
                 try {
+                  setLoading(true);
+                  setProgressPercent(50);
+                  
                   await Auth.resendSignUp(email);
+                  
+                  setProgressPercent(100);
+                  
+                  await new Promise(resolve => setTimeout(resolve, 800));
+                  
                   Alert.alert('Success', 'Verification code has been resent');
                   navigation.navigate('OtpInput', { 
                     email,
@@ -140,6 +191,9 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
                   });
                 } catch (resendError: any) {
                   Alert.alert('Error', resendError.message || 'Failed to resend verification code');
+                } finally {
+                  setLoading(false);
+                  setProgressPercent(30); // Back to initial state
                 }
               }
             }
@@ -215,9 +269,24 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
             activeOpacity={0.7}
           >
             <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
-              {loading ? "Loading..." : "Continue"}
+              {loading ? "Processing..." : "Continue"}
             </Text>
           </TouchableOpacity>
+        </View>
+        
+        {/* Progress indicator - only showing the bar */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressTrack}>
+            <View 
+              style={[
+                styles.progressBar, 
+                { 
+                  width: `${progressPercent}%`,
+                  backgroundColor: '#FFB347'
+                }
+              ]} 
+            />
+          </View>
         </View>
       </View>
     </SafeAreaView>
@@ -277,15 +346,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  backTextContainer: {
-    marginTop: 20,
-    padding: 15,
-    alignSelf: 'center',
-  },
-  backText: {
-    fontSize: 16,
-    textAlign: 'center',
-  },
   imageContainer: {
     alignItems: 'center',
     marginBottom: 20,
@@ -293,6 +353,21 @@ const styles = StyleSheet.create({
   image: {
     width: 200,
     height: 200,
+  },
+  progressContainer: {
+    marginTop: 30,
+    paddingHorizontal: 5,
+    width: '100%',
+  },
+  progressTrack: {
+    height: 6,
+    backgroundColor: '#E8E8E8',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 3,
   },
 });
 

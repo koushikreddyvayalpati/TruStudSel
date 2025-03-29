@@ -31,7 +31,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }) => {
       
       <View style={styles.imageContainer}>
         <Image 
-          source={require('../../../assets/pana.jpg')} 
+          source={require('../../../assets/pana.png')} 
           style={styles.image}
           resizeMode="contain"
         />

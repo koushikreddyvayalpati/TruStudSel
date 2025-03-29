@@ -92,22 +92,18 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
       Alert.alert('Error', 'Please enter your full name');
       return;
     }
-    
     if (!university.trim()) {
       Alert.alert('Error', 'Please enter your university');
       return;
     }
-    
     setLoading(true);
     setLoadingStep(0);
-    
     try {
       // Just updating the name attribute in Cognito
       const user = await Auth.currentAuthenticatedUser();
       await Auth.updateUserAttributes(user, {
         'name': fullName.trim()
       });
-      
       // For university and bio, we're just logging them for now
       // Later you can connect to your API to store these values
       console.log('Profile data to be stored in API:', {
@@ -116,36 +112,28 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
         bio: bio.trim(),
         email
       });
-      
       // Update user info in the auth context
       updateUserInfo({
         name: fullName.trim(),
         university: university.trim(),
         email
       });
-      
       // Explicitly set auth state to authenticated
       await refreshSession();
-      
       // Show loading indicator and navigate to home
       setLoading(false);
       setNavigating(true);
-      
       // Navigate to home without showing alert
       try {
         // Make sure our authentication state is properly set
         await refreshSession();
-        
         // Proceed with staged navigation
         setTimeout(() => {
           setLoadingStep(1); // Success message
-          
           setTimeout(() => {
             setLoadingStep(2); // Preparing account
-            
             setTimeout(() => {
               setLoadingStep(3); // Taking to home
-              
               // Final delay before navigation
               setTimeout(() => {
                 // In development, use DevSettings to reload the app
