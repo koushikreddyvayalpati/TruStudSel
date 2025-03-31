@@ -5,17 +5,22 @@
  */
 
 import apiClient from './apiClient';
-import { USERS_API_URL } from './config';
+import { API_URL } from './config';
 
-// User profile data interface
+// User profile data interface - matches DynamoDB schema
 export interface UserProfileData {
-  fullName: string;
   email: string;
-  university: string;
-  city: string;
-  zipcode: string;
-  interestedCategories: string[];
-  [key: string]: any; // For any additional fields
+  name: string;
+  university?: string;
+  city?: string;
+  state?: string;
+  zipcode?: string;
+  mobile?: string;
+  userphoto?: string;
+  ProductsCategoriesIntrested?: string[] | null;
+  productsListed?: string;
+  productssold?: string;
+  productswishlist?: string[];
 }
 
 /**
@@ -24,7 +29,8 @@ export interface UserProfileData {
  */
 export const createUserProfile = async (userData: UserProfileData) => {
   try {
-    const response = await apiClient.post(USERS_API_URL, userData);
+    // Using exact api path from the curl example
+    const response = await apiClient.post(`${API_URL}/api/users`, userData);
     return response.data;
   } catch (error) {
     console.error('Failed to create user profile:', error);
@@ -33,30 +39,30 @@ export const createUserProfile = async (userData: UserProfileData) => {
 };
 
 /**
- * Get user profile by ID
- * @param userId User ID to fetch
+ * Get user profile by email
+ * @param userEmail User email to fetch
  */
-export const fetchUserProfileById = async (userId: string) => {
+export const fetchUserProfileById = async (userEmail: string) => {
   try {
-    const response = await apiClient.get(`${USERS_API_URL}/${userId}`);
+    const response = await apiClient.get(`${API_URL}/api/users/${userEmail}`);
     return response.data;
   } catch (error) {
-    console.error(`Failed to fetch user profile (ID: ${userId}):`, error);
+    console.error(`Failed to fetch user profile (Email: ${userEmail}):`, error);
     throw error;
   }
 };
 
 /**
  * Update user profile
- * @param userId User ID to update
+ * @param userEmail User email to update
  * @param userData Updated user data
  */
-export const updateUserProfileData = async (userId: string, userData: Partial<UserProfileData>) => {
+export const updateUserProfileData = async (userEmail: string, userData: Partial<UserProfileData>) => {
   try {
-    const response = await apiClient.put(`${USERS_API_URL}/${userId}`, userData);
+    const response = await apiClient.put(`${API_URL}/api/users/${userEmail}`, userData);
     return response.data;
   } catch (error) {
-    console.error(`Failed to update user profile (ID: ${userId}):`, error);
+    console.error(`Failed to update user profile (Email: ${userEmail}):`, error);
     throw error;
   }
 };

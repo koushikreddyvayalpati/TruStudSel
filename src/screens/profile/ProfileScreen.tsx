@@ -20,7 +20,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProfileScreenNavigationProp } from '../../types/navigation.types';
-import { API_URL } from '../../api/config';
+import { fetchUserProfileById } from '../../api/users';
 
 // Constants
 const PROFILE_BANNER_HEIGHT = 180;
@@ -70,7 +70,7 @@ const INITIAL_POSTS: Post[] = [
   { id: 6, image: 'https://via.placeholder.com/150', caption: 'Backpack', price: '$25', condition: 'Good', status: 'archived' },
 ];
 
-// Add this interface for backend user data structure
+// Add this interface for backend user data
 interface BackendUserData {
   email: string;
   city?: string;
@@ -265,7 +265,7 @@ const useUserData = (user: any, backendUser: BackendUserData | null) => {
     stats: {
       sold: backendUser?.productssold ? parseInt(backendUser.productssold) : 0,
     },
-    profileImage: backendUser?.userphoto || user?.profileImage || null,
+    profileImage: null,
     isVerified: true,
   }), [user, backendUser]);
 };
@@ -302,28 +302,12 @@ const ProfileScreen: React.FC = () => {
     if (!isRefreshing) setIsLoading(true);
     
     try {
-      // Using the exact API path from the curl example
-      const apiUrl = `${API_URL}/api/users/${user.email}`;
-      console.log('Fetching user data from:', apiUrl);
-      
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Received user data:', data);
-        setBackendUserData(data);
-      } else {
-        console.error('Failed to fetch user data:', response.status);
-        setError(`Failed to load profile data (${response.status})`);
-      }
-    } catch (error) {
-      console.error('Error fetching user data:', error);
+      // Use the fetchUserProfileById function from api/users.ts
+      const data = await fetchUserProfileById(user.email);
+      console.log('Received user data:', data);
+      setBackendUserData(data);
+    } catch (error: any) {
+      console.error('Error fetching user data:', error.message || error);
       setError('Network error while fetching profile data');
     } finally {
       setIsLoading(false);

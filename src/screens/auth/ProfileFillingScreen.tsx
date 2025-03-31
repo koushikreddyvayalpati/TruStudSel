@@ -37,7 +37,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
   const { refreshSession, updateUserInfo, isAuthenticated } = useAuth();
   const { email, username, isAuthenticated: wasAuthenticated } = route.params;
   
-  const [fullName, setFullName] = useState(username || '');
+  const [fullName, _setFullName] = useState(username || '');
   const [university, setUniversity] = useState('');
   const [city, setCity] = useState('');
   const [zipcode, setZipcode] = useState('');
@@ -136,12 +136,16 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
       
       // Prepare profile data for API
       const profileData: UserProfileData = {
-        fullName: fullName.trim(),
+        email,
+        name: fullName.trim(),
         university: university.trim(),
         city: city.trim(),
         zipcode: zipcode.trim(),
-        interestedCategories: selectedCategories,
-        email
+        ProductsCategoriesIntrested: selectedCategories,
+        state: '', // Can be filled in later
+        productsListed: "0",
+        productssold: "0",
+        productswishlist: []
       };
       
       console.log('Sending profile data to API:', profileData);
@@ -298,8 +302,8 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
           <TextInput
             label="Full Name"
             value={fullName}
-            onChangeText={setFullName}
-            placeholder="Enter your full name"
+            placeholder="Your full name"
+            editable={false}
             containerStyle={styles.inputContainer}
           />
           
