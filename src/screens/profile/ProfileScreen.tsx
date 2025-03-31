@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -9,7 +9,6 @@ import {
   StatusBar,
   ActivityIndicator,
   RefreshControl,
-  ImageBackground,
   Animated,
   Platform
 } from 'react-native';
@@ -21,7 +20,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProfileScreenNavigationProp } from '../../types/navigation.types';
-import LinearGradient from 'react-native-linear-gradient';
+import { API_URL } from '../../api/config';
 
 // Constants
 const PROFILE_BANNER_HEIGHT = 180;
@@ -44,6 +43,25 @@ interface Post {
 // Define tab types
 type TabType = 'inMarket' | 'archive';
 
+// Loading component
+const LoadingIndicator = React.memo(() => (
+  <View style={styles.loadingContainer}>
+    <ActivityIndicator size="large" color="#f7b305" />
+    <Text style={styles.loadingText}>Loading profile...</Text>
+  </View>
+));
+
+// Error component
+const ErrorDisplay = React.memo(({ message, onRetry }: { message: string, onRetry: () => void }) => (
+  <View style={styles.errorContainer}>
+    <FontAwesome5 name="exclamation-circle" size={50} color="#e74c3c" />
+    <Text style={styles.errorMessage}>{message}</Text>
+    <TouchableOpacity style={styles.retryButton} onPress={onRetry}>
+      <Text style={styles.retryButtonText}>Retry</Text>
+    </TouchableOpacity>
+  </View>
+));
+
 // Sample posts data 
 const INITIAL_POSTS: Post[] = [
   { id: 1, image: 'https://via.placeholder.com/150', caption: 'Calculus Textbook', price: '$45', condition: 'Good', status: 'active' },
@@ -52,15 +70,33 @@ const INITIAL_POSTS: Post[] = [
   { id: 6, image: 'https://via.placeholder.com/150', caption: 'Backpack', price: '$25', condition: 'Good', status: 'archived' },
 ];
 
+// Add this interface for backend user data structure
+interface BackendUserData {
+  email: string;
+  city?: string;
+  mobile?: string;
+  name?: string;
+  productsCategoriesIntrested?: string[] | null;
+  productsListed?: string;
+  productssold?: string;
+  productswishlist?: string[];
+  state?: string;
+  university?: string;
+  userphoto?: string;
+  zipcode?: string;
+}
+
 // Extract profile header component for better code organization and performance
 const ProfileHeader = React.memo(({ 
   userData, 
+  backendUserData,
   filteredPosts,
   activeTab,
   onTabChange,
   onEditProfile,
 }: {
   userData: ReturnType<typeof useUserData>,
+  backendUserData: BackendUserData | null,
   filteredPosts: Post[],
   activeTab: TabType,
   onTabChange: (tab: TabType) => void,
@@ -121,7 +157,7 @@ const ProfileHeader = React.memo(({
       
       <View style={styles.profileDetailsContainer}>
         <View style={styles.nameEditRow}>
-          <Text style={styles.profileName}>Koushik</Text>
+          <Text style={styles.profileName}>{userData.name}</Text>
           <TouchableOpacity 
             style={styles.editProfileButton}
             onPress={onEditProfile}
@@ -140,6 +176,18 @@ const ProfileHeader = React.memo(({
             <MaterialCommunityIcons name="email-outline" size={16} color="#666" />
             <Text style={styles.userInfoText} numberOfLines={1}>{userData.email}</Text>
           </View>
+          {backendUserData?.city && backendUserData?.state && (
+            <View style={styles.userInfoItem}>
+              <FontAwesome5 name="map-marker-alt" size={16} color="#666" />
+              <Text style={styles.userInfoText}>{backendUserData.city}, {backendUserData.state}</Text>
+            </View>
+          )}
+          {backendUserData?.mobile && (
+            <View style={styles.userInfoItem}>
+              <FontAwesome5 name="phone-alt" size={16} color="#666" />
+              <Text style={styles.userInfoText}>{backendUserData.mobile}</Text>
+            </View>
+          )}
         </View>
       </View>
       
@@ -209,17 +257,17 @@ const PostItem = React.memo(({ item }: { item: Post }) => (
 ));
 
 // Custom hook for user data to make the component more maintainable
-const useUserData = (user: any) => {
+const useUserData = (user: any, backendUser: BackendUserData | null) => {
   return useMemo(() => ({
     name: user?.name || user?.username?.split('@')[0] || "User",
     email: user?.email || user?.username || "No email available",
-    university: user?.university || "State University",
+    university: backendUser?.university || user?.university || "State University",
     stats: {
-      sold: user?.stats?.sold || 24,
+      sold: backendUser?.productssold ? parseInt(backendUser.productssold) : 0,
     },
-    profileImage: user?.profileImage || null,
+    profileImage: backendUser?.userphoto || user?.profileImage || null,
     isVerified: true,
-  }), [user]);
+  }), [user, backendUser]);
 };
 
 // Empty state component
@@ -237,8 +285,58 @@ const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<ProfileScreenNavigationProp>();
   const { signOut, user } = useAuth();
   
-  // Use custom hook for user data
-  const userData = useUserData(user);
+  // State for backend user data
+  const [backendUserData, setBackendUserData] = useState<BackendUserData | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  
+  // Fetch user data from backend API
+  const fetchUserData = useCallback(async () => {
+    if (!user?.email) {
+      setIsLoading(false);
+      return;
+    }
+    
+    setError(null);
+    if (!isRefreshing) setIsLoading(true);
+    
+    try {
+      // Using the exact API path from the curl example
+      const apiUrl = `${API_URL}/api/users/${user.email}`;
+      console.log('Fetching user data from:', apiUrl);
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Received user data:', data);
+        setBackendUserData(data);
+      } else {
+        console.error('Failed to fetch user data:', response.status);
+        setError(`Failed to load profile data (${response.status})`);
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      setError('Network error while fetching profile data');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.email, isRefreshing]);
+  
+  // Call fetchUserData on component mount
+  useEffect(() => {
+    fetchUserData();
+  }, [fetchUserData]);
+  
+  // Use custom hook for user data, now with backend data
+  const userData = useUserData(user, backendUserData);
   
   // Animated values with useMemo to avoid recreating on every render
   const scrollY = useMemo(() => new Animated.Value(0), []);
@@ -252,8 +350,6 @@ const ProfileScreen: React.FC = () => {
 
   // Component state
   const [posts, _setPosts] = useState<Post[]>(INITIAL_POSTS);
-  const [isLoading, _setIsLoading] = useState<boolean>(false);
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<TabType>('inMarket');
 
   // Memoized filtered posts based on active tab
@@ -272,12 +368,11 @@ const ProfileScreen: React.FC = () => {
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
     
-    // Simulate API refresh
-    setTimeout(() => {
+    // Refresh backend user data
+    fetchUserData().finally(() => {
       setIsRefreshing(false);
-      // In a real app, you would fetch fresh data here
-    }, 1000); // Reduced timeout for better UX
-  }, []);
+    });
+  }, [fetchUserData]);
 
   // Sign out handler with proper error handling
   const handleSignOut = useCallback(async () => {
@@ -356,13 +451,14 @@ const ProfileScreen: React.FC = () => {
       {/* Profile Info Section */}
       <ProfileHeader 
         userData={userData} 
+        backendUserData={backendUserData}
         filteredPosts={filteredPosts} 
         activeTab={activeTab} 
         onTabChange={handleTabChange}
         onEditProfile={handleEditProfile}
       />
     </>
-  ), [userData, filteredPosts, activeTab, handleTabChange, handleEditProfile, handleGoBack, handleSignOut]);
+  ), [userData, backendUserData, filteredPosts, activeTab, handleTabChange, handleEditProfile, handleGoBack, handleSignOut]);
 
   // EmptyList component for better organization
   const ListEmptyComponent = useCallback(() => (
@@ -420,35 +516,45 @@ const ProfileScreen: React.FC = () => {
         </View>
       </Animated.View>
       
+      {/* Display Loading Indicator */}
+      {isLoading && !isRefreshing && <LoadingIndicator />}
+      
+      {/* Display Error Message */}
+      {error && !isLoading && (
+        <ErrorDisplay message={error} onRetry={fetchUserData} />
+      )}
+      
       {/* Using FlatList instead of ScrollView for better performance with large lists */}
-      <Animated.FlatList
-        data={filteredPosts}
-        renderItem={renderItem}
-        keyExtractor={keyExtractor}
-        numColumns={2}
-        showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        contentContainerStyle={styles.scrollContent}
-        ListHeaderComponent={ListHeaderComponent}
-        ListEmptyComponent={ListEmptyComponent}
-        ListFooterComponent={ListFooterComponent}
-        columnWrapperStyle={styles.columnWrapper}
-        getItemLayout={getItemLayout}
-        initialNumToRender={6}
-        maxToRenderPerBatch={10}
-        windowSize={5}
-        removeClippedSubviews={true}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            colors={['#ffffff']}
-            tintColor="#ffffff"
-            progressBackgroundColor="#f7b305"
-          />
-        }
-      />
+      {!isLoading && !error && (
+        <Animated.FlatList
+          data={filteredPosts}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
+          numColumns={2}
+          showsVerticalScrollIndicator={false}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          contentContainerStyle={styles.scrollContent}
+          ListHeaderComponent={ListHeaderComponent}
+          ListEmptyComponent={ListEmptyComponent}
+          ListFooterComponent={ListFooterComponent}
+          columnWrapperStyle={styles.columnWrapper}
+          getItemLayout={getItemLayout}
+          initialNumToRender={6}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={true}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={['#ffffff']}
+              tintColor="#ffffff"
+              progressBackgroundColor="#f7b305"
+            />
+          }
+        />
+      )}
       
       {/* Floating Add Button */}
       <TouchableOpacity 
@@ -908,7 +1014,43 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 30
-  }
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+  },
+  loadingText: {
+    marginTop: 15,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    padding: 20,
+  },
+  errorMessage: {
+    marginTop: 15,
+    fontSize: 18,
+    color: '#555',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#f7b305',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
 });
 
 export default React.memo(ProfileScreen); 
