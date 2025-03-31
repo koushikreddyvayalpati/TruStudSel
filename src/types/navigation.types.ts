@@ -13,7 +13,7 @@ export type AuthStackParamList = {
   SignUp: undefined;
   EmailVerification: { email: string };
   OtpInput: { email: string; name?: string; phoneNumber?: string; tempPassword?: string };
-  ProfileFillingPage: { email: string; username: string; isAuthenticated?: boolean };
+  ProfileFillingPage: { email: string; username: string; phoneNumber?: string; isAuthenticated?: boolean };
   ForgotPassword: undefined;
 };
 

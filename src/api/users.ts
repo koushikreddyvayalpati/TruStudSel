@@ -7,6 +7,32 @@
 import apiClient from './apiClient';
 import { API_URL } from './config';
 
+/**
+ * Upload file to the server
+ * @param file FormData containing the file to upload
+ * @returns The uploaded file data including fileName
+ */
+export const uploadFile = async (formData: FormData) => {
+  try {
+    const response = await fetch(`${API_URL}/api/files/upload`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+      },
+      body: formData
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Upload failed with status: ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to upload file:', error);
+    throw error;
+  }
+};
+
 // User profile data interface - matches DynamoDB schema
 export interface UserProfileData {
   email: string;
@@ -70,5 +96,6 @@ export const updateUserProfileData = async (userEmail: string, userData: Partial
 export default {
   createUserProfile,
   fetchUserProfileById,
-  updateUserProfileData
+  updateUserProfileData,
+  uploadFile
 }; 

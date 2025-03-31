@@ -12,7 +12,7 @@ import {
   Animated,
   Platform
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
@@ -21,6 +21,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useAuth } from '../../contexts/AuthContext';
 import { ProfileScreenNavigationProp } from '../../types/navigation.types';
 import { fetchUserProfileById } from '../../api/users';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Constants
 const PROFILE_BANNER_HEIGHT = 180;
@@ -265,7 +266,7 @@ const useUserData = (user: any, backendUser: BackendUserData | null) => {
     stats: {
       sold: backendUser?.productssold ? parseInt(backendUser.productssold) : 0,
     },
-    profileImage: null,
+    profileImage: backendUser?.userphoto || null,
     isVerified: true,
   }), [user, backendUser]);
 };
@@ -281,6 +282,79 @@ const EmptyState = React.memo(({ activeTab }: { activeTab: TabType }) => (
   </View>
 ));
 
+// Add this cache manager outside of the component to make it global
+// This will serve as an in-memory cache for quick access without AsyncStorage overhead
+const profileCache = new Map();
+
+// Add this function for cache cleanup outside of the component
+// This limits the in-memory cache size to prevent memory issues
+const MAX_CACHE_SIZE = 50; // Maximum number of profiles to keep in memory
+
+function cleanupCache() {
+  if (profileCache.size > MAX_CACHE_SIZE) {
+    // Convert to array to sort by timestamp
+    const cacheEntries = Array.from(profileCache.entries());
+    
+    // Sort by timestamp (oldest first)
+    cacheEntries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+    
+    // Remove the oldest 20% entries
+    const entriesToRemove = Math.floor(profileCache.size * 0.2);
+    const oldestEntries = cacheEntries.slice(0, entriesToRemove);
+    
+    // Delete from Map
+    oldestEntries.forEach(([key]) => {
+      profileCache.delete(key);
+    });
+    
+    console.log(`Cache cleanup: removed ${entriesToRemove} oldest entries`);
+  }
+}
+
+// Add these variables outside the component for API request throttling
+const USER_PROFILE_CACHE_KEY = 'user_profile_cache_';
+const CACHE_EXPIRY_TIME = 15 * 60 * 1000; // 15 minutes in milliseconds
+const API_REQUEST_TIMESTAMPS = new Map(); // Track timestamps of API requests by email
+const MIN_API_REQUEST_INTERVAL = 30000; // Minimum time between API requests for the same user (30 seconds)
+
+// Add after the MAP_CACHE_SIZE constant
+// Background cache refresh mechanism to keep data fresh without blocking UI
+async function refreshCacheInBackground(email: string) {
+  try {
+    // Check if we're rate-limiting this user
+    const lastRequestTime = API_REQUEST_TIMESTAMPS.get(email);
+    const now = Date.now();
+    
+    if (lastRequestTime && (now - lastRequestTime < MIN_API_REQUEST_INTERVAL)) {
+      console.log(`Skipping background refresh for ${email}: rate limited`);
+      return;
+    }
+    
+    console.log(`Background refreshing data for ${email}`);
+    API_REQUEST_TIMESTAMPS.set(email, now);
+    
+    // Fetch fresh data from API
+    const data = await fetchUserProfileById(email);
+    
+    // Update caches
+    const cacheData = {
+      data,
+      timestamp: now
+    };
+    
+    profileCache.set(email, cacheData);
+    cleanupCache();
+    
+    const cacheKey = `${USER_PROFILE_CACHE_KEY}${email}`;
+    await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
+    
+    console.log(`Background refresh completed for ${email}`);
+  } catch (error) {
+    console.warn(`Background refresh failed for ${email}:`, error);
+    // Don't propagate the error since this is a background operation
+  }
+}
+
 const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<ProfileScreenNavigationProp>();
   const { signOut, user } = useAuth();
@@ -291,7 +365,7 @@ const ProfileScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   
-  // Fetch user data from backend API
+  // Fetch user data from backend API with caching
   const fetchUserData = useCallback(async () => {
     if (!user?.email) {
       setIsLoading(false);
@@ -302,22 +376,138 @@ const ProfileScreen: React.FC = () => {
     if (!isRefreshing) setIsLoading(true);
     
     try {
-      // Use the fetchUserProfileById function from api/users.ts
+      const cacheKey = `${USER_PROFILE_CACHE_KEY}${user.email}`;
+      
+      // First, check the in-memory cache for the fastest access
+      if (!isRefreshing && profileCache.has(user.email)) {
+        const { data, timestamp } = profileCache.get(user.email);
+        const isExpired = Date.now() - timestamp > CACHE_EXPIRY_TIME;
+        const isStale = Date.now() - timestamp > (CACHE_EXPIRY_TIME / 3);
+        
+        if (!isExpired) {
+          console.log('Using in-memory cached user profile data');
+          setBackendUserData(data);
+          setIsLoading(false);
+          
+          // If data is stale but not expired, trigger a background refresh
+          if (isStale) {
+            console.log('Data is stale, triggering background refresh');
+            setTimeout(() => refreshCacheInBackground(user.email), 100);
+          }
+          
+          return;
+        }
+      }
+      
+      // Then try AsyncStorage if not refreshing
+      if (!isRefreshing) {
+        try {
+          const cachedData = await AsyncStorage.getItem(cacheKey);
+          
+          if (cachedData) {
+            const { data, timestamp } = JSON.parse(cachedData);
+            const isExpired = Date.now() - timestamp > CACHE_EXPIRY_TIME;
+            const isStale = Date.now() - timestamp > (CACHE_EXPIRY_TIME / 3);
+            
+            if (!isExpired) {
+              console.log('Using AsyncStorage cached user profile data');
+              // Update in-memory cache too
+              profileCache.set(user.email, { data, timestamp });
+              setBackendUserData(data);
+              setIsLoading(false);
+              
+              // If data is stale but not expired, trigger a background refresh
+              if (isStale) {
+                console.log('Data is stale, triggering background refresh');
+                setTimeout(() => refreshCacheInBackground(user.email), 100);
+              }
+              
+              return;
+            } else {
+              console.log('Cache expired, fetching fresh data');
+            }
+          }
+        } catch (cacheError) {
+          console.warn('Error reading from cache:', cacheError);
+          // Continue with API fetch on cache error
+        }
+      }
+      
+      // Check if we should rate limit this API request
+      const lastRequestTime = API_REQUEST_TIMESTAMPS.get(user.email);
+      const now = Date.now();
+      
+      if (lastRequestTime && (now - lastRequestTime < MIN_API_REQUEST_INTERVAL) && !isRefreshing) {
+        console.log(`Rate limiting API request for ${user.email}`);
+        // Use cache even if expired, but mark for refresh
+        if (profileCache.has(user.email)) {
+          const { data } = profileCache.get(user.email);
+          setBackendUserData(data);
+          setIsLoading(false);
+          // Schedule a delayed refresh
+          setTimeout(() => refreshCacheInBackground(user.email), MIN_API_REQUEST_INTERVAL);
+          return;
+        }
+      }
+      
+      // If cache miss or cache expired or explicitly refreshing, fetch from API
+      console.log('Fetching user profile from API');
+      API_REQUEST_TIMESTAMPS.set(user.email, now);
+      
       const data = await fetchUserProfileById(user.email);
-      console.log('Received user data:', data);
+      
+      // Update state with new data
       setBackendUserData(data);
+      
+      // Save to both caches
+      const cacheData = {
+        data,
+        timestamp: now
+      };
+      
+      // Update in-memory cache
+      profileCache.set(user.email, cacheData);
+      
+      // Run cache cleanup to prevent memory issues
+      cleanupCache();
+      
+      // Update AsyncStorage cache
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
+      
     } catch (error: any) {
       console.error('Error fetching user data:', error.message || error);
-      setError('Network error while fetching profile data');
+      
+      // If we have cached data, use it despite the error
+      if (profileCache.has(user.email)) {
+        console.log('Using cached data after API error');
+        setBackendUserData(profileCache.get(user.email).data);
+      } else {
+        setError('Network error while fetching profile data');
+      }
     } finally {
       setIsLoading(false);
     }
   }, [user?.email, isRefreshing]);
   
-  // Call fetchUserData on component mount
-  useEffect(() => {
-    fetchUserData();
-  }, [fetchUserData]);
+  // Replace the useEffect with useFocusEffect for better navigation handling
+  // Add after the fetchUserData function
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+      
+      const loadData = async () => {
+        if (isActive) {
+          await fetchUserData();
+        }
+      };
+      
+      loadData();
+      
+      return () => {
+        isActive = false;
+      };
+    }, [fetchUserData])
+  );
   
   // Use custom hook for user data, now with backend data
   const userData = useUserData(user, backendUserData);
@@ -460,6 +650,17 @@ const ProfileScreen: React.FC = () => {
       <View style={styles.bottomSpacing} />
     </>
   ), [isLoading]);
+
+  // Add component unmount cleanup at the end of the ProfileScreen component
+  useEffect(() => {
+    // Component cleanup function
+    return () => {
+      // Remove this user's data from the request timestamp tracking when component unmounts
+      if (user?.email) {
+        API_REQUEST_TIMESTAMPS.delete(user?.email);
+      }
+    };
+  }, [user?.email]);
 
   return (
     <SafeAreaView style={styles.container}>

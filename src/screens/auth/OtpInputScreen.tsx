@@ -23,7 +23,7 @@ import Entypo from 'react-native-vector-icons/Entypo';
 const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) => {
   const { theme } = useTheme();
   const { refreshSession } = useAuth();
-  const { email, tempPassword, name } = route.params;
+  const { email, tempPassword, name, phoneNumber } = route.params;
   
   // State variables
   const [loading, setLoading] = useState(false);
@@ -281,7 +281,8 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
             navigation.navigate('ProfileFillingPage', { 
               email, 
               username: name || '',
-              isAuthenticated: true
+              isAuthenticated: true,
+              phoneNumber
             });
           }, 800);
         }, 1000);
