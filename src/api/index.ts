@@ -4,6 +4,7 @@
 import config from './config';
 import authApi from './auth';
 import productsApi from './products';
+import usersApi from './users';
 import apiClient, { addAuthHeader, removeAuthHeader, API_CONFIG } from './apiClient';
 
 // Export configuration
@@ -17,6 +18,10 @@ export { authApi };
 export * from './products';
 export { productsApi };
 
+// Export users API
+export * from './users';
+export { usersApi };
+
 // Export API client utilities
 export { apiClient, addAuthHeader, removeAuthHeader, API_CONFIG };
 
@@ -25,5 +30,6 @@ export default {
   config,
   auth: authApi,
   products: productsApi,
+  users: usersApi,
   client: apiClient,
 }; 

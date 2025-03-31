@@ -17,6 +17,9 @@ export interface UserData {
   email: string;
   name?: string;
   university?: string;
+  city?: string;
+  zipcode?: string;
+  interestedCategories?: string[];
   isVerified?: boolean;
   profileImage?: string | null;
   stats?: {
@@ -82,6 +85,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             cognitoUser.attributes?.['custom:name'] || 
             cognitoUser.username,
       university: cognitoUser.attributes?.['custom:university'] || '',
+      city: cognitoUser.attributes?.city || '',
+      zipcode: cognitoUser.attributes?.zipcode || '',
+      interestedCategories: cognitoUser.attributes?.interestedCategories || [],
       isVerified: cognitoUser.attributes?.email_verified || false,
       profileImage: cognitoUser.attributes?.picture || null,
       stats: {

@@ -51,7 +51,7 @@ const SlideIndicator: React.FC<SlideIndicatorProps> = ({
   });
 
   return (
-    <View style={[styles.container, { width, height }]}>
+    <View style={[styles.container, { width: width as number, height }]}>
       <Animated.View
         style={[
           styles.indicator,

@@ -2,9 +2,18 @@
  * API Configuration
  */
 import { API_TIMEOUT } from '../constants';
+import { Platform } from 'react-native';
+
+// Determine API base URL based on environment
+const isDevelopment = __DEV__;
+
+// In development, use localhost for the emulator
+// Note: On Android emulator, localhost refers to the emulator itself, not your machine
+// Use 10.0.2.2 for Android emulator to reach your machine's localhost
+const devBaseUrl = Platform.OS === 'android' ? 'http://10.0.2.2:8080' : 'http://localhost:8080';
 
 // API base URLs
-export const API_URL = 'https://api.trustudsel.com'; // Replace with your actual API URL
+export const API_URL = isDevelopment ? devBaseUrl : 'https://api.trustudsel.com';
 export const AUTH_API_URL = `${API_URL}/auth`;
 export const PRODUCTS_API_URL = `${API_URL}/products`;
 export const MESSAGES_API_URL = `${API_URL}/messages`;

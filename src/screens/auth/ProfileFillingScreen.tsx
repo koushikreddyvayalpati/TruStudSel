@@ -9,7 +9,8 @@ import {
   Platform,
   ScrollView,
   BackHandler,
-  DevSettings
+  DevSettings,
+  FlatList
 } from 'react-native';
 import { ProfileFillingScreenProps } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
@@ -17,6 +18,19 @@ import { useAuth } from '../../contexts';
 import { TextInput, LoadingOverlay } from '../../components/common';
 import { Auth } from 'aws-amplify';
 import { CommonActions } from '@react-navigation/native';
+import { createUserProfile, UserProfileData } from '../../api/users';
+
+// Predefined product categories
+const PRODUCT_CATEGORIES = [
+  { id: '1', name: 'Electronics' },
+  { id: '2', name: 'Clothing' },
+  { id: '3', name: 'Books & Education' },
+  { id: '4', name: 'Home & Furniture' },
+  { id: '5', name: 'Sports & Outdoors' },
+  { id: '6', name: 'Beauty & Personal Care' },
+  { id: '7', name: 'Food & Beverages' },
+  { id: '8', name: 'Toys & Games' }
+];
 
 const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navigation }) => {
   const { theme } = useTheme();
@@ -24,8 +38,10 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
   const { email, username, isAuthenticated: wasAuthenticated } = route.params;
   
   const [fullName, setFullName] = useState(username || '');
-  const [bio, setBio] = useState('');
   const [university, setUniversity] = useState('');
+  const [city, setCity] = useState('');
+  const [zipcode, setZipcode] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [navigating, setNavigating] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
@@ -96,6 +112,19 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
       Alert.alert('Error', 'Please enter your university');
       return;
     }
+    if (!city.trim()) {
+      Alert.alert('Error', 'Please enter your city');
+      return;
+    }
+    if (!zipcode.trim()) {
+      Alert.alert('Error', 'Please enter your zipcode');
+      return;
+    }
+    if (selectedCategories.length === 0) {
+      Alert.alert('Error', 'Please select at least one product category');
+      return;
+    }
+    
     setLoading(true);
     setLoadingStep(0);
     try {
@@ -104,20 +133,36 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
       await Auth.updateUserAttributes(user, {
         'name': fullName.trim()
       });
-      // For university and bio, we're just logging them for now
-      // Later you can connect to your API to store these values
-      console.log('Profile data to be stored in API:', {
+      
+      // Prepare profile data for API
+      const profileData: UserProfileData = {
         fullName: fullName.trim(),
         university: university.trim(),
-        bio: bio.trim(),
+        city: city.trim(),
+        zipcode: zipcode.trim(),
+        interestedCategories: selectedCategories,
         email
-      });
+      };
+      
+      console.log('Sending profile data to API:', profileData);
+      
       // Update user info in the auth context
       updateUserInfo({
         name: fullName.trim(),
         university: university.trim(),
         email
       });
+      
+      // Make API call to save profile data
+      try {
+        const response = await createUserProfile(profileData);
+        console.log('Profile created successfully:', response);
+      } catch (apiError: any) {
+        console.error('API error when creating profile:', apiError);
+        // Continue with app flow even if API fails - we can sync later
+        // But log the error for tracking
+      }
+      
       // Explicitly set auth state to authenticated
       await refreshSession();
       // Show loading indicator and navigate to home
@@ -141,12 +186,12 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
                   console.log('Reloading app to update navigation...');
                   DevSettings.reload();
                 } else {
-                  // Fallback for production
-                  console.log('Forcing navigation reset...');
+                  // Navigate to Main screen instead of SignIn
+                  console.log('Navigating to Main screen...');
                   navigation.dispatch(
                     CommonActions.reset({
                       index: 0,
-                      routes: [{ name: 'SignIn' }],
+                      routes: [{ name: 'Main' }],
                     })
                   );
                 }
@@ -176,6 +221,39 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
     Alert.alert(
       'Upload Profile Picture', 
       'Profile picture upload feature will be implemented in future updates.'
+    );
+  };
+
+  const toggleCategorySelection = (categoryId: string) => {
+    setSelectedCategories(prevSelected => {
+      if (prevSelected.includes(categoryId)) {
+        return prevSelected.filter(id => id !== categoryId);
+      } else {
+        return [...prevSelected, categoryId];
+      }
+    });
+  };
+
+  const renderCategoryItem = ({ item }: { item: typeof PRODUCT_CATEGORIES[0] }) => {
+    const isSelected = selectedCategories.includes(item.id);
+    
+    return (
+      <TouchableOpacity
+        style={[
+          styles.categoryItem,
+          isSelected && { backgroundColor: theme.colors.primary }
+        ]}
+        onPress={() => toggleCategorySelection(item.id)}
+      >
+        <Text 
+          style={[
+            styles.categoryText, 
+            isSelected && { color: theme.colors.buttonText }
+          ]}
+        >
+          {item.name}
+        </Text>
+      </TouchableOpacity>
     );
   };
 
@@ -242,15 +320,39 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
           />
           
           <TextInput
-            label="Bio (Optional)"
-            value={bio}
-            onChangeText={setBio}
-            placeholder="Tell us about yourself"
-            multiline
-            numberOfLines={4}
+            label="City"
+            value={city}
+            onChangeText={setCity}
+            placeholder="Enter your city"
             containerStyle={styles.inputContainer}
-            inputStyle={styles.bioInput}
           />
+          
+          <TextInput
+            label="Zipcode"
+            value={zipcode}
+            onChangeText={setZipcode}
+            placeholder="Enter your zipcode"
+            keyboardType="numeric"
+            containerStyle={styles.inputContainer}
+          />
+          
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+            Interested Product Categories
+          </Text>
+          <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>
+            Select all that interest you
+          </Text>
+          
+          <View style={styles.categoriesContainer}>
+            <FlatList
+              data={PRODUCT_CATEGORIES}
+              renderItem={renderCategoryItem}
+              keyExtractor={item => item.id}
+              numColumns={2}
+              scrollEnabled={false}
+              contentContainerStyle={styles.categoriesList}
+            />
+          </View>
           
           <TouchableOpacity 
             style={[
@@ -317,6 +419,36 @@ const styles = StyleSheet.create({
   inputContainer: {
     marginBottom: 16,
   },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    marginBottom: 10,
+  },
+  categoriesContainer: {
+    marginBottom: 20,
+  },
+  categoriesList: {
+    flexGrow: 1,
+  },
+  categoryItem: {
+    flex: 1,
+    margin: 5,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
   button: {
     height: 50,
     borderRadius: 8,
@@ -327,9 +459,6 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  bioInput: {
-    // Add any specific styles for the bio input if needed
   },
 });
 
