@@ -183,12 +183,6 @@ const ProfileHeader = React.memo(({
               <Text style={styles.userInfoText}>{backendUserData.city}, {backendUserData.state}</Text>
             </View>
           )}
-          {backendUserData?.mobile && (
-            <View style={styles.userInfoItem}>
-              <FontAwesome5 name="phone-alt" size={16} color="#666" />
-              <Text style={styles.userInfoText}>{backendUserData.mobile}</Text>
-            </View>
-          )}
         </View>
       </View>
       
@@ -559,8 +553,17 @@ const ProfileScreen: React.FC = () => {
 
   // Navigate to Edit Profile Screen
   const handleEditProfile = useCallback(() => {
-    navigation.navigate('EditProfile');
-  }, [navigation]);
+    // Pass profile data to EditProfileScreen
+    navigation.navigate('EditProfile', {
+      name: backendUserData?.name || user?.name,
+      email: backendUserData?.email || user?.email,
+      university: backendUserData?.university,
+      city: backendUserData?.city,
+      mobile: backendUserData?.mobile,
+      zipcode: backendUserData?.zipcode,
+      userphoto: backendUserData?.userphoto
+    });
+  }, [navigation, backendUserData, user]);
 
   // Navigate back
   const handleGoBack = useCallback(() => {
@@ -609,7 +612,7 @@ const ProfileScreen: React.FC = () => {
             onPress={handleGoBack}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <MaterialIcons name="arrow-back" size={24} color="black" />
+            <MaterialIcons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -617,7 +620,7 @@ const ProfileScreen: React.FC = () => {
             onPress={handleSignOut}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <MaterialIcons name="logout" size={24} color="black" />
+            <MaterialIcons name="logout" size={24} color="white" />
           </TouchableOpacity>
         </View>
       </View>
@@ -812,17 +815,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(247, 179, 5, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 3,
-      }
-    }),
   },
   signOutButton: {
     width: 40,
@@ -831,17 +823,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(247, 179, 5, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 3,
-      }
-    }),
   },
   profileContainer: {
     backgroundColor: '#fff',
@@ -1001,7 +982,7 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#f7b305',
+    color: 'black',
     marginBottom: 4,
   },
   statLabel: {
@@ -1030,7 +1011,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   activeTabButton: {
-    backgroundColor: '#000000',
+    backgroundColor: 'black',
     ...Platform.select({
       ios: {
         shadowColor: '#000',

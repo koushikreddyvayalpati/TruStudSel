@@ -21,7 +21,15 @@ export type AuthStackParamList = {
 export type MainStackParamList = {
   Home: undefined;
   Profile: undefined;
-  EditProfile: undefined;
+  EditProfile: {
+    name?: string;
+    university?: string;
+    city?: string;
+    mobile?: string;
+    zipcode?: string;
+    userphoto?: string;
+    email?: string;
+  };
   MessagesScreen: undefined;
   MessageScreen: { conversationId: string; recipientName: string };
   PostingScreen: undefined;
@@ -71,6 +79,7 @@ export type ProfileFillingScreenRouteProp = RouteProp<RootStackParamList, 'Profi
 export type MessageScreenRouteProp = RouteProp<RootStackParamList, 'MessageScreen'>;
 export type ProductInfoScreenRouteProp = RouteProp<RootStackParamList, 'ProductInfoPage'>;
 export type WishlistScreenRouteProp = RouteProp<RootStackParamList, 'Wishlist'>;
+export type EditProfileScreenRouteProp = RouteProp<RootStackParamList, 'EditProfile'>;
 
 // Combine navigation and route props for screens with parameters
 export type EmailVerificationScreenProps = {
@@ -106,4 +115,9 @@ export type ProductInfoScreenProps = {
 export type WishlistScreenProps = {
   navigation: WishlistScreenNavigationProp;
   route: WishlistScreenRouteProp;
+};
+
+export type EditProfileScreenProps = {
+  navigation: EditProfileScreenNavigationProp;
+  route: EditProfileScreenRouteProp;
 }; 

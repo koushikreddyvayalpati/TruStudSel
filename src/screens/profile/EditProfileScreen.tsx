@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -10,25 +10,39 @@ import {
   ScrollView,
   Image,
   SafeAreaView,
-  InteractionManager
+  InteractionManager,
+  ActivityIndicator
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import { useAuth } from '../../contexts/AuthContext';
 import { TextInput } from '../../components/common';
-import { EditProfileScreenNavigationProp } from '../../types/navigation.types';
+import { EditProfileScreenNavigationProp, EditProfileScreenRouteProp } from '../../types/navigation.types';
+import { launchImageLibrary } from 'react-native-image-picker';
+import { uploadFile, updateUserProfileData } from '../../api/users';
 
 const EditProfileScreen = () => {
   const navigation = useNavigation<EditProfileScreenNavigationProp>();
-  const { user, updateUserAttributes, updateUserInfo } = useAuth();
+  const route = useRoute<EditProfileScreenRouteProp>();
+  const { user, updateUserInfo } = useAuth();
   
-  const [name, setName] = useState(user?.name || '');
+  // Get data from route params or use defaults
+  const routeParams = useMemo(() => route.params || {}, [route.params]);
+  
+  // Debug log to check the received profile image URL
+  console.log('Received userphoto from route params:', routeParams.userphoto);
+  
+  const [name, setName] = useState(routeParams.name || user?.name || '');
+  const [university, setUniversity] = useState(routeParams.university || user?.university || '');
+  const [city, setCity] = useState(routeParams.city || '');
+  const [zipcode, setZipcode] = useState(routeParams.zipcode || '');
+  const [mobile] = useState(routeParams.mobile || ''); // mobile is non-editable
   const [loading, setLoading] = useState(false);
-  const [profilePicture] = useState(user?.profileImage || null);
-  
-  // Memoize the university value to avoid unnecessary re-renders
-  const university = useMemo(() => user?.university || '', [user?.university]);
+  const [profilePicture, setProfilePicture] = useState<string | null>(routeParams.userphoto || user?.profileImage || null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
   // Add cleanup for any animation-related operations
   useEffect(() => {
@@ -43,6 +57,33 @@ const EditProfileScreen = () => {
     };
   }, []);
   
+  // Add effect to detect changes in profile data
+  useEffect(() => {
+    // Function to check if current values differ from initial values
+    const checkForChanges = () => {
+      const initialName = routeParams.name || user?.name || '';
+      const initialUniversity = routeParams.university || user?.university || '';
+      const initialCity = routeParams.city || '';
+      const initialZipcode = routeParams.zipcode || '';
+      const initialPhoto = routeParams.userphoto || user?.profileImage || null;
+      
+      // Check if any values have changed
+      const hasChanged = 
+        name !== initialName ||
+        university !== initialUniversity ||
+        city !== initialCity ||
+        zipcode !== initialZipcode ||
+        profilePicture !== initialPhoto;
+      
+      setHasUnsavedChanges(hasChanged);
+    };
+    
+    checkForChanges();
+  }, [name, university, city, zipcode, profilePicture, routeParams, user]);
+  
+  // Add a ref to store the selected image for upload on save
+  const selectedImageRef = React.useRef<any>(null);
+  
   // Function to handle profile update
   const handleUpdateProfile = async () => {
     if (!name.trim()) {
@@ -51,16 +92,96 @@ const EditProfileScreen = () => {
     }
     
     setLoading(true);
+    
     try {
-      // Update user attributes in backend - only updating name
-      await updateUserAttributes({
-        'name': name,
-      });
+      const email = routeParams.email || user?.email;
       
-      // Update local user info
+      if (!email) {
+        Alert.alert('Error', 'Email is required for updating profile');
+        setLoading(false);
+        return;
+      }
+      
+      // Check if we have a new image to upload
+      let imageUrl = routeParams.userphoto || user?.profileImage || '';
+      
+      // If we have a selected image that needs to be uploaded
+      if (selectedImageRef.current) {
+        let uploadResponse: any = null;
+        try {
+          console.log('Uploading new image to server...');
+          
+          // Create form data for upload
+          const formData = new FormData();
+          formData.append('file', {
+            uri: selectedImageRef.current.uri,
+            type: selectedImageRef.current.type || 'image/jpeg',
+            name: selectedImageRef.current.fileName || 'profile_image.jpg'
+          } as any);
+          
+          // Upload the image to get the filename
+          uploadResponse = await uploadFile(formData);
+          console.log('Upload response:', uploadResponse);
+          
+          if (uploadResponse && uploadResponse.fileName) {
+            // Construct the full image URL
+            imageUrl = `https://trustedproductimages.s3.us-east-2.amazonaws.com/${uploadResponse.fileName}`;
+            console.log('Image uploaded successfully, URL:', imageUrl);
+          } else {
+            throw new Error('Failed to get image URL from server');
+          }
+        } catch (uploadError) {
+          console.error('Failed to upload image:', uploadError);
+          
+          // Ask user if they want to continue without the image
+          return new Promise<void>((resolve, reject) => {
+            Alert.alert(
+              'Image Upload Failed',
+              'Could not upload profile image. Do you want to continue updating other profile information?',
+              [
+                { 
+                  text: 'Cancel', 
+                  style: 'cancel',
+                  onPress: () => {
+                    setLoading(false);
+                    reject(new Error('Image upload cancelled'));
+                  }
+                },
+                { 
+                  text: 'Continue', 
+                  onPress: () => {
+                    console.log('Continuing without image update');
+                    resolve();
+                  }
+                }
+              ]
+            );
+          });
+        }
+      }
+      
+      // Now prepare the data with the new image URL if we have one
+      const updateData = {
+        name: name.trim(),
+        university: university.trim(),
+        city: city.trim(),
+        zipcode: zipcode.trim(),
+        userphoto: imageUrl
+      };
+      
+      console.log('Updating profile with data:', updateData);
+      
+      // Now call the PUT API to update the profile with all data including image URL
+      await updateUserProfileData(email, updateData);
+      
+      // Clear the selected image ref after successful upload
+      selectedImageRef.current = null;
+      
+      // Also update local user info in Auth context
       updateUserInfo({
-        name,
-        university, // Preserve existing university
+        name: name.trim(),
+        university: university.trim(),
+        profileImage: imageUrl
       });
       
       Alert.alert('Success', 'Profile updated successfully');
@@ -73,13 +194,62 @@ const EditProfileScreen = () => {
     }
   };
   
-  // Function to handle profile picture upload
-  const handleUploadProfilePicture = () => {
-    // This would typically use image picker and upload to storage
-    Alert.alert(
-      'Upload Profile Picture', 
-      'Profile picture upload feature will be implemented in future updates.'
-    );
+  // Function to handle profile picture upload - now only stores the image locally
+  const handleUploadProfilePicture = async () => {
+    if (uploadingImage) return;
+    
+    setUploadingImage(true);
+    
+    try {
+      const result = await launchImageLibrary({
+        mediaType: 'photo',
+        quality: 0.8,
+        maxWidth: 500,
+        maxHeight: 500,
+      });
+      
+      if (result.didCancel) {
+        console.log('User cancelled image picker');
+        setUploadingImage(false);
+        return;
+      }
+      
+      if (result.errorCode) {
+        console.error('ImagePicker Error:', result.errorMessage);
+        Alert.alert('Error', result.errorMessage || 'Failed to pick image');
+        setUploadingImage(false);
+        return;
+      }
+      
+      if (!result.assets || result.assets.length === 0 || !result.assets[0].uri) {
+        Alert.alert('Error', 'No image selected');
+        setUploadingImage(false);
+        return;
+      }
+      
+      // Get the selected image and store it temporarily for display
+      const selectedImage = result.assets[0];
+      console.log('Selected image locally:', selectedImage.uri);
+      
+      // Just store the local image URI in state - no upload yet
+      // We'll upload it only when the Save button is clicked
+      setProfilePicture(selectedImage.uri || null);
+      
+      // Store the selected image in a ref for later upload
+      selectedImageRef.current = selectedImage;
+      
+      // Notify user they need to save changes
+      Alert.alert(
+        'Image Selected',
+        'Your profile image has been selected. Click "Save Changes" to upload and update your profile.',
+        [{ text: 'OK', style: 'default' }]
+      );
+    } catch (error: any) {
+      console.error('Image selection error:', error);
+      Alert.alert('Error', error.message || 'Failed to select profile picture');
+    } finally {
+      setUploadingImage(false);
+    }
   };
   
   // Get the first letter of the user's name for the profile circle
@@ -128,8 +298,13 @@ const EditProfileScreen = () => {
               <TouchableOpacity 
                 style={styles.uploadPictureButton}
                 onPress={handleUploadProfilePicture}
+                disabled={uploadingImage}
               >
-                <Icon name="camera" size={14} color="#1b74e4" />
+                {uploadingImage ? (
+                  <ActivityIndicator size="small" color="#1b74e4" />
+                ) : (
+                  <Icon name="camera" size={14} color="#1b74e4" />
+                )}
               </TouchableOpacity>
             </View>
             
@@ -156,7 +331,7 @@ const EditProfileScreen = () => {
                 <Text style={styles.fieldLabel}>EMAIL</Text>
                 <View style={styles.disabledField}>
                   <MaterialIcons name="email-outline" size={22} color="#222" style={styles.disabledFieldIcon} />
-                  <Text style={styles.disabledFieldText}>{user?.email || 'No email available'}</Text>
+                  <Text style={styles.disabledFieldText}>{routeParams.email || user?.email || 'No email available'}</Text>
                   <View style={styles.lockIconContainer}>
                     <Icon name="lock" size={12} color="#999" />
                   </View>
@@ -167,20 +342,64 @@ const EditProfileScreen = () => {
 
               <View style={styles.fieldGroup}>
                 <Text style={styles.fieldLabel}>UNIVERSITY</Text>
+                <TextInput
+                  value={university}
+                  onChangeText={setUniversity}
+                  placeholder="Enter your university"
+                  containerStyle={styles.inputContainer}
+                  leftIcon={<MaterialIcons name="school-outline" size={22} color="#222" />}
+                />
+              </View>
+              
+              <View style={styles.divider} />
+              
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>PHONE NUMBER</Text>
                 <View style={styles.disabledField}>
-                  <MaterialIcons name="school-outline" size={22} color="#222" style={styles.disabledFieldIcon} />
-                  <Text style={styles.disabledFieldText}>{university || 'No university set'}</Text>
+                  <FontAwesome5 name="phone-alt" size={18} color="#222" style={styles.disabledFieldIcon} />
+                  <Text style={styles.disabledFieldText}>{mobile || 'No phone number available'}</Text>
                   <View style={styles.lockIconContainer}>
                     <Icon name="lock" size={12} color="#999" />
                   </View>
                 </View>
               </View>
+              
+              <View style={styles.divider} />
+              
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>CITY</Text>
+                <TextInput
+                  value={city}
+                  onChangeText={setCity}
+                  placeholder="Enter your city"
+                  containerStyle={styles.inputContainer}
+                  leftIcon={<FontAwesome5 name="city" size={18} color="#222" />}
+                />
+              </View>
+              
+              <View style={styles.divider} />
+              
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>ZIPCODE</Text>
+                <TextInput
+                  value={zipcode}
+                  onChangeText={setZipcode}
+                  placeholder="Enter your zipcode"
+                  containerStyle={styles.inputContainer}
+                  leftIcon={<FontAwesome5 name="map-pin" size={18} color="#222" />}
+                  keyboardType="number-pad"
+                />
+              </View>
             </View>
             
             <TouchableOpacity
-              style={[styles.saveButton, loading && styles.saveButtonLoading]}
+              style={[
+                styles.saveButton, 
+                (loading || uploadingImage) && styles.saveButtonLoading,
+                hasUnsavedChanges && !loading && !uploadingImage && styles.saveButtonHighlighted
+              ]}
               onPress={handleUpdateProfile}
-              disabled={loading}
+              disabled={loading || uploadingImage}
             >
               {loading ? (
                 <View style={styles.loadingContainer}>
@@ -188,8 +407,16 @@ const EditProfileScreen = () => {
                   <View style={[styles.loadingDot, styles.loadingDotMiddle]} />
                   <View style={styles.loadingDot} />
                 </View>
+              ) : uploadingImage ? (
+                <Text style={styles.saveButtonText}>UPLOADING IMAGE...</Text>
+              ) : hasUnsavedChanges ? (
+                <Text style={styles.saveButtonText}>
+                  {profilePicture !== (routeParams.userphoto || user?.profileImage) 
+                    ? 'SAVE PROFILE & IMAGE' 
+                    : 'SAVE CHANGES'}
+                </Text>
               ) : (
-                <Text style={styles.saveButtonText}>SAVE CHANGES</Text>
+                <Text style={styles.saveButtonText}>NO CHANGES</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -398,6 +625,15 @@ const styles = StyleSheet.create({
   },
   saveButtonLoading: {
     backgroundColor: '#222',
+  },
+  saveButtonHighlighted: {
+    backgroundColor: '#1b74e4',
+    shadowColor: '#1b74e4',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 12,
+    transform: [{ scale: 1.02 }],
   },
   saveButtonText: {
     color: '#fff',
