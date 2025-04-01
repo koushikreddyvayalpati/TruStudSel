@@ -1,4 +1,7 @@
-import React, { useState, useMemo, useCallback } from 'react';
+/**
+ * Import statements 
+ */
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -17,6 +20,10 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import { PostingScreenProps } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
 import { TextInput } from '../../components/common';
+import { useAuth } from '../../contexts/AuthContext';
+import { launchImageLibrary } from 'react-native-image-picker';
+import { uploadProductImages, S3_BASE_URL } from '../../api/fileUpload';
+import { createProductWithImageFilenames } from '../../api/products';
 
 // Define types for better code structure
 interface ProductType {
@@ -120,7 +127,9 @@ const PRODUCT_CONDITIONS: ProductCondition[] = [
 
 const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
   const { theme } = useTheme();
-  const [images, setImages] = useState<string[]>([]);
+  const { user } = useAuth();
+  const [images, setImages] = useState<Array<{uri: string; type: string; name: string}>>([]);
+  const [localImageUris, setLocalImageUris] = useState<string[]>([]);
   const [title, setTitle] = useState('');
   const [selectedType, setSelectedType] = useState<ProductType | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
@@ -129,6 +138,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
   const [selectedCondition, setSelectedCondition] = useState<ProductCondition | null>(null);
   const [isSell, setIsSell] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0); // 0-100
   
   // State for form validation
   const [errors, setErrors] = useState<{
@@ -151,29 +161,95 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
   const displayCondition = useMemo(() => selectedCondition?.name || "", [selectedCondition]);
   const hasSubcategories = useMemo(() => selectedType?.subcategories && selectedType.subcategories.length > 0, [selectedType]);
 
-  // Mock function for image upload - would be replaced with actual implementation
-  const handleImageUpload = useCallback(() => {
-    // In a real implementation, this would use image-picker or similar library
-    // For demo purposes, we'll add a placeholder image
-    if (images.length < 5) {
-      const newImageUrl = `https://via.placeholder.com/300?text=Image+${images.length + 1}`;
-      setImages([...images, newImageUrl]);
+  // Reference to keep track of images that need to be uploaded
+  const selectedImagesRef = useRef<Array<{uri: string; type: string; name: string}>>([]);
+
+  // Real image picker implementation - now stores locally first, uploads only when posting
+  const handleImageUpload = useCallback(async () => {
+    console.log('[PostingScreen] Starting image selection process');
+    if (images.length >= 5) {
+      console.log('[PostingScreen] Maximum images limit reached');
+      Alert.alert('Maximum Images', 'You can upload up to 5 images');
+      return;
+    }
+    
+    try {
+      console.log('[PostingScreen] Launching image library picker');
+      const result = await launchImageLibrary({
+        mediaType: 'photo',
+        quality: 0.8,
+        selectionLimit: 1,
+      });
+      
+      console.log('[PostingScreen] Image picker result:', JSON.stringify(result));
+      
+      if (result.didCancel) {
+        console.log('[PostingScreen] Image selection canceled by user');
+        return;
+      }
+      
+      if (!result.assets || result.assets.length === 0) {
+        console.log('[PostingScreen] No assets returned from picker');
+        return;
+      }
+      
+      const selected = result.assets[0];
+      console.log('[PostingScreen] Selected image:', JSON.stringify({
+        uri: selected.uri,
+        type: selected.type,
+        name: selected.fileName,
+        fileSize: selected.fileSize
+      }));
+      
+      if (!selected.uri) {
+        console.error('[PostingScreen] Selected image has no URI');
+        Alert.alert('Error', 'Failed to get image');
+        return;
+      }
+      
+      // Store the image locally for display
+      const newImage = {
+        uri: selected.uri,
+        type: selected.type || 'image/jpeg',
+        name: selected.fileName || `image_${Date.now()}.jpg`
+      };
+      
+      console.log('[PostingScreen] Adding new image to state:', JSON.stringify(newImage));
+      
+      // Update the local images array for UI display
+      const updatedImages = [...images, newImage];
+      const updatedLocalUris = [...localImageUris, selected.uri];
+      
+      setImages(updatedImages);
+      setLocalImageUris(updatedLocalUris);
+      
+      // Save images to ref for later upload 
+      selectedImagesRef.current = updatedImages;
       
       // Clear any image-related errors
       if (errors.images) {
         setErrors(prev => ({...prev, images: undefined}));
       }
-    } else {
-      Alert.alert('Maximum Images', 'You can upload up to 5 images');
+      
+    } catch (error) {
+      console.error('[PostingScreen] Error selecting image:', error);
+      Alert.alert('Error', 'Failed to select image');
     }
-  }, [images, errors]);
+  }, [images, localImageUris, errors]);
 
   // Remove image from array
   const handleRemoveImage = useCallback((index: number) => {
     const newImages = [...images];
     newImages.splice(index, 1);
     setImages(newImages);
-  }, [images]);
+    
+    const newLocalUris = [...localImageUris];
+    newLocalUris.splice(index, 1);
+    setLocalImageUris(newLocalUris);
+    
+    // Also update the ref
+    selectedImagesRef.current = newImages;
+  }, [images, localImageUris]);
 
   const selectType = useCallback((type: ProductType) => {
     setSelectedType(type);
@@ -210,6 +286,18 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
 
   // Validate the form before submission
   const validateForm = useCallback(() => {
+    console.log('[PostingScreen] Validating form with data:', JSON.stringify({
+      title: title || '(empty)',
+      hasType: !!selectedType,
+      typeId: selectedType?.id || '(none)',
+      descriptionLength: description?.length || 0,
+      price: price || '(empty)',
+      hasCondition: !!selectedCondition,
+      conditionId: selectedCondition?.id || '(none)',
+      imageCount: images.length,
+      isSellMode: isSell
+    }));
+    
     const newErrors: {
       title?: string;
       type?: string;
@@ -220,57 +308,226 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
     } = {};
     
     if (!title.trim()) {
+      console.log('[PostingScreen] Validation failed: Title is empty');
       newErrors.title = "Title is required";
     } else if (title.length < 3) {
+      console.log('[PostingScreen] Validation failed: Title is too short:', title.length);
       newErrors.title = "Title must be at least 3 characters";
     }
     
     if (!selectedType) {
+      console.log('[PostingScreen] Validation failed: No item type selected');
       newErrors.type = "Please select an item type";
     }
     
     if (!description.trim()) {
+      console.log('[PostingScreen] Validation failed: Description is empty');
       newErrors.description = "Description is required";
     } else if (description.length < 10) {
+      console.log('[PostingScreen] Validation failed: Description is too short:', description.length);
       newErrors.description = "Please provide a more detailed description (at least 10 characters)";
     }
     
     if (isSell && !price.trim()) {
+      console.log('[PostingScreen] Validation failed: Price is empty');
       newErrors.price = "Price is required for items you want to sell";
     } else if (isSell && isNaN(Number(price))) {
+      console.log('[PostingScreen] Validation failed: Price is not a number:', price);
       newErrors.price = "Price must be a number";
     }
     
     if (!selectedCondition) {
+      console.log('[PostingScreen] Validation failed: No condition selected');
       newErrors.condition = "Please select the item condition";
     }
     
     if (images.length === 0) {
+      console.log('[PostingScreen] Validation failed: No images uploaded');
       newErrors.images = "Please upload at least one image";
     }
     
+    const isValid = Object.keys(newErrors).length === 0;
+    console.log('[PostingScreen] Form validation result:', isValid ? 'PASSED' : 'FAILED');
+    if (!isValid) {
+      console.log('[PostingScreen] Validation errors:', JSON.stringify(newErrors));
+    }
+    
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return isValid;
   }, [title, selectedType, description, price, selectedCondition, images, isSell]);
 
-  // Handle post item
-  const handlePostItem = useCallback(() => {
-    if (validateForm()) {
-      setIsLoading(true);
+  // Implement the modified post item function that handles uploads first, then creates product
+  const handlePostItem = useCallback(async () => {
+    console.log('[PostingScreen] Starting product posting process');
+    
+    if (!validateForm()) {
+      console.log('[PostingScreen] Form validation failed');
       
-      // In a real app, this would be an API call to create the posting
-      setTimeout(() => {
-        setIsLoading(false);
-        
-        // Show success message
+      // Show validation errors to the user
+      const errorMessages = Object.entries(errors)
+        .filter(([_, value]) => value)
+        .map(([_field, message]) => `• ${message}`)
+        .join('\n');
+      
+      if (errorMessages) {
         Alert.alert(
-          "Success",
-          "Your item has been posted successfully!",
-          [{ text: "OK", onPress: () => navigation.goBack() }]
+          "Please Fix These Issues",
+          errorMessages,
+          [{ text: "OK" }]
         );
-      }, 1500);
+      }
+      
+      return;
     }
-  }, [validateForm, navigation]);
+    
+    if (!user?.email) {
+      console.error('[PostingScreen] User email not available');
+      Alert.alert('Error', 'You must be logged in to post an item');
+      return;
+    }
+    
+    console.log('[PostingScreen] Form data validated, proceeding with upload');
+    console.log('[PostingScreen] Images to upload:', selectedImagesRef.current.length);
+    console.log('[PostingScreen] Product data:', JSON.stringify({
+      title,
+      category: selectedType?.id,
+      description: description.length > 50 ? description.substring(0, 50) + '...' : description,
+      price,
+      email: user.email,
+      condition: selectedCondition?.id,
+      sellingType: isSell ? 'sell' : 'rent'
+    }));
+    
+    setIsLoading(true);
+    setUploadProgress(10);
+    
+    try {
+      if (!selectedImagesRef.current.length) {
+        throw new Error('No images to upload');
+      }
+      
+      // Step 1: Upload images to get filenames
+      console.log('[PostingScreen] Starting image upload to server...');
+      let imageFileNames: string[] = [];
+      
+      try {
+        const uploadResponse = await uploadProductImages(selectedImagesRef.current);
+        console.log('[PostingScreen] Image upload response:', JSON.stringify(uploadResponse));
+        setUploadProgress(50);
+        
+        if (!uploadResponse || !uploadResponse.fileNames || uploadResponse.fileNames.length === 0) {
+          console.error('[PostingScreen] Upload response missing filenames:', uploadResponse);
+          throw new Error('Failed to upload images - no filenames returned');
+        }
+        
+        // Store the filenames (not URLs) returned from the API
+        imageFileNames = uploadResponse.fileNames;
+        console.log('[PostingScreen] Uploaded image filenames:', imageFileNames);
+        
+        // Log the image filenames for verification
+        console.log('[PostingScreen] Image filenames for product creation:');
+        imageFileNames.forEach(filename => {
+          console.log(`- ${filename}`);
+        });
+        
+        // Add S3 base URL to each image filename
+        const fullImageUrls = imageFileNames.map(filename => `${S3_BASE_URL}${filename}`);
+        
+        // Step 2: Create the product with the uploaded image filenames WITH the S3 base URL
+        const productData = {
+          name: title,
+          category: selectedType?.id || '',
+          description: description,
+          price: price,
+          email: user.email,
+          city: user.city || '',
+          zipcode: user.zipcode || '',
+          university: user.university || '',
+          productage: selectedCondition?.id || '',
+          sellingtype: isSell ? 'sell' : 'rent',
+          imageFilenames: fullImageUrls,  // Send full URLs including S3 base URL
+          allImages: fullImageUrls,
+          primaryImage: fullImageUrls.length > 0 ? fullImageUrls[0] : null
+        };
+        
+        console.log('[PostingScreen] Creating product with data:', JSON.stringify(productData));
+        setUploadProgress(80);
+        
+        // Create the product with the image filenames
+        try {
+          const createdProduct = await createProductWithImageFilenames(productData);
+          console.log('[PostingScreen] Product created successfully:', JSON.stringify(createdProduct));
+          
+          // Clear the images reference after successful upload
+          selectedImagesRef.current = [];
+          
+          setUploadProgress(100);
+          setIsLoading(false);
+          
+          // Log the product with image URLs
+          console.log('[PostingScreen] Created product with image URLs:');
+          console.log(JSON.stringify({
+            id: createdProduct.id,
+            name: createdProduct.name,
+            primaryImage: createdProduct.primaryImage,
+            images: createdProduct.images
+          }));
+          
+          // Show success message
+          Alert.alert(
+            "Success",
+            "Your item has been posted successfully!",
+            [{ text: "OK", onPress: () => {
+              console.log('[PostingScreen] Navigating back after successful post');
+              navigation.goBack();
+            }}]
+          );
+        } catch (productError) {
+          console.error('[PostingScreen] Product creation error:', productError);
+          setIsLoading(false);
+          
+          // Log the image filenames for debugging
+          console.log('[PostingScreen] Image filenames that were sent:');
+          imageFileNames.forEach(filename => {
+            console.log(`- ${filename}`);
+          });
+          
+          Alert.alert(
+            "Error Creating Listing",
+            productError instanceof Error 
+              ? `Failed to create product: ${productError.message}` 
+              : "Failed to create product. Please try again."
+          );
+        }
+      } catch (uploadError) {
+        console.error('[PostingScreen] Image upload error:', uploadError);
+        setIsLoading(false);
+        Alert.alert(
+          "Image Upload Failed",
+          uploadError instanceof Error 
+            ? `Failed to upload images: ${uploadError.message}` 
+            : "Failed to upload images. Please check your connection and try again."
+        );
+      }
+    } catch (error) {
+      setIsLoading(false);
+      console.error('[PostingScreen] Error posting item:', error);
+      
+      // Log more details about the error
+      if (error instanceof Error) {
+        console.error('[PostingScreen] Error name:', error.name);
+        console.error('[PostingScreen] Error message:', error.message);
+        console.error('[PostingScreen] Error stack:', error.stack);
+      }
+      
+      Alert.alert(
+        "Error",
+        error instanceof Error 
+          ? `Failed to post item: ${error.message}` 
+          : "Failed to post item: Unknown error"
+      );
+    }
+  }, [validateForm, title, selectedType, description, price, user, selectedCondition, isSell, navigation, errors]);
 
   return (
     <KeyboardAvoidingView 
@@ -330,7 +587,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
               ) : (
                 <View style={styles.mainPhotoWrapper}>
                   <Image 
-                    source={{ uri: images[0] }} 
+                    source={{ uri: localImageUris[0] }} 
                     style={styles.mainPhoto} 
                     resizeMode="cover"
                   />
@@ -352,9 +609,9 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.additionalPhotosContainer}
               >
-                {images.slice(1).map((image, index) => (
+                {localImageUris.slice(1).map((imageUri, index) => (
                   <View key={index} style={styles.thumbnailWrapper}>
-                    <Image source={{ uri: image }} style={styles.thumbnailImage} />
+                    <Image source={{ uri: imageUri }} style={styles.thumbnailImage} />
                     <TouchableOpacity 
                       style={styles.removeThumbnailButton}
                       onPress={() => handleRemoveImage(index + 1)}
@@ -564,7 +821,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
             </View>
           </View>
           
-          {/* Post Button */}
+          {/* Post Button with Progress */}
           <TouchableOpacity 
             style={[
               styles.button, 
@@ -578,7 +835,13 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator color={theme.colors.buttonText} size="small" />
+              <View style={styles.uploadProgressContainer}>
+                <ActivityIndicator color={theme.colors.buttonText} size="small" style={styles.uploadingIndicator} />
+                <Text style={[styles.uploadingText, { color: theme.colors.buttonText }]}>
+                  {uploadProgress < 50 ? "Uploading images..." : 
+                   uploadProgress < 90 ? "Creating listing..." : "Almost done..."}
+                </Text>
+              </View>
             ) : (
               <View style={styles.buttonContent}>
                 <Icon name="check" size={18} color={theme.colors.buttonText} style={styles.buttonIcon} />
@@ -1106,6 +1369,19 @@ const styles = StyleSheet.create({
     color: '#e74c3c',
     fontWeight: 'normal',
     fontSize: 13,
+  },
+  uploadProgressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  uploadingIndicator: {
+    marginRight: 10,
+  },
+  uploadingText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
   },
 });
 

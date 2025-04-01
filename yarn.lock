@@ -7897,6 +7897,11 @@ react-native-get-random-values@^1.11.0, react-native-get-random-values@^1.4.0:
   dependencies:
     fast-base64-decode "^1.0.0"
 
+react-native-image-manipulator@^1.0.6:
+  version "1.0.6"
+  resolved "https://registry.npmjs.org/react-native-image-manipulator/-/react-native-image-manipulator-1.0.6.tgz"
+  integrity sha512-MdbSlD144STW6iQThlg2WKyopTJYbWDDs19nng7QGlNO60nz7UGRZWNRuFL8LOURUnWn7Fa0zp5VLOSEOqyrnQ==
+
 react-native-image-picker@^8.2.0:
   version "8.2.0"
   resolved "https://registry.npmjs.org/react-native-image-picker/-/react-native-image-picker-8.2.0.tgz"

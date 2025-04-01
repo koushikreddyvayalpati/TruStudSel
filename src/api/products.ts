@@ -7,8 +7,10 @@ import {
   PRODUCTS_API_URL, 
   fetchWithTimeout, 
   handleResponse,
-  getAuthenticatedOptions 
+  getAuthenticatedOptions,
+  API_URL 
 } from './config';
+import { processProductImages } from '../utils/imageHelpers';
 
 // Product types
 export interface Product {
@@ -28,6 +30,9 @@ export interface Product {
   createdAt: string;
   updatedAt: string;
   images?: string[];
+  imageUrls?: string[]; // Full S3 URLs
+  primaryImage?: string;
+  additionalImages?: string[];
   category?: string;
   isAvailable?: boolean;
 }
@@ -53,6 +58,23 @@ export interface ProductFilters {
 }
 
 /**
+ * Interface for product creation with pre-uploaded images
+ */
+export interface CreateProductWithImagesRequest {
+  name: string;
+  category: string;
+  description: string;
+  price: string;
+  email: string;
+  city: string;
+  zipcode: string;
+  university: string;
+  productage: string;
+  sellingtype: string;
+  imageFilenames: string[];
+}
+
+/**
  * Get list of products with optional filtering
  */
 export const getProducts = async (filters: ProductFilters = {}): Promise<ProductListResponse> => {
@@ -72,7 +94,12 @@ export const getProducts = async (filters: ProductFilters = {}): Promise<Product
     { method: 'GET' }
   );
   
-  return handleResponse<ProductListResponse>(response);
+  const result = await handleResponse<ProductListResponse>(response);
+  
+  // Process all products to add full image URLs
+  result.products = result.products.map(product => processProductImages(product));
+  
+  return result;
 };
 
 /**
@@ -84,7 +111,8 @@ export const getProductById = async (productId: number): Promise<Product> => {
     { method: 'GET' }
   );
   
-  return handleResponse<Product>(response);
+  const product = await handleResponse<Product>(response);
+  return processProductImages(product);
 };
 
 /**
@@ -155,7 +183,12 @@ export const getUserProducts = async (token: string): Promise<ProductListRespons
     options
   );
   
-  return handleResponse<ProductListResponse>(response);
+  const result = await handleResponse<ProductListResponse>(response);
+  
+  // Process all products to add full image URLs
+  result.products = result.products.map(product => processProductImages(product));
+  
+  return result;
 };
 
 /**
@@ -201,7 +234,109 @@ export const getWishlist = async (token: string): Promise<ProductListResponse> =
     options
   );
   
-  return handleResponse<ProductListResponse>(response);
+  const result = await handleResponse<ProductListResponse>(response);
+  
+  // Process all wishlist products to add full image URLs
+  result.products = result.products.map(product => processProductImages(product));
+  
+  return result;
+};
+
+/**
+ * Create a product with pre-uploaded image filenames
+ * 
+ * This endpoint is used after uploading images separately to S3
+ */
+export const createProductWithImageFilenames = async (
+  productData: CreateProductWithImagesRequest
+): Promise<Product> => {
+  console.log('[API:products] Starting createProductWithImageFilenames with data:', 
+    JSON.stringify({
+      ...productData,
+      description: productData.description.length > 50 
+        ? productData.description.substring(0, 50) + '...' 
+        : productData.description
+    })
+  );
+  
+  try {
+    const endpoint = `${API_URL}/api/products/with-image-filenames`;
+    console.log('[API:products] Sending request to endpoint:', endpoint);
+    
+    const requestBody = JSON.stringify(productData);
+    console.log('[API:products] Request payload size:', requestBody.length, 'bytes');
+    console.log('[API:products] Request headers:', {
+      'Content-Type': 'application/json'
+    });
+    
+    // Log first 200 characters of request body for debugging
+    console.log('[API:products] Request body (truncated):', 
+      requestBody.length > 200 ? requestBody.substring(0, 200) + '...' : requestBody);
+    
+    const response = await fetchWithTimeout(
+      endpoint,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody
+      }
+    );
+    
+    console.log('[API:products] Response status:', response.status);
+    console.log('[API:products] Response status text:', response.statusText);
+    
+    // For successful responses
+    if (response.ok) {
+      try {
+        const responseText = await response.text();
+        console.log('[API:products] Raw response text:', responseText.length > 200 
+          ? responseText.substring(0, 200) + '...' 
+          : responseText);
+        
+        // Try to parse as JSON
+        const result = JSON.parse(responseText) as Product;
+        
+        // Process the product to add full image URLs
+        const processedProduct = processProductImages(result);
+        
+        console.log('[API:products] Product created successfully:', 
+          JSON.stringify({
+            id: processedProduct.id,
+            name: processedProduct.name,
+            images: processedProduct.images?.length,
+            imageUrls: processedProduct.imageUrls
+          })
+        );
+        
+        return processedProduct;
+      } catch (parseError) {
+        console.error('[API:products] Error parsing response as JSON:', parseError);
+        throw new Error('Failed to parse product creation response');
+      }
+    } else {
+      // For error responses
+      try {
+        const errorText = await response.text();
+        console.error('[API:products] Server error response:', errorText);
+        throw new Error(`Server error: ${response.status} ${response.statusText} - ${errorText.substring(0, 100)}`);
+      } catch (textError) {
+        console.error('[API:products] Could not read error response:', textError);
+        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+      }
+    }
+  } catch (error) {
+    console.error('[API:products] Error creating product:', error);
+    if (error instanceof Error) {
+      console.error('[API:products] Error name:', error.name);
+      console.error('[API:products] Error message:', error.message);
+      console.error('[API:products] Error stack:', error.stack);
+    }
+    throw error instanceof Error 
+      ? error 
+      : new Error('Failed to create product');
+  }
 };
 
 export default {
@@ -214,4 +349,5 @@ export default {
   addToWishlist,
   removeFromWishlist,
   getWishlist,
+  createProductWithImageFilenames,
 }; 
