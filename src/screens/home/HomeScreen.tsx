@@ -49,7 +49,7 @@ import { MainStackParamList } from '../../types/navigation.types';
 interface Category {
   id: number;
   name: string;
-  icon: 'electronics' | 'furniture' | 'auto' | 'fashion' | 'sports';
+  icon: 'electronics' | 'furniture' | 'auto' | 'fashion' | 'sports' | 'stationery' | 'eventpass';
 }
 
 // Using the API Product interface directly
@@ -101,6 +101,10 @@ const CategoryItem: React.FC<{
         return <FontAwesome name="shopping-bag" size={28} color="black" />;
       case 'sports':
         return <MaterialIcons name="sports-cricket" size={28} color="black" />;
+      case 'stationery':
+        return <MaterialIcons name="book" size={28} color="black" />;
+      case 'eventpass':
+        return <FontAwesome name="ticket" size={28} color="black" />;
       default:
         return <Icon name="question" size={28} color="black" />;
     }
@@ -290,6 +294,8 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     { id: 3, name: 'Auto', icon: 'auto' },
     { id: 4, name: 'Fashion', icon: 'fashion' },
     { id: 5, name: 'Sports', icon: 'sports' },
+    { id: 6, name: 'Stationery', icon: 'stationery' },
+    { id: 7, name: 'EventPass', icon: 'eventpass' },
   ], []);
 
   // Function to load products for university (wrapped in useCallback)

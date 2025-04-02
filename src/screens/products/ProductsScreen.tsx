@@ -28,14 +28,14 @@ const { width, height } = Dimensions.get('window');
 
 // Extended Product type that includes seller information
 interface ExtendedProduct {
-  id: number;
+  id: number | string;
   name: string;
   price: string;
   image: string;
   description?: string;
   condition?: string;
   type?: string;
-  images?: any[];
+  images?: string[];
   seller?: {
     name: string;
     rating?: number;
@@ -47,14 +47,19 @@ interface ExtendedProduct {
 
 // Base product type from params
 interface BaseProduct {
-  id: number;
+  id: number | string;
   name: string;
   price: string;
   image: string;
   description?: string;
   condition?: string;
   type?: string;
-  images?: any[];
+  images?: string[];
+}
+
+// Image interface to improve type safety
+interface ImageSource {
+  uri: string;
 }
 
 // Sample product data (fallback if route params are missing)
@@ -96,27 +101,67 @@ const similarProducts = [
 ];
 
 // Product Image Gallery Component
-const ImageGallery = ({ images, onImagePress }) => {
+const ImageGallery: React.FC<{
+  images: string[];
+  onImagePress: (index: number) => void;
+}> = React.memo(({ images, onImagePress }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;
-  const flatListRef = useRef(null);
+  const flatListRef = useRef<FlatList>(null);
 
   const handleScroll = Animated.event(
     [{ nativeEvent: { contentOffset: { x: scrollX } } }],
     { 
       useNativeDriver: false,
-      listener: (event) => {
+      listener: (event: any) => {
         const index = Math.floor(event.nativeEvent.contentOffset.x / width);
         setCurrentIndex(index);
       }
     }
   );
 
-  const goToImage = (index) => {
+  const goToImage = (index: number) => {
     if (flatListRef.current) {
       flatListRef.current.scrollToIndex({ index, animated: true });
     }
   };
+
+  // Memoized pagination component
+  const renderPagination = useMemo(() => {
+    if (images.length <= 1) return null;
+    
+    return (
+      <View style={styles.paginationContainer}>
+        <View style={styles.paginationDots}>
+          {images.map((_, index) => (
+            <TouchableOpacity 
+              key={index} 
+              style={[
+                styles.paginationDot,
+                { backgroundColor: index === currentIndex ? '#f7b305' : '#ccc' }
+              ]} 
+              onPress={() => goToImage(index)}
+            />
+          ))}
+        </View>
+      </View>
+    );
+  }, [currentIndex, images.length]);
+
+  // Memoized render item
+  const renderItem = useCallback(({ item, index }: { item: string, index: number }) => (
+    <Pressable 
+      style={styles.imageContainer}
+      onPress={() => onImagePress(index)}
+    >
+      <Image 
+        source={{ uri: typeof item === 'string' ? item : 'https://via.placeholder.com/300' }} 
+        style={styles.productImage}
+        resizeMode="cover"
+        defaultSource={{ uri: 'https://via.placeholder.com/300' }}
+      />
+    </Pressable>
+  ), [onImagePress]);
 
   return (
     <View style={styles.imageGalleryContainer}>
@@ -129,92 +174,63 @@ const ImageGallery = ({ images, onImagePress }) => {
         onScroll={handleScroll}
         scrollEventThrottle={16}
         keyExtractor={(_, index) => `image_${index}`}
-        renderItem={({ item, index }) => (
-          <Pressable 
-            style={styles.imageContainer}
-            onPress={() => onImagePress(index)}
-          >
-            <Image 
-              source={{ uri: typeof item === 'string' ? item : 'https://via.placeholder.com/300' }} 
-              style={styles.productImage}
-              resizeMode="cover"
-            />
-          </Pressable>
-        )}
+        renderItem={renderItem}
+        initialNumToRender={1}
+        maxToRenderPerBatch={2}
+        windowSize={3}
       />
-      
-      {images.length > 1 && (
-        <View style={styles.paginationContainer}>
-          <View style={styles.paginationDots}>
-            {images.map((_, index) => (
-              <TouchableOpacity 
-                key={index} 
-                style={[
-                  styles.paginationDot,
-                  { backgroundColor: index === currentIndex ? '#f7b305' : '#ccc' }
-                ]} 
-                onPress={() => goToImage(index)}
-              />
-            ))}
-          </View>
-        </View>
-      )}
+      {renderPagination}
     </View>
   );
-};
+});
 
 // Rating Stars Component
-const RatingStars = ({ rating, size = 16, color = '#f7b305' }) => {
+const RatingStars: React.FC<{
+  rating: number;
+  size?: number;
+  color?: string;
+}> = React.memo(({ rating, size = 16, color = '#f7b305' }) => {
   const fullStars = Math.floor(rating);
   const halfStar = rating % 1 >= 0.5;
   const emptyStars = 5 - fullStars - (halfStar ? 1 : 0);
 
   return (
     <View style={styles.ratingContainer}>
-      {[...Array(fullStars)].map((_, index) => (
+      {Array.from({ length: fullStars }).map((_, index) => (
         <Icon key={`full_${index}`} name="star" size={size} color={color} />
       ))}
       {halfStar && <Icon key="half" name="star-half-o" size={size} color={color} />}
-      {[...Array(emptyStars)].map((_, index) => (
+      {Array.from({ length: emptyStars }).map((_, index) => (
         <Icon key={`empty_${index}`} name="star-o" size={size} color={color} />
       ))}
     </View>
   );
-};
-
-// Seller Profile Component
-const SellerProfile = ({ seller, onContactPress, onViewProfilePress }) => {
-  return (
-    <View style={styles.sellerProfileContainer}>
-      <View style={styles.sellerInfoContainer}>
-        <TouchableOpacity 
-          style={styles.profileCircle}
-          onPress={onViewProfilePress}
-        >
-          <Text style={styles.profileText}>
-            {seller.name ? seller.name.charAt(0).toUpperCase() : 'S'}
-          </Text>
-        </TouchableOpacity>
-        
-        <View style={styles.sellerDetails}>
-          <Text style={styles.sellerName}>{seller.name}</Text>
-          {seller.rating && <RatingStars rating={seller.rating} />}
-        </View>
-      </View>
-      
-      <TouchableOpacity 
-        style={[styles.sellerActionButton, styles.messageButton]}
-        onPress={() => onContactPress('message')}
-      >
-        <Ionicons name="chatbubble-outline" size={18} color="#FFF" />
-        <Text style={styles.buttonText}>Message Seller</Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
+});
 
 // Similar Products Component
-const SimilarProducts = ({ products, onProductPress }) => {
+const SimilarProducts: React.FC<{
+  products: BaseProduct[];
+  onProductPress: (product: BaseProduct) => void;
+}> = React.memo(({ products, onProductPress }) => {
+  // Memoized render item function
+  const renderItem = useCallback(({ item }: { item: BaseProduct }) => (
+    <TouchableOpacity 
+      style={styles.similarProductItem}
+      onPress={() => onProductPress(item)}
+    >
+      <Image 
+        source={{ uri: item.image }} 
+        style={styles.similarProductImage}
+        resizeMode="cover"
+        defaultSource={{ uri: 'https://via.placeholder.com/150' }}
+      />
+      <View style={styles.similarProductInfo}>
+        <Text style={styles.similarProductName} numberOfLines={1}>{item.name}</Text>
+        <Text style={styles.similarProductPrice}>{item.price}</Text>
+      </View>
+    </TouchableOpacity>
+  ), [onProductPress]);
+
   return (
     <View style={styles.similarProductsContainer}>
       <Text style={styles.sectionTitle}>Similar Products</Text>
@@ -223,29 +239,20 @@ const SimilarProducts = ({ products, onProductPress }) => {
         horizontal
         showsHorizontalScrollIndicator={false}
         keyExtractor={(item) => `similar_${item.id}`}
-        renderItem={({ item }) => (
-          <TouchableOpacity 
-            style={styles.similarProductItem}
-            onPress={() => onProductPress(item)}
-          >
-            <Image 
-              source={{ uri: item.image }} 
-              style={styles.similarProductImage}
-              resizeMode="cover"
-            />
-            <View style={styles.similarProductInfo}>
-              <Text style={styles.similarProductName} numberOfLines={1}>{item.name}</Text>
-              <Text style={styles.similarProductPrice}>{item.price}</Text>
-            </View>
-          </TouchableOpacity>
-        )}
+        renderItem={renderItem}
+        initialNumToRender={3}
+        maxToRenderPerBatch={3}
       />
     </View>
   );
-};
+});
 
 // Image Zoom Modal Component
-const ImageZoomModal = ({ visible, imageUri, onClose }) => {
+const ImageZoomModal: React.FC<{
+  visible: boolean;
+  imageUri: string;
+  onClose: () => void;
+}> = React.memo(({ visible, imageUri, onClose }) => {
   return (
     <Modal
       visible={visible}
@@ -262,16 +269,17 @@ const ImageZoomModal = ({ visible, imageUri, onClose }) => {
           source={{ uri: imageUri }}
           style={styles.zoomedImage}
           resizeMode="contain"
+          defaultSource={{ uri: 'https://via.placeholder.com/300' }}
         />
       </View>
     </Modal>
   );
-};
+});
 
 const ProductsScreen = () => {
   const navigation = useNavigation<ProductInfoScreenNavigationProp>();
   const route = useRoute<ProductInfoScreenRouteProp>();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading] = useState(false);
   const [zoomVisible, setZoomVisible] = useState(false);
   const [selectedImage, setSelectedImage] = useState('');
   const [expandDescription, setExpandDescription] = useState(false);
@@ -284,28 +292,31 @@ const ProductsScreen = () => {
   
   // Log the product ID for debugging
   console.log(`[ProductsScreen] Received product ID: ${productId}`);
-  console.log(`[ProductsScreen] Product data ID: ${productFromRoute?.id}`);
   
   // Use the product from route params if available, otherwise use the sample product
-  const routeProduct = productFromRoute as BaseProduct | undefined;
+  const routeProduct = productFromRoute as unknown as BaseProduct | undefined;
   
   // Create an extended product object with seller information if not provided
   const product: ExtendedProduct = useMemo(() => {
     return routeProduct 
       ? {
           ...routeProduct,
-          seller: sampleProduct.seller // Use sample seller data since routeProduct may not have seller info
+          seller: routeProduct.seller || sampleProduct.seller // Use sample seller data if not provided
         }
       : sampleProduct;
   }, [routeProduct]);
   
-  // Handle case where product might not have images array
+  // Handle case where product might not have images array - also normalize to strings only
   const productImages = useMemo(() => {
-    return product.images 
-      ? (Array.isArray(product.images) ? product.images : [product.image]) 
-      : [product.image || 'https://via.placeholder.com/300'];
-  }, [product]);
+    if (!product.images || !Array.isArray(product.images) || product.images.length === 0) {
+      return [product.image || 'https://via.placeholder.com/300'];
+    }
+    
+    // Ensure all items are strings
+    return product.images.map(img => typeof img === 'string' ? img : 'https://via.placeholder.com/300');
+  }, [product.images, product.image]);
 
+  // Memoize share function
   const handleShare = useCallback(async () => {
     try {
       await Share.share({
@@ -315,8 +326,9 @@ const ProductsScreen = () => {
     } catch (error) {
       console.error('Error sharing product:', error);
     }
-  }, [product, productImages]);
+  }, [product.name, product.price, productImages]);
 
+  // Memoize wishlist toggle function
   const toggleWishlist = useCallback(() => {
     setIsInWishlist(prev => !prev);
     Alert.alert(
@@ -325,24 +337,96 @@ const ProductsScreen = () => {
     );
   }, [isInWishlist]);
 
-  const handleContactSeller = useCallback((method) => {
+  // Memoize contact seller function
+  const handleContactSeller = useCallback((method: string) => {
     if (method === 'message') {
-      navigation.navigate('MessageScreen', { 
-        conversationId: 'new', 
-        recipientName: product.seller?.name || 'Seller',
-        recipientId: product.seller?.id || 'unknown'
-      });
+      // Handle in a type-safe way
+      try {
+        // @ts-ignore - We know this route exists but TypeScript doesn't
+        navigation.navigate('MessageScreen', { 
+          conversationId: 'new', 
+          recipientName: product.seller?.name || 'Seller',
+          recipientId: product.seller?.id || 'unknown'
+        });
+      } catch (error) {
+        console.error('Navigation error:', error);
+        Alert.alert('Error', 'Could not open messaging screen.');
+      }
     }
   }, [navigation, product.seller]);
 
-  const handleImagePress = useCallback((index) => {
-    setSelectedImage(typeof productImages[index] === 'string' ? productImages[index] : 'https://via.placeholder.com/300');
-    setZoomVisible(true);
+  // Memoize image press function
+  const handleImagePress = useCallback((index: number) => {
+    if (index >= 0 && index < productImages.length) {
+      setSelectedImage(productImages[index]);
+      setZoomVisible(true);
+    }
   }, [productImages]);
 
-  const handleSimilarProductPress = useCallback((similarProduct) => {
+  // Memoize similar product press function
+  const handleSimilarProductPress = useCallback((similarProduct: BaseProduct) => {
+    // @ts-ignore - We know this route exists
     navigation.replace('ProductInfoPage', { product: similarProduct });
   }, [navigation]);
+
+  // Memoize seller profile navigation
+  const handleViewSellerProfile = useCallback(() => {
+    try {
+      // @ts-ignore - TypeScript doesn't know about this route
+      navigation.navigate('SellerProfileScreen', { 
+        sellerId: product.seller?.id || 'unknown' 
+      });
+    } catch (error) {
+      console.error('Navigation error:', error);
+      Alert.alert('Error', 'Could not view seller profile.');
+    }
+  }, [navigation, product.seller]);
+
+  // Content sections are memoized for better performance
+  const renderDescriptionSection = useMemo(() => (
+    <View style={styles.descriptionContainer}>
+      <Text style={styles.sectionTitle}>Description</Text>
+      <View style={[
+        styles.descriptionBox, 
+        expandDescription && styles.expandedDescriptionBox,
+        !product.description && styles.noDescriptionBox
+      ]}>
+        {product.description ? (
+          <>
+            <Text 
+              style={[
+                styles.descriptionText,
+                product.description.length < 80 && styles.shortDescriptionText
+              ]}
+              numberOfLines={expandDescription ? undefined : 4}
+            >
+              {product.description}
+            </Text>
+            {product.description.length > 120 && (
+              <TouchableOpacity 
+                style={[
+                  styles.readMoreButton,
+                  expandDescription && styles.readLessButton
+                ]}
+                onPress={() => setExpandDescription(!expandDescription)}
+              >
+                <Text style={styles.readMoreText}>
+                  {expandDescription ? 'Show less' : 'Read more'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </>
+        ) : (
+          <View style={styles.noDescriptionContent}>
+            <MaterialIcons name="description" size={24} color="#ccc" />
+            <Text style={styles.noDescriptionText}>
+              No description available for this product.
+            </Text>
+          </View>
+        )}
+      </View>
+    </View>
+  ), [product.description, expandDescription]);
 
   if (isLoading) {
     return (
@@ -372,7 +456,7 @@ const ProductsScreen = () => {
           style={styles.headerButton}
           onPress={() => Alert.alert('Report Item', 'Do you want to report this item?')}
         >
-          <Ionicons name="flag-outline" size={22} color="#e74c3c" />
+          <MaterialIcons name="report-problem" size={22} color="#e74c3c" />
         </TouchableOpacity>
       </View>
       
@@ -395,13 +479,13 @@ const ProductsScreen = () => {
               style={styles.shareButton}
               onPress={handleShare}
             >
-              <Ionicons name="share-social-outline" size={22} color="#333" />
+              <MaterialIcons name="share" size={22} color="#333" />
             </TouchableOpacity>
           </View>
           
           {/* Price and tags in one row - with price on the left */}
           <View style={styles.priceAndTagsRow}>
-            <Text style={styles.productPrice}>{product.price}</Text>
+            <Text style={styles.productPrice}>${product.price}</Text>
             <View style={styles.tagsContainer}>
               {product.condition && (
                 <View style={styles.tagItem}>
@@ -416,28 +500,8 @@ const ProductsScreen = () => {
             </View>
           </View>
           
-          {/* Description */}
-          <View style={styles.descriptionContainer}>
-            <Text style={styles.sectionTitle}>Description</Text>
-            <View style={styles.descriptionBox}>
-              <Text 
-                style={styles.descriptionText}
-                numberOfLines={expandDescription ? undefined : 4}
-              >
-                {product.description || 'No description available for this product.'}
-              </Text>
-              {product.description && product.description.length > 120 && (
-                <TouchableOpacity 
-                  style={styles.readMoreButton}
-                  onPress={() => setExpandDescription(!expandDescription)}
-                >
-                  <Text style={styles.readMoreText}>
-                    {expandDescription ? 'Show less' : 'Read more'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
+          {/* Description - now memoized */}
+          {renderDescriptionSection}
 
           {/* Seller Profile */}
           <View style={styles.sellerSection}>
@@ -446,9 +510,7 @@ const ProductsScreen = () => {
               <View style={styles.sellerInfoContainer}>
                 <TouchableOpacity 
                   style={styles.profileCircle}
-                  onPress={() => navigation.navigate('SellerProfileScreen', { 
-                    sellerId: product.seller?.id || 'unknown' 
-                  })}
+                  onPress={handleViewSellerProfile}
                 >
                   <Text style={styles.profileText}>
                     {product.seller?.name ? product.seller.name.charAt(0).toUpperCase() : 'S'}
@@ -570,7 +632,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f8f8f8',
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
@@ -624,7 +685,6 @@ const styles = StyleSheet.create({
   },
   paginationContainer: {
     position: 'absolute',
- 
     bottom: 0,
     width: '100%',
     alignItems: 'center',
@@ -658,7 +718,6 @@ const styles = StyleSheet.create({
   },
   shareButton: {
     padding: 8,
-    backgroundColor: '#f8f8f8',
     borderRadius: 20,
   },
   productName: {
@@ -736,7 +795,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FDB51C1A',
     borderRadius: 12,
     padding: 16,
-    height: 100,
+    minHeight: 120,
     borderWidth: 1,
     borderColor: '#eeeeee',
     ...Platform.select({
@@ -751,10 +810,27 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  expandedDescriptionBox: {
+    minHeight: 200,
+    maxHeight: undefined,
+  },
+  noDescriptionBox: {
+    minHeight: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   descriptionText: {
     fontSize: 16,
     lineHeight: 24,
     color: '#444',
+    textAlign: 'justify',
+  },
+  shortDescriptionText: {
+    fontSize: 18,
+    lineHeight: 26,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    color: '#333',
   },
   readMoreButton: {
     marginTop: 12,
@@ -762,12 +838,27 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 15,
-    backgroundColor: 'rgba(247, 179, 5, 0.1)',
+    backgroundColor: 'rgba(247, 179, 5, 0.15)',
+  },
+  readLessButton: {
+    backgroundColor: 'rgba(247, 179, 5, 0.25)',
   },
   readMoreText: {
     fontSize: 14,
     color: '#f7b305',
     fontWeight: 'bold',
+  },
+  noDescriptionContent: {
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
+  },
+  noDescriptionText: {
+    fontSize: 15,
+    color: '#888',
+    textAlign: 'center',
+    marginTop: 8,
   },
   
   sellerSection: {

@@ -17,6 +17,8 @@ import {
   Alert
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import Entypoicon from 'react-native-vector-icons/Entypo';
 import { PostingScreenProps } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
 import { TextInput } from '../../components/common';
@@ -25,10 +27,16 @@ import { launchImageLibrary } from 'react-native-image-picker';
 import { uploadProductImages, S3_BASE_URL } from '../../api/fileUpload';
 import { createProductWithImageFilenames } from '../../api/products';
 
+// Define the product category type for consistency with ProductsScreen
+type ProductCategory = 'electronics' | 'furniture' | 'auto' | 'fashion' | 'sports' | 'stationery' | 'eventpass';
+
 // Define types for better code structure
 interface ProductType {
-  id: string;
+  id: ProductCategory | string;
   name: string;
+  icon: string;
+  iconType: 'material' | 'fontawesome' | 'entypo';
+  color: string;
   subcategories?: string[];
 }
 
@@ -38,56 +46,78 @@ interface ProductCondition {
   description: string;
 }
 
-// Optimized product types with subcategories for better organization
+// Updated product types with main categories matching ProductsScreen and using consistent icons
 const PRODUCT_TYPES: ProductType[] = [
-  {
-    id: "textbooks",
-    name: "Textbooks",
-    subcategories: ["Science & Math", "Humanities", "Business", "Engineering", "Other"]
-  },
-  {
-    id: "course-materials",
-    name: "Course Materials",
-    subcategories: ["Notes", "Study Guides", "Lab Equipment", "Other"]
-  },
   {
     id: "electronics",
     name: "Electronics",
+    icon: "game-controller",
+    iconType: "entypo",
+    color: "#f7b305",
     subcategories: ["Laptops", "Phones", "Tablets", "Accessories", "Audio", "Other"]
   },
   {
     id: "furniture",
     name: "Furniture",
+    icon: "bed",
+    iconType: "fontawesome",
+    color: "#f7b305",
     subcategories: ["Desks", "Chairs", "Storage", "Lamps", "Bedroom", "Other"]
   },
   {
-    id: "clothing",
-    name: "Clothing",
+    id: "auto",
+    name: "Auto",
+    icon: "directions-car",
+    iconType: "material",
+    color: "#f7b305",
+    subcategories: ["Parts", "Accessories", "Tools", "Other"]
+  },
+  {
+    id: "fashion",
+    name: "Fashion",
+    icon: "shopping-bag",
+    iconType: "fontawesome",
+    color: "#f7b305",
     subcategories: ["Tops", "Bottoms", "Outerwear", "Shoes", "Accessories", "Other"]
   },
   {
-    id: "dorm-supplies",
-    name: "Dorm Supplies",
-    subcategories: ["Kitchen", "Bathroom", "Decor", "Organization", "Other"]
-  },
-  {
-    id: "sports-equipment",
-    name: "Sports Equipment",
+    id: "sports",
+    name: "Sports",
+    icon: "sports-cricket",
+    iconType: "material",
+    color: "#f7b305",
     subcategories: ["Fitness", "Team Sports", "Outdoor", "Other"]
   },
   {
-    id: "musical-instruments",
-    name: "Musical Instruments",
-    subcategories: ["String", "Percussion", "Wind", "Electronic", "Other"]
+    id: "stationery",
+    name: "Stationery",
+    icon: "book",
+    iconType: "material",
+    color: "#f7b305",
+    subcategories: ["Notebooks", "Writing Tools", "Organization", "Art Supplies", "Other"]
   },
   {
-    id: "art-supplies",
-    name: "Art Supplies",
-    subcategories: ["Drawing", "Painting", "Crafting", "Digital", "Other"]
+    id: "eventpass",
+    name: "Event Pass",
+    icon: "ticket",
+    iconType: "fontawesome",
+    color: "#f7b305",
+    subcategories: ["Sports", "Concerts", "Campus Events", "Other"]
+  },
+  {
+    id: "textbooks",
+    name: "Textbooks",
+    icon: "book",
+    iconType: "material",
+    color: "#f7b305",
+    subcategories: ["Science & Math", "Humanities", "Business", "Engineering", "Other"]
   },
   {
     id: "other",
-    name: "Other"
+    name: "Other",
+    icon: "question",
+    iconType: "fontawesome",
+    color: "#f7b305"
   }
 ];
 
@@ -452,7 +482,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
           sellingtype: isSell ? 'sell' : 'rent',
           imageFilenames: fullImageUrls,  // Send full URLs including S3 base URL
           allImages: fullImageUrls,
-          primaryImage: fullImageUrls.length > 0 ? fullImageUrls[0] : null
+          primaryImage: fullImageUrls.length > 0 ? fullImageUrls[0] : ''  // Use empty string instead of null
         };
         
         console.log('[PostingScreen] Creating product with data:', JSON.stringify(productData));
@@ -533,6 +563,50 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
       );
     }
   }, [validateForm, title, selectedType, description, price, user, selectedCondition, isSell, navigation, errors, selectedSubcategory]);
+
+  // Render individual type option with icon
+  const renderTypeOptionItem = ({ item }: { item: ProductType }) => (
+    <TouchableOpacity 
+      style={[
+        styles.optionItem, 
+        selectedType?.id === item.id && styles.selectedOption,
+        { backgroundColor: selectedType?.id === item.id ? `${item.color}20` : theme.colors.surface }
+      ]}
+      onPress={() => selectType(item)}
+    >
+      <View style={[
+        styles.iconContainer, 
+        { 
+          backgroundColor: item.color,
+          borderRadius: 27.5,
+          padding: 8,
+          width: 55,
+          height: 55,
+          justifyContent: 'center',
+          alignItems: 'center',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.2,
+          shadowRadius: 4,
+          elevation: 5,
+        }
+      ]}>
+        {item.iconType === 'material' && <MaterialIcons name={item.icon} size={24} color="black" />}
+        {item.iconType === 'fontawesome' && <Icon name={item.icon} size={24} color="black" />}
+        {item.iconType === 'entypo' && <Entypoicon name={item.icon} size={24} color="black" />}
+      </View>
+      <Text style={[
+        styles.optionText, 
+        { color: theme.colors.text },
+        selectedType?.id === item.id && { fontWeight: 'bold' }
+      ]}>
+        {item.name}
+      </Text>
+      {selectedType?.id === item.id && (
+        <Icon name="check" size={18} color={item.color} style={styles.checkIcon} />
+      )}
+    </TouchableOpacity>
+  );
 
   return (
     <KeyboardAvoidingView 
@@ -670,13 +744,13 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
                 <TouchableOpacity 
                   style={[
                     styles.toggleButton, 
-                    { backgroundColor: isSell ? theme.colors.primary : 'transparent' }
+                    { backgroundColor: isSell ? '#f7b305' : 'transparent' }
                   ]} 
                   onPress={() => setIsSell(true)}
                 >
                   <Text style={[
                     styles.toggleText, 
-                    { color: isSell ? theme.colors.buttonText : theme.colors.text }
+                    { color: isSell ? '#FFFFFF' : theme.colors.text }
                   ]}>
                     Sell
                   </Text>
@@ -684,13 +758,13 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
                 <TouchableOpacity 
                   style={[
                     styles.toggleButton, 
-                    { backgroundColor: !isSell ? theme.colors.primary : 'transparent' }
+                    { backgroundColor: !isSell ? '#f7b305' : 'transparent' }
                   ]} 
                   onPress={() => setIsSell(false)}
                 >
                   <Text style={[
                     styles.toggleText, 
-                    { color: !isSell ? theme.colors.buttonText : theme.colors.text }
+                    { color: !isSell ? '#FFFFFF' : theme.colors.text }
                   ]}>
                     Rent
                   </Text>
@@ -831,7 +905,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
             style={[
               styles.button, 
               { 
-                backgroundColor: isLoading ? theme.colors.primaryLight : theme.colors.primary,
+                backgroundColor: isLoading ? 'rgba(247, 179, 5, 0.7)' : '#f7b305',
                 opacity: isLoading ? 0.8 : 1
               }
             ]}
@@ -841,16 +915,16 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
           >
             {isLoading ? (
               <View style={styles.uploadProgressContainer}>
-                <ActivityIndicator color={theme.colors.buttonText} size="small" style={styles.uploadingIndicator} />
-                <Text style={[styles.uploadingText, { color: theme.colors.buttonText }]}>
+                <ActivityIndicator color="#FFFFFF" size="small" style={styles.uploadingIndicator} />
+                <Text style={[styles.uploadingText, { color: '#FFFFFF' }]}>
                   {uploadProgress < 50 ? "Uploading images..." : 
                    uploadProgress < 90 ? "Creating listing..." : "Almost done..."}
                 </Text>
               </View>
             ) : (
               <View style={styles.buttonContent}>
-                <Icon name="check" size={18} color={theme.colors.buttonText} style={styles.buttonIcon} />
-                <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
+                <Icon name="check" size={18} color="#FFFFFF" style={styles.buttonIcon} />
+                <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
                   Post Item
                 </Text>
               </View>
@@ -879,20 +953,8 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
             </View>
             <FlatList
               data={PRODUCT_TYPES}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity 
-                  style={[styles.optionItem, { 
-                    backgroundColor: selectedType?.id === item.id ? theme.colors.primaryLight : 'transparent'
-                  }]}
-                  onPress={() => selectType(item)}
-                >
-                  <Text style={[styles.optionText, { color: theme.colors.text }]}>{item.name}</Text>
-                  {selectedType?.id === item.id && (
-                    <Icon name="check" size={16} color={theme.colors.primary} />
-                  )}
-                </TouchableOpacity>
-              )}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={renderTypeOptionItem}
             />
           </View>
         </View>
@@ -1387,6 +1449,17 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '600',
     fontSize: 14,
+  },
+  iconContainer: {
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectedOption: {
+    backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  checkIcon: {
+    marginLeft: 10,
   },
 });
 
