@@ -277,8 +277,17 @@ const ProductsScreen = () => {
   const [expandDescription, setExpandDescription] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
   
+  // Extract product and productId from route params
+  const routeParams = route.params || {};
+  const productFromRoute = routeParams.product;
+  const productId = routeParams.productId;
+  
+  // Log the product ID for debugging
+  console.log(`[ProductsScreen] Received product ID: ${productId}`);
+  console.log(`[ProductsScreen] Product data ID: ${productFromRoute?.id}`);
+  
   // Use the product from route params if available, otherwise use the sample product
-  const routeProduct = route.params?.product as BaseProduct | undefined;
+  const routeProduct = productFromRoute as BaseProduct | undefined;
   
   // Create an extended product object with seller information if not provided
   const product: ExtendedProduct = useMemo(() => {

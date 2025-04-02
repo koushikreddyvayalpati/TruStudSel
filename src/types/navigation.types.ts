@@ -48,7 +48,8 @@ export type MainStackParamList = {
       productage?: string;
       sellingtype?: string;
       status?: string;
-    } 
+    },
+    productId?: string
   };
   Wishlist: { wishlist: string[] };
 };

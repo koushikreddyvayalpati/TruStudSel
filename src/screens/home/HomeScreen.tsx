@@ -515,11 +515,13 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
 
   const handleProductPress = useCallback((product: Product) => {
     // Ensure the product has the right type structure for the navigation
+    // and pass the product ID as a separate parameter for easier access
     nav.navigate('ProductInfoPage', { 
       product: {
         ...product,
         id: product.id // Ensure id is treated as expected by the screen
-      } 
+      },
+      productId: product.id // Explicitly pass the product ID for easier access in ProductsScreen
     });
   }, [nav]);
 
