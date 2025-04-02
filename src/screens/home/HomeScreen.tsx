@@ -63,9 +63,11 @@ interface HomescreenProps {
   navigation?: NavigationProp;
 }
 
-// Cache constants
+// Cache constants with longer expiry for products
 const USER_PROFILE_CACHE_KEY = 'user_profile_cache_';
-const CACHE_EXPIRY_TIME = 15 * 60 * 1000; // 15 minutes
+const PRODUCTS_CACHE_KEY = 'products_cache_';
+const USER_CACHE_EXPIRY_TIME = 15 * 60 * 1000; // 15 minutes
+const PRODUCTS_CACHE_EXPIRY_TIME = 5 * 60 * 1000; // 5 minutes
 
 // Component to display section headers with potential actions
 const SectionHeader: React.FC<{
@@ -290,6 +292,175 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     { id: 5, name: 'Sports', icon: 'sports' },
   ], []);
 
+  // Function to load products for university (wrapped in useCallback)
+  const loadUniversityProducts = useCallback(async () => {
+    if (!userUniversity) {
+      console.log('[HomeScreen] Skipping university products - no university set');
+      return;
+    }
+    
+    console.log(`[HomeScreen] Loading university products for: ${userUniversity}`);
+    setLoadingUniversity(true);
+    setError(null);
+    
+    try {
+      // Check cache first
+      const cacheKey = `${PRODUCTS_CACHE_KEY}university_${userUniversity}`;
+      const cachedData = await AsyncStorage.getItem(cacheKey);
+      
+      if (cachedData) {
+        try {
+          const { data, timestamp } = JSON.parse(cachedData);
+          const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
+          
+          if (!isExpired) {
+            console.log('[HomeScreen] Using cached university products');
+            setUniversityProducts(data);
+            setLoadingUniversity(false);
+            return;
+          }
+        } catch (cacheError) {
+          console.warn('[HomeScreen] Error parsing cache:', cacheError);
+          // Continue with API call if cache parsing fails
+        }
+      }
+      
+      // Adjusted filters to match backend expected parameters
+      const filters: ProductFilters = {
+        sortBy: 'newest',
+        page: 1, // Will be converted to 0-indexed in the API layer
+        size: 20
+      };
+      
+      console.log(`[HomeScreen] University products API call starting with filters:`, JSON.stringify(filters));
+      
+      // Try to get university products
+      try {
+        console.log(`[HomeScreen] Calling getProductsByUniversity for: ${userUniversity}`);
+        const result = await getProductsByUniversity(userUniversity, filters);
+        console.log(`[HomeScreen] University API call success, result:`, 
+          result?.products ? `${result.products.length} products found` : 'No products in response');
+        
+        if (result && Array.isArray(result.products)) {
+          setUniversityProducts(result.products);
+          console.log(`[HomeScreen] University products state updated with ${result.products.length} items`);
+          
+          // Save to cache
+          const cacheData = {
+            data: result.products,
+            timestamp: Date.now()
+          };
+          await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
+        } else {
+          console.warn('[HomeScreen] Unexpected response format from university products API. Result:', 
+            typeof result === 'object' ? JSON.stringify(result) : typeof result);
+          setUniversityProducts([]);
+        }
+      } catch (error: any) {
+        console.warn(`[HomeScreen] API error when loading university products:`, 
+          error.message || 'Unknown error');
+        console.warn(`[HomeScreen] Error stack:`, error.stack || 'No stack trace');
+        
+        // Fallback to an empty array to avoid UI crashes
+        setUniversityProducts([]);
+      }
+    } catch (err: any) {
+      console.error('[HomeScreen] Error loading university products:', err);
+      setError('Failed to load university products');
+      setUniversityProducts([]);
+    } finally {
+      console.log(`[HomeScreen] University products loading complete`);
+      setLoadingUniversity(false);
+    }
+  }, [userUniversity]);
+
+  // Function to load products for city (wrapped in useCallback)
+  const loadCityProducts = useCallback(async () => {
+    if (!userCity) {
+      console.log('[HomeScreen] Skipping city products - no city set');
+      return;
+    }
+    
+    console.log(`[HomeScreen] Loading city products for: ${userCity}`);
+    setLoadingCity(true);
+    setError(null);
+    
+    try {
+      // Check cache first
+      const cacheKey = `${PRODUCTS_CACHE_KEY}city_${userCity}_${userUniversity || 'no_univ'}`;
+      const cachedData = await AsyncStorage.getItem(cacheKey);
+      
+      if (cachedData) {
+        try {
+          const { data, timestamp } = JSON.parse(cachedData);
+          const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
+          
+          if (!isExpired) {
+            console.log('[HomeScreen] Using cached city products');
+            setCityProducts(data);
+            setLoadingCity(false);
+            return;
+          }
+        } catch (cacheError) {
+          console.warn('[HomeScreen] Error parsing cache:', cacheError);
+          // Continue with API call if cache parsing fails
+        }
+      }
+      
+      // Adjusted filters to match backend expected parameters
+      const filters: ProductFilters = {
+        sortBy: 'newest',
+        page: 1, // Will be converted to 0-indexed in the API layer
+        size: 20
+      };
+      
+      // Explicitly include university if we have it
+      if (userUniversity) {
+        filters.university = userUniversity;
+        console.log(`[HomeScreen] Including university filter: ${userUniversity}`);
+      }
+      
+      console.log(`[HomeScreen] City products API call starting with filters:`, JSON.stringify(filters));
+      
+      // Try to get city products
+      try {
+        console.log(`[HomeScreen] Calling getProductsByCity for: ${userCity}`);
+        const result = await getProductsByCity(userCity, filters);
+        console.log(`[HomeScreen] City API call success, result:`, 
+          result?.products ? `${result.products.length} products found` : 'No products in response');
+        
+        if (result && Array.isArray(result.products)) {
+          setCityProducts(result.products);
+          console.log(`[HomeScreen] City products state updated with ${result.products.length} items`);
+          
+          // Save to cache
+          const cacheData = {
+            data: result.products,
+            timestamp: Date.now()
+          };
+          await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
+        } else {
+          console.warn('[HomeScreen] Unexpected response format from city products API. Result:', 
+            typeof result === 'object' ? JSON.stringify(result) : typeof result);
+          setCityProducts([]);
+        }
+      } catch (error: any) {
+        console.warn(`[HomeScreen] API error when loading city products:`, 
+          error.message || 'Unknown error');
+        console.warn(`[HomeScreen] Error stack:`, error.stack || 'No stack trace');
+        // Fallback to an empty array to avoid UI crashes
+        setCityProducts([]);
+      }
+    } catch (err: any) {
+      console.error('[HomeScreen] Error loading city products:', err);
+      setError('Failed to load city products');
+      setCityProducts([]);
+    } finally {
+      console.log(`[HomeScreen] City products loading complete`);
+      setLoadingCity(false);
+    }
+  }, [userCity, userUniversity]);
+
   // Function to load featured products (wrapped in useCallback)
   const loadFeaturedProducts = useCallback(async () => {
     if (!userUniversity || !userCity) return;
@@ -298,8 +469,36 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     setError(null);
     
     try {
+      // Check cache first
+      const cacheKey = `${PRODUCTS_CACHE_KEY}featured_${userUniversity}_${userCity}`;
+      const cachedData = await AsyncStorage.getItem(cacheKey);
+      
+      if (cachedData) {
+        try {
+          const { data, timestamp } = JSON.parse(cachedData);
+          const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
+          
+          if (!isExpired) {
+            console.log('[HomeScreen] Using cached featured products');
+            setFeaturedProducts(data);
+            setLoadingFeatured(false);
+            return;
+          }
+        } catch (cacheError) {
+          console.warn('[HomeScreen] Error parsing cache:', cacheError);
+          // Continue with API call if cache parsing fails
+        }
+      }
+      
       const products = await getFeaturedProducts(userUniversity, userCity);
       setFeaturedProducts(products);
+      
+      // Save to cache
+      const cacheData = {
+        data: products,
+        timestamp: Date.now()
+      };
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
     } catch (err) {
       console.error('Error loading featured products:', err);
       setError('Failed to load featured products');
@@ -316,8 +515,36 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     setError(null);
     
     try {
+      // Check cache first
+      const cacheKey = `${PRODUCTS_CACHE_KEY}newArrivals_${userUniversity}`;
+      const cachedData = await AsyncStorage.getItem(cacheKey);
+      
+      if (cachedData) {
+        try {
+          const { data, timestamp } = JSON.parse(cachedData);
+          const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
+          
+          if (!isExpired) {
+            console.log('[HomeScreen] Using cached new arrivals');
+            setNewArrivalsProducts(data);
+            setLoadingNewArrivals(false);
+            return;
+          }
+        } catch (cacheError) {
+          console.warn('[HomeScreen] Error parsing cache:', cacheError);
+          // Continue with API call if cache parsing fails
+        }
+      }
+      
       const products = await getNewArrivals(userUniversity);
       setNewArrivalsProducts(products);
+      
+      // Save to cache
+      const cacheData = {
+        data: products,
+        timestamp: Date.now()
+      };
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
     } catch (err) {
       console.error('Error loading new arrivals:', err);
       setError('Failed to load new arrivals');
@@ -326,12 +553,40 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     }
   }, [userUniversity]);
 
-  // Function to load products by category (wrapped in useCallback)
+  // Load category products with caching
   const loadCategoryProducts = useCallback(async (category: string) => {
     setLoadingCategory(true);
     setError(null);
     
     try {
+      // Create a cache key that includes all filter parameters
+      const filterString = JSON.stringify({
+        sortBy: selectedSortOption,
+        filters: selectedFilters,
+        university: userUniversity,
+        city: userCity,
+        zipcode: userZipcode
+      });
+      const cacheKey = `${PRODUCTS_CACHE_KEY}category_${category}_${hash(filterString)}`;
+      const cachedData = await AsyncStorage.getItem(cacheKey);
+      
+      if (cachedData) {
+        try {
+          const { data, timestamp } = JSON.parse(cachedData);
+          const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
+          
+          if (!isExpired) {
+            console.log(`[HomeScreen] Using cached ${category} products`);
+            setCategoryProducts(data);
+            setLoadingCategory(false);
+            return;
+          }
+        } catch (cacheError) {
+          console.warn('[HomeScreen] Error parsing cache:', cacheError);
+          // Continue with API call if cache parsing fails
+        }
+      }
+      
       // Convert selectedFilters and selectedSortOption to API filter format
       const filters: ProductFilters = {
         sortBy: selectedSortOption === 'price_low_high' ? 'price_low_high' : 
@@ -371,6 +626,13 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
       
       const result = await getProductsByCategory(category, filters);
       setCategoryProducts(result.products || []);
+      
+      // Save to cache
+      const cacheData = {
+        data: result.products || [],
+        timestamp: Date.now()
+      };
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
     } catch (err) {
       console.error(`Error loading ${category} products:`, err);
       setError(`Failed to load ${category} products`);
@@ -379,118 +641,151 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     }
   }, [selectedSortOption, selectedFilters, userUniversity, userCity, userZipcode]);
 
-  // Function to load products for university (wrapped in useCallback)
-  const loadUniversityProducts = useCallback(async () => {
-    if (!userUniversity) {
-      console.log('[HomeScreen] Skipping university products - no university set');
-      return;
-    }
+  // User profile fetching with cache
+  const fetchUserProfile = useCallback(async () => {
+    if (!user?.email) return;
     
-    console.log(`[HomeScreen] Loading university products for: ${userUniversity}`);
-    setLoadingUniversity(true);
-    setError(null);
+    setIsLoadingUserData(true);
+    setUserDataError(null);
     
     try {
-      // Adjusted filters to match backend expected parameters
-      const filters: ProductFilters = {
-        sortBy: 'newest',
-        page: 1, // Will be converted to 0-indexed in the API layer
-        size: 20
+      // Check if we have cached data
+      const cacheKey = `${USER_PROFILE_CACHE_KEY}${user.email}`;
+      const cachedData = await AsyncStorage.getItem(cacheKey);
+      
+      if (cachedData) {
+        const { data, timestamp } = JSON.parse(cachedData);
+        const isExpired = Date.now() - timestamp > USER_CACHE_EXPIRY_TIME;
+        
+        if (!isExpired) {
+          console.log('Using cached user profile data');
+          setUserProfileData(data);
+          setIsLoadingUserData(false);
+          return;
+        }
+      }
+      
+      // If no cache or expired, fetch from API
+      console.log('Fetching user profile from API');
+      const data = await fetchUserProfileById(user.email);
+      
+      // Update state
+      setUserProfileData(data);
+      
+      // Save to cache
+      const cacheData = {
+        data,
+        timestamp: Date.now()
       };
       
-      console.log(`[HomeScreen] University products API call starting with filters:`, JSON.stringify(filters));
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
       
-      // Try to get university products
-      try {
-        console.log(`[HomeScreen] Calling getProductsByUniversity for: ${userUniversity}`);
-        const result = await getProductsByUniversity(userUniversity, filters);
-        console.log(`[HomeScreen] University API call success, result:`, 
-          result?.products ? `${result.products.length} products found` : 'No products in response');
-        
-        if (result && Array.isArray(result.products)) {
-          setUniversityProducts(result.products);
-          console.log(`[HomeScreen] University products state updated with ${result.products.length} items`);
-        } else {
-          console.warn('[HomeScreen] Unexpected response format from university products API. Result:', 
-            typeof result === 'object' ? JSON.stringify(result) : typeof result);
-          setUniversityProducts([]);
-        }
-      } catch (error: any) {
-        console.warn(`[HomeScreen] API error when loading university products:`, 
-          error.message || 'Unknown error');
-        console.warn(`[HomeScreen] Error stack:`, error.stack || 'No stack trace');
-        
-        // Fallback to an empty array to avoid UI crashes
-        setUniversityProducts([]);
-      }
-    } catch (err: any) {
-      console.error('[HomeScreen] Error loading university products:', err);
-      setError('Failed to load university products');
-      setUniversityProducts([]);
+    } catch (error: any) {
+      console.error('Error fetching user profile:', error.message || error);
+      setUserDataError('Failed to fetch user profile data');
     } finally {
-      console.log(`[HomeScreen] University products loading complete`);
-      setLoadingUniversity(false);
+      setIsLoadingUserData(false);
     }
-  }, [userUniversity]);
+  }, [user?.email]);
 
-  // Function to load products for city (wrapped in useCallback)
-  const loadCityProducts = useCallback(async () => {
-    if (!userCity) {
-      console.log('[HomeScreen] Skipping city products - no city set');
-      return;
+  // Create a simple hash function for cache keys
+  const hash = (str: string): string => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
     }
+    return hash.toString();
+  };
+
+  // Intelligent parallel loading for refresh
+  const handleRefresh = useCallback(() => {
+    setIsRefreshing(true);
     
-    console.log(`[HomeScreen] Loading city products for: ${userCity}`);
-    setLoadingCity(true);
-    setError(null);
-    
-    try {
-      // Adjusted filters to match backend expected parameters
-      const filters: ProductFilters = {
-        sortBy: 'newest',
-        page: 1, // Will be converted to 0-indexed in the API layer
-        size: 20
-      };
-      
-      // Explicitly include university if we have it
-      if (userUniversity) {
-        filters.university = userUniversity;
-        console.log(`[HomeScreen] Including university filter: ${userUniversity}`);
-      }
-      
-      console.log(`[HomeScreen] City products API call starting with filters:`, JSON.stringify(filters));
-      
-      // Try to get city products
-      try {
-        console.log(`[HomeScreen] Calling getProductsByCity for: ${userCity}`);
-        const result = await getProductsByCity(userCity, filters);
-        console.log(`[HomeScreen] City API call success, result:`, 
-          result?.products ? `${result.products.length} products found` : 'No products in response');
+    // Refresh user profile data first
+    fetchUserProfile()
+      .then(() => {
+        // Then load all data in parallel with a limit of 2 concurrent requests
+        const loadQueue = [];
         
-        if (result && Array.isArray(result.products)) {
-          setCityProducts(result.products);
-          console.log(`[HomeScreen] City products state updated with ${result.products.length} items`);
-        } else {
-          console.warn('[HomeScreen] Unexpected response format from city products API. Result:', 
-            typeof result === 'object' ? JSON.stringify(result) : typeof result);
-          setCityProducts([]);
+        // Queue essential data first
+        if (userUniversity) {
+          loadQueue.push(() => loadNewArrivals().catch(err => console.warn('Error refreshing new arrivals:', err)));
         }
-      } catch (error: any) {
-        console.warn(`[HomeScreen] API error when loading city products:`, 
-          error.message || 'Unknown error');
-        console.warn(`[HomeScreen] Error stack:`, error.stack || 'No stack trace');
-        // Fallback to an empty array to avoid UI crashes
-        setCityProducts([]);
+            
+        // Only load category products if a category is selected  
+        if (activeCategory !== null) {
+          const categoryName = categories.find(c => c.id === activeCategory)?.name.toLowerCase();
+          if (categoryName) {
+            loadQueue.push(() => loadCategoryProducts(categoryName).catch(err => console.warn('Error refreshing category products:', err)));
+          }
+        }
+        
+        // Add university products with error handling
+        if (userUniversity) {
+          loadQueue.push(() => loadUniversityProducts().catch(err => console.warn('Error refreshing university products:', err)));
+        }
+        
+        // Add city products with error handling
+        if (userCity) {
+          loadQueue.push(() => loadCityProducts().catch(err => console.warn('Error refreshing city products:', err)));
+        }
+        
+        // Add featured products with error handling
+        if (userUniversity && userCity) {
+          loadQueue.push(() => loadFeaturedProducts().catch(err => console.warn('Error refreshing featured products:', err)));
+        }
+        
+        // Execute queue with concurrency limit
+        return executeWithConcurrencyLimit(loadQueue, 2);
+      })
+      .catch(err => {
+        console.error('Error refreshing data:', err);
+        Alert.alert('Error', 'Failed to refresh some data');
+      })
+      .finally(() => {
+        setIsRefreshing(false);
+      });
+  }, [
+    activeCategory, 
+    categories, 
+    loadFeaturedProducts, 
+    loadNewArrivals, 
+    loadCategoryProducts, 
+    fetchUserProfile, 
+    loadUniversityProducts, 
+    loadCityProducts, 
+    userUniversity, 
+    userCity
+  ]);
+
+  // Helper function to execute promises with concurrency limit
+  const executeWithConcurrencyLimit = async (tasks: Array<() => Promise<any>>, limit: number) => {
+    // Clone the tasks array to avoid modifying the original
+    const queue = [...tasks];
+    const executing: Promise<any>[] = [];
+    const results: any[] = [];
+    
+    while (queue.length > 0 || executing.length > 0) {
+      // Fill executing array up to the limit
+      while (queue.length > 0 && executing.length < limit) {
+        const task = queue.shift()!;
+        const p = task().then(result => {
+          results.push(result);
+          executing.splice(executing.indexOf(p), 1);
+        });
+        executing.push(p);
       }
-    } catch (err: any) {
-      console.error('[HomeScreen] Error loading city products:', err);
-      setError('Failed to load city products');
-      setCityProducts([]);
-    } finally {
-      console.log(`[HomeScreen] City products loading complete`);
-      setLoadingCity(false);
+      
+      // Wait for one of the executing promises to finish
+      if (executing.length > 0) {
+        await Promise.race(executing);
+      }
     }
-  }, [userCity, userUniversity]);
+    
+    return results;
+  };
 
   // Get the first letter of the user's name for the profile circle
   const getInitial = useCallback(() => {
@@ -532,90 +827,6 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     // Here you could filter products by category if needed
     console.log(`Category selected: ${category.name}`);
   }, []);
-
-  // User profile fetching with cache
-  const fetchUserProfile = useCallback(async () => {
-    if (!user?.email) return;
-    
-    setIsLoadingUserData(true);
-    setUserDataError(null);
-    
-    try {
-      // Check if we have cached data
-      const cacheKey = `${USER_PROFILE_CACHE_KEY}${user.email}`;
-      const cachedData = await AsyncStorage.getItem(cacheKey);
-      
-      if (cachedData) {
-        const { data, timestamp } = JSON.parse(cachedData);
-        const isExpired = Date.now() - timestamp > CACHE_EXPIRY_TIME;
-        
-        if (!isExpired) {
-          console.log('Using cached user profile data');
-          setUserProfileData(data);
-          setIsLoadingUserData(false);
-          return;
-        }
-      }
-      
-      // If no cache or expired, fetch from API
-      console.log('Fetching user profile from API');
-      const data = await fetchUserProfileById(user.email);
-      
-      // Update state
-      setUserProfileData(data);
-      
-      // Save to cache
-      const cacheData = {
-        data,
-        timestamp: Date.now()
-      };
-      
-      await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
-      
-    } catch (error: any) {
-      console.error('Error fetching user profile:', error.message || error);
-      setUserDataError('Failed to fetch user profile data');
-    } finally {
-      setIsLoadingUserData(false);
-    }
-  }, [user?.email]);
-
-  const handleRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    
-    // Refresh user profile data first
-    fetchUserProfile()
-      .then(() => {
-        // Then reload all data with separate promises to avoid errors stopping other requests
-        const promises = [
-          loadFeaturedProducts().catch(err => console.warn('Error refreshing featured products:', err)),
-          loadNewArrivals().catch(err => console.warn('Error refreshing new arrivals:', err)),
-        ];
-          
-        // Only load category products if a category is selected  
-        if (activeCategory !== null) {
-          const categoryName = categories.find(c => c.id === activeCategory)?.name.toLowerCase();
-          if (categoryName) {
-            promises.push(
-              loadCategoryProducts(categoryName).catch(err => console.warn('Error refreshing category products:', err))
-            );
-          }
-        }
-        
-        // Add university and city products with error handling
-        promises.push(loadUniversityProducts().catch(err => console.warn('Error refreshing university products:', err)));
-        promises.push(loadCityProducts().catch(err => console.warn('Error refreshing city products:', err)));
-        
-        return Promise.all(promises);
-      })
-      .catch(err => {
-        console.error('Error refreshing data:', err);
-        Alert.alert('Error', 'Failed to refresh some data');
-      })
-      .finally(() => {
-        setIsRefreshing(false);
-      });
-  }, [activeCategory, categories, loadFeaturedProducts, loadNewArrivals, loadCategoryProducts, fetchUserProfile, loadUniversityProducts, loadCityProducts]);
 
   const handleSearch = useCallback(() => {
     // Implement search functionality here
