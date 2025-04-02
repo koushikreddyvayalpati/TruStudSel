@@ -35,17 +35,22 @@ export type MainStackParamList = {
   PostingScreen: undefined;
   ProductInfoPage: { 
     product: { 
-      id: number; 
+      id: string; 
       name: string; 
       price: string; 
-      image: string;
+      image?: string;
       description?: string;
       condition?: string;
       type?: string;
-      images?: any[];
+      images?: string[];
+      email?: string;
+      primaryImage?: string;
+      productage?: string;
+      sellingtype?: string;
+      status?: string;
     } 
   };
-  Wishlist: { wishlist: number[] };
+  Wishlist: { wishlist: string[] };
 };
 
 // Combined Root Stack Param List

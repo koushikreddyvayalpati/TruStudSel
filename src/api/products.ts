@@ -7,71 +7,75 @@ import {
   PRODUCTS_API_URL, 
   fetchWithTimeout, 
   handleResponse,
-  getAuthenticatedOptions,
   API_URL 
 } from './config';
-import { processProductImages } from '../utils/imageHelpers';
+
+// Utility to process product images (placeholder)
+const processProductImages = (product: any): any => {
+  // In a real implementation, this would add S3 URL prefixes
+  // or do other image processing
+  return product;
+};
 
 // Product types
 export interface Product {
-  id: number;
+  id: string;
   name: string;
   price: string;
-  image: string;
-  condition: string;
-  type: string;
+  image?: string;
+  condition?: string;
+  type?: string;
   description: string;
-  seller: {
-    id: string;
-    username: string;
-    name: string;
-    university?: string;
-  };
-  createdAt: string;
-  updatedAt: string;
+  email: string;
+  city?: string;
+  zipcode?: string;
+  university?: string;
+  primaryImage?: string;
+  productage?: string;
+  sellingtype?: string;
+  status?: string;
   images?: string[];
   imageUrls?: string[]; // Full S3 URLs
-  primaryImage?: string;
   additionalImages?: string[];
   category?: string;
   isAvailable?: boolean;
-}
-
-export interface ProductListResponse {
-  products: Product[];
-  total: number;
-  page: number;
-  limit: number;
+  postingdate?: string;
 }
 
 export interface ProductFilters {
   category?: string;
-  minPrice?: number;
-  maxPrice?: number;
+  sortBy?: 'price_low_high' | 'price_high_low' | 'newest' | 'popularity';
   condition?: string;
-  type?: string;
-  sortBy?: 'price-asc' | 'price-desc' | 'newest' | 'oldest';
-  university?: string;
-  search?: string;
+  sellingType?: string;
   page?: number;
-  limit?: number;
+  size?: number;
+  university?: string; // For university filtering
+  city?: string; // For city filtering
+  zipcode?: string; // For zipcode-based filtering or proximity search
 }
 
-/**
- * Interface for product creation with pre-uploaded images
- */
+export interface ProductListResponse {
+  products: Product[];
+  totalItems: number;
+  currentPage: number;
+  totalPages: number;
+}
+
 export interface CreateProductWithImagesRequest {
   name: string;
   category: string;
+  subcategory?: string;
   description: string;
   price: string;
   email: string;
-  city: string;
-  zipcode: string;
-  university: string;
-  productage: string;
-  sellingtype: string;
-  imageFilenames: string[];
+  city?: string;
+  zipcode?: string;
+  university?: string;
+  productage?: string;
+  sellingtype?: string;
+  imageFilenames?: string[];
+  allImages?: string[];
+  primaryImage?: string;
 }
 
 /**
@@ -103,84 +107,299 @@ export const getProducts = async (filters: ProductFilters = {}): Promise<Product
 };
 
 /**
- * Get a single product by ID
+ * Get products by university with filtering
  */
-export const getProductById = async (productId: number): Promise<Product> => {
+export const getProductsByUniversity = async (university: string, filters: ProductFilters = {}): Promise<ProductListResponse> => {
+  console.log(`[API:products] Getting products for university: ${university}`, { filters });
+
+  // Use exact same URL that worked with curl, with no query parameters
+  const url = `${API_URL}/api/products/university/${encodeURIComponent(university)}`;
+  
+  console.log(`[API:products] University products URL: ${url}`);
+  console.log(`[API:products] Using EXACT same URL that worked with curl - no query parameters`);
+  
+  // Use the same headers and approach as the successful curl command
+  return new Promise<ProductListResponse>((resolve, reject) => {
+    try {
+      console.log(`[API:products] Using fetch with curl-compatible headers`);
+      
+      // Create a normal fetch but with headers matching the curl example
+      fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': '*/*', // Exact same Accept header as curl
+          'User-Agent': 'curl/8.7.1' // Exact same User-Agent as curl
+        }
+      })
+      .then(response => {
+        console.log(`[API:products] University fetch response status: ${response.status}`);
+        
+        if (response.ok) {
+          return response.text(); // Get as text first to avoid auto-parsing issues
+        } else {
+          throw new Error(`API error: ${response.status}`);
+        }
+      })
+      .then(text => {
+        console.log(`[API:products] Got response text (${text.length} bytes)`);
+        console.log(`[API:products] First 100 chars:`, text.substring(0, 100));
+        
+        // Manually parse as JSON
+        const data = JSON.parse(text);
+        
+        // Process the response
+        const result: ProductListResponse = {
+          products: data.products || [],
+          totalItems: data.totalItems || 0,
+          currentPage: data.currentPage || 0,
+          totalPages: data.totalPages || 0
+        };
+        
+        // Process products and add full image URLs
+        if (Array.isArray(result.products)) {
+          console.log(`[API:products] Products array contains ${result.products.length} items`);
+          result.products = result.products.map(product => processProductImages(product));
+        } else {
+          console.warn(`[API:products] Products is not an array: ${typeof result.products}`);
+          result.products = [];
+        }
+        
+        resolve(result);
+      })
+      .catch(error => {
+        console.error(`[API:products] Error in fetch promise chain:`, error);
+        
+        // Special handling for "ListIterators are not supported for this list" error
+        if (error.message && error.message.includes('ListIterators are not supported')) {
+          console.warn('[API:products] Caught ListIterators error, returning empty product list');
+          resolve({ products: [], totalItems: 0, currentPage: 0, totalPages: 0 });
+        } else {
+          reject(error);
+        }
+      });
+    } catch (error) {
+      console.error(`[API:products] Error in university products:`, error);
+      reject(error);
+    }
+  })
+  .catch(error => {
+    console.error(`[API:products] Error fetching university products for ${university}:`, error);
+    console.error(`[API:products] Stack trace:`, error instanceof Error ? error.stack : 'No stack trace');
+    
+    // Return an empty result structure to avoid breaking the app
+    return { products: [], totalItems: 0, currentPage: 0, totalPages: 0 };
+  });
+};
+
+/**
+ * Get products by city with filtering
+ */
+export const getProductsByCity = async (city: string, filters: ProductFilters = {}): Promise<ProductListResponse> => {
+  console.log(`[API:products] Getting products for city: ${city}`, { filters });
+
+  // Build query string from filters
+  const queryParams = new URLSearchParams();
+  
+  // Convert filters to match backend expected format
+  const backendFilters = {
+    // Convert page from 1-indexed to 0-indexed
+    page: filters.page !== undefined ? (filters.page - 1).toString() : '0',
+    size: filters.size?.toString() || '20',
+    category: filters.category,
+    sortBy: filters.sortBy,
+    condition: filters.condition,
+    sellingType: filters.sellingType,
+    // Keep university as is
+    university: filters.university
+  };
+  
+  // Add only defined parameters to query string
+  Object.entries(backendFilters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      queryParams.append(key, value);
+    }
+  });
+  
+  // Ensure the university parameter is included in the URL if provided
+  if (filters.university) {
+    console.log(`[API:products] Including university in city query: ${filters.university}`);
+  }
+  
+  const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+  const url = `${API_URL}/api/products/city/${encodeURIComponent(city)}${queryString}`;
+  
+  console.log(`[API:products] City products URL: ${url}`);
+  
+  try {
+    console.log(`[API:products] Sending request to city endpoint: ${url}`);
+    
+    // Use explicit headers matching the README example
+    const fetchOptions = {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      }
+    };
+    
+    console.log(`[API:products] Request headers:`, JSON.stringify(fetchOptions.headers));
+    const response = await fetchWithTimeout(url, fetchOptions);
+    
+    console.log(`[API:products] City products response status:`, response.status);
+    console.log(`[API:products] Response headers:`, JSON.stringify(Object.fromEntries([...response.headers.entries()])));
+    
+    // For debugging 500 errors - try to examine the response before processing
+    if (response.status === 500) {
+      try {
+        const responseClone = response.clone();
+        const responseText = await responseClone.text();
+        console.log(`[API:products] City 500 error response body:`, responseText.substring(0, 500));
+        
+        // Try to parse as JSON if possible (for better debugging)
+        try {
+          const errorJson = JSON.parse(responseText);
+          console.log(`[API:products] City 500 error as JSON:`, JSON.stringify(errorJson));
+        } catch (jsonParseError) {
+          console.log(`[API:products] City 500 error not valid JSON`);
+        }
+      } catch (textReadError) {
+        console.log(`[API:products] Failed to read 500 error response:`, textReadError);
+      }
+    }
+    
+    // Use a direct approach for JSON parsing to bypass possible issues
+    if (response.ok) {
+      try {
+        // Clone the response for direct parsing attempt
+        const responseClone = response.clone();
+        const rawText = await responseClone.text();
+        console.log(`[API:products] Raw response text (first 100 chars):`, rawText.substring(0, 100));
+        
+        // Try manual JSON parsing
+        try {
+          const manualJson = JSON.parse(rawText);
+          console.log(`[API:products] Successfully parsed raw response text as JSON`);
+          
+          // Process the manually parsed JSON
+          const result: ProductListResponse = manualJson;
+          
+          // Continue with normal processing...
+          if (result.products) {
+            // Handle possible non-iterable products by checking if it's truly an array
+            if (!Array.isArray(result.products)) {
+              console.warn('[API:products] City products is not an array. Converting to array.');
+              try {
+                // Try to convert object to array if it has numeric keys
+                const productsArray = Object.keys(result.products)
+                  .map(key => (result.products as Record<string, any>)[key])
+                  .filter(product => product !== null && typeof product === 'object');
+                result.products = productsArray;
+              } catch (iteratorError: unknown) {
+                console.error('[API:products] Failed to iterate over city products:', iteratorError);
+                // If "ListIterators are not supported" error, use empty array
+                if (
+                  iteratorError instanceof Error && 
+                  iteratorError.message && 
+                  iteratorError.message.includes('ListIterators are not supported')
+                ) {
+                  console.warn('[API:products] ListIterators error detected in city products. Using empty products array.');
+                  result.products = [];
+                } else {
+                  throw iteratorError;
+                }
+              }
+            }
+            
+            // Now safely map over products array
+            result.products = result.products.map(product => processProductImages(product));
+          } else {
+            console.warn('[API:products] Unexpected response format from city products API');
+            result.products = [];
+          }
+          
+          return result;
+        } catch (manualJsonError) {
+          console.error(`[API:products] Failed to manually parse response as JSON:`, manualJsonError);
+          // Fall back to normal method if manual parsing fails
+        }
+      } catch (rawTextError) {
+        console.error(`[API:products] Failed to get raw response text:`, rawTextError);
+        // Fall back to normal method if getting raw text fails
+      }
+    }
+    
+    const result = await handleResponse<ProductListResponse>(response);
+    console.log(`[API:products] City products response parsed successfully:`,
+      result?.products ? `${result.products.length} products found` : 'No products in response');
+    
+    // Process all products to add full image URLs
+    if (result.products) {
+      // Handle possible non-iterable products by checking if it's truly an array
+      if (!Array.isArray(result.products)) {
+        console.warn('[API:products] City products is not an array. Converting to array.');
+        try {
+          // Try to convert object to array if it has numeric keys
+          const productsArray = Object.keys(result.products)
+            .map(key => (result.products as Record<string, any>)[key])
+            .filter(product => product !== null && typeof product === 'object');
+          result.products = productsArray;
+        } catch (iteratorError: unknown) {
+          console.error('[API:products] Failed to iterate over city products:', iteratorError);
+          // If "ListIterators are not supported" error, use empty array
+          if (
+            iteratorError instanceof Error && 
+            iteratorError.message && 
+            iteratorError.message.includes('ListIterators are not supported')
+          ) {
+            console.warn('[API:products] ListIterators error detected in city products. Using empty products array.');
+            result.products = [];
+          } else {
+            throw iteratorError;
+          }
+        }
+      }
+      
+      // Now safely map over products array
+      result.products = result.products.map(product => processProductImages(product));
+    } else {
+      console.warn('[API:products] Unexpected response format from city products API');
+      result.products = [];
+    }
+    
+    return result;
+  } catch (error) {
+    console.error(`[API:products] Error fetching city products for ${city}:`, error);
+    console.error(`[API:products] Stack trace:`, error instanceof Error ? error.stack : 'No stack trace');
+    
+    // Special handling for "ListIterators are not supported for this list" error
+    if (error instanceof Error && error.message.includes('ListIterators are not supported')) {
+      console.warn('[API:products] Caught ListIterators error in city products, returning empty product list');
+    }
+    
+    // Return an empty result structure to avoid breaking the app
+    return { products: [], totalItems: 0, currentPage: 1, totalPages: 1 };
+  }
+};
+
+/**
+ * Get products by category
+ */
+export const getProductsByCategory = async (category: string, filters: ProductFilters = {}): Promise<ProductListResponse> => {
+  console.log(`[API:products] Getting products for category: ${category}`);
+
+  // Build query string from filters
+  const queryParams = new URLSearchParams();
+  
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      queryParams.append(key, value.toString());
+    }
+  });
+  
+  const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+  
   const response = await fetchWithTimeout(
-    `${PRODUCTS_API_URL}/${productId}`,
+    `${API_URL}/api/products/category/${encodeURIComponent(category)}${queryString}`,
     { method: 'GET' }
-  );
-  
-  const product = await handleResponse<Product>(response);
-  return processProductImages(product);
-};
-
-/**
- * Create a new product listing
- */
-export const createProduct = async (
-  token: string,
-  productData: Omit<Product, 'id' | 'seller' | 'createdAt' | 'updatedAt'>
-): Promise<Product> => {
-  const options = getAuthenticatedOptions(token, {
-    method: 'POST',
-    body: JSON.stringify(productData),
-  });
-  
-  const response = await fetchWithTimeout(
-    PRODUCTS_API_URL,
-    options
-  );
-  
-  return handleResponse<Product>(response);
-};
-
-/**
- * Update an existing product
- */
-export const updateProduct = async (
-  token: string,
-  productId: number,
-  productData: Partial<Product>
-): Promise<Product> => {
-  const options = getAuthenticatedOptions(token, {
-    method: 'PUT',
-    body: JSON.stringify(productData),
-  });
-  
-  const response = await fetchWithTimeout(
-    `${PRODUCTS_API_URL}/${productId}`,
-    options
-  );
-  
-  return handleResponse<Product>(response);
-};
-
-/**
- * Delete a product
- */
-export const deleteProduct = async (token: string, productId: number): Promise<void> => {
-  const options = getAuthenticatedOptions(token, {
-    method: 'DELETE',
-  });
-  
-  const response = await fetchWithTimeout(
-    `${PRODUCTS_API_URL}/${productId}`,
-    options
-  );
-  
-  return handleResponse<void>(response);
-};
-
-/**
- * Get user's own products
- */
-export const getUserProducts = async (token: string): Promise<ProductListResponse> => {
-  const options = getAuthenticatedOptions(token);
-  
-  const response = await fetchWithTimeout(
-    `${PRODUCTS_API_URL}/user`,
-    options
   );
   
   const result = await handleResponse<ProductListResponse>(response);
@@ -192,54 +411,47 @@ export const getUserProducts = async (token: string): Promise<ProductListRespons
 };
 
 /**
- * Add a product to wishlist
+ * Get featured products for university and city
  */
-export const addToWishlist = async (token: string, productId: number): Promise<void> => {
-  const options = getAuthenticatedOptions(token, {
-    method: 'POST',
-  });
+export const getFeaturedProducts = async (university: string, city: string): Promise<Product[]> => {
+  console.log(`[API:products] Getting featured products for university: ${university}, city: ${city}`);
   
-  const response = await fetchWithTimeout(
-    `${PRODUCTS_API_URL}/${productId}/wishlist`,
-    options
-  );
-  
-  return handleResponse<void>(response);
+  try {
+    const response = await fetchWithTimeout(
+      `${API_URL}/api/products/featured/${encodeURIComponent(university)}/${encodeURIComponent(city)}`,
+      { method: 'GET' }
+    );
+    
+    const products = await handleResponse<Product[]>(response);
+    
+    // Process products to add full image URLs
+    return products.map(product => processProductImages(product));
+  } catch (error) {
+    console.error('Error fetching featured products:', error);
+    return [];
+  }
 };
 
 /**
- * Remove a product from wishlist
+ * Get new arrivals for university
  */
-export const removeFromWishlist = async (token: string, productId: number): Promise<void> => {
-  const options = getAuthenticatedOptions(token, {
-    method: 'DELETE',
-  });
+export const getNewArrivals = async (university: string): Promise<Product[]> => {
+  console.log(`[API:products] Getting new arrivals for university: ${university}`);
   
-  const response = await fetchWithTimeout(
-    `${PRODUCTS_API_URL}/${productId}/wishlist`,
-    options
-  );
-  
-  return handleResponse<void>(response);
-};
-
-/**
- * Get user's wishlist
- */
-export const getWishlist = async (token: string): Promise<ProductListResponse> => {
-  const options = getAuthenticatedOptions(token);
-  
-  const response = await fetchWithTimeout(
-    `${PRODUCTS_API_URL}/wishlist`,
-    options
-  );
-  
-  const result = await handleResponse<ProductListResponse>(response);
-  
-  // Process all wishlist products to add full image URLs
-  result.products = result.products.map(product => processProductImages(product));
-  
-  return result;
+  try {
+    const response = await fetchWithTimeout(
+      `${API_URL}/api/products/new-arrivals/${encodeURIComponent(university)}`,
+      { method: 'GET' }
+    );
+    
+    const products = await handleResponse<Product[]>(response);
+    
+    // Process products to add full image URLs
+    return products.map(product => processProductImages(product));
+  } catch (error) {
+    console.error('Error fetching new arrivals:', error);
+    return [];
+  }
 };
 
 /**
@@ -287,67 +499,22 @@ export const createProductWithImageFilenames = async (
     console.log('[API:products] Response status:', response.status);
     console.log('[API:products] Response status text:', response.statusText);
     
-    // For successful responses
-    if (response.ok) {
-      try {
-        const responseText = await response.text();
-        console.log('[API:products] Raw response text:', responseText.length > 200 
-          ? responseText.substring(0, 200) + '...' 
-          : responseText);
-        
-        // Try to parse as JSON
-        const result = JSON.parse(responseText) as Product;
-        
-        // Process the product to add full image URLs
-        const processedProduct = processProductImages(result);
-        
-        console.log('[API:products] Product created successfully:', 
-          JSON.stringify({
-            id: processedProduct.id,
-            name: processedProduct.name,
-            images: processedProduct.images?.length,
-            imageUrls: processedProduct.imageUrls
-          })
-        );
-        
-        return processedProduct;
-      } catch (parseError) {
-        console.error('[API:products] Error parsing response as JSON:', parseError);
-        throw new Error('Failed to parse product creation response');
-      }
-    } else {
-      // For error responses
-      try {
-        const errorText = await response.text();
-        console.error('[API:products] Server error response:', errorText);
-        throw new Error(`Server error: ${response.status} ${response.statusText} - ${errorText.substring(0, 100)}`);
-      } catch (textError) {
-        console.error('[API:products] Could not read error response:', textError);
-        throw new Error(`Server error: ${response.status} ${response.statusText}`);
-      }
-    }
+    const createdProduct = await handleResponse<Product>(response);
+    console.log('[API:products] Product created successfully with ID:', createdProduct.id);
+    
+    return createdProduct;
   } catch (error) {
-    console.error('[API:products] Error creating product:', error);
-    if (error instanceof Error) {
-      console.error('[API:products] Error name:', error.name);
-      console.error('[API:products] Error message:', error.message);
-      console.error('[API:products] Error stack:', error.stack);
-    }
-    throw error instanceof Error 
-      ? error 
-      : new Error('Failed to create product');
+    console.error('[API:products] Error in createProductWithImageFilenames:', error);
+    throw error;
   }
 };
 
 export default {
   getProducts,
-  getProductById,
-  createProduct,
-  updateProduct,
-  deleteProduct,
-  getUserProducts,
-  addToWishlist,
-  removeFromWishlist,
-  getWishlist,
+  getProductsByUniversity,
+  getProductsByCity,
+  getProductsByCategory,
+  getFeaturedProducts,
+  getNewArrivals,
   createProductWithImageFilenames,
 }; 

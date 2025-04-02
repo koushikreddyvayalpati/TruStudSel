@@ -391,11 +391,15 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
     console.log('[PostingScreen] Product data:', JSON.stringify({
       title,
       category: selectedType?.id,
+      subcategory: selectedSubcategory || '',
       description: description.length > 50 ? description.substring(0, 50) + '...' : description,
       price,
       email: user.email,
-      condition: selectedCondition?.id,
-      sellingType: isSell ? 'sell' : 'rent'
+      city: user.city || '',
+      zipcode: user.zipcode || '',
+      university: user.university || '',
+      productage: selectedCondition?.id,
+      sellingtype: isSell ? 'sell' : 'rent'
     }));
     
     setIsLoading(true);
@@ -437,6 +441,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
         const productData = {
           name: title,
           category: selectedType?.id || '',
+          subcategory: selectedSubcategory || '',
           description: description,
           price: price,
           email: user.email,
@@ -527,7 +532,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
           : "Failed to post item: Unknown error"
       );
     }
-  }, [validateForm, title, selectedType, description, price, user, selectedCondition, isSell, navigation, errors]);
+  }, [validateForm, title, selectedType, description, price, user, selectedCondition, isSell, navigation, errors, selectedSubcategory]);
 
   return (
     <KeyboardAvoidingView 

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { 
   View, 
   TextInput, 
@@ -13,8 +13,10 @@ import {
   Image,
   ActivityIndicator,
   RefreshControl,
-  Dimensions
+  Dimensions,
+  Alert
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import EvilIcon from 'react-native-vector-icons/EvilIcons';
 import Entypoicon from 'react-native-vector-icons/Entypo';
@@ -24,6 +26,20 @@ import { useNavigation, DrawerActions } from '@react-navigation/native';
 
 // Import from contexts with new structure
 import { useAuth } from '../../contexts';
+
+// Import API methods
+import { 
+  getProductsByCategory,
+  getFeaturedProducts,
+  getNewArrivals,
+  Product as ApiProduct,
+  ProductFilters,
+  getProductsByUniversity,
+  getProductsByCity
+} from '../../api/products';
+
+// Import user profile API
+import { fetchUserProfileById } from '../../api/users';
 
 // Import types
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -36,24 +52,20 @@ interface Category {
   icon: 'electronics' | 'furniture' | 'auto' | 'fashion' | 'sports';
 }
 
-interface Product {
-  id: number;
-  name: string;
-  price: string;
-  image: string;
-  condition?: string;
-  type?: string;
-  description?: string;
-  images?: string[];
-}
+// Using the API Product interface directly
+type Product = ApiProduct;
 
-type ProductSectionType = 'featured' | 'newArrivals' | 'bestSellers';
+type ProductSectionType = 'featured' | 'newArrivals' | 'bestSellers' | 'university' | 'city';
 
 type NavigationProp = StackNavigationProp<MainStackParamList>;
 
 interface HomescreenProps {
   navigation?: NavigationProp;
 }
+
+// Cache constants
+const USER_PROFILE_CACHE_KEY = 'user_profile_cache_';
+const CACHE_EXPIRY_TIME = 15 * 60 * 1000; // 15 minutes
 
 // Component to display section headers with potential actions
 const SectionHeader: React.FC<{
@@ -110,42 +122,57 @@ const CategoryItem: React.FC<{
 // Component for rendering a product item
 const ProductItem: React.FC<{
   item: Product;
-  wishlist: number[];
-  onToggleWishlist: (id: number) => void;
+  wishlist: string[];
+  onToggleWishlist: (id: string) => void;
   onPress: (product: Product) => void;
-}> = ({ item, wishlist, onToggleWishlist, onPress }) => (
-  <TouchableOpacity 
-    style={[styles.productCard, { backgroundColor: 'white' }]}
-    onPress={() => onPress(item)}
-  >
-    <Image 
-      source={{ uri: item.image }} 
-      style={styles.productImagePlaceholder}
-      resizeMode="cover"
-    />
-    <View style={[styles.productInfo, { backgroundColor: 'white' }]}>
-      <Text style={[styles.productName, { color: '#333' }]}>{item.name}</Text>
-      <Text style={[styles.productPrice, { color: 'black' }]}>{item.price}</Text>
-      <TouchableOpacity 
-        style={styles.wishlistButton} 
-        onPress={() => onToggleWishlist(item.id)}
-      >
-        <FontAwesome 
-          name={wishlist.includes(item.id) ? "heart" : "heart-o"}
-          size={20} 
-          color="red" 
-        />
-      </TouchableOpacity>
-    </View>
-  </TouchableOpacity>
-);
+}> = ({ item, wishlist, onToggleWishlist, onPress }) => {
+  // Get the appropriate image URL - primaryImage, first image from images array, or placeholder
+  const imageUrl = item.primaryImage || 
+                  (item.images && item.images.length > 0 ? item.images[0] : 
+                  'https://via.placeholder.com/150');
+
+  // Format price display
+  const formattedPrice = `$${item.price}`;
+  
+  return (
+    <TouchableOpacity 
+      style={[styles.productCard, { backgroundColor: 'white' }]}
+      onPress={() => onPress(item)}
+    >
+      <Image 
+        source={{ uri: imageUrl }} 
+        style={styles.productImagePlaceholder}
+        resizeMode="cover"
+      />
+      <View style={[styles.productInfo, { backgroundColor: 'white' }]}>
+        <Text style={[styles.productName, { color: '#333' }]} numberOfLines={1}>{item.name}</Text>
+        <Text style={[styles.productPrice, { color: 'black' }]}>{formattedPrice}</Text>
+        {item.productage && (
+          <Text style={styles.productCondition}>
+            {item.productage.replace(/-/g, ' ')}
+          </Text>
+        )}
+        <TouchableOpacity 
+          style={styles.wishlistButton} 
+          onPress={() => onToggleWishlist(item.id)}
+        >
+          <FontAwesome 
+            name={wishlist.includes(item.id) ? "heart" : "heart-o"}
+            size={20} 
+            color="red" 
+          />
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 // Product section component for reusability
 const ProductSection: React.FC<{
   title: string;
   data: Product[];
-  wishlist: number[];
-  onToggleWishlist: (id: number) => void;
+  wishlist: string[];
+  onToggleWishlist: (id: string) => void;
   onProductPress: (product: Product) => void;
   onSeeAll?: () => void;
   isLoading?: boolean;
@@ -179,7 +206,7 @@ const ProductSection: React.FC<{
             onPress={onProductPress}
           />
         )}
-        keyExtractor={item => item.id.toString()}
+        keyExtractor={item => item.id}
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.productScrollView}
@@ -205,10 +232,48 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   const navigation = useNavigation<NavigationProp>();
   const nav = propNavigation || navigation;
   const { user } = useAuth();
-  const [wishlist, setWishlist] = useState<number[]>([]);
+  
+  // User profile data state
+  const [userProfileData, setUserProfileData] = useState<any>(null);
+  const [isLoadingUserData, setIsLoadingUserData] = useState<boolean>(false);
+  const [userDataError, setUserDataError] = useState<string | null>(null);
+  
+  // Cache the University and City values for API calls
+  const userUniversity = useMemo(() => 
+    userProfileData?.university || user?.university || '', 
+    [userProfileData, user?.university]
+  );
+  
+  const userCity = useMemo(() => 
+    userProfileData?.city || user?.city || '', 
+    [userProfileData, user?.city]
+  );
+  
+  const userZipcode = useMemo(() => 
+    userProfileData?.zipcode || user?.zipcode || '', 
+    [userProfileData, user?.zipcode]
+  );
+  
+  const [wishlist, setWishlist] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeCategory, setActiveCategory] = useState<number | null>(null);
+  
+  // API data states
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [newArrivalsProducts, setNewArrivalsProducts] = useState<Product[]>([]);
+  const [universityProducts, setUniversityProducts] = useState<Product[]>([]);
+  const [cityProducts, setCityProducts] = useState<Product[]>([]);
+  const [categoryProducts, setCategoryProducts] = useState<Product[]>([]);
+  
+  // Loading states
+  const [loadingFeatured, setLoadingFeatured] = useState(false);
+  const [loadingNewArrivals, setLoadingNewArrivals] = useState(false);
+  const [loadingUniversity, setLoadingUniversity] = useState(false);
+  const [loadingCity, setLoadingCity] = useState(false);
+  const [loadingCategory, setLoadingCategory] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
   // Sort states
   const [sortDropdownVisible, setSortDropdownVisible] = useState(false);
   const [selectedSortOption, setSelectedSortOption] = useState<string>('default');
@@ -225,41 +290,207 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     { id: 5, name: 'Sports', icon: 'sports' },
   ], []);
 
-  // Product data with proper typing
-  const products = useMemo<Product[]>(() => [
-    {
-      id: 1,
-      name: 'Nike Sneakers',
-      price: '$34.00',
-      image: 'https://via.placeholder.com/150',
-      condition: 'Brand New',
-      type: 'Rent',
-      description: 'Vision Alta Men',
-      images: ['https://via.placeholder.com/200', 'https://via.placeholder.com/200']
-    },
-    { id: 2, name: 'Cricket bat', price: '$18.50', image: 'https://via.placeholder.com/150' },
-    { id: 3, name: 'Matress', price: '$32.99', image: 'https://via.placeholder.com/150' },
-    { id: 4, name: 'Lamp', price: '$15.75', image: 'https://via.placeholder.com/150' },
-    { id: 5, name: 'Polo Tshirt', price: '$49.99', image: 'https://via.placeholder.com/150' },
-  ], []);
+  // Function to load featured products (wrapped in useCallback)
+  const loadFeaturedProducts = useCallback(async () => {
+    if (!userUniversity || !userCity) return;
+    
+    setLoadingFeatured(true);
+    setError(null);
+    
+    try {
+      const products = await getFeaturedProducts(userUniversity, userCity);
+      setFeaturedProducts(products);
+    } catch (err) {
+      console.error('Error loading featured products:', err);
+      setError('Failed to load featured products');
+    } finally {
+      setLoadingFeatured(false);
+    }
+  }, [userUniversity, userCity]);
 
-  // New arrivals data
-  const newArrivals = useMemo<Product[]>(() => [
-    { id: 1, name: 'New Item 1', price: '$21.99', image: 'https://via.placeholder.com/150' },
-    { id: 2, name: 'New Item 2', price: '$34.50', image: 'https://via.placeholder.com/150' },
-    { id: 3, name: 'New Item 3', price: '$19.99', image: 'https://via.placeholder.com/150' },
-    { id: 4, name: 'New Item 4', price: '$27.75', image: 'https://via.placeholder.com/150' },
-    { id: 5, name: 'New Item 5', price: '$45.99', image: 'https://via.placeholder.com/150' },
-  ], []);
+  // Function to load new arrivals (wrapped in useCallback)
+  const loadNewArrivals = useCallback(async () => {
+    if (!userUniversity) return;
+    
+    setLoadingNewArrivals(true);
+    setError(null);
+    
+    try {
+      const products = await getNewArrivals(userUniversity);
+      setNewArrivalsProducts(products);
+    } catch (err) {
+      console.error('Error loading new arrivals:', err);
+      setError('Failed to load new arrivals');
+    } finally {
+      setLoadingNewArrivals(false);
+    }
+  }, [userUniversity]);
 
-  // Best sellers data
-  const bestSellers = useMemo<Product[]>(() => [
-    { id: 1, name: 'Popular Item 1', price: '$22.99', image: 'https://via.placeholder.com/150' },
-    { id: 2, name: 'Popular Item 2', price: '$17.50', image: 'https://via.placeholder.com/150' },
-    { id: 3, name: 'Popular Item 3', price: '$31.99', image: 'https://via.placeholder.com/150' },
-    { id: 4, name: 'Popular Item 4', price: '$14.75', image: 'https://via.placeholder.com/150' },
-    { id: 5, name: 'Popular Item 5', price: '$39.99', image: 'https://via.placeholder.com/150' },
-  ], []);
+  // Function to load products by category (wrapped in useCallback)
+  const loadCategoryProducts = useCallback(async (category: string) => {
+    setLoadingCategory(true);
+    setError(null);
+    
+    try {
+      // Convert selectedFilters and selectedSortOption to API filter format
+      const filters: ProductFilters = {
+        sortBy: selectedSortOption === 'price_low_high' ? 'price_low_high' : 
+                selectedSortOption === 'price_high_low' ? 'price_high_low' : 
+                selectedSortOption === 'newest' ? 'newest' : 
+                selectedSortOption === 'popularity' ? 'popularity' : undefined,
+      };
+      
+      // Add condition filters
+      if (selectedFilters.includes('new')) {
+        filters.condition = 'brand-new';
+      } else if (selectedFilters.includes('used')) {
+        filters.condition = 'used';
+      }
+      
+      // Add selling type filters
+      if (selectedFilters.includes('rent')) {
+        filters.sellingType = 'rent';
+      } else if (selectedFilters.includes('sell')) {
+        filters.sellingType = 'sell';
+      }
+      
+      // If user has university, filter by it
+      if (userUniversity) {
+        filters.university = userUniversity;
+      }
+      
+      // If user has city, filter by it
+      if (userCity) {
+        filters.city = userCity;
+      }
+      
+      // Add zipcode filter for nearby products if available
+      if (userZipcode) {
+        filters.zipcode = userZipcode;
+      }
+      
+      const result = await getProductsByCategory(category, filters);
+      setCategoryProducts(result.products || []);
+    } catch (err) {
+      console.error(`Error loading ${category} products:`, err);
+      setError(`Failed to load ${category} products`);
+    } finally {
+      setLoadingCategory(false);
+    }
+  }, [selectedSortOption, selectedFilters, userUniversity, userCity, userZipcode]);
+
+  // Function to load products for university (wrapped in useCallback)
+  const loadUniversityProducts = useCallback(async () => {
+    if (!userUniversity) {
+      console.log('[HomeScreen] Skipping university products - no university set');
+      return;
+    }
+    
+    console.log(`[HomeScreen] Loading university products for: ${userUniversity}`);
+    setLoadingUniversity(true);
+    setError(null);
+    
+    try {
+      // Adjusted filters to match backend expected parameters
+      const filters: ProductFilters = {
+        sortBy: 'newest',
+        page: 1, // Will be converted to 0-indexed in the API layer
+        size: 20
+      };
+      
+      console.log(`[HomeScreen] University products API call starting with filters:`, JSON.stringify(filters));
+      
+      // Try to get university products
+      try {
+        console.log(`[HomeScreen] Calling getProductsByUniversity for: ${userUniversity}`);
+        const result = await getProductsByUniversity(userUniversity, filters);
+        console.log(`[HomeScreen] University API call success, result:`, 
+          result?.products ? `${result.products.length} products found` : 'No products in response');
+        
+        if (result && Array.isArray(result.products)) {
+          setUniversityProducts(result.products);
+          console.log(`[HomeScreen] University products state updated with ${result.products.length} items`);
+        } else {
+          console.warn('[HomeScreen] Unexpected response format from university products API. Result:', 
+            typeof result === 'object' ? JSON.stringify(result) : typeof result);
+          setUniversityProducts([]);
+        }
+      } catch (error: any) {
+        console.warn(`[HomeScreen] API error when loading university products:`, 
+          error.message || 'Unknown error');
+        console.warn(`[HomeScreen] Error stack:`, error.stack || 'No stack trace');
+        
+        // Fallback to an empty array to avoid UI crashes
+        setUniversityProducts([]);
+      }
+    } catch (err: any) {
+      console.error('[HomeScreen] Error loading university products:', err);
+      setError('Failed to load university products');
+      setUniversityProducts([]);
+    } finally {
+      console.log(`[HomeScreen] University products loading complete`);
+      setLoadingUniversity(false);
+    }
+  }, [userUniversity]);
+
+  // Function to load products for city (wrapped in useCallback)
+  const loadCityProducts = useCallback(async () => {
+    if (!userCity) {
+      console.log('[HomeScreen] Skipping city products - no city set');
+      return;
+    }
+    
+    console.log(`[HomeScreen] Loading city products for: ${userCity}`);
+    setLoadingCity(true);
+    setError(null);
+    
+    try {
+      // Adjusted filters to match backend expected parameters
+      const filters: ProductFilters = {
+        sortBy: 'newest',
+        page: 1, // Will be converted to 0-indexed in the API layer
+        size: 20
+      };
+      
+      // Explicitly include university if we have it
+      if (userUniversity) {
+        filters.university = userUniversity;
+        console.log(`[HomeScreen] Including university filter: ${userUniversity}`);
+      }
+      
+      console.log(`[HomeScreen] City products API call starting with filters:`, JSON.stringify(filters));
+      
+      // Try to get city products
+      try {
+        console.log(`[HomeScreen] Calling getProductsByCity for: ${userCity}`);
+        const result = await getProductsByCity(userCity, filters);
+        console.log(`[HomeScreen] City API call success, result:`, 
+          result?.products ? `${result.products.length} products found` : 'No products in response');
+        
+        if (result && Array.isArray(result.products)) {
+          setCityProducts(result.products);
+          console.log(`[HomeScreen] City products state updated with ${result.products.length} items`);
+        } else {
+          console.warn('[HomeScreen] Unexpected response format from city products API. Result:', 
+            typeof result === 'object' ? JSON.stringify(result) : typeof result);
+          setCityProducts([]);
+        }
+      } catch (error: any) {
+        console.warn(`[HomeScreen] API error when loading city products:`, 
+          error.message || 'Unknown error');
+        console.warn(`[HomeScreen] Error stack:`, error.stack || 'No stack trace');
+        // Fallback to an empty array to avoid UI crashes
+        setCityProducts([]);
+      }
+    } catch (err: any) {
+      console.error('[HomeScreen] Error loading city products:', err);
+      setError('Failed to load city products');
+      setCityProducts([]);
+    } finally {
+      console.log(`[HomeScreen] City products loading complete`);
+      setLoadingCity(false);
+    }
+  }, [userCity, userUniversity]);
 
   // Get the first letter of the user's name for the profile circle
   const getInitial = useCallback(() => {
@@ -274,7 +505,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     return 'U'; // Default if no name is available
   }, [user]);
 
-  const toggleWishlist = useCallback((id: number) => {
+  const toggleWishlist = useCallback((id: string) => {
     setWishlist(prevWishlist => 
       prevWishlist.includes(id) 
         ? prevWishlist.filter(itemId => itemId !== id)
@@ -283,7 +514,13 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   }, []);
 
   const handleProductPress = useCallback((product: Product) => {
-    nav.navigate('ProductInfoPage', { product });
+    // Ensure the product has the right type structure for the navigation
+    nav.navigate('ProductInfoPage', { 
+      product: {
+        ...product,
+        id: product.id // Ensure id is treated as expected by the screen
+      } 
+    });
   }, [nav]);
 
   const handleCategoryPress = useCallback((category: Category) => {
@@ -294,13 +531,89 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     console.log(`Category selected: ${category.name}`);
   }, []);
 
+  // User profile fetching with cache
+  const fetchUserProfile = useCallback(async () => {
+    if (!user?.email) return;
+    
+    setIsLoadingUserData(true);
+    setUserDataError(null);
+    
+    try {
+      // Check if we have cached data
+      const cacheKey = `${USER_PROFILE_CACHE_KEY}${user.email}`;
+      const cachedData = await AsyncStorage.getItem(cacheKey);
+      
+      if (cachedData) {
+        const { data, timestamp } = JSON.parse(cachedData);
+        const isExpired = Date.now() - timestamp > CACHE_EXPIRY_TIME;
+        
+        if (!isExpired) {
+          console.log('Using cached user profile data');
+          setUserProfileData(data);
+          setIsLoadingUserData(false);
+          return;
+        }
+      }
+      
+      // If no cache or expired, fetch from API
+      console.log('Fetching user profile from API');
+      const data = await fetchUserProfileById(user.email);
+      
+      // Update state
+      setUserProfileData(data);
+      
+      // Save to cache
+      const cacheData = {
+        data,
+        timestamp: Date.now()
+      };
+      
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
+      
+    } catch (error: any) {
+      console.error('Error fetching user profile:', error.message || error);
+      setUserDataError('Failed to fetch user profile data');
+    } finally {
+      setIsLoadingUserData(false);
+    }
+  }, [user?.email]);
+
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
-    // Simulate data refresh
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 1000);
-  }, []);
+    
+    // Refresh user profile data first
+    fetchUserProfile()
+      .then(() => {
+        // Then reload all data with separate promises to avoid errors stopping other requests
+        const promises = [
+          loadFeaturedProducts().catch(err => console.warn('Error refreshing featured products:', err)),
+          loadNewArrivals().catch(err => console.warn('Error refreshing new arrivals:', err)),
+        ];
+          
+        // Only load category products if a category is selected  
+        if (activeCategory !== null) {
+          const categoryName = categories.find(c => c.id === activeCategory)?.name.toLowerCase();
+          if (categoryName) {
+            promises.push(
+              loadCategoryProducts(categoryName).catch(err => console.warn('Error refreshing category products:', err))
+            );
+          }
+        }
+        
+        // Add university and city products with error handling
+        promises.push(loadUniversityProducts().catch(err => console.warn('Error refreshing university products:', err)));
+        promises.push(loadCityProducts().catch(err => console.warn('Error refreshing city products:', err)));
+        
+        return Promise.all(promises);
+      })
+      .catch(err => {
+        console.error('Error refreshing data:', err);
+        Alert.alert('Error', 'Failed to refresh some data');
+      })
+      .finally(() => {
+        setIsRefreshing(false);
+      });
+  }, [activeCategory, categories, loadFeaturedProducts, loadNewArrivals, loadCategoryProducts, fetchUserProfile, loadUniversityProducts, loadCityProducts]);
 
   const handleSearch = useCallback(() => {
     // Implement search functionality here
@@ -308,9 +621,24 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   }, [searchQuery]);
 
   const handleSeeAll = useCallback((section: ProductSectionType) => {
-    // Navigate to a page showing all products of a specific section
-    console.log(`See all pressed for: ${section}`);
-  }, []);
+    // Navigate to a page showing all products of a specific section based on section type
+    if (section === 'featured') {
+      // Navigate to page showing all featured products
+      Alert.alert('Coming Soon', 'View all featured products');
+    } else if (section === 'newArrivals') {
+      // Navigate to page showing all new arrivals
+      Alert.alert('Coming Soon', 'View all new arrivals');
+    } else if (section === 'bestSellers') {
+      // Navigate to page showing all best sellers
+      Alert.alert('Coming Soon', 'View all best sellers');
+    } else if (section === 'university') {
+      // Navigate to page showing all university products
+      Alert.alert('Coming Soon', `View all ${userUniversity} products`);
+    } else if (section === 'city') {
+      // Navigate to page showing all city products
+      Alert.alert('Coming Soon', `View all ${userCity} products`);
+    }
+  }, [userUniversity, userCity]);
 
   // Define sort options
   const sortOptions = useMemo<SortOption[]>(() => [
@@ -326,16 +654,14 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     setSelectedSortOption(optionId);
     setSortDropdownVisible(false);
     
-    // Here you would implement the actual sorting logic
-    console.log(`Sort option selected: ${optionId}`);
-    
-    // Example of how you might sort the products (implement according to your data structure)
-    // if (optionId === 'price_low_high') {
-    //   // Sort products by price low to high
-    // } else if (optionId === 'price_high_low') {
-    //   // Sort products by price high to low
-    // }
-  }, []);
+    // If a category is active, reload products with the new sort option
+    if (activeCategory !== null) {
+      const categoryName = categories.find(c => c.id === activeCategory)?.name.toLowerCase();
+      if (categoryName) {
+        loadCategoryProducts(categoryName);
+      }
+    }
+  }, [activeCategory, categories, loadCategoryProducts]);
 
   // Define filter options
   const filterOptions = useMemo<FilterOption[]>(() => [
@@ -357,8 +683,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
       }
     });
     
-    // Here you would implement the actual filtering logic
-    console.log(`Filter option toggled: ${optionId}`);
+    // Reload category products with new filters (actual filtering happens in the useEffect)
   }, []);
 
   // Close other dropdown when one is opened
@@ -371,6 +696,49 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     setFilterDropdownVisible(!filterDropdownVisible);
     if (sortDropdownVisible) setSortDropdownVisible(false);
   }, [filterDropdownVisible, sortDropdownVisible]);
+
+  // Effect to load featured products
+  useEffect(() => {
+    if (userUniversity && userCity) {
+      loadFeaturedProducts();
+    }
+  }, [userUniversity, userCity, loadFeaturedProducts]);
+
+  // Effect to load new arrivals
+  useEffect(() => {
+    if (userUniversity) {
+      loadNewArrivals();
+    }
+  }, [userUniversity, loadNewArrivals]);
+  
+  // Effect to load university products
+  useEffect(() => {
+    if (userUniversity) {
+      loadUniversityProducts();
+    }
+  }, [userUniversity, loadUniversityProducts]);
+  
+  // Effect to load city products
+  useEffect(() => {
+    if (userCity) {
+      loadCityProducts();
+    }
+  }, [userCity, loadCityProducts]);
+
+  // Effect to load category products when a category is selected
+  useEffect(() => {
+    if (activeCategory !== null) {
+      const categoryName = categories.find(c => c.id === activeCategory)?.name.toLowerCase();
+      if (categoryName) {
+        loadCategoryProducts(categoryName);
+      }
+    }
+  }, [activeCategory, selectedSortOption, selectedFilters, categories, loadCategoryProducts]);
+
+  // Load user profile on mount
+  useEffect(() => {
+    fetchUserProfile();
+  }, [fetchUserProfile]);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: 'white' }]}>
@@ -395,6 +763,10 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
           <Text style={[styles.truStudSelText, { color: '#efae1a' }]}>TruStudSel</Text>
           
           <View style={styles.topBarRight}>
+            {isLoadingUserData && <ActivityIndicator size="small" color="#f7b305" style={{marginRight: 10}} />}
+            {userDataError && <TouchableOpacity onPress={fetchUserProfile}>
+              <MaterialIcons name="refresh" size={20} color="#e74c3c" style={{marginRight: 10}} />
+            </TouchableOpacity>}
             <TouchableOpacity 
               style={styles.profileButton}
               onPress={() => {
@@ -535,35 +907,84 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
             <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
           }
         >
-          {/* Featured Items Section */}
-          <ProductSection 
-            title="Featured Items"
-            data={products}
-            wishlist={wishlist}
-            onToggleWishlist={toggleWishlist}
-            onProductPress={handleProductPress}
-            onSeeAll={() => handleSeeAll('featured')}
-          />
-
           {/* New Arrivals Section */}
           <ProductSection 
             title="New Arrivals"
-            data={newArrivals}
+            data={newArrivalsProducts}
             wishlist={wishlist}
             onToggleWishlist={toggleWishlist}
             onProductPress={handleProductPress}
             onSeeAll={() => handleSeeAll('newArrivals')}
+            isLoading={loadingNewArrivals}
           />
 
-          {/* Best Sellers Section */}
+          {/* University Products Section */}
+          {(userUniversity && (!loadingUniversity || universityProducts.length > 0)) && (
+            <ProductSection 
+              title={loadingUniversity 
+                ? "Loading University Products..." 
+                : `${userUniversity || 'University'} Products`
+              }
+              data={universityProducts}
+              wishlist={wishlist}
+              onToggleWishlist={toggleWishlist}
+              onProductPress={handleProductPress}
+              onSeeAll={() => handleSeeAll('university')}
+              isLoading={loadingUniversity}
+            />
+          )}
+
+          {/* City Products Section */}
+          {(userCity && (!loadingCity || cityProducts.length > 0)) && (
+            <ProductSection 
+              title={loadingCity 
+                ? "Loading City Products..." 
+                : `${userCity || 'City'} Products`
+              }
+              data={cityProducts}
+              wishlist={wishlist}
+              onToggleWishlist={toggleWishlist}
+              onProductPress={handleProductPress}
+              onSeeAll={() => handleSeeAll('city')}
+              isLoading={loadingCity}
+            />
+          )}
+          
+          {/* Featured Items Section */}
           <ProductSection 
-            title="Best Sellers"
-            data={bestSellers}
+            title="Featured Items"
+            data={featuredProducts}
             wishlist={wishlist}
             onToggleWishlist={toggleWishlist}
             onProductPress={handleProductPress}
-            onSeeAll={() => handleSeeAll('bestSellers')}
+            onSeeAll={() => handleSeeAll('featured')}
+            isLoading={loadingFeatured}
           />
+
+          {/* Category Products Section - Only show when a category is selected */}
+          {activeCategory !== null && (
+            <ProductSection 
+              title={`${categories.find(c => c.id === activeCategory)?.name || ''} Products`}
+              data={categoryProducts}
+              wishlist={wishlist}
+              onToggleWishlist={toggleWishlist}
+              onProductPress={handleProductPress}
+              isLoading={loadingCategory}
+            />
+          )}
+          
+          {/* Error display */}
+          {error && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+              <TouchableOpacity 
+                style={styles.retryButton}
+                onPress={handleRefresh}
+              >
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          )}
           
           {/* Bottom padding to avoid content being hidden behind navigation */}
           <View style={{height: 70}} />
@@ -745,7 +1166,7 @@ const styles = StyleSheet.create({
   },
   wishlistButton: {
     position: 'absolute',
-    top: 10,
+    top: 33,
     right: 10,
   },
   topBarRight: {
@@ -798,6 +1219,33 @@ const styles = StyleSheet.create({
   selectedDropdownItemText: {
     fontWeight: 'bold',
     color: '#f7b305',
+  },
+  productCondition: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+    textTransform: 'capitalize',
+  },
+  errorContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorText: {
+    color: '#e74c3c',
+    fontSize: 14,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#f7b305',
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
 });
 
