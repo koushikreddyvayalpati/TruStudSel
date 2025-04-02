@@ -624,7 +624,8 @@ const styles = StyleSheet.create({
   },
   paginationContainer: {
     position: 'absolute',
-    bottom: 16,
+ 
+    bottom: 0,
     width: '100%',
     alignItems: 'center',
   },
