@@ -28,9 +28,11 @@ const UserSearchScreen: React.FC = () => {
   const handleSearch = useCallback(async () => {
     if (searchTerm.length < 3) return;
     
+    console.log('Starting search for:', searchTerm);
     setLoading(true);
     try {
       const results = await searchUsersByName(searchTerm);
+      console.log(`Found ${results.length} results for "${searchTerm}":`, results);
       setSearchResults(results);
     } catch (error) {
       console.error('Error searching users:', error);
@@ -136,6 +138,7 @@ const UserSearchScreen: React.FC = () => {
           value={searchTerm}
           onChangeText={setSearchTerm}
           autoCapitalize="none"
+          autoCorrect={false}
         />
       </View>
 
@@ -143,9 +146,11 @@ const UserSearchScreen: React.FC = () => {
 
       {searchTerm.length > 0 ? (
         <View style={styles.resultsContainer}>
-          <Text style={styles.sectionTitle}>Search Results</Text>
+          <Text style={styles.sectionTitle}>
+            Search Results for "{searchTerm}"
+          </Text>
           {searchResults.length === 0 && !loading ? (
-            <Text style={styles.noResults}>No users found</Text>
+            <Text style={styles.noResults}>No users found matching "{searchTerm}"</Text>
           ) : (
             <FlatList
               data={searchResults}

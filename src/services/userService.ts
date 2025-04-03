@@ -60,12 +60,40 @@ export const searchUsersByName = async (name: string): Promise<UserData[]> => {
         university: 'State University',
         isVerified: true,
         stats: { sold: 0, purchased: 1 }
+      },
+      {
+        username: 'koushik',
+        email: 'koushik@example.com',
+        name: 'Koushik Reddy',
+        university: 'Tech University',
+        isVerified: true,
+        stats: { sold: 8, purchased: 3 }
+      },
+      {
+        username: 'reddy',
+        email: 'reddy@example.com',
+        name: 'Reddy Kumar',
+        university: 'City College',
+        isVerified: true,
+        stats: { sold: 3, purchased: 5 }
+      },
+      {
+        username: 'mike',
+        email: 'mike@example.com',
+        name: 'Mike Wilson',
+        university: 'State University',
+        isVerified: true,
+        stats: { sold: 5, purchased: 4 }
       }
     ];
     
-    return mockUsers.filter(user => 
+    const filteredUsers = mockUsers.filter(user => 
       user.name?.toLowerCase().includes(name.toLowerCase())
     );
+
+    console.log('Search results:', filteredUsers);
+    
+    return filteredUsers;
   } catch (error) {
     console.error('Error searching users by name:', error);
     return [];
@@ -125,23 +153,24 @@ export const getRecommendedUsers = async (): Promise<UserData[]> => {
         stats: { sold: 0, purchased: 1 }
       },
       {
-        username: 'user4',
-        email: 'user4@example.com',
-        name: 'Emily Wilson',
+        username: 'koushik',
+        email: 'koushik@example.com',
+        name: 'Koushik Reddy',
         university: 'Tech University',
         isVerified: true,
-        stats: { sold: 10, purchased: 5 }
+        stats: { sold: 8, purchased: 3 }
       },
       {
-        username: 'user5',
-        email: 'user5@example.com',
-        name: 'Michael Brown',
+        username: 'reddy',
+        email: 'reddy@example.com',
+        name: 'Reddy Kumar',
         university: 'City College',
         isVerified: true,
-        stats: { sold: 3, purchased: 8 }
+        stats: { sold: 3, purchased: 5 }
       }
     ];
     
+    console.log('Returning recommended users:', mockUsers);
     return mockUsers;
   } catch (error) {
     console.error('Error getting recommended users:', error);

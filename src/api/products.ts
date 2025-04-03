@@ -40,6 +40,11 @@ export interface Product {
   category?: string;
   isAvailable?: boolean;
   postingdate?: string;
+  seller?: {
+    id: string;
+    name: string;
+  };
+  sellerName?: string;
 }
 
 export interface ProductFilters {
@@ -509,6 +514,52 @@ export const createProductWithImageFilenames = async (
   }
 };
 
+/**
+ * Get a single product by ID
+ * This ensures proper seller information is included
+ */
+export const getProductById = async (id: string): Promise<Product> => {
+  console.log(`[API:products] Getting product by ID: ${id}`);
+  
+  try {
+    const response = await fetchWithTimeout(
+      `${API_URL}/api/products/${encodeURIComponent(id)}`,
+      { method: 'GET' }
+    );
+    
+    const product = await handleResponse<Product>(response);
+
+    // Process product to add full image URLs
+    const processedProduct = processProductImages(product);
+    
+    // Ensure seller information exists by creating a default if missing
+    if (!processedProduct.seller) {
+      console.log('[API:products] Adding default seller information to product');
+      processedProduct.seller = {
+        id: processedProduct.email || 'unknown-seller',
+        name: processedProduct.sellerName || 'Unknown Seller'
+      };
+    }
+    
+    // Ensure sellerName is available directly on the product for easy access
+    if (!processedProduct.sellerName && processedProduct.seller?.name) {
+      processedProduct.sellerName = processedProduct.seller.name;
+    }
+    
+    console.log('[API:products] Product processed:', {
+      id: processedProduct.id,
+      name: processedProduct.name,
+      sellerName: processedProduct.sellerName,
+      seller: processedProduct.seller
+    });
+    
+    return processedProduct;
+  } catch (error) {
+    console.error('Error fetching product by ID:', error);
+    throw new Error(`Failed to fetch product with ID: ${id}`);
+  }
+};
+
 export default {
   getProducts,
   getProductsByUniversity,
@@ -517,4 +568,5 @@ export default {
   getFeaturedProducts,
   getNewArrivals,
   createProductWithImageFilenames,
+  getProductById,
 }; 

@@ -56,7 +56,7 @@ const WishlistScreen: React.FC = () => {
       style={[styles.productCard, { backgroundColor: colors.card, shadowColor: colors.shadow }]}
       onPress={() => navigation.navigate('ProductInfoPage', { 
         product: {
-          id: parseInt(item.id), 
+          id: item.id.toString(),
           name: item.name, 
           price: item.price,
           image: Array.isArray(item.images) && item.images.length > 0 
@@ -67,8 +67,16 @@ const WishlistScreen: React.FC = () => {
           description: item.description,
           condition: item.condition,
           type: item.type,
-          images: item.images
-        }
+          images: Array.isArray(item.images) 
+            ? item.images.map(img => typeof img === 'string' ? img : (img as any).url) 
+            : undefined,
+          sellerName: (item as any).sellerName || ((item as any).seller?.name || 'Unknown Seller'),
+          seller: (item as any).seller || {
+            id: (item as any).email || 'unknown-seller',
+            name: (item as any).sellerName || 'Unknown Seller'
+          }
+        },
+        productId: item.id.toString()
       })}
     >
       <View style={[styles.productImagePlaceholder, { backgroundColor: colors.cardAlt }]} />

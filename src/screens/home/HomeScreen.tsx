@@ -820,9 +820,15 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     nav.navigate('ProductInfoPage', { 
       product: {
         ...product,
-        id: product.id // Ensure id is treated as expected by the screen
+        id: product.id, // Ensure id is treated as expected by the screen
+        // Make sure seller information is included
+        sellerName: product.sellerName || product.seller?.name,
+        seller: product.seller || {
+          id: product.email || 'unknown',
+          name: product.sellerName || 'Unknown Seller'
+        }
       },
-      productId: product.id // Explicitly pass the product ID for easier access in ProductsScreen
+      productId: product.id.toString() // Explicitly pass the product ID as string for API lookup
     });
   }, [nav]);
 

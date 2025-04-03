@@ -19,8 +19,8 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { MainStackParamList } from '../../types/navigation.types';
-import { getMessages, sendMessage, subscribeToMessages, updateMessageStatus, getCurrentUser } from '../../services/chatService';
-import { Message, MessageStatus } from '../../types/chat.types';
+import { getMessages, sendMessage, subscribeToMessages, updateMessageStatus, getCurrentUser, getOrCreateConversation } from '../../services/chatService';
+import { Message, MessageStatus, Conversation } from '../../types/chat.types';
 import { format, isToday, isYesterday } from 'date-fns';
 
 // Define proper navigation type for MessageScreen
@@ -32,7 +32,7 @@ const MessageScreen = () => {
   const route = useRoute<MessageScreenRouteProp>();
   
   // Get parameters from navigation
-  const { conversationId, recipientName } = route.params || {};
+  const { conversationId: routeConversationId, recipientName, recipientId } = route.params || {};
   
   // State for messages and input
   const [messages, setMessages] = useState<Message[]>([]);
@@ -41,6 +41,10 @@ const MessageScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [actualConversationId, setActualConversationId] = useState<string | null>(
+    routeConversationId !== 'new' ? routeConversationId : null
+  );
+  const [_conversation, setConversation] = useState<Conversation | null>(null);
   
   // Refs
   const flatListRef = useRef<FlatList<Message>>(null);
@@ -63,14 +67,40 @@ const MessageScreen = () => {
     loadUser();
   }, []);
   
+  // Effect to handle new conversation creation
+  useEffect(() => {
+    // Only run this if we need to create a new conversation
+    if (routeConversationId === 'new' && recipientId && recipientName && currentUserId) {
+      const createNewConversation = async () => {
+        try {
+          console.log('Creating new conversation with:', recipientName, recipientId);
+          const newConversation = await getOrCreateConversation(
+            recipientId,
+            recipientName
+          );
+          
+          console.log('New conversation created:', newConversation);
+          setActualConversationId(newConversation.id);
+          setConversation(newConversation);
+          setError(null);
+        } catch (err) {
+          console.error('Error creating conversation:', err);
+          setError('Failed to create conversation. Please try again.');
+        }
+      };
+      
+      createNewConversation();
+    }
+  }, [routeConversationId, recipientId, recipientName, currentUserId]);
+  
   // Effect to load conversation messages
   useEffect(() => {
-    if (!conversationId) return;
+    if (!actualConversationId) return;
     
     const loadMessages = async () => {
       try {
         setIsLoading(true);
-        const fetchedMessages = await getMessages(conversationId);
+        const fetchedMessages = await getMessages(actualConversationId);
         setMessages(fetchedMessages);
         setError(null);
       } catch (err) {
@@ -82,14 +112,14 @@ const MessageScreen = () => {
     };
     
     loadMessages();
-  }, [conversationId]);
+  }, [actualConversationId]);
   
   // Set up real-time subscription
   useEffect(() => {
-    if (!conversationId) return;
+    if (!actualConversationId) return;
     
     // Subscribe to new messages
-    const subscription = subscribeToMessages(conversationId, (newMessage) => {
+    const subscription = subscribeToMessages(actualConversationId, (newMessage) => {
       setMessages(prevMessages => {
         // Check if we already have this message
         const exists = prevMessages.some(msg => msg.id === newMessage.id);
@@ -97,7 +127,7 @@ const MessageScreen = () => {
         
         // If it's from the other user, mark it as read
         if (currentUserId && newMessage.senderId !== currentUserId) {
-          updateMessageStatus(newMessage.id, conversationId, MessageStatus.READ);
+          updateMessageStatus(newMessage.id, actualConversationId, MessageStatus.READ);
         }
         
         return [...prevMessages, newMessage];
@@ -120,7 +150,7 @@ const MessageScreen = () => {
         messageSubscriptionRef.current.unsubscribe();
       }
     };
-  }, [conversationId, currentUserId, typingIndicatorOpacity]);
+  }, [actualConversationId, currentUserId, typingIndicatorOpacity]);
   
   // Function to scroll to bottom of messages
   const scrollToBottom = useCallback(() => {
@@ -183,7 +213,7 @@ const MessageScreen = () => {
 
   // Handle sending a message
   const handleSend = useCallback(async () => {
-    if (!inputText.trim() || !conversationId) return;
+    if (!inputText.trim() || !actualConversationId) return;
     
     Keyboard.dismiss();
     
@@ -196,7 +226,7 @@ const MessageScreen = () => {
     
     try {
       // Send message
-      await sendMessage(conversationId, messageText);
+      await sendMessage(actualConversationId, messageText);
       setError(null);
     } catch (err) {
       console.error('Error sending message:', err);
@@ -206,7 +236,7 @@ const MessageScreen = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [inputText, conversationId]);
+  }, [inputText, actualConversationId]);
   
   // Render individual message
   const renderMessage = useCallback(({ item, index }: { item: Message; index: number }) => {
@@ -306,7 +336,7 @@ const MessageScreen = () => {
   }, [error]);
   
   // Loading state
-  if (isLoading && messages.length === 0) {
+  if ((isLoading && messages.length === 0) || (routeConversationId === 'new' && !actualConversationId)) {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#f7b305" />
@@ -318,7 +348,11 @@ const MessageScreen = () => {
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#f7b305" />
-          <Text style={styles.loadingText}>Loading messages...</Text>
+          <Text style={styles.loadingText}>
+            {routeConversationId === 'new' && !actualConversationId 
+              ? 'Setting up conversation...' 
+              : 'Loading messages...'}
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -339,7 +373,7 @@ const MessageScreen = () => {
         </TouchableOpacity>
         
         <Text style={styles.headerTitle} numberOfLines={1}>
-          {recipientName}
+          {recipientName || 'Chat'}
         </Text>
       </View>
       

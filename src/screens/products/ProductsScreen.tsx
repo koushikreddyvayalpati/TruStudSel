@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -23,6 +23,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { ProductInfoScreenRouteProp, ProductInfoScreenNavigationProp } from '../../types/navigation.types';
+import { getProductById } from '../../api/products'; // Import the new API function
 
 const { width, height } = Dimensions.get('window');
 
@@ -43,6 +44,8 @@ interface ExtendedProduct {
     contactNumber?: string;
     email?: string;
   };
+  sellerName?: string;
+  email?: string;
 }
 
 // Base product type from params
@@ -55,11 +58,8 @@ interface BaseProduct {
   condition?: string;
   type?: string;
   images?: string[];
-}
-
-// Image interface to improve type safety
-interface ImageSource {
-  uri: string;
+  sellerName?: string;
+  email?: string;
 }
 
 // Sample product data (fallback if route params are missing)
@@ -82,7 +82,9 @@ const sampleProduct: ExtendedProduct = {
     rating: 4.8,
     contactNumber: '+1234567890',
     email: 'seller@example.com'
-  }
+  },
+  sellerName: 'Koushik Reddy',
+  email: 'seller@example.com'
 };
 
 // Sample reviews for the seller
@@ -146,7 +148,7 @@ const ImageGallery: React.FC<{
         </View>
       </View>
     );
-  }, [currentIndex, images.length]);
+  }, [currentIndex, images]);
 
   // Memoized render item
   const renderItem = useCallback(({ item, index }: { item: string, index: number }) => (
@@ -155,7 +157,7 @@ const ImageGallery: React.FC<{
       onPress={() => onImagePress(index)}
     >
       <Image 
-        source={{ uri: typeof item === 'string' ? item : 'https://via.placeholder.com/300' }} 
+        source={{ uri: typeof item === 'string' && item.trim() !== '' ? item : 'https://via.placeholder.com/300' }} 
         style={styles.productImage}
         resizeMode="cover"
         defaultSource={{ uri: 'https://via.placeholder.com/300' }}
@@ -219,7 +221,7 @@ const SimilarProducts: React.FC<{
       onPress={() => onProductPress(item)}
     >
       <Image 
-        source={{ uri: item.image }} 
+        source={{ uri: item.image && item.image.trim() !== '' ? item.image : 'https://via.placeholder.com/150' }} 
         style={styles.similarProductImage}
         resizeMode="cover"
         defaultSource={{ uri: 'https://via.placeholder.com/150' }}
@@ -266,7 +268,7 @@ const ImageZoomModal: React.FC<{
         </TouchableOpacity>
         
         <Image
-          source={{ uri: imageUri }}
+          source={{ uri: imageUri && imageUri.trim() !== '' ? imageUri : 'https://via.placeholder.com/300' }}
           style={styles.zoomedImage}
           resizeMode="contain"
           defaultSource={{ uri: 'https://via.placeholder.com/300' }}
@@ -279,41 +281,100 @@ const ImageZoomModal: React.FC<{
 const ProductsScreen = () => {
   const navigation = useNavigation<ProductInfoScreenNavigationProp>();
   const route = useRoute<ProductInfoScreenRouteProp>();
-  const [isLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [zoomVisible, setZoomVisible] = useState(false);
   const [selectedImage, setSelectedImage] = useState('');
   const [expandDescription, setExpandDescription] = useState(false);
-  const [isInWishlist, setIsInWishlist] = useState(false);
+  const [_isInWishlist, _setIsInWishlist] = useState(false);
+  const [productData, setProductData] = useState<ExtendedProduct | null>(null);
   
   // Extract product and productId from route params
   const routeParams = route.params || {};
   const productFromRoute = routeParams.product;
   const productId = routeParams.productId;
   
-  // Log the product ID for debugging
-  console.log(`[ProductsScreen] Received product ID: ${productId}`);
+  // Fetch product data when component mounts if we have a productId
+  useEffect(() => {
+    const fetchProductData = async () => {
+      // If we already have the product data in route params, use that
+      if (productFromRoute) {
+        return;
+      }
+      
+      // Only fetch from API if we have a productId and no product object
+      if (productId) {
+        try {
+          setIsLoading(true);
+          
+          const fetchedProduct = await getProductById(productId);
+          
+          setProductData(fetchedProduct as unknown as ExtendedProduct);
+        } catch (error) {
+          console.error('[ProductsScreen] Error fetching product:', error);
+          // Show error alert to user
+          Alert.alert('Error', 'Unable to load product details. Please try again.');
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+    
+    fetchProductData();
+  }, [productId, productFromRoute]);
   
-  // Use the product from route params if available, otherwise use the sample product
-  const routeProduct = productFromRoute as unknown as BaseProduct | undefined;
+  // Use the product from route params if available, otherwise use the one fetched from API, or the sample product as fallback
+  const routeProduct = productFromRoute || productData;
   
   // Create an extended product object with seller information if not provided
   const product: ExtendedProduct = useMemo(() => {
-    return routeProduct 
-      ? {
-          ...routeProduct,
-          seller: routeProduct.seller || sampleProduct.seller // Use sample seller data if not provided
-        }
-      : sampleProduct;
+    if (!routeProduct) {
+      return sampleProduct;
+    }
+    
+    // Add a check for case-sensitivity issues
+    const productObj = routeProduct as unknown as Record<string, any>;
+    const keys = Object.keys(productObj);
+    const normalizedKeys = keys.reduce((obj, key) => {
+      obj[key.toLowerCase()] = key;
+      return obj;
+    }, {} as Record<string, string>);
+    
+    // Try to find sellerName with different case variations
+    let actualSellerName = productObj.sellerName;
+    if (!actualSellerName && normalizedKeys.sellername) {
+      const key = normalizedKeys.sellername;
+      actualSellerName = productObj[key];
+    }
+    
+    const result: ExtendedProduct = {
+      ...productObj,
+      id: productObj.id,
+      name: productObj.name,
+      price: productObj.price,
+      image: productObj.image || 'https://via.placeholder.com/300',
+      // Ensure sellerName is properly assigned regardless of case
+      sellerName: actualSellerName || productObj.sellerName,
+      seller: productObj.seller || sampleProduct.seller // Use sample seller data if not provided
+    };
+    
+    return result;
   }, [routeProduct]);
   
   // Handle case where product might not have images array - also normalize to strings only
   const productImages = useMemo(() => {
+    const defaultImage = 'https://via.placeholder.com/300';
+    
     if (!product.images || !Array.isArray(product.images) || product.images.length === 0) {
-      return [product.image || 'https://via.placeholder.com/300'];
+      return [(product.image && product.image.trim() !== '') ? product.image : defaultImage];
     }
     
-    // Ensure all items are strings
-    return product.images.map(img => typeof img === 'string' ? img : 'https://via.placeholder.com/300');
+    // Ensure all items are valid non-empty strings
+    const validImages = product.images
+      .map(img => typeof img === 'string' && img.trim() !== '' ? img : defaultImage)
+      .filter(img => img && img.trim() !== '');
+    
+    // If no valid images were found, return the default image
+    return validImages.length > 0 ? validImages : [defaultImage];
   }, [product.images, product.image]);
 
   // Memoize share function
@@ -328,32 +389,26 @@ const ProductsScreen = () => {
     }
   }, [product.name, product.price, productImages]);
 
-  // Memoize wishlist toggle function
-  const toggleWishlist = useCallback(() => {
-    setIsInWishlist(prev => !prev);
-    Alert.alert(
-      isInWishlist ? 'Removed from Wishlist' : 'Added to Wishlist',
-      isInWishlist ? 'This item has been removed from your wishlist.' : 'This item has been added to your wishlist.'
-    );
-  }, [isInWishlist]);
-
   // Memoize contact seller function
   const handleContactSeller = useCallback((method: string) => {
     if (method === 'message') {
-      // Handle in a type-safe way
       try {
+        // Get seller info from product attributes
+        const sellerName = product.sellerName || product.seller?.name || 'Seller';
+        const sellerEmail = product.email || product.seller?.email || 'unknown';
+        
         // @ts-ignore - We know this route exists but TypeScript doesn't
         navigation.navigate('MessageScreen', { 
           conversationId: 'new', 
-          recipientName: product.seller?.name || 'Seller',
-          recipientId: product.seller?.id || 'unknown'
+          recipientName: sellerName,
+          recipientId: sellerEmail // Using seller email as the recipientId
         });
       } catch (error) {
         console.error('Navigation error:', error);
         Alert.alert('Error', 'Could not open messaging screen.');
       }
     }
-  }, [navigation, product.seller]);
+  }, [navigation, product]);
 
   // Memoize image press function
   const handleImagePress = useCallback((index: number) => {
@@ -428,6 +483,12 @@ const ProductsScreen = () => {
     </View>
   ), [product.description, expandDescription]);
 
+  // Debug section memoization
+  const renderDebugSection = useMemo(() => {
+    // Return null to disable debug section completely
+    return null;
+  }, []);
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -500,12 +561,16 @@ const ProductsScreen = () => {
             </View>
           </View>
           
-          {/* Description - now memoized */}
+          {/* Debug Section - Only visible in development */}
+          {renderDebugSection}
+
+          {/* Description Section */}
           {renderDescriptionSection}
 
           {/* Seller Profile */}
           <View style={styles.sellerSection}>
             <Text style={styles.sectionTitle}>Seller Information</Text>
+            
             <View style={styles.sellerProfileContainer}>
               <View style={styles.sellerInfoContainer}>
                 <TouchableOpacity 
@@ -513,12 +578,18 @@ const ProductsScreen = () => {
                   onPress={handleViewSellerProfile}
                 >
                   <Text style={styles.profileText}>
-                    {product.seller?.name ? product.seller.name.charAt(0).toUpperCase() : 'S'}
+                    {(() => {
+                      // Get the display name prioritizing sellerName, then seller.name
+                      const displayName = product.sellerName || product.seller?.name || '';
+                      return displayName ? displayName.charAt(0).toUpperCase() : 'S';
+                    })()}
                   </Text>
                 </TouchableOpacity>
                 
                 <View style={styles.sellerDetails}>
-                  <Text style={styles.sellerName}>{product.seller?.name || 'Unknown Seller'}</Text>
+                  <Text style={styles.sellerName}>
+                    {product.sellerName || product.seller?.name || 'Unknown Seller'}
+                  </Text>
                   {product.seller?.rating && <RatingStars rating={product.seller.rating} />}
                 </View>
               </View>

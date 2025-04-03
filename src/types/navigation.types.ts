@@ -31,7 +31,7 @@ export type MainStackParamList = {
     email?: string;
   };
   MessagesScreen: undefined;
-  MessageScreen: { conversationId: string; recipientName: string };
+  MessageScreen: { conversationId: string; recipientName: string; recipientId?: string };
   PostingScreen: undefined;
   UserSearchScreen: undefined;
   ProductInfoPage: { 
@@ -49,6 +49,14 @@ export type MainStackParamList = {
       productage?: string;
       sellingtype?: string;
       status?: string;
+      sellerName?: string;
+      seller?: {
+        id: string;
+        name: string;
+        rating?: number;
+        contactNumber?: string;
+        email?: string;
+      };
     },
     productId?: string
   };
