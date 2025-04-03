@@ -1,7 +1,7 @@
 /**
  * Import statements 
  */
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useRef, memo } from 'react';
 import { 
   View, 
   Text, 
@@ -14,7 +14,8 @@ import {
   Modal,
   FlatList,
   ActivityIndicator,
-  Alert
+  Alert,
+  Dimensions
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -26,6 +27,12 @@ import { useAuth } from '../../contexts/AuthContext';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { uploadProductImages, S3_BASE_URL } from '../../api/fileUpload';
 import { createProductWithImageFilenames } from '../../api/products';
+import LinearGradient from 'react-native-linear-gradient';
+
+// Get device dimensions for responsive layout
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const THUMBNAIL_SIZE = SCREEN_WIDTH > 400 ? 85 : 75;
+const MAIN_PHOTO_HEIGHT = SCREEN_WIDTH * 0.5;
 
 // Define the product category type for consistency with ProductsScreen
 type ProductCategory = 'electronics' | 'furniture' | 'auto' | 'fashion' | 'sports' | 'stationery' | 'eventpass';
@@ -193,7 +200,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
 
   // Reference to keep track of images that need to be uploaded
   const selectedImagesRef = useRef<Array<{uri: string; type: string; name: string}>>([]);
-
+  
   // Real image picker implementation - now stores locally first, uploads only when posting
   const handleImageUpload = useCallback(async () => {
     console.log('[PostingScreen] Starting image selection process');
@@ -610,6 +617,192 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
     </TouchableOpacity>
   );
 
+  // Memoized section headers for consistent styling
+  const renderSectionHeader = useCallback((title: string, error?: string, subtitle?: string) => (
+    <View style={styles.sectionHeaderRow}>
+      <View>
+        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+          {title} {error && <Text style={styles.errorText}>({error})</Text>}
+        </Text>
+        {subtitle && (
+          <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>
+            {subtitle}
+          </Text>
+        )}
+      </View>
+    </View>
+  ), [theme.colors]);
+
+  // Memoized button component
+  const PostButton = useCallback(() => (
+    <TouchableOpacity 
+      style={[
+        styles.button, 
+        { 
+          backgroundColor: isLoading ? 'rgba(247, 179, 5, 0.7)' : '#f7b305',
+          opacity: isLoading ? 0.8 : 1
+        }
+      ]}
+      activeOpacity={0.7}
+      onPress={handlePostItem}
+      disabled={isLoading}
+    >
+      {isLoading ? (
+        <View style={styles.uploadProgressContainer}>
+          <ActivityIndicator color="#FFFFFF" size="small" style={styles.uploadingIndicator} />
+          <Text style={[styles.uploadingText, { color: '#FFFFFF' }]}>
+            {uploadProgress < 50 ? "Uploading images..." : 
+             uploadProgress < 90 ? "Creating listing..." : "Almost done..."}
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.buttonContent}>
+          <Icon name="check" size={18} color="#FFFFFF" style={styles.buttonIcon} />
+          <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
+            Post Item
+          </Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  ), [isLoading, uploadProgress, handlePostItem]);
+
+  // Memoized components for better performance
+  const PhotoTips = memo(() => (
+    <View style={styles.photoTipsContainer}>
+      <View style={styles.photoTipRow}>
+        <Icon name="check-circle" size={14} color="#f7b305" style={styles.tipIcon} />
+        <Text style={[styles.photoTipText, { color: 'rgba(0,0,0,0.6)' }]}>
+          Use good lighting and clean background
+        </Text>
+      </View>
+      <View style={styles.photoTipRow}>
+        <Icon name="check-circle" size={14} color="#f7b305" style={styles.tipIcon} />
+        <Text style={[styles.photoTipText, { color: 'rgba(0,0,0,0.6)' }]}>
+          Include multiple angles
+        </Text>
+      </View>
+      <View style={styles.photoTipRow}>
+        <Icon name="check-circle" size={14} color="#f7b305" style={styles.tipIcon} />
+        <Text style={[styles.photoTipText, { color: 'rgba(0,0,0,0.6)' }]}>
+          Show any defects or wear
+        </Text>
+      </View>
+    </View>
+  ));
+
+  const MainPhotoPlaceholder = memo(({ onPress, theme }: { onPress: () => void, theme: any }) => (
+    <TouchableOpacity 
+      style={[styles.mainPhotoButton, { 
+        borderColor: 'rgba(247, 179, 5, 0.4)',
+        backgroundColor: 'rgba(247, 179, 5, 0.05)', 
+      }]} 
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.addImageIconContainer}>
+        <View style={styles.cameraIconOuter}>
+          <View style={styles.cameraIconCircle}>
+            <Icon name="camera" size={28} color="#f7b305" />
+          </View>
+        </View>
+        <Text style={[styles.mainPhotoText, { color: theme.colors.text }]}>
+          Add Main Photo
+        </Text>
+        <Text style={[styles.photoTip, { color: theme.colors.textSecondary }]}>
+          This will be the cover image
+        </Text>
+        <View style={styles.photoUpgradeBadge}>
+          <LinearGradient
+            colors={['#f7b305', '#f59000']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.photoUpgradeBadgeGradient}
+          >
+            <Icon name="star" size={12} color="#ffffff" style={{marginRight: 6}} />
+            <Text style={styles.photoUpgradeBadgeText}>Better pics = faster sales</Text>
+          </LinearGradient>
+        </View>
+      </View>
+    </TouchableOpacity>
+  ));
+
+  const MainPhoto = memo(({ uri, onRemove }: { uri: string, onRemove: () => void }) => (
+    <View style={styles.mainPhotoWrapper}>
+      <Image 
+        source={{ uri }} 
+        style={styles.mainPhoto} 
+        resizeMode="cover"
+        resizeMethod="resize"
+      />
+      <TouchableOpacity 
+        style={styles.removeMainPhotoButton}
+        onPress={onRemove}
+        hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+      >
+        <Icon name="trash" size={16} color="#FFFFFF" />
+      </TouchableOpacity>
+      <View style={styles.mainPhotoLabel}>
+        <Text style={styles.mainPhotoLabelText}>Main Photo</Text>
+      </View>
+    </View>
+  ));
+
+  const ThumbnailPhoto = memo(({ uri, onRemove }: { uri: string, onRemove: () => void }) => (
+    <View style={styles.thumbnailWrapper}>
+      <Image source={{ uri }} style={styles.thumbnailImage} resizeMethod="resize" />
+      <TouchableOpacity 
+        style={styles.removeThumbnailButton}
+        onPress={onRemove}
+        hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+      >
+        <Icon name="times" size={14} color="#FFFFFF" />
+      </TouchableOpacity>
+    </View>
+  ));
+
+  // Optimized photo gallery rendering
+  const renderPhotoGallery = useCallback(() => (
+    <View style={styles.photoGalleryContainer}>
+      {/* Main photo upload button or first image */}
+      {images.length === 0 ? (
+        <MainPhotoPlaceholder onPress={handleImageUpload} theme={theme} />
+      ) : (
+        <MainPhoto uri={localImageUris[0]} onRemove={() => handleRemoveImage(0)} />
+      )}
+      
+      {/* Additional photos row */}
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.additionalPhotosContainer}
+      >
+        {localImageUris.slice(1).map((imageUri, index) => (
+          <ThumbnailPhoto 
+            key={`thumb-${index}`} 
+            uri={imageUri} 
+            onRemove={() => handleRemoveImage(index + 1)} 
+          />
+        ))}
+        
+        {images.length > 0 && images.length < 5 && (
+          <TouchableOpacity 
+            style={[styles.addThumbnailButton, { 
+              borderColor: 'rgba(247, 179, 5, 0.3)',
+              backgroundColor: 'rgba(247, 179, 5, 0.05)'
+            }]} 
+            onPress={handleImageUpload}
+            activeOpacity={0.7}
+          >
+            <Icon name="plus" size={20} color="#f7b305" />
+          </TouchableOpacity>
+        )}
+      </ScrollView>
+      
+      {/* Photo upload tips */}
+      {images.length === 0 && <PhotoTips />}
+    </View>
+  ), [localImageUris, images.length, theme, handleImageUpload, handleRemoveImage, MainPhoto, MainPhotoPlaceholder, PhotoTips, ThumbnailPhoto]);
+
   return (
     <KeyboardAvoidingView 
       style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -619,12 +812,15 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
       <ScrollView 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.contentContainer}>
+          {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity 
               style={styles.backButton} 
               onPress={() => navigation.goBack()}
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
             >
               <Icon name="chevron-left" size={20} color={theme.colors.text} />
             </TouchableOpacity>
@@ -632,7 +828,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
             <View style={styles.headerSpacer} />
           </View>
           
-          {/* Enhanced Photo Upload Section */}
+          {/* Photo Upload Section */}
           <View style={styles.sectionWrapper}>
             <View style={styles.sectionHeaderRow}>
               <View>
@@ -643,104 +839,19 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
                   Add up to 5 photos to showcase your item
                 </Text>
               </View>
-              <Text style={[styles.photoCount, { color: theme.colors.primary }]}>
-                {images.length}/5
-              </Text>
+              <View style={styles.photoCountContainer}>
+                <Text style={styles.photoCount}>
+                  {images.length}/5
+                </Text>
+              </View>
             </View>
             
-            <View style={styles.photoGalleryContainer}>
-              {/* Main photo upload button */}
-              {images.length === 0 ? (
-                <TouchableOpacity 
-                  style={[styles.mainPhotoButton, { borderColor: theme.colors.border }]} 
-                  onPress={handleImageUpload}
-                >
-                  <View style={styles.addImageIconContainer}>
-                    <Icon name="camera" size={28} color={theme.colors.primary} />
-                    <Text style={[styles.mainPhotoText, { color: theme.colors.text }]}>
-                      Add Main Photo
-                    </Text>
-                    <Text style={[styles.photoTip, { color: theme.colors.textSecondary }]}>
-                      This will be the cover image
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ) : (
-                <View style={styles.mainPhotoWrapper}>
-                  <Image 
-                    source={{ uri: localImageUris[0] }} 
-                    style={styles.mainPhoto} 
-                    resizeMode="cover"
-                  />
-                  <TouchableOpacity 
-                    style={styles.removeMainPhotoButton}
-                    onPress={() => handleRemoveImage(0)}
-                  >
-                    <Icon name="trash" size={16} color="#FFFFFF" />
-                  </TouchableOpacity>
-                  <View style={styles.mainPhotoLabel}>
-                    <Text style={styles.mainPhotoLabelText}>Main Photo</Text>
-                  </View>
-                </View>
-              )}
-              
-              {/* Additional photos row */}
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.additionalPhotosContainer}
-              >
-                {localImageUris.slice(1).map((imageUri, index) => (
-                  <View key={index} style={styles.thumbnailWrapper}>
-                    <Image source={{ uri: imageUri }} style={styles.thumbnailImage} />
-                    <TouchableOpacity 
-                      style={styles.removeThumbnailButton}
-                      onPress={() => handleRemoveImage(index + 1)}
-                    >
-                      <Icon name="times" size={14} color="#FFFFFF" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-                
-                {images.length > 0 && images.length < 5 && (
-                  <TouchableOpacity 
-                    style={[styles.addThumbnailButton, { borderColor: theme.colors.border }]} 
-                    onPress={handleImageUpload}
-                  >
-                    <Icon name="plus" size={20} color={theme.colors.primary} />
-                  </TouchableOpacity>
-                )}
-              </ScrollView>
-              
-              {/* Photo upload tips */}
-              {images.length === 0 && (
-                <View style={styles.photoTipsContainer}>
-                  <View style={styles.photoTipRow}>
-                    <Icon name="check-circle" size={14} color={theme.colors.primary} style={styles.tipIcon} />
-                    <Text style={[styles.photoTipText, { color: theme.colors.textSecondary }]}>
-                      Use good lighting and clean background
-                    </Text>
-                  </View>
-                  <View style={styles.photoTipRow}>
-                    <Icon name="check-circle" size={14} color={theme.colors.primary} style={styles.tipIcon} />
-                    <Text style={[styles.photoTipText, { color: theme.colors.textSecondary }]}>
-                      Include multiple angles
-                    </Text>
-                  </View>
-                  <View style={styles.photoTipRow}>
-                    <Icon name="check-circle" size={14} color={theme.colors.primary} style={styles.tipIcon} />
-                    <Text style={[styles.photoTipText, { color: theme.colors.textSecondary }]}>
-                      Show any defects or wear
-                    </Text>
-                  </View>
-                </View>
-              )}
-            </View>
+            {renderPhotoGallery()}
           </View>
           
           {/* Sell/Rent Toggle Section */}
           <View style={styles.sectionWrapper}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Listing Type</Text>
+            {renderSectionHeader('Listing Type')}
             <View style={styles.toggleWrapper}>
               <View style={styles.toggleContainer}>
                 <TouchableOpacity 
@@ -777,7 +888,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
           
           {/* Item Details Section */}
           <View style={styles.sectionWrapper}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Item Details</Text>
+            {renderSectionHeader('Item Details')}
             
             <TextInput
               label="Title"
@@ -791,6 +902,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
               placeholder="Enter item title"
               containerStyle={styles.inputContainer}
               error={errors.title}
+              maxLength={100}
             />
             
             {/* Type Dropdown */}
@@ -850,18 +962,28 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
               containerStyle={styles.textAreaContainer}
               inputStyle={styles.textArea}
               error={errors.description}
+              maxLength={1000}
             />
           </View>
           
           {/* Pricing & Condition Section */}
           <View style={styles.sectionWrapper}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Pricing & Condition</Text>
+            {renderSectionHeader('Pricing & Condition')}
             
             <TextInput
               label={`Price${isSell ? '' : ' (per day)'}`}
               value={price}
               onChangeText={(text) => {
-                setPrice(text);
+                // Allow only numbers and a single decimal point
+                const cleanedText = text.replace(/[^0-9.]/g, '');
+                const decimalSplit = cleanedText.split('.');
+                
+                // If more than one decimal point, keep only the first one
+                const formattedText = decimalSplit.length > 2 
+                  ? `${decimalSplit[0]}.${decimalSplit.slice(1).join('')}`
+                  : cleanedText;
+                  
+                setPrice(formattedText);
                 if (errors.price) {
                   setErrors(prev => ({...prev, price: undefined}));
                 }
@@ -870,6 +992,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
               keyboardType="numeric"
               containerStyle={styles.inputContainer}
               error={errors.price}
+              maxLength={12}
             />
             
             {/* Condition Dropdown */}
@@ -902,36 +1025,8 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
             </View>
           </View>
           
-          {/* Post Button with Progress */}
-          <TouchableOpacity 
-            style={[
-              styles.button, 
-              { 
-                backgroundColor: isLoading ? 'rgba(247, 179, 5, 0.7)' : '#f7b305',
-                opacity: isLoading ? 0.8 : 1
-              }
-            ]}
-            activeOpacity={0.7}
-            onPress={handlePostItem}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <View style={styles.uploadProgressContainer}>
-                <ActivityIndicator color="#FFFFFF" size="small" style={styles.uploadingIndicator} />
-                <Text style={[styles.uploadingText, { color: '#FFFFFF' }]}>
-                  {uploadProgress < 50 ? "Uploading images..." : 
-                   uploadProgress < 90 ? "Creating listing..." : "Almost done..."}
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.buttonContent}>
-                <Icon name="check" size={18} color="#FFFFFF" style={styles.buttonIcon} />
-                <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
-                  Post Item
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          {/* Post Button */}
+          <PostButton />
         </View>
       </ScrollView>
 
@@ -949,6 +1044,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
               <TouchableOpacity 
                 style={styles.modalCloseButton}
                 onPress={() => setTypeModalVisible(false)}
+                hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
               >
                 <Icon name="times" size={22} color={theme.colors.text} />
               </TouchableOpacity>
@@ -957,6 +1053,10 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
               data={PRODUCT_TYPES}
               keyExtractor={(item) => item.id.toString()}
               renderItem={renderTypeOptionItem}
+              initialNumToRender={6}
+              maxToRenderPerBatch={10}
+              windowSize={5}
+              removeClippedSubviews={true}
             />
           </View>
         </View>
@@ -979,6 +1079,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
                 <TouchableOpacity 
                   style={styles.modalCloseButton}
                   onPress={() => setSubcategoryModalVisible(false)}
+                  hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
                 >
                   <Icon name="times" size={22} color={theme.colors.text} />
                 </TouchableOpacity>
@@ -986,6 +1087,9 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
               <FlatList
                 data={selectedType.subcategories}
                 keyExtractor={(item) => item}
+                initialNumToRender={6}
+                windowSize={5}
+                removeClippedSubviews={true}
                 renderItem={({ item }) => (
                   <TouchableOpacity 
                     style={[styles.optionItem, { 
@@ -1019,6 +1123,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
               <TouchableOpacity 
                 style={styles.modalCloseButton}
                 onPress={() => setConditionModalVisible(false)}
+                hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
               >
                 <Icon name="times" size={22} color={theme.colors.text} />
               </TouchableOpacity>
@@ -1026,6 +1131,9 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
             <FlatList
               data={PRODUCT_CONDITIONS}
               keyExtractor={(item) => item.id}
+              initialNumToRender={6}
+              windowSize={3}
+              removeClippedSubviews={true}
               renderItem={({ item }) => (
                 <TouchableOpacity 
                   style={[styles.optionItem, { 
@@ -1058,7 +1166,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 24,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
   },
   contentContainer: {
     padding: 16,
@@ -1075,7 +1183,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 10,
-    backgroundColor: 'rgba(0,0,0,0.03)',
+    backgroundColor: '',
     borderRadius: 10,
     ...Platform.select({
       ios: {
@@ -1090,7 +1198,7 @@ const styles = StyleSheet.create({
     }),
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: SCREEN_WIDTH > 400 ? 22 : 20,
     fontWeight: 'bold',
     letterSpacing: -0.3,
   },
@@ -1121,58 +1229,171 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: SCREEN_WIDTH > 400 ? 18 : 17,
     fontWeight: '700',
-    marginBottom: 8,
+    marginBottom: 6,
     letterSpacing: -0.3,
   },
   sectionSubtitle: {
     fontSize: 14,
-    marginBottom: 12,
+    marginBottom: 8,
     lineHeight: 18,
+    opacity: 0.7,
+  },
+  photoCountContainer: {
+    backgroundColor: '#f7b305',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginTop: 2,
   },
   photoCount: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
+    color: 'white',
   },
   photoGalleryContainer: {
     marginTop: 4,
   },
   mainPhotoButton: {
     width: '100%',
-    height: 180,
+    height: MAIN_PHOTO_HEIGHT,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderRadius: 12,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.02)',
     marginBottom: 14,
+  },
+  cameraIconOuter: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: 'rgba(247, 179, 5, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#f7b305',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  cameraIconCircle: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: 'rgba(247, 179, 5, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(247, 179, 5, 0.3)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#f7b305',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   addImageIconContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 20,
+    width: '100%',
   },
   mainPhotoText: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginTop: 10,
+    fontSize: 18,
+    fontWeight: '700',
     marginBottom: 4,
   },
   photoTip: {
-    fontSize: 13,
+    fontSize: 14,
   },
-  mainPhotoWrapper: {
-    width: '100%',
-    height: 180,
-    borderRadius: 12,
-    marginBottom: 14,
-    position: 'relative',
+  photoUpgradeBadge: {
+    marginTop: 12,
+    borderRadius: 20,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  photoUpgradeBadgeGradient: {
+    flexDirection: 'row',
+    paddingHorizontal: 2,
+    paddingVertical: 0,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '70%',
+  },
+  photoUpgradeBadgeText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 18,
+    letterSpacing: 0.3,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+    marginRight: 10,
+  },
+  mainPhotoWrapper: {
+    width: '100%',
+    height: MAIN_PHOTO_HEIGHT,
+    borderRadius: 16,
+    marginBottom: 14,
+    position: 'relative',
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  mainPhoto: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
+  },
+  removeMainPhotoButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 20,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
         shadowRadius: 4,
       },
       android: {
@@ -1180,98 +1401,100 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  mainPhoto: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 12,
-  },
-  removeMainPhotoButton: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 15,
-    width: 30,
-    height: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   mainPhotoLabel: {
     position: 'absolute',
     bottom: 10,
     left: 10,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 4,
+    backgroundColor: '#f7b305',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   mainPhotoLabelText: {
     color: 'white',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   additionalPhotosContainer: {
     flexDirection: 'row',
-    paddingBottom: 8,
+    paddingBottom: 12,
   },
   thumbnailWrapper: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    marginRight: 10,
+    width: THUMBNAIL_SIZE,
+    height: THUMBNAIL_SIZE,
+    borderRadius: 12,
+    marginRight: 12,
     position: 'relative',
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'white',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
       },
       android: {
-        elevation: 2,
+        elevation: 3,
       },
     }),
   },
   thumbnailImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 8,
+    borderRadius: 10,
   },
   removeThumbnailButton: {
     position: 'absolute',
     top: 4,
     right: 4,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1,
   },
   addThumbnailButton: {
-    width: 80,
-    height: 80,
+    width: THUMBNAIL_SIZE,
+    height: THUMBNAIL_SIZE,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderRadius: 8,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.02)',
   },
   photoTipsContainer: {
-    marginTop: 12,
+    marginTop: 14,
     marginBottom: 8,
-    paddingTop: 12,
+    paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
+    borderTopColor: 'rgba(247, 179, 5, 0.2)',
+    backgroundColor: 'rgba(247, 179, 5, 0.03)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingBottom: 8,
   },
   photoTipRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   tipIcon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   photoTipText: {
     fontSize: 13,
@@ -1312,12 +1535,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   button: {
-    height: 50,
+    height: 54,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 30,
+    marginTop: 12,
+    marginBottom: 20,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -1339,7 +1562,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   buttonText: {
-    fontSize: 16,
+    fontSize: SCREEN_WIDTH > 400 ? 16 : 15,
     fontWeight: 'bold',
     letterSpacing: 0.2,
   },
@@ -1367,6 +1590,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     lineHeight: 18,
     paddingHorizontal: 3,
+    opacity: 0.7,
   },
   modalOverlay: {
     flex: 1,
@@ -1377,8 +1601,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: 16,
-    paddingBottom: 24,
-    maxHeight: '70%',
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    maxHeight: '80%',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -1406,7 +1630,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   modalCloseButton: {
-    padding: 6,
+    padding: 8,
     borderRadius: 16,
     backgroundColor: 'rgba(0,0,0,0.05)',
   },
