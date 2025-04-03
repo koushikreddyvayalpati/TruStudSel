@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
   TextInput,
   ActivityIndicator,
   RefreshControl,
-  Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -18,6 +17,9 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { MainStackParamList } from '../../types/navigation.types';
+import { Conversation } from '../../types/chat.types';
+import { getConversations } from '../../services/chatService';
+import { formatDistanceToNow } from 'date-fns';
 
 // Navigation prop type with stack methods
 type MessagesScreenNavigationProp = StackNavigationProp<MainStackParamList, 'MessagesScreen'>;
@@ -25,69 +27,52 @@ type MessagesScreenNavigationProp = StackNavigationProp<MainStackParamList, 'Mes
 // Remove unused 'width' variable
 // const { width } = Dimensions.get('window');
 
-interface MessageData {
-  id: string;
-  name: string;
-  message: string;
-  time: string;
-  status: 'online' | 'offline';
-  unreadCount?: number;
-  avatar?: string; // Would hold the image URL in a real app
-}
-
-// Sample data - in a real app this would come from an API
-const messagesData: MessageData[] = [
-  { id: '1', name: 'Fauziah', message: 'I will do the voice over', time: '10:30 PM', status: 'online', unreadCount: 2 },
-  { id: '2', name: 'Nicole', message: 'just open la', time: '3:15 PM', status: 'online', unreadCount: 1 },
-  { id: '3', name: 'Brian', message: 'bye', time: 'Yesterday', status: 'offline' },
-  { id: '4', name: 'Cheng', message: 'call me when you get the chance, wanted to discuss about the project', time: 'Yesterday', status: 'offline' },
-  { id: '5', name: 'Model', message: 'ready for another adventure? I found some cool places', time: 'Yesterday', status: 'offline' },
-  { id: '6', name: 'Ash King', message: 'whatsapp my frnd', time: '2d', status: 'offline' },
-  { id: '7', name: 'Remote Guy', message: 'here is your bill for the engineering textbook', time: 'Mar 10', status: 'offline' },
-  { id: '8', name: 'Kg1', message: 'LOL!!!', time: 'Mar 7', status: 'offline' },
-  { id: '9', name: 'Stephen', message: 'that would be great!', time: 'Mar 3', status: 'offline' },
-];
-
 const MessagesScreen = () => {
   const navigation = useNavigation<MessagesScreenNavigationProp>();
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-  // Memoize filtered messages for performance - fix dependency array
-  const filteredMessages = useMemo(() => {
-    if (!searchQuery.trim()) return messagesData;
-    
-    const normalizedQuery = searchQuery.toLowerCase();
-    return messagesData.filter(
-      message => 
-        message.name.toLowerCase().includes(normalizedQuery) || 
-        message.message.toLowerCase().includes(normalizedQuery)
-    );
-  }, [searchQuery]); // Remove messagesData from dependencies as it's static
-
-  // Handle refresh - in a real app would refetch from API
-  const handleRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    
-    // Simulate network request
-    setTimeout(() => {
+  // Fetch conversations
+  const fetchConversations = useCallback(async () => {
+    try {
+      const fetchedConversations = await getConversations();
+      setConversations(fetchedConversations);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to fetch conversations:', err);
+      setError('Failed to load conversations. Please try again.');
+    } finally {
+      setIsLoading(false);
       setIsRefreshing(false);
-    }, 1500);
+    }
   }, []);
 
-  // Load more messages - in a real app would fetch next page
-  const handleLoadMore = useCallback(() => {
-    if (isLoading) return;
+  // Initial load
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+
+  // Memoize filtered conversations for performance
+  const filteredConversations = useMemo(() => {
+    if (!searchQuery.trim()) return conversations;
     
-    setIsLoading(true);
-    
-    // Simulate network request
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 1500);
-  }, [isLoading]);
+    const normalizedQuery = searchQuery.toLowerCase();
+    return conversations.filter(
+      conversation => 
+        conversation.name?.toLowerCase().includes(normalizedQuery) || 
+        conversation.lastMessageContent?.toLowerCase().includes(normalizedQuery)
+    );
+  }, [searchQuery, conversations]);
+
+  // Handle refresh
+  const handleRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    fetchConversations();
+  }, [fetchConversations]);
 
   // Toggle search mode
   const toggleSearch = useCallback(() => {
@@ -98,31 +83,44 @@ const MessagesScreen = () => {
   }, [isSearchActive]);
 
   // Navigate to conversation
-  const goToConversation = useCallback((item: MessageData) => {
-    navigation.navigate('MessageScreen', { conversationId: item.id, recipientName: item.name });
+  const goToConversation = useCallback((conversation: Conversation) => {
+    navigation.navigate('MessageScreen', { 
+      conversationId: conversation.id, 
+      recipientName: conversation.name || 'Chat'
+    });
   }, [navigation]);
 
-  // Render message item
-  const renderItem = useCallback(({ item }: { item: MessageData }) => (
+  // Format relative time
+  const formatRelativeTime = useCallback((dateString?: string) => {
+    if (!dateString) return '';
+    
+    try {
+      const date = new Date(dateString);
+      return formatDistanceToNow(date, { addSuffix: true });
+    } catch (error) {
+      return dateString;
+    }
+  }, []);
+
+  // Render conversation item
+  const renderItem = useCallback(({ item }: { item: Conversation }) => (
     <TouchableOpacity 
       style={styles.messageContainer}
       onPress={() => goToConversation(item)}
       activeOpacity={0.7}
     >
-      <View style={[
-        styles.avatar,
-        { backgroundColor: item.status === 'online' ? '#4CAF50' : '#8E8E8E' },
-      ]}>
-        <Text style={styles.avatarText}>{item.name.charAt(0)}</Text>
-        {item.status === 'online' && (
-          <View style={styles.onlineIndicator} />
-        )}
+      <View style={styles.avatar}>
+        <Text style={styles.avatarText}>{item.name?.charAt(0) || '?'}</Text>
       </View>
       
       <View style={styles.messageContent}>
         <View style={styles.headerRow}>
-          <Text style={styles.senderName} numberOfLines={1}>{item.name}</Text>
-          <Text style={styles.messageTime}>{item.time}</Text>
+          <Text style={styles.senderName} numberOfLines={1}>
+            {item.name || 'Unknown Contact'}
+          </Text>
+          <Text style={styles.messageTime}>
+            {formatRelativeTime(item.lastMessageTime)}
+          </Text>
         </View>
         
         <View style={styles.messagePreviewRow}>
@@ -131,45 +129,48 @@ const MessagesScreen = () => {
             numberOfLines={1}
             ellipsizeMode="tail"
           >
-            {item.message}
+            {item.lastMessageContent || 'No messages yet'}
           </Text>
           
-          {item.unreadCount ? (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadCount}>{item.unreadCount}</Text>
+          {item.productName && (
+            <View style={styles.productBadge}>
+              <Text style={styles.productText} numberOfLines={1}>
+                {item.productName}
+              </Text>
             </View>
-          ) : null}
+          )}
         </View>
       </View>
     </TouchableOpacity>
-  ), [goToConversation]);
+  ), [goToConversation, formatRelativeTime]);
 
-  // Render empty state when no messages match search
+  // Render empty state when no conversations match search
   const renderEmptyComponent = useCallback(() => (
     <View style={styles.emptyContainer}>
       <Icon name="comments-o" size={70} color="#CCCCCC" />
       <Text style={styles.emptyTitle}>
-        {searchQuery ? 'No matching conversations' : 'No conversations yet'}
+        {isLoading ? 'Loading conversations...' : 
+         error ? 'Error loading conversations' :
+         searchQuery ? 'No matching conversations' : 'No conversations yet'}
       </Text>
       <Text style={styles.emptySubtitle}>
-        {searchQuery 
-          ? 'Try a different search term'
-          : 'When you start a conversation, it will appear here'
-        }
+        {isLoading ? 'Please wait...' :
+         error ? error :
+         searchQuery ? 'Try a different search term' : 'When you start a conversation, it will appear here'}
       </Text>
     </View>
-  ), [searchQuery]);
+  ), [searchQuery, isLoading, error]);
 
   // Render loader at the bottom of the list
   const renderFooter = useCallback(() => {
-    if (!isLoading) return null;
+    if (!isLoading || isRefreshing) return null;
     
     return (
       <View style={styles.loaderFooter}>
         <ActivityIndicator size="small" color="#f7b305" />
       </View>
     );
-  }, [isLoading]);
+  }, [isLoading, isRefreshing]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -212,8 +213,12 @@ const MessagesScreen = () => {
             <Text style={styles.header}>Messages</Text>
             
             <View style={styles.headerActions}>
-              {/* Removed redundant search button since it's in bottom nav */}
-              {/* Removed redundant home button since it's in bottom nav */}
+              <TouchableOpacity 
+                onPress={toggleSearch}
+                style={styles.actionButton}
+              >
+                <Ionicons name="search" size={24} color="#333" />
+              </TouchableOpacity>
             </View>
           </>
         )}
@@ -221,10 +226,13 @@ const MessagesScreen = () => {
       
       {/* Message List */}
       <FlatList
-        data={filteredMessages}
+        data={filteredConversations}
         renderItem={renderItem}
         keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContainer}
+        contentContainerStyle={[
+          styles.listContainer,
+          filteredConversations.length === 0 && styles.emptyListContainer
+        ]}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         refreshControl={
           <RefreshControl
@@ -236,13 +244,14 @@ const MessagesScreen = () => {
         }
         ListEmptyComponent={renderEmptyComponent}
         ListFooterComponent={renderFooter}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.3}
       />
       
-      {/* Compose Button */}
-      <TouchableOpacity style={styles.composeButton}>
-        <Icon name="edit" size={22} color="#FFF" />
+      {/* Compose Button - Navigate to User Search Screen */}
+      <TouchableOpacity 
+        style={styles.composeButton}
+        onPress={() => navigation.navigate('UserSearchScreen')}
+      >
+        <Icon name="user-plus" size={22} color="#FFF" />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -251,27 +260,32 @@ const MessagesScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#f5f5f5',
   },
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 10,
-    paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 10,
-    paddingBottom: 15,
-    backgroundColor: '#f7b305',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  backButton: {
+    padding: 5,
+  },
+  header: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginLeft: 10,
+  },
+  headerActions: {
+    flexDirection: 'row',
+  },
+  actionButton: {
+    padding: 5,
+    marginLeft: 10,
   },
   searchHeader: {
     flex: 1,
@@ -279,177 +293,147 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   searchBackButton: {
-    padding: 8,
-    marginRight: 8,
+    padding: 5,
   },
   searchInput: {
     flex: 1,
     height: 40,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    fontSize: 15,
-    color: '#333',
+    marginLeft: 10,
+    fontSize: 16,
   },
-  backButton: {
-    padding: 8,
+  listContainer: {
+    padding: 10,
   },
-  header: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  actionButton: {
-    padding: 8,
-    marginLeft: 8,
+  emptyListContainer: {
+    flex: 1,
+    justifyContent: 'center',
   },
   messageContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
   },
   avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#f7b305',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    marginRight: 12,
   },
   avatarText: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
   },
   onlineIndicator: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#4CAF50',
     position: 'absolute',
-    bottom: 2,
-    right: 2,
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#4CAF50',
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: '#fff',
   },
   messageContent: {
     flex: 1,
-    flexDirection: 'column',
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
+  },
+  senderName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    flex: 1,
+    marginRight: 5,
+  },
+  messageTime: {
+    fontSize: 12,
+    color: '#999',
   },
   messagePreviewRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  senderName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333333',
-    flex: 1,
-    marginRight: 8,
-  },
   messageText: {
     fontSize: 14,
-    color: '#666666',
+    color: '#666',
     flex: 1,
-    marginRight: 10,
+    marginRight: 5,
   },
-  messageTime: {
-    fontSize: 12,
-    color: '#888888',
+  productBadge: {
+    backgroundColor: '#e0f7fa',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    maxWidth: 120,
+  },
+  productText: {
+    fontSize: 11,
+    color: '#0277bd',
+  },
+  unreadBadge: {
+    backgroundColor: '#f7b305',
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  unreadCount: {
+    fontSize: 11,
+    color: '#fff',
+    fontWeight: 'bold',
   },
   separator: {
     height: 1,
-    backgroundColor: '#F0F0F0',
-    marginLeft: 70,
-  },
-  composeButton: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#f7b305',
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 5,
-      },
-    }),
-  },
-  listContainer: {
-    flexGrow: 1,
-  },
-  unreadBadge: {
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#f7b305',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-  },
-  unreadCount: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
+    backgroundColor: '#f0f0f0',
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    padding: 30,
-    marginTop: 50,
+    justifyContent: 'center',
+    padding: 20,
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: '#666',
-    marginTop: 20,
-    textAlign: 'center',
+    marginTop: 15,
   },
   emptySubtitle: {
     fontSize: 14,
     color: '#999',
-    marginTop: 10,
     textAlign: 'center',
-    lineHeight: 20,
+    marginTop: 5,
   },
   loaderFooter: {
     paddingVertical: 20,
+  },
+  composeButton: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#f7b305',
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
   },
 });
 

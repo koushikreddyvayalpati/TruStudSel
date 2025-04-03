@@ -10,6 +10,7 @@ import { ProductsScreen } from '../screens/products';
 import { MessagesScreen, MessageScreen } from '../screens/messages';
 import { PostingScreen } from '../screens/posting';
 import { WishlistScreen } from '../screens/wishlist';
+import UserSearchScreen from '../screens/UserSearchScreen';
 
 // Import layout components
 import { BottomNavigation, CustomDrawerContent } from '../components/layout';
@@ -53,6 +54,13 @@ const MainStack = () => {
       <Stack.Screen 
         name="MessageScreen" 
         component={MessageScreen} 
+        options={{ 
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="UserSearchScreen" 
+        component={UserSearchScreen} 
         options={{ 
           headerShown: false,
         }}

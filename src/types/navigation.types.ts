@@ -33,6 +33,7 @@ export type MainStackParamList = {
   MessagesScreen: undefined;
   MessageScreen: { conversationId: string; recipientName: string };
   PostingScreen: undefined;
+  UserSearchScreen: undefined;
   ProductInfoPage: { 
     product: { 
       id: string; 
@@ -74,6 +75,7 @@ export type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList
 export type EditProfileScreenNavigationProp = StackNavigationProp<RootStackParamList, 'EditProfile'>;
 export type MessagesScreenNavigationProp = StackNavigationProp<RootStackParamList, 'MessagesScreen'>;
 export type MessageScreenNavigationProp = StackNavigationProp<RootStackParamList, 'MessageScreen'>;
+export type UserSearchScreenNavigationProp = StackNavigationProp<RootStackParamList, 'UserSearchScreen'>;
 export type PostingScreenNavigationProp = StackNavigationProp<RootStackParamList, 'PostingScreen'>;
 export type ProductInfoScreenNavigationProp = StackNavigationProp<RootStackParamList, 'ProductInfoPage'>;
 export type WishlistScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Wishlist'>;

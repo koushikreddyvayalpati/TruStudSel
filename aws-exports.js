@@ -1,19 +1,14 @@
 const awsmobile = {
-    Auth: {
-        // REQUIRED - Amazon Cognito Identity Pool ID
-        identityPoolId: 'us-east-2:a42d06ce-29f4-4ddb-a516-e93311fbbcde', // e.g. 'us-east-1:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
-        
-        // REQUIRED - Amazon Cognito Region
-        region: 'us-east-2', // e.g., 'us-east-1'
-        
-        // OPTIONAL - Amazon Cognito User Pool ID
-        userPoolId: 'us-east-2_NFqhqiTLZ', // e.g. 'us-east-1_xxxxxxxx'
-        
-        // OPTIONAL - Amazon Cognito Web Client ID (26-char alphanumeric string)
-        userPoolWebClientId: '5gs6g6t5mtscmlfoe0767mpdo4', // e.g. 'xxxxxxxxxxxxxxxxxxxxxxxxxx'
-        
-        mandatorySignIn: true,
-    },
+    "aws_project_region": "us-east-2",
+    "aws_cognito_identity_pool_id": "us-east-2:a42d06ce-29f4-4ddb-a516-e93311fbbcde",
+    "aws_cognito_region": "us-east-2",
+    "aws_user_pools_id": "us-east-2_NFqhqiTLZ",
+    "aws_user_pools_web_client_id": "5gs6g6t5mtscmlfoe0767mpdo4",
+    "oauth": {},
+    "aws_appsync_graphqlEndpoint": "https://udox7rcnbzewjamvenlpjdddga.appsync-api.us-east-2.amazonaws.com/graphql",
+    "aws_appsync_region": "us-east-2",
+    "aws_appsync_authenticationType": "AMAZON_COGNITO_USER_POOLS",
+    "aws_appsync_apiKey": "da2-oqmxcsbfjfdhvdszqaj37ag6ae"
 };
 
 export default awsmobile; 

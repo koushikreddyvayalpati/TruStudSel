@@ -29,6 +29,7 @@ import { useTheme } from './hooks';
 import AppNavigator from './navigation/AppNavigator';
 
 // Configure Amplify
+console.log('Configuring Amplify with:', awsconfig);
 Amplify.configure(awsconfig);
 
 const App: React.FC = () => {

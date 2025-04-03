@@ -8,10 +8,10 @@
   "javascript": {
     "framework": "react-native",
     "config": {
-      "SourceDir": "/Users/vayalpatikoushikreddy/Desktop/Studentapp/TruStudSel",
+      "SourceDir": "src",
       "DistributionDir": "/",
-      "BuildCommand": "yarn ios",
-      "StartCommand": "yarn ios "
+      "BuildCommand": "npm run-script build",
+      "StartCommand": "npm run-script start"
     }
   }
 }
