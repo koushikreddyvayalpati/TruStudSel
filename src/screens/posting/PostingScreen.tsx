@@ -162,6 +162,133 @@ const PRODUCT_CONDITIONS: ProductCondition[] = [
   }
 ];
 
+// Type definition for photo placeholder props
+type PhotoPlaceholderProps = {
+  onPress: () => void;
+  theme: {
+    colors: {
+      text: string;
+      textSecondary: string;
+      border: string;
+    };
+  };
+};
+
+// Type definition for image component props
+type PhotoProps = {
+  uri: string;
+  onRemove: () => void;
+};
+
+// Photo components moved outside of the main component
+const PhotoTips = memo(() => (
+  <View style={styles.photoTipsContainer}>
+    <View style={styles.photoTipRow}>
+      <Icon name="check-circle" size={14} color="#f7b305" style={styles.tipIcon} />
+      <Text style={[styles.photoTipText, { color: 'rgba(0,0,0,0.6)' }]}>
+        Use good lighting and clean background
+      </Text>
+    </View>
+    <View style={styles.photoTipRow}>
+      <Icon name="check-circle" size={14} color="#f7b305" style={styles.tipIcon} />
+      <Text style={[styles.photoTipText, { color: 'rgba(0,0,0,0.6)' }]}>
+        Include multiple angles
+      </Text>
+    </View>
+    <View style={styles.photoTipRow}>
+      <Icon name="check-circle" size={14} color="#f7b305" style={styles.tipIcon} />
+      <Text style={[styles.photoTipText, { color: 'rgba(0,0,0,0.6)' }]}>
+        Show any defects or wear
+      </Text>
+    </View>
+  </View>
+));
+
+const MainPhotoPlaceholder = memo(({ onPress, theme }: PhotoPlaceholderProps) => (
+  <TouchableOpacity 
+    style={[styles.mainPhotoButton, { 
+      borderColor: 'rgba(247, 179, 5, 0.4)',
+      backgroundColor: 'rgba(247, 179, 5, 0.05)', 
+    }]} 
+    onPress={onPress}
+    activeOpacity={0.7}
+    accessible={true}
+    accessibilityLabel="Add main photo"
+    accessibilityHint="Opens image picker to select main photo"
+  >
+    <View style={styles.addImageIconContainer}>
+      <View style={styles.cameraIconOuter}>
+        <View style={styles.cameraIconCircle}>
+          <Icon name="camera" size={28} color="#f7b305" />
+        </View>
+      </View>
+      <Text style={[styles.mainPhotoText, { color: theme.colors.text }]}>
+        Add Main Photo
+      </Text>
+      <Text style={[styles.photoTip, { color: theme.colors.textSecondary }]}>
+        This will be the cover image
+      </Text>
+      <View style={styles.photoUpgradeBadge}>
+        <LinearGradient
+          colors={['#f7b305', '#f59000']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.photoUpgradeBadgeGradient}
+        >
+          <Icon name="star" size={12} color="#ffffff" style={{marginRight: 6}} />
+          <Text style={styles.photoUpgradeBadgeText}>Better pics = faster sales</Text>
+        </LinearGradient>
+      </View>
+    </View>
+  </TouchableOpacity>
+));
+
+const MainPhoto = memo(({ uri, onRemove }: PhotoProps) => (
+  <View style={styles.mainPhotoWrapper}>
+    <Image 
+      source={{ uri }} 
+      style={styles.mainPhoto} 
+      resizeMode="cover"
+      resizeMethod="resize"
+      accessible={true}
+      accessibilityLabel="Main product photo"
+    />
+    <TouchableOpacity 
+      style={styles.removeMainPhotoButton}
+      onPress={onRemove}
+      hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+      accessible={true}
+      accessibilityLabel="Remove main photo"
+    >
+      <Icon name="trash" size={16} color="#FFFFFF" />
+    </TouchableOpacity>
+    <View style={styles.mainPhotoLabel}>
+      <Text style={styles.mainPhotoLabelText}>Main Photo</Text>
+    </View>
+  </View>
+));
+
+const ThumbnailPhoto = memo(({ uri, onRemove }: PhotoProps) => (
+  <View style={styles.thumbnailWrapper}>
+    <Image 
+      source={{ uri }} 
+      style={styles.thumbnailImage} 
+      resizeMethod="resize"
+      accessible={true}
+      accessibilityLabel="Product photo thumbnail" 
+    />
+    <TouchableOpacity 
+      style={styles.removeThumbnailButton}
+      onPress={onRemove}
+      hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+      accessible={true}
+      accessibilityLabel="Remove this photo"
+    >
+      <Icon name="times" size={14} color="#FFFFFF" />
+    </TouchableOpacity>
+  </View>
+));
+
 const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
   const { theme } = useTheme();
   const { user } = useAuth();
@@ -633,7 +760,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
     </View>
   ), [theme.colors]);
 
-  // Memoized button component
+  // Move PostButton component outside renderPhotoGallery
   const PostButton = useCallback(() => (
     <TouchableOpacity 
       style={[
@@ -665,100 +792,6 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
       )}
     </TouchableOpacity>
   ), [isLoading, uploadProgress, handlePostItem]);
-
-  // Memoized components for better performance
-  const PhotoTips = memo(() => (
-    <View style={styles.photoTipsContainer}>
-      <View style={styles.photoTipRow}>
-        <Icon name="check-circle" size={14} color="#f7b305" style={styles.tipIcon} />
-        <Text style={[styles.photoTipText, { color: 'rgba(0,0,0,0.6)' }]}>
-          Use good lighting and clean background
-        </Text>
-      </View>
-      <View style={styles.photoTipRow}>
-        <Icon name="check-circle" size={14} color="#f7b305" style={styles.tipIcon} />
-        <Text style={[styles.photoTipText, { color: 'rgba(0,0,0,0.6)' }]}>
-          Include multiple angles
-        </Text>
-      </View>
-      <View style={styles.photoTipRow}>
-        <Icon name="check-circle" size={14} color="#f7b305" style={styles.tipIcon} />
-        <Text style={[styles.photoTipText, { color: 'rgba(0,0,0,0.6)' }]}>
-          Show any defects or wear
-        </Text>
-      </View>
-    </View>
-  ));
-
-  const MainPhotoPlaceholder = memo(({ onPress, theme }: { onPress: () => void, theme: any }) => (
-    <TouchableOpacity 
-      style={[styles.mainPhotoButton, { 
-        borderColor: 'rgba(247, 179, 5, 0.4)',
-        backgroundColor: 'rgba(247, 179, 5, 0.05)', 
-      }]} 
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      <View style={styles.addImageIconContainer}>
-        <View style={styles.cameraIconOuter}>
-          <View style={styles.cameraIconCircle}>
-            <Icon name="camera" size={28} color="#f7b305" />
-          </View>
-        </View>
-        <Text style={[styles.mainPhotoText, { color: theme.colors.text }]}>
-          Add Main Photo
-        </Text>
-        <Text style={[styles.photoTip, { color: theme.colors.textSecondary }]}>
-          This will be the cover image
-        </Text>
-        <View style={styles.photoUpgradeBadge}>
-          <LinearGradient
-            colors={['#f7b305', '#f59000']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.photoUpgradeBadgeGradient}
-          >
-            <Icon name="star" size={12} color="#ffffff" style={{marginRight: 6}} />
-            <Text style={styles.photoUpgradeBadgeText}>Better pics = faster sales</Text>
-          </LinearGradient>
-        </View>
-      </View>
-    </TouchableOpacity>
-  ));
-
-  const MainPhoto = memo(({ uri, onRemove }: { uri: string, onRemove: () => void }) => (
-    <View style={styles.mainPhotoWrapper}>
-      <Image 
-        source={{ uri }} 
-        style={styles.mainPhoto} 
-        resizeMode="cover"
-        resizeMethod="resize"
-      />
-      <TouchableOpacity 
-        style={styles.removeMainPhotoButton}
-        onPress={onRemove}
-        hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-      >
-        <Icon name="trash" size={16} color="#FFFFFF" />
-      </TouchableOpacity>
-      <View style={styles.mainPhotoLabel}>
-        <Text style={styles.mainPhotoLabelText}>Main Photo</Text>
-      </View>
-    </View>
-  ));
-
-  const ThumbnailPhoto = memo(({ uri, onRemove }: { uri: string, onRemove: () => void }) => (
-    <View style={styles.thumbnailWrapper}>
-      <Image source={{ uri }} style={styles.thumbnailImage} resizeMethod="resize" />
-      <TouchableOpacity 
-        style={styles.removeThumbnailButton}
-        onPress={onRemove}
-        hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-      >
-        <Icon name="times" size={14} color="#FFFFFF" />
-      </TouchableOpacity>
-    </View>
-  ));
 
   // Optimized photo gallery rendering
   const renderPhotoGallery = useCallback(() => (
@@ -801,7 +834,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
       {/* Photo upload tips */}
       {images.length === 0 && <PhotoTips />}
     </View>
-  ), [localImageUris, images.length, theme, handleImageUpload, handleRemoveImage, MainPhoto, MainPhotoPlaceholder, PhotoTips, ThumbnailPhoto]);
+  ), [localImageUris, images.length, theme, handleImageUpload, handleRemoveImage]);
 
   return (
     <KeyboardAvoidingView 
@@ -1342,12 +1375,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    width: '70%',
+    width: '60%',
   },
   photoUpgradeBadgeText: {
     color: '#ffffff',
     fontWeight: '700',
-    fontSize: 18,
+    fontSize: 14,
     letterSpacing: 0.3,
     textShadowColor: 'rgba(0, 0, 0, 0.2)',
     textShadowOffset: { width: 0, height: 1 },
