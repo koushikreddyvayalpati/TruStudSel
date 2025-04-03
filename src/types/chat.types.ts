@@ -25,6 +25,7 @@ export interface Conversation {
   productName?: string;
   createdAt: string;
   updatedAt?: string;
+  owner?: string;
 }
 
 export interface ChatState {

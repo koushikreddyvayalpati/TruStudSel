@@ -25,7 +25,19 @@ import { format, isToday, isYesterday } from 'date-fns';
 
 // Define proper navigation type for MessageScreen
 type MessageScreenNavigationProp = StackNavigationProp<MainStackParamList, 'MessageScreen'>;
-type MessageScreenRouteProp = RouteProp<MainStackParamList, 'MessageScreen'>;
+
+// Define route params type
+type MessageScreenRouteParams = {
+  conversationId: string;
+  recipientName: string;
+  recipientId?: string;
+  recipientUserId?: string; // Add this for user ID when available
+  productId?: string;
+  productName?: string;
+};
+
+// Use the params type with RouteProp
+type MessageScreenRouteProp = RouteProp<{ MessageScreen: MessageScreenRouteParams }, 'MessageScreen'>;
 
 const MessageScreen = () => {
   const navigation = useNavigation<MessageScreenNavigationProp>();
@@ -73,25 +85,57 @@ const MessageScreen = () => {
     if (routeConversationId === 'new' && recipientId && recipientName && currentUserId) {
       const createNewConversation = async () => {
         try {
-          console.log('Creating new conversation with:', recipientName, recipientId);
-          const newConversation = await getOrCreateConversation(
+          console.log('[MessageScreen] Creating new conversation:', {
+            recipientName,
             recipientId,
+            currentUserId
+          });
+          
+          // Check if recipientId is an email and try to find the user ID
+          let effectiveRecipientId = recipientId;
+          if (recipientId.includes('@')) {
+            // This is probably an email, we should try to find the actual user ID if available
+            console.log('[MessageScreen] Recipient ID appears to be an email, trying to map to user ID');
+            
+            try {
+              // Use Auth.adminGetUser or a similar function if available in your app
+              // For this example, we'll skip ahead and use the email as ID
+              
+              // You could also check the route params to see if user ID was provided
+              if (route.params.recipientUserId) {
+                effectiveRecipientId = route.params.recipientUserId;
+                console.log('[MessageScreen] Found recipient user ID in params:', effectiveRecipientId);
+              } else {
+                console.log('[MessageScreen] No user ID mapping available, using email as ID');
+              }
+            } catch (err) {
+              console.warn('[MessageScreen] Error looking up user ID from email:', err);
+            }
+          }
+          
+          const newConversation = await getOrCreateConversation(
+            effectiveRecipientId,
             recipientName
           );
           
-          console.log('New conversation created:', newConversation);
+          console.log('[MessageScreen] New conversation created:', {
+            id: newConversation.id,
+            participants: newConversation.participants,
+            name: newConversation.name
+          });
+          
           setActualConversationId(newConversation.id);
           setConversation(newConversation);
           setError(null);
         } catch (err) {
-          console.error('Error creating conversation:', err);
+          console.error('[MessageScreen] Error creating conversation:', err);
           setError('Failed to create conversation. Please try again.');
         }
       };
       
       createNewConversation();
     }
-  }, [routeConversationId, recipientId, recipientName, currentUserId]);
+  }, [routeConversationId, recipientId, recipientName, currentUserId, route.params]);
   
   // Effect to load conversation messages
   useEffect(() => {
@@ -99,12 +143,21 @@ const MessageScreen = () => {
     
     const loadMessages = async () => {
       try {
+        console.log('[MessageScreen] Loading messages for conversation:', actualConversationId);
         setIsLoading(true);
         const fetchedMessages = await getMessages(actualConversationId);
+        console.log('[MessageScreen] Messages loaded:', {
+          count: fetchedMessages.length,
+          messages: fetchedMessages.map(m => ({
+            id: m.id,
+            senderId: m.senderId,
+            content: m.content
+          }))
+        });
         setMessages(fetchedMessages);
         setError(null);
       } catch (err) {
-        console.error('Error loading messages:', err);
+        console.error('[MessageScreen] Error loading messages:', err);
         setError('Failed to load messages. Please try again.');
       } finally {
         setIsLoading(false);
