@@ -32,7 +32,10 @@ export type MainStackParamList = {
   };
   MessagesScreen: undefined;
   MessageScreen: { conversationId: string; recipientName: string; recipientId?: string };
-  PostingScreen: undefined;
+  PostingScreen: {
+    userUniversity?: string;
+    userCity?: string;
+  };
   UserSearchScreen: undefined;
   ProductInfoPage: { 
     product: { 
@@ -61,6 +64,12 @@ export type MainStackParamList = {
     productId?: string
   };
   Wishlist: { wishlist: string[] };
+  CategoryProducts: { 
+    categoryId: number;
+    categoryName: string;
+    userUniversity?: string;
+    userCity?: string;
+  };
 };
 
 // Combined Root Stack Param List
@@ -87,6 +96,7 @@ export type UserSearchScreenNavigationProp = StackNavigationProp<RootStackParamL
 export type PostingScreenNavigationProp = StackNavigationProp<RootStackParamList, 'PostingScreen'>;
 export type ProductInfoScreenNavigationProp = StackNavigationProp<RootStackParamList, 'ProductInfoPage'>;
 export type WishlistScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Wishlist'>;
+export type CategoryProductsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'CategoryProducts'>;
 
 // Route props for screens with parameters
 export type EmailVerificationScreenRouteProp = RouteProp<RootStackParamList, 'EmailVerification'>;
@@ -96,6 +106,7 @@ export type MessageScreenRouteProp = RouteProp<RootStackParamList, 'MessageScree
 export type ProductInfoScreenRouteProp = RouteProp<RootStackParamList, 'ProductInfoPage'>;
 export type WishlistScreenRouteProp = RouteProp<RootStackParamList, 'Wishlist'>;
 export type EditProfileScreenRouteProp = RouteProp<RootStackParamList, 'EditProfile'>;
+export type CategoryProductsScreenRouteProp = RouteProp<RootStackParamList, 'CategoryProducts'>;
 
 // Combine navigation and route props for screens with parameters
 export type EmailVerificationScreenProps = {
@@ -136,4 +147,9 @@ export type WishlistScreenProps = {
 export type EditProfileScreenProps = {
   navigation: EditProfileScreenNavigationProp;
   route: EditProfileScreenRouteProp;
+};
+
+export type CategoryProductsScreenProps = {
+  navigation: CategoryProductsScreenNavigationProp;
+  route: CategoryProductsScreenRouteProp;
 }; 

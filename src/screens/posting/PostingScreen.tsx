@@ -1,7 +1,7 @@
 /**
  * Import statements 
  */
-import React, { useState, useMemo, useCallback, useRef, memo } from 'react';
+import React, { useState, useMemo, useCallback, useRef, memo, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -235,7 +235,7 @@ const MainPhotoPlaceholder = memo(({ onPress, theme }: PhotoPlaceholderProps) =>
           end={{ x: 1, y: 0 }}
           style={styles.photoUpgradeBadgeGradient}
         >
-          <Icon name="star" size={12} color="#ffffff" style={{marginRight: 6}} />
+          <Icon name="image" size={12} color="#ffffff" style={{marginRight: 6}} />
           <Text style={styles.photoUpgradeBadgeText}>Better pics = faster sales</Text>
         </LinearGradient>
       </View>
@@ -289,9 +289,21 @@ const ThumbnailPhoto = memo(({ uri, onRemove }: PhotoProps) => (
   </View>
 ));
 
-const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
+const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
   const { theme } = useTheme();
   const { user } = useAuth();
+  
+  // Get userUniversity from route params with enhanced validation
+  const routeParams = route.params || {};
+  const routeUniversity = typeof routeParams.userUniversity === 'string' ? routeParams.userUniversity : '';
+  const routeCity = typeof routeParams.userCity === 'string' ? routeParams.userCity : '';
+  
+  console.log('[PostingScreen] Route params:', JSON.stringify(routeParams));
+  console.log('[PostingScreen] Route university:', routeUniversity);
+  console.log('[PostingScreen] Route city:', routeCity);
+  console.log('[PostingScreen] User university from auth:', user?.university || 'not set');
+  console.log('[PostingScreen] User city from auth:', user?.city || 'not set');
+
   const [images, setImages] = useState<Array<{uri: string; type: string; name: string}>>([]);
   const [localImageUris, setLocalImageUris] = useState<string[]>([]);
   const [title, setTitle] = useState('');
@@ -328,6 +340,43 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
   // Reference to keep track of images that need to be uploaded
   const selectedImagesRef = useRef<Array<{uri: string; type: string; name: string}>>([]);
   
+  // Memoize the university value to use
+  const universityToUse = useMemo(() => {
+    const university = routeUniversity ||  '';
+    console.log('[PostingScreen] Using university:', university || 'none available');
+    
+    // If no university was provided through any means, use a fallback
+    if (!university) {
+      console.warn('[PostingScreen] No university value found in route or user, using fallback');
+      return 'University not provided';
+    }
+    
+    return university;
+  }, [routeUniversity]);
+  
+  // Memoize the city value to use
+  const cityToUse = useMemo(() => {
+    const city = routeCity ||  '';
+    console.log('[PostingScreen] Using city:', city || 'none available');
+    
+    // If no city was provided through any means, use a fallback
+    if (!city) {
+      console.warn('[PostingScreen] No city value found in route or user, using fallback');
+      return 'City not provided';
+    }
+    
+    return city;
+  }, [routeCity]);
+  
+  // Debug log of navigation params when component mounts
+  useEffect(() => {
+    console.log('[PostingScreen] Component mounted with route params:', JSON.stringify(route.params));
+    console.log('[PostingScreen] User object available:', user ? 'yes' : 'no');
+    if (user) {
+      console.log('[PostingScreen] User university from user object:', user.university || 'not set');
+    }
+  }, [route.params, user]);
+  
   // Real image picker implementation - now stores locally first, uploads only when posting
   const handleImageUpload = useCallback(async () => {
     console.log('[PostingScreen] Starting image selection process');
@@ -343,6 +392,8 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
         mediaType: 'photo',
         quality: 0.8,
         selectionLimit: 1,
+        maxWidth: 1200, // Limit image dimensions
+        maxHeight: 1200, // Limit image dimensions
       });
       
       console.log('[PostingScreen] Image picker result:', JSON.stringify(result));
@@ -368,6 +419,20 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
       if (!selected.uri) {
         console.error('[PostingScreen] Selected image has no URI');
         Alert.alert('Error', 'Failed to get image');
+        return;
+      }
+
+      // Check file size (limit to 5MB)
+      const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
+      if (selected.fileSize && selected.fileSize > MAX_FILE_SIZE) {
+        console.warn('[PostingScreen] Image too large:', selected.fileSize);
+        Alert.alert(
+          'Image Too Large',
+          'The selected image exceeds the 5MB size limit. Please choose a smaller image or compress this one.',
+          [
+            { text: 'OK', style: 'default' }
+          ]
+        );
         return;
       }
       
@@ -549,9 +614,27 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
       Alert.alert('Error', 'You must be logged in to post an item');
       return;
     }
+
+    // Check total size of all images - this is a secondary check
+    const MAX_TOTAL_SIZE = 20 * 1024 * 1024; // 20MB total
+    const totalSize = selectedImagesRef.current.reduce((size, img) => {
+      // Try to get file size if available in the ref
+      const fileSize = (img as any).fileSize || 0;
+      return size + fileSize;
+    }, 0);
+
+    if (totalSize > MAX_TOTAL_SIZE) {
+      Alert.alert(
+        'Images Too Large',
+        'The total size of all images exceeds our 20MB limit. Please use smaller or fewer images.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
     
     console.log('[PostingScreen] Form data validated, proceeding with upload');
     console.log('[PostingScreen] Images to upload:', selectedImagesRef.current.length);
+    
     console.log('[PostingScreen] Product data:', JSON.stringify({
       title,
       category: selectedType?.id,
@@ -560,9 +643,9 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
       price,
       email: user.email,
       sellerName: user.name || user.username || 'Anonymous User',
-      city: user.city || '',
+      city: cityToUse || '',
       zipcode: user.zipcode || '',
-      university: user.university || '',
+      university: universityToUse,
       productage: selectedCondition?.id,
       sellingtype: isSell ? 'sell' : 'rent'
     }));
@@ -611,9 +694,9 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
           price: price,
           email: user.email,
           sellerName: user.name || user.username || 'Anonymous User',
-          city: user.city || '',
+          city: cityToUse || '',
           zipcode: user.zipcode || '',
-          university: user.university || '',
+          university: universityToUse,
           productage: selectedCondition?.id || '',
           sellingtype: isSell ? 'sell' : 'rent',
           imageFilenames: fullImageUrls,  // Send full URLs including S3 base URL
@@ -670,15 +753,25 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
               : "Failed to create product. Please try again."
           );
         }
-      } catch (uploadError) {
+      } catch (uploadError: any) {
         console.error('[PostingScreen] Image upload error:', uploadError);
         setIsLoading(false);
-        Alert.alert(
-          "Image Upload Failed",
-          uploadError instanceof Error 
-            ? `Failed to upload images: ${uploadError.message}` 
-            : "Failed to upload images. Please check your connection and try again."
-        );
+        
+        // Check specifically for 413 error (Payload Too Large)
+        if (uploadError.message && uploadError.message.includes('413')) {
+          Alert.alert(
+            "Images Too Large",
+            "Your images are too large to upload. Please try using smaller images (under 5MB each) or fewer images.",
+            [{ text: "OK" }]
+          );
+        } else {
+          Alert.alert(
+            "Image Upload Failed",
+            uploadError instanceof Error 
+              ? `Failed to upload images: ${uploadError.message}` 
+              : "Failed to upload images. Please check your connection and try again."
+          );
+        }
       }
     } catch (error) {
       setIsLoading(false);
@@ -698,7 +791,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation }) => {
           : "Failed to post item: Unknown error"
       );
     }
-  }, [validateForm, title, selectedType, description, price, user, selectedCondition, isSell, navigation, errors, selectedSubcategory]);
+  }, [validateForm, title, selectedType, description, price, user, selectedCondition, isSell, navigation, errors, selectedSubcategory, universityToUse, cityToUse]);
 
   // Render individual type option with icon
   const renderTypeOptionItem = ({ item }: { item: ProductType }) => (

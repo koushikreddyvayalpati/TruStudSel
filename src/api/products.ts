@@ -12,9 +12,25 @@ import {
 
 // Utility to process product images (placeholder)
 const processProductImages = (product: any): any => {
-  // In a real implementation, this would add S3 URL prefixes
-  // or do other image processing
-  return product;
+  const processed = {...product};
+  
+  // Ensure product has proper URL formatting for images
+  if (processed.primaryImage && !processed.primaryImage.startsWith('http')) {
+    console.log(`[API:products] Converting primaryImage to full URL: ${processed.primaryImage}`);
+    processed.primaryImage = `https://trustudsel-products.s3.amazonaws.com/${processed.primaryImage}`;
+  }
+  
+  // Process image arrays if they exist
+  if (Array.isArray(processed.images)) {
+    processed.imageUrls = processed.images.map((img: string) => {
+      if (img && typeof img === 'string' && !img.startsWith('http')) {
+        return `https://trustudsel-products.s3.amazonaws.com/${img}`;
+      }
+      return img;
+    });
+  }
+  
+  return processed;
 };
 
 // Product types
@@ -57,6 +73,7 @@ export interface ProductFilters {
   university?: string; // For university filtering
   city?: string; // For city filtering
   zipcode?: string; // For zipcode-based filtering or proximity search
+  query?: string; // For search filtering
 }
 
 export interface ProductListResponse {
@@ -407,12 +424,49 @@ export const getProductsByCategory = async (category: string, filters: ProductFi
     { method: 'GET' }
   );
   
-  const result = await handleResponse<ProductListResponse>(response);
-  
-  // Process all products to add full image URLs
-  result.products = result.products.map(product => processProductImages(product));
-  
-  return result;
+  try {
+    // Get the response as text first for better error handling
+    const responseClone = response.clone();
+    const responseText = await responseClone.text();
+    console.log(`[API:products] Category response raw text (first 100 chars): ${responseText.substring(0, 100)}`);
+    
+    // Parse the JSON manually
+    const data = JSON.parse(responseText);
+    
+    // Handle both array responses and object responses with products property
+    let productsArray: Product[] = [];
+    
+    if (Array.isArray(data)) {
+      console.log(`[API:products] Category response is an array with ${data.length} items`);
+      productsArray = data;
+    } else if (data && typeof data === 'object' && Array.isArray(data.products)) {
+      console.log(`[API:products] Category response is an object with products array (${data.products.length} items)`);
+      productsArray = data.products;
+    } else {
+      console.warn(`[API:products] Unexpected response format for category products`);
+      productsArray = [];
+    }
+    
+    // Process all products to add full image URLs
+    const processedProducts = productsArray.map(product => processProductImages(product));
+    
+    // Return in the standard ProductListResponse format
+    return {
+      products: processedProducts,
+      totalItems: processedProducts.length,
+      currentPage: 1,
+      totalPages: 1
+    };
+  } catch (error) {
+    console.error(`[API:products] Error processing category products response:`, error);
+    // Return empty result to avoid breaking the app
+    return {
+      products: [],
+      totalItems: 0,
+      currentPage: 1,
+      totalPages: 1
+    };
+  }
 };
 
 /**

@@ -26,10 +26,10 @@ import { useNavigation, DrawerActions } from '@react-navigation/native';
 
 // Import from contexts with new structure
 import { useAuth } from '../../contexts';
+import { useUniversity, useCity } from '../../navigation/MainNavigator';
 
 // Import API methods
 import { 
-  getProductsByCategory,
   getFeaturedProducts,
   getNewArrivals,
   Product as ApiProduct,
@@ -238,6 +238,8 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   const navigation = useNavigation<NavigationProp>();
   const nav = propNavigation || navigation;
   const { user } = useAuth();
+  const { setUserUniversity } = useUniversity();
+  const { setUserCity } = useCity();
   
   // User profile data state
   const [userProfileData, setUserProfileData] = useState<any>(null);
@@ -245,39 +247,41 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   const [userDataError, setUserDataError] = useState<string | null>(null);
   
   // Cache the University and City values for API calls
-  const userUniversity = useMemo(() => 
-    userProfileData?.university || user?.university || '', 
-    [userProfileData, user?.university]
-  );
+  const userUniversity = useMemo(() => {
+    const university = userProfileData?.university || user?.university || '';
+    console.log(`[HomeScreen] userUniversity updated:`, {
+      fromProfile: userProfileData?.university || 'none',
+      fromUser: user?.university || 'none',
+      finalValue: university
+    });
+    return university;
+  }, [userProfileData, user?.university]);
   
-  const userCity = useMemo(() => 
-    userProfileData?.city || user?.city || '', 
-    [userProfileData, user?.city]
-  );
-  
-  const userZipcode = useMemo(() => 
-    userProfileData?.zipcode || user?.zipcode || '', 
-    [userProfileData, user?.zipcode]
-  );
+  const userCity = useMemo(() => {
+    const city = userProfileData?.city || user?.city || '';
+    console.log(`[HomeScreen] userCity updated:`, {
+      fromProfile: userProfileData?.city || 'none',
+      fromUser: user?.city || 'none',
+      finalValue: city
+    });
+    return city;
+  }, [userProfileData, user?.city]);
   
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<number | null>(null);
   
   // API data states
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [newArrivalsProducts, setNewArrivalsProducts] = useState<Product[]>([]);
   const [universityProducts, setUniversityProducts] = useState<Product[]>([]);
   const [cityProducts, setCityProducts] = useState<Product[]>([]);
-  const [categoryProducts, setCategoryProducts] = useState<Product[]>([]);
   
   // Loading states
   const [loadingFeatured, setLoadingFeatured] = useState(false);
   const [loadingNewArrivals, setLoadingNewArrivals] = useState(false);
   const [loadingUniversity, setLoadingUniversity] = useState(false);
   const [loadingCity, setLoadingCity] = useState(false);
-  const [loadingCategory, setLoadingCategory] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // Sort states
@@ -559,98 +563,14 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     }
   }, [userUniversity]);
 
-  // Load category products with caching
-  const loadCategoryProducts = useCallback(async (category: string) => {
-    setLoadingCategory(true);
-    setError(null);
-    
-    try {
-      // Create a cache key that includes all filter parameters
-      const filterString = JSON.stringify({
-        sortBy: selectedSortOption,
-        filters: selectedFilters,
-        university: userUniversity,
-        city: userCity,
-        zipcode: userZipcode
-      });
-      const cacheKey = `${PRODUCTS_CACHE_KEY}category_${category}_${hash(filterString)}`;
-      const cachedData = await AsyncStorage.getItem(cacheKey);
-      
-      if (cachedData) {
-        try {
-          const { data, timestamp } = JSON.parse(cachedData);
-          const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
-          
-          if (!isExpired) {
-            console.log(`[HomeScreen] Using cached ${category} products`);
-            setCategoryProducts(data);
-            setLoadingCategory(false);
-            return;
-          }
-        } catch (cacheError) {
-          console.warn('[HomeScreen] Error parsing cache:', cacheError);
-          // Continue with API call if cache parsing fails
-        }
-      }
-      
-      // Convert selectedFilters and selectedSortOption to API filter format
-      const filters: ProductFilters = {
-        sortBy: selectedSortOption === 'price_low_high' ? 'price_low_high' : 
-                selectedSortOption === 'price_high_low' ? 'price_high_low' : 
-                selectedSortOption === 'newest' ? 'newest' : 
-                selectedSortOption === 'popularity' ? 'popularity' : undefined,
-      };
-      
-      // Add condition filters
-      if (selectedFilters.includes('new')) {
-        filters.condition = 'brand-new';
-      } else if (selectedFilters.includes('used')) {
-        filters.condition = 'used';
-      }
-      
-      // Add selling type filters
-      if (selectedFilters.includes('rent')) {
-        filters.sellingType = 'rent';
-      } else if (selectedFilters.includes('sell')) {
-        filters.sellingType = 'sell';
-      }
-      
-      // If user has university, filter by it
-      if (userUniversity) {
-        filters.university = userUniversity;
-      }
-      
-      // If user has city, filter by it
-      if (userCity) {
-        filters.city = userCity;
-      }
-      
-      // Add zipcode filter for nearby products if available
-      if (userZipcode) {
-        filters.zipcode = userZipcode;
-      }
-      
-      const result = await getProductsByCategory(category, filters);
-      setCategoryProducts(result.products || []);
-      
-      // Save to cache
-      const cacheData = {
-        data: result.products || [],
-        timestamp: Date.now()
-      };
-      await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
-    } catch (err) {
-      console.error(`Error loading ${category} products:`, err);
-      setError(`Failed to load ${category} products`);
-    } finally {
-      setLoadingCategory(false);
-    }
-  }, [selectedSortOption, selectedFilters, userUniversity, userCity, userZipcode]);
-
   // User profile fetching with cache
   const fetchUserProfile = useCallback(async () => {
-    if (!user?.email) return;
+    if (!user?.email) {
+      console.log('[HomeScreen] fetchUserProfile: No user email available');
+      return;
+    }
     
+    console.log(`[HomeScreen] fetchUserProfile: Starting fetch for user: ${user.email}, current university: ${user?.university || 'none'}, current city: ${user?.city || 'none'}`);
     setIsLoadingUserData(true);
     setUserDataError(null);
     
@@ -663,20 +583,52 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
         const { data, timestamp } = JSON.parse(cachedData);
         const isExpired = Date.now() - timestamp > USER_CACHE_EXPIRY_TIME;
         
+        console.log(`[HomeScreen] Found cached profile data, expired: ${isExpired}`);
+        console.log(`[HomeScreen] Cached university: ${data?.university || 'none'}, cached city: ${data?.city || 'none'}`);
+        
         if (!isExpired) {
-          console.log('Using cached user profile data');
+          console.log('[HomeScreen] Using cached user profile data');
           setUserProfileData(data);
+          
+          // Update university in context if available
+          if (data?.university) {
+            console.log(`[HomeScreen] Updating UniversityContext with: ${data.university}`);
+            setUserUniversity(data.university);
+          }
+          
+          // Update city in context if available
+          if (data?.city) {
+            console.log(`[HomeScreen] Updating CityContext with: ${data.city}`);
+            setUserCity(data.city);
+          }
+          
           setIsLoadingUserData(false);
           return;
         }
+      } else {
+        console.log('[HomeScreen] No cached profile data found');
       }
       
       // If no cache or expired, fetch from API
-      console.log('Fetching user profile from API');
+      console.log('[HomeScreen] Fetching user profile from API');
       const data = await fetchUserProfileById(user.email);
+      
+      console.log(`[HomeScreen] API response for user profile, university: ${data?.university || 'none'}, city: ${data?.city || 'none'}`);
       
       // Update state
       setUserProfileData(data);
+      
+      // Update university in context if available from API response
+      if (data?.university) {
+        console.log(`[HomeScreen] Updating UniversityContext with: ${data.university}`);
+        setUserUniversity(data.university);
+      }
+      
+      // Update city in context if available from API response
+      if (data?.city) {
+        console.log(`[HomeScreen] Updating CityContext with: ${data.city}`);
+        setUserCity(data.city);
+      }
       
       // Save to cache
       const cacheData = {
@@ -687,23 +639,12 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
       await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
       
     } catch (error: any) {
-      console.error('Error fetching user profile:', error.message || error);
+      console.error('[HomeScreen] Error fetching user profile:', error.message || error);
       setUserDataError('Failed to fetch user profile data');
     } finally {
       setIsLoadingUserData(false);
     }
-  }, [user?.email]);
-
-  // Create a simple hash function for cache keys
-  const hash = (str: string): string => {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32bit integer
-    }
-    return hash.toString();
-  };
+  }, [user?.email, user?.university, user?.city, setUserUniversity, setUserCity]);
 
   // Intelligent parallel loading for refresh
   const handleRefresh = useCallback(() => {
@@ -720,14 +661,6 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
           loadQueue.push(() => loadNewArrivals().catch(err => console.warn('Error refreshing new arrivals:', err)));
         }
             
-        // Only load category products if a category is selected  
-        if (activeCategory !== null) {
-          const categoryName = categories.find(c => c.id === activeCategory)?.name.toLowerCase();
-          if (categoryName) {
-            loadQueue.push(() => loadCategoryProducts(categoryName).catch(err => console.warn('Error refreshing category products:', err)));
-          }
-        }
-        
         // Add university products with error handling
         if (userUniversity) {
           loadQueue.push(() => loadUniversityProducts().catch(err => console.warn('Error refreshing university products:', err)));
@@ -754,11 +687,8 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
         setIsRefreshing(false);
       });
   }, [
-    activeCategory, 
-    categories, 
     loadFeaturedProducts, 
-    loadNewArrivals, 
-    loadCategoryProducts, 
+    loadNewArrivals,
     fetchUserProfile, 
     loadUniversityProducts, 
     loadCityProducts, 
@@ -833,12 +763,13 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   }, [nav]);
 
   const handleCategoryPress = useCallback((category: Category) => {
-    setActiveCategory(prevCategory => 
-      prevCategory === category.id ? null : category.id
-    );
-    // Here you could filter products by category if needed
+    // Navigate to the category products screen
+    nav.navigate('CategoryProducts', {
+      categoryId: category.id,
+      categoryName: category.name
+    });
     console.log(`Category selected: ${category.name}`);
-  }, []);
+  }, [nav]);
 
   const handleSearch = useCallback(() => {
     // Implement search functionality here
@@ -846,24 +777,35 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   }, [searchQuery]);
 
   const handleSeeAll = useCallback((section: ProductSectionType) => {
-    // Navigate to a page showing all products of a specific section based on section type
+    // Navigate to the CategoryProducts screen with appropriate parameters
     if (section === 'featured') {
-      // Navigate to page showing all featured products
-      Alert.alert('Coming Soon', 'View all featured products');
+      nav.navigate('CategoryProducts', {
+        categoryId: 0, // Using 0 for non-category specific sections
+        categoryName: 'Featured Products',
+        userUniversity: userUniversity,
+        userCity: userCity
+      });
     } else if (section === 'newArrivals') {
-      // Navigate to page showing all new arrivals
-      Alert.alert('Coming Soon', 'View all new arrivals');
-    } else if (section === 'bestSellers') {
-      // Navigate to page showing all best sellers
-      Alert.alert('Coming Soon', 'View all best sellers');
+      nav.navigate('CategoryProducts', {
+        categoryId: 0,
+        categoryName: 'New Arrivals',
+        userUniversity: userUniversity
+      });
     } else if (section === 'university') {
-      // Navigate to page showing all university products
-      Alert.alert('Coming Soon', `View all ${userUniversity} products`);
+      nav.navigate('CategoryProducts', {
+        categoryId: 0,
+        categoryName: `${userUniversity} Products`,
+        userUniversity: userUniversity
+      });
     } else if (section === 'city') {
-      // Navigate to page showing all city products
-      Alert.alert('Coming Soon', `View all ${userCity} products`);
+      nav.navigate('CategoryProducts', {
+        categoryId: 0,
+        categoryName: `${userCity} Products`,
+        userUniversity: userUniversity,
+        userCity: userCity
+      });
     }
-  }, [userUniversity, userCity]);
+  }, [userUniversity, userCity, nav]);
 
   // Define sort options
   const sortOptions = useMemo<SortOption[]>(() => [
@@ -878,15 +820,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   const handleSortOptionSelect = useCallback((optionId: string) => {
     setSelectedSortOption(optionId);
     setSortDropdownVisible(false);
-    
-    // If a category is active, reload products with the new sort option
-    if (activeCategory !== null) {
-      const categoryName = categories.find(c => c.id === activeCategory)?.name.toLowerCase();
-      if (categoryName) {
-        loadCategoryProducts(categoryName);
-      }
-    }
-  }, [activeCategory, categories, loadCategoryProducts]);
+  }, []);
 
   // Define filter options
   const filterOptions = useMemo<FilterOption[]>(() => [
@@ -949,16 +883,6 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
       loadCityProducts();
     }
   }, [userCity, loadCityProducts]);
-
-  // Effect to load category products when a category is selected
-  useEffect(() => {
-    if (activeCategory !== null) {
-      const categoryName = categories.find(c => c.id === activeCategory)?.name.toLowerCase();
-      if (categoryName) {
-        loadCategoryProducts(categoryName);
-      }
-    }
-  }, [activeCategory, selectedSortOption, selectedFilters, categories, loadCategoryProducts]);
 
   // Load user profile on mount
   useEffect(() => {
@@ -1023,10 +947,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
         {/* Row with text and buttons */}
         <View style={styles.rowContainer}>
           <Text style={[styles.plainText, { color: 'black' }]}>
-            {activeCategory 
-              ? categories.find(c => c.id === activeCategory)?.name || 'All Items'
-              : 'All Items'
-            }
+            All Items
           </Text>
           <View style={styles.buttonContainer}>
             <View style={{ position: 'relative' }}>
@@ -1186,18 +1107,6 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
             isLoading={loadingFeatured}
           />
 
-          {/* Category Products Section - Only show when a category is selected */}
-          {activeCategory !== null && (
-            <ProductSection 
-              title={`${categories.find(c => c.id === activeCategory)?.name || ''} Products`}
-              data={categoryProducts}
-              wishlist={wishlist}
-              onToggleWishlist={toggleWishlist}
-              onProductPress={handleProductPress}
-              isLoading={loadingCategory}
-            />
-          )}
-          
           {/* Error display */}
           {error && (
             <View style={styles.errorContainer}>

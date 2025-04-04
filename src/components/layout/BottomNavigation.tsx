@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -22,12 +22,23 @@ type BottomNavItem = {
   isCenter?: boolean;
 };
 
+interface BottomNavigationProps {
+  userUniversity: string;
+  userCity?: string;
+}
+
 /**
  * BottomNavigation component
  * Displays a bottom navigation bar with Home, Wishlist, Post, Search and Chat options
  */
-const BottomNavigation: React.FC = () => {
+const BottomNavigation: React.FC<BottomNavigationProps> = ({ userUniversity, userCity = '' }) => {
   const navigation = useNavigation<NavigationProp>();
+  
+  // Log university and city values
+  useEffect(() => {
+    console.log('[BottomNavigation] Received university:', userUniversity || 'not set');
+    console.log('[BottomNavigation] Received city:', userCity || 'not set');
+  }, [userUniversity, userCity]);
   
   // Memoize navigation items for better performance
   const navigationItems = useMemo<BottomNavItem[]>(() => [
@@ -61,7 +72,25 @@ const BottomNavigation: React.FC = () => {
       key: 'post',
       label: '',
       icon: <Ionicons name="add" size={30} color="white" />,
-      onPress: () => navigation.navigate('PostingScreen'),
+      onPress: () => {
+        // Add more debug logging to track userUniversity during navigation
+        console.log('[BottomNavigation] Navigating to PostingScreen with university:', userUniversity || 'not set');
+        console.log('[BottomNavigation] Navigating to PostingScreen with city:', userCity || 'not set');
+        
+        // Only navigate with params if we have values
+        if (userUniversity) {
+          navigation.navigate('PostingScreen', { 
+            userUniversity,
+            userCity
+          });
+        } else {
+          console.warn('[BottomNavigation] Warning: Navigating to PostingScreen without university data');
+          navigation.navigate('PostingScreen', { 
+            userUniversity: '',
+            userCity: userCity || ''
+          });
+        }
+      },
       isCenter: true,
     },
     {
@@ -79,7 +108,7 @@ const BottomNavigation: React.FC = () => {
       icon: <Ionicons name="chatbubbles-outline" size={24} color="black" />,
       onPress: () => navigation.navigate('MessagesScreen'),
     },
-  ], [navigation]);
+  ], [navigation, userUniversity, userCity]);
   
   // Memoize the render function to prevent unnecessary re-renders
   const renderNavItem = useCallback((item: BottomNavItem) => {
