@@ -10,16 +10,17 @@ import {
   ActivityIndicator,
   RefreshControl,
   Animated,
-  Platform
+  Platform,
+  Alert
 } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute, RouteProp } from '@react-navigation/native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../contexts/AuthContext';
-import { ProfileScreenNavigationProp } from '../../types/navigation.types';
+import { ProfileScreenNavigationProp, MainStackParamList } from '../../types/navigation.types';
 import { fetchUserProfileById } from '../../api/users';
 import { fetchUserProducts, Product } from '../../api/products';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -55,25 +56,6 @@ interface Post {
 // Define tab types
 type TabType = 'inMarket' | 'archive';
 
-// Loading component
-const LoadingIndicator = React.memo(() => (
-  <View style={styles.loadingContainer}>
-    <ActivityIndicator size="large" color="#f7b305" />
-    <Text style={styles.loadingText}>Loading profile...</Text>
-  </View>
-));
-
-// Error component
-const ErrorDisplay = React.memo(({ message, onRetry }: { message: string, onRetry: () => void }) => (
-  <View style={styles.errorContainer}>
-    <FontAwesome5 name="exclamation-circle" size={50} color="#e74c3c" />
-    <Text style={styles.errorMessage}>{message}</Text>
-    <TouchableOpacity style={styles.retryButton} onPress={onRetry}>
-      <Text style={styles.retryButtonText}>Retry</Text>
-    </TouchableOpacity>
-  </View>
-));
-
 // Add this interface for backend user data
 interface BackendUserData {
   email: string;
@@ -99,14 +81,16 @@ const ProfileHeader = React.memo(({
   onTabChange,
   onEditProfile,
   isLoadingProducts,
+  isViewingSeller,
 }: {
-  userData: ReturnType<typeof useUserData>,
+  userData: ReturnType<typeof processUserData>,
   backendUserData: BackendUserData | null,
   filteredPosts: Post[],
   activeTab: TabType,
   onTabChange: (tab: TabType) => void,
   onEditProfile: () => void,
   isLoadingProducts: boolean,
+  isViewingSeller: boolean,
 }) => {
   // Get the first letter of the user's name for the profile circle
   const getInitial = useCallback(() => {
@@ -129,7 +113,7 @@ const ProfileHeader = React.memo(({
   const StatsCard = useMemo(() => (
     <View style={styles.statsCard}>
       <View style={styles.statItem}>
-        <Text style={styles.statNumber}>{userData.stats.sold}</Text>
+        <Text style={styles.statNumber}>{parseInt(userData.soldProducts, 10)}</Text>
         <Text style={styles.statLabel}>Items Sold</Text>
       </View>
       <View style={styles.statDivider} />
@@ -139,18 +123,18 @@ const ProfileHeader = React.memo(({
       </View>
       <View style={styles.statDivider} />
       <View style={styles.statItem}>
-        <Text style={styles.statNumber}>4.8</Text>
-        <Text style={styles.statLabel}>Rating</Text>
+        <Text style={styles.statNumber}>{userData.totalProducts}</Text>
+        <Text style={styles.statLabel}>Total</Text>
       </View>
     </View>
-  ), [userData.stats.sold, filteredPosts.length, isLoadingProducts]);
+  ), [userData.soldProducts, userData.totalProducts, filteredPosts.length, isLoadingProducts]);
 
   return (
     <View style={styles.profileContainer}>
       <View style={styles.profileImageWrapper}>
-        {userData.profileImage ? (
+        {userData.photo ? (
           <Image 
-            source={{ uri: userData.profileImage }} 
+            source={{ uri: userData.photo }} 
             style={styles.profileImage}
           />
         ) : (
@@ -158,19 +142,22 @@ const ProfileHeader = React.memo(({
             <Text style={styles.profileInitial}>{getInitial()}</Text>
           </View>
         )}
-        {userData.isVerified && VerifiedBadge}
+        {/* Always show the verified badge */}
+        {VerifiedBadge}
       </View>
       
       <View style={styles.profileDetailsContainer}>
         <View style={styles.nameEditRow}>
           <Text style={styles.profileName}>{userData.name}</Text>
-          <TouchableOpacity 
-            style={styles.editProfileButton}
-            onPress={onEditProfile}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={styles.editButtonText}>Edit Profile</Text>
-          </TouchableOpacity>
+          {!isViewingSeller && (
+            <TouchableOpacity 
+              style={styles.editProfileButton}
+              onPress={onEditProfile}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={styles.editButtonText}>Edit Profile</Text>
+            </TouchableOpacity>
+          )}
         </View>
         
         <View style={styles.userInfoRow}>
@@ -178,10 +165,13 @@ const ProfileHeader = React.memo(({
             <FontAwesome5 name="university" size={16} color="#666" />
             <Text style={styles.userInfoText}>{userData.university}</Text>
           </View>
-          <View style={styles.userInfoItem}>
-            <MaterialCommunityIcons name="email-outline" size={16} color="#666" />
-            <Text style={styles.userInfoText} numberOfLines={1}>{userData.email}</Text>
-          </View>
+          {/* Only show email if viewing own profile, not someone else's */}
+          {!isViewingSeller && (
+            <View style={styles.userInfoItem}>
+              <MaterialCommunityIcons name="email-outline" size={16} color="#666" />
+              <Text style={styles.userInfoText} numberOfLines={1}>{userData.email}</Text>
+            </View>
+          )}
           {backendUserData?.city && backendUserData?.state && (
             <View style={styles.userInfoItem}>
               <FontAwesome5 name="map-marker-alt" size={16} color="#666" />
@@ -285,30 +275,19 @@ const PostItem = React.memo(({ item, originalData }: { item: Post, originalData?
   );
 });
 
-// Custom hook for user data to make the component more maintainable
-const useUserData = (user: any, backendUser: BackendUserData | null) => {
-  return useMemo(() => ({
-    name: user?.name || user?.username?.split('@')[0] || "User",
-    email: user?.email || user?.username || "No email available",
-    university: backendUser?.university || user?.university || "State University",
-    stats: {
-      sold: backendUser?.productssold ? parseInt(backendUser.productssold) : 0,
-    },
-    profileImage: backendUser?.userphoto || null,
-    isVerified: true,
-  }), [user, backendUser]);
+// Move the useUserData function outside of any hooks
+const processUserData = (user: any, backendUser: BackendUserData | null) => {
+  return {
+    name: backendUser?.name || user?.name || 'User',
+    email: backendUser?.email || user?.email || '',
+    photo: backendUser?.userphoto || user?.photo,
+    university: backendUser?.university || '',
+    city: backendUser?.city || '',
+    totalProducts: parseInt(backendUser?.productsListed || '0', 10),
+    soldProducts: backendUser?.productssold || '0',
+    wishlist: backendUser?.productswishlist || []
+  };
 };
-
-// Empty state component
-const EmptyState = React.memo(({ activeTab }: { activeTab: TabType }) => (
-  <View style={styles.emptyState}>
-    <FontAwesome5 name="box-open" size={60} color="#e0e0e0" />
-    <Text style={styles.emptyStateText}>No items to display</Text>
-    <Text style={styles.emptyStateSubtext}>
-      Items you {activeTab === 'archive' ? 'archive' : 'post'} will appear here
-    </Text>
-  </View>
-));
 
 // Add this cache manager outside of the component to make it global
 // This will serve as an in-memory cache for quick access without AsyncStorage overhead
@@ -449,7 +428,25 @@ async function refreshProductsCacheInBackground(email: string) {
 
 const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<ProfileScreenNavigationProp>();
+  const route = useRoute<RouteProp<MainStackParamList, 'Profile'>>();
   const { signOut, user } = useAuth();
+  
+  // Get sellerEmail from route params if available
+  const sellerEmail = route.params?.sellerEmail;
+  
+  // Determine if we're viewing another seller's profile or our own
+  const isViewingSeller = useMemo(() => {
+    if (!sellerEmail || !user?.email) return false;
+    return sellerEmail.toLowerCase() !== user.email.toLowerCase();
+  }, [sellerEmail, user?.email]);
+  
+  // For logging purposes
+  useEffect(() => {
+    if (sellerEmail) {
+      console.log(`[ProfileScreen] Viewing profile for email: ${sellerEmail}`);
+      console.log(`[ProfileScreen] Is viewing seller profile: ${isViewingSeller}`);
+    }
+  }, [sellerEmail, isViewingSeller]);
   
   // State for backend user data
   const [backendUserData, setBackendUserData] = useState<BackendUserData | null>(null);
@@ -461,13 +458,81 @@ const ProfileScreen: React.FC = () => {
   const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(true);
   const [productsError, setProductsError] = useState<string | null>(null);
   const [products, setProducts] = useState<Post[]>([]);
-  
-  // Store a mapping between Post items and their original Product data
   const [productsMap, setProductsMap] = useState<Map<number, Product>>(new Map());
+  const [activeTab, setActiveTab] = useState<TabType>('inMarket');
+
+  // Handle navigation back
+  const handleGoBack = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
   
+  // Handle sign out
+  const handleSignOut = useCallback(() => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Sign Out', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await signOut();
+              // Navigation will be handled by the AuthContext
+            } catch (error) {
+              console.error('Error signing out:', error);
+              Alert.alert('Error', 'Failed to sign out. Please try again.');
+            }
+          }
+        },
+      ]
+    );
+  }, [signOut]);
+  
+  // Handle edit profile navigation
+  const handleEditProfile = useCallback(() => {
+    if (!backendUserData) return;
+    
+    navigation.navigate('EditProfile', {
+      name: backendUserData.name,
+      university: backendUserData.university,
+      city: backendUserData.city,
+      mobile: backendUserData.mobile,
+      zipcode: backendUserData.zipcode,
+      userphoto: backendUserData.userphoto,
+      email: backendUserData.email
+    });
+  }, [navigation, backendUserData]);
+  
+  // Handle adding a new listing
+  const handleAddListing = useCallback(() => {
+    // Get the user's university and city to pass to PostingScreen
+    const userUniversity = backendUserData?.university || '';
+    const userCity = backendUserData?.city || '';
+    
+    console.log('[ProfileScreen] Navigating to PostingScreen with params:', {
+      userUniversity,
+      userCity
+    });
+    
+    navigation.navigate('PostingScreen', {
+      userUniversity,
+      userCity
+    });
+  }, [navigation, backendUserData]);
+
+  // Process the user data for display
+  const userData = useMemo(() => {
+    return processUserData(user, backendUserData);
+  }, [user, backendUserData]);
+
   // Fetch user products from API with caching
   const fetchUserProductData = useCallback(async () => {
-    if (!user?.email) {
+    // Use sellerEmail from route params if available, otherwise use logged-in user email
+    const emailToFetch = sellerEmail || user?.email;
+    
+    if (!emailToFetch) {
       setIsLoadingProducts(false);
       return;
     }
@@ -476,11 +541,11 @@ const ProfileScreen: React.FC = () => {
     setIsLoadingProducts(true);
     
     try {
-      const cacheKey = `${USER_PRODUCTS_CACHE_KEY}${user.email}`;
+      const cacheKey = `${USER_PRODUCTS_CACHE_KEY}${emailToFetch}`;
       
       // First, check the in-memory cache for the fastest access
-      if (!isRefreshing && productsCache.has(user.email)) {
-        const { data, timestamp } = productsCache.get(user.email);
+      if (!isRefreshing && productsCache.has(emailToFetch)) {
+        const { data, timestamp } = productsCache.get(emailToFetch);
         const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
         const isStale = Date.now() - timestamp > (PRODUCTS_CACHE_EXPIRY_TIME / 3);
         
@@ -503,9 +568,9 @@ const ProfileScreen: React.FC = () => {
           setIsLoadingProducts(false);
           
           // If data is stale but not expired, trigger a background refresh
-          if (isStale) {
+          if (isStale && !isViewingSeller) {
             console.log('[ProfileScreen] Products data is stale, triggering background refresh');
-            setTimeout(() => refreshProductsCacheInBackground(user.email), 100);
+            setTimeout(() => refreshProductsCacheInBackground(emailToFetch), 100);
           }
           
           return;
@@ -526,7 +591,7 @@ const ProfileScreen: React.FC = () => {
               console.log('[ProfileScreen] Using AsyncStorage cached user products data');
               
               // Update in-memory cache too
-              productsCache.set(user.email, { data, timestamp });
+              productsCache.set(emailToFetch, { data, timestamp });
               
               // Create a new map to store the relationship between Posts and Products
               const newProductsMap = new Map<number, Product>();
@@ -544,9 +609,9 @@ const ProfileScreen: React.FC = () => {
               setIsLoadingProducts(false);
               
               // If data is stale but not expired, trigger a background refresh
-              if (isStale) {
+              if (isStale && !isViewingSeller) {
                 console.log('[ProfileScreen] Products data is stale, triggering background refresh');
-                setTimeout(() => refreshProductsCacheInBackground(user.email), 100);
+                setTimeout(() => refreshProductsCacheInBackground(emailToFetch), 100);
               }
               
               return;
@@ -561,14 +626,14 @@ const ProfileScreen: React.FC = () => {
       }
       
       // Check if we should rate limit this API request
-      const lastRequestTime = PRODUCTS_API_REQUEST_TIMESTAMPS.get(user.email);
+      const lastRequestTime = PRODUCTS_API_REQUEST_TIMESTAMPS.get(emailToFetch);
       const now = Date.now();
       
       if (lastRequestTime && (now - lastRequestTime < MIN_API_REQUEST_INTERVAL) && !isRefreshing) {
-        console.log(`[ProfileScreen] Rate limiting products API request for ${user.email}`);
+        console.log(`[ProfileScreen] Rate limiting products API request for ${emailToFetch}`);
         // Use cache even if expired, but mark for refresh
-        if (productsCache.has(user.email)) {
-          const { data } = productsCache.get(user.email);
+        if (productsCache.has(emailToFetch)) {
+          const { data } = productsCache.get(emailToFetch);
           
           // Create a new map to store the relationship between Posts and Products
           const newProductsMap = new Map<number, Product>();
@@ -585,17 +650,19 @@ const ProfileScreen: React.FC = () => {
           setProductsMap(newProductsMap);
           setIsLoadingProducts(false);
           
-          // Schedule a delayed refresh
-          setTimeout(() => refreshProductsCacheInBackground(user.email), MIN_API_REQUEST_INTERVAL);
+          // Schedule a delayed refresh if not viewing a seller profile
+          if (!isViewingSeller) {
+            setTimeout(() => refreshProductsCacheInBackground(emailToFetch), MIN_API_REQUEST_INTERVAL);
+          }
           return;
         }
       }
       
       // If cache miss or cache expired or explicitly refreshing, fetch from API
-      console.log(`[ProfileScreen] Fetching products for user: ${user.email}`);
-      PRODUCTS_API_REQUEST_TIMESTAMPS.set(user.email, now);
+      console.log(`[ProfileScreen] Fetching products for user: ${emailToFetch}`);
+      PRODUCTS_API_REQUEST_TIMESTAMPS.set(emailToFetch, now);
       
-      const productData = await fetchUserProducts(user.email);
+      const productData = await fetchUserProducts(emailToFetch);
       
       // Create a new map to store the relationship between Posts and Products
       const newProductsMap = new Map<number, Product>();
@@ -621,7 +688,7 @@ const ProfileScreen: React.FC = () => {
       };
       
       // Update in-memory cache
-      productsCache.set(user.email, cacheData);
+      productsCache.set(emailToFetch, cacheData);
       
       // Run cache cleanup to prevent memory issues
       cleanupProductsCache();
@@ -633,9 +700,9 @@ const ProfileScreen: React.FC = () => {
       console.error('[ProfileScreen] Error fetching user products:', error);
       
       // If we have cached data, use it despite the error
-      if (productsCache.has(user.email)) {
+      if (productsCache.has(emailToFetch)) {
         console.log('[ProfileScreen] Using cached products data after API error');
-        const { data } = productsCache.get(user.email);
+        const { data } = productsCache.get(emailToFetch);
         
         // Create a new map to store the relationship between Posts and Products
         const newProductsMap = new Map<number, Product>();
@@ -656,11 +723,14 @@ const ProfileScreen: React.FC = () => {
       
       setIsLoadingProducts(false);
     }
-  }, [user?.email, isRefreshing]);
+  }, [sellerEmail, user?.email, isRefreshing, isViewingSeller]);
   
   // Fetch user data from backend API with caching
   const fetchUserData = useCallback(async () => {
-    if (!user?.email) {
+    // Use sellerEmail from route params if available, otherwise use logged-in user email
+    const emailToFetch = sellerEmail || user?.email;
+    
+    if (!emailToFetch) {
       setIsLoading(false);
       return;
     }
@@ -669,11 +739,11 @@ const ProfileScreen: React.FC = () => {
     if (!isRefreshing) setIsLoading(true);
     
     try {
-      const cacheKey = `${USER_PROFILE_CACHE_KEY}${user.email}`;
+      const cacheKey = `${USER_PROFILE_CACHE_KEY}${emailToFetch}`;
       
       // First, check the in-memory cache for the fastest access
-      if (!isRefreshing && profileCache.has(user.email)) {
-        const { data, timestamp } = profileCache.get(user.email);
+      if (!isRefreshing && profileCache.has(emailToFetch)) {
+        const { data, timestamp } = profileCache.get(emailToFetch);
         const isExpired = Date.now() - timestamp > CACHE_EXPIRY_TIME;
         const isStale = Date.now() - timestamp > (CACHE_EXPIRY_TIME / 3);
         
@@ -683,9 +753,9 @@ const ProfileScreen: React.FC = () => {
           setIsLoading(false);
           
           // If data is stale but not expired, trigger a background refresh
-          if (isStale) {
+          if (isStale && !isViewingSeller) {
             console.log('Data is stale, triggering background refresh');
-            setTimeout(() => refreshCacheInBackground(user.email), 100);
+            setTimeout(() => refreshCacheInBackground(emailToFetch), 100);
           }
           
           return;
@@ -705,14 +775,14 @@ const ProfileScreen: React.FC = () => {
             if (!isExpired) {
               console.log('Using AsyncStorage cached user profile data');
               // Update in-memory cache too
-              profileCache.set(user.email, { data, timestamp });
+              profileCache.set(emailToFetch, { data, timestamp });
               setBackendUserData(data);
               setIsLoading(false);
               
               // If data is stale but not expired, trigger a background refresh
-              if (isStale) {
+              if (isStale && !isViewingSeller) {
                 console.log('Data is stale, triggering background refresh');
-                setTimeout(() => refreshCacheInBackground(user.email), 100);
+                setTimeout(() => refreshCacheInBackground(emailToFetch), 100);
               }
               
               return;
@@ -727,27 +797,29 @@ const ProfileScreen: React.FC = () => {
       }
       
       // Check if we should rate limit this API request
-      const lastRequestTime = API_REQUEST_TIMESTAMPS.get(user.email);
+      const lastRequestTime = API_REQUEST_TIMESTAMPS.get(emailToFetch);
       const now = Date.now();
       
       if (lastRequestTime && (now - lastRequestTime < MIN_API_REQUEST_INTERVAL) && !isRefreshing) {
-        console.log(`Rate limiting API request for ${user.email}`);
+        console.log(`Rate limiting API request for ${emailToFetch}`);
         // Use cache even if expired, but mark for refresh
-        if (profileCache.has(user.email)) {
-          const { data } = profileCache.get(user.email);
+        if (profileCache.has(emailToFetch)) {
+          const { data } = profileCache.get(emailToFetch);
           setBackendUserData(data);
           setIsLoading(false);
-          // Schedule a delayed refresh
-          setTimeout(() => refreshCacheInBackground(user.email), MIN_API_REQUEST_INTERVAL);
+          // Schedule a delayed refresh if not viewing a seller profile
+          if (!isViewingSeller) {
+            setTimeout(() => refreshCacheInBackground(emailToFetch), MIN_API_REQUEST_INTERVAL);
+          }
           return;
         }
       }
       
       // If cache miss or cache expired or explicitly refreshing, fetch from API
       console.log('Fetching user profile from API');
-      API_REQUEST_TIMESTAMPS.set(user.email, now);
+      API_REQUEST_TIMESTAMPS.set(emailToFetch, now);
       
-      const data = await fetchUserProfileById(user.email);
+      const data = await fetchUserProfileById(emailToFetch);
       
       // Update state with new data
       setBackendUserData(data);
@@ -759,7 +831,7 @@ const ProfileScreen: React.FC = () => {
       };
       
       // Update in-memory cache
-      profileCache.set(user.email, cacheData);
+      profileCache.set(emailToFetch, cacheData);
       
       // Run cache cleanup to prevent memory issues
       cleanupCache();
@@ -771,16 +843,16 @@ const ProfileScreen: React.FC = () => {
       console.error('Error fetching user data:', error.message || error);
       
       // If we have cached data, use it despite the error
-      if (profileCache.has(user.email)) {
+      if (profileCache.has(emailToFetch)) {
         console.log('Using cached data after API error');
-        setBackendUserData(profileCache.get(user.email).data);
+        setBackendUserData(profileCache.get(emailToFetch).data);
       } else {
         setError('Network error while fetching profile data');
       }
     } finally {
       setIsLoading(false);
     }
-  }, [user?.email, isRefreshing]);
+  }, [sellerEmail, user?.email, isRefreshing, isViewingSeller]);
   
   // Load both user profile and products data
   useFocusEffect(
@@ -804,9 +876,6 @@ const ProfileScreen: React.FC = () => {
     }, [fetchUserData, fetchUserProductData])
   );
   
-  // Use custom hook for user data, now with backend data
-  const userData = useUserData(user, backendUserData);
-  
   // Animated values with useMemo to avoid recreating on every render
   const scrollY = useMemo(() => new Animated.Value(0), []);
   const headerOpacity = useMemo(() => {
@@ -816,9 +885,6 @@ const ProfileScreen: React.FC = () => {
       extrapolate: 'clamp'
     });
   }, [scrollY]);
-
-  // Component state
-  const [activeTab, setActiveTab] = useState<TabType>('inMarket');
 
   // Memoized filtered posts based on active tab
   const filteredPosts = useMemo(() => {
@@ -844,34 +910,6 @@ const ProfileScreen: React.FC = () => {
       setIsRefreshing(false);
     });
   }, [fetchUserData, fetchUserProductData]);
-
-  // Sign out handler with proper error handling
-  const handleSignOut = useCallback(async () => {
-    try {
-      await signOut();
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  }, [signOut]);
-
-  // Navigate to Edit Profile Screen
-  const handleEditProfile = useCallback(() => {
-    // Pass profile data to EditProfileScreen
-    navigation.navigate('EditProfile', {
-      name: backendUserData?.name || user?.name,
-      email: backendUserData?.email || user?.email,
-      university: backendUserData?.university,
-      city: backendUserData?.city,
-      mobile: backendUserData?.mobile,
-      zipcode: backendUserData?.zipcode,
-      userphoto: backendUserData?.userphoto
-    });
-  }, [navigation, backendUserData, user]);
-
-  // Navigate back
-  const handleGoBack = useCallback(() => {
-    navigation.goBack();
-  }, [navigation]);
 
   // Tab change handler
   const handleTabChange = useCallback((tab: TabType) => {
@@ -904,82 +942,76 @@ const ProfileScreen: React.FC = () => {
     index,
   }), []);
 
-  // ListHeaderComponent for FlatList
-  const ListHeaderComponent = useCallback(() => (
-    <>
-      {/* Profile Banner - Using a black background */}
-      <View style={styles.bannerContainer}>
-        <View style={styles.bannerContent}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={handleGoBack}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <MaterialIcons name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.signOutButton}
-            onPress={handleSignOut}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <MaterialIcons name="logout" size={24} color="white" />
-          </TouchableOpacity>
-        </View>
-      </View>
-      
-      {/* Profile Info Section */}
-      <ProfileHeader 
-        userData={userData} 
-        backendUserData={backendUserData}
-        filteredPosts={filteredPosts} 
-        activeTab={activeTab} 
-        onTabChange={handleTabChange}
-        onEditProfile={handleEditProfile}
-        isLoadingProducts={isLoadingProducts}
-      />
-    </>
-  ), [userData, backendUserData, filteredPosts, activeTab, handleTabChange, handleEditProfile, handleGoBack, handleSignOut, isLoadingProducts]);
-
   // ListEmptyComponent for better organization
-  const ListEmptyComponent = useCallback(() => {
-    // Show loading indicator if products are still loading
+  const ListEmptyComponent = useMemo(() => {
     if (isLoadingProducts) {
       return (
-        <View style={styles.emptyState}>
+        <View style={styles.emptyListContainer}>
           <ActivityIndicator size="large" color="#f7b305" />
-          <Text style={styles.emptyStateText}>Loading your listings...</Text>
+          <Text style={styles.emptyListText}>Loading products...</Text>
         </View>
       );
     }
     
-    // Show error message if there was an error loading products
     if (productsError) {
       return (
-        <View style={styles.emptyState}>
-          <FontAwesome5 name="exclamation-circle" size={50} color="#e74c3c" />
-          <Text style={styles.emptyStateText}>{productsError}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={fetchUserProductData}>
+        <View style={styles.emptyListContainer}>
+          <MaterialIcons name="error-outline" size={56} color="#e74c3c" />
+          <Text style={styles.emptyListErrorText}>{productsError}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={handleRefresh}
+          >
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
       );
     }
-
-    return <EmptyState activeTab={activeTab} />;
-  }, [activeTab, isLoadingProducts, productsError, fetchUserProductData]);
-
-  // Footer component for better organization
-  const ListFooterComponent = useCallback(() => (
-    <>
-      {isLoading && (
-        <View style={styles.loaderFooter}>
-          <ActivityIndicator size="small" color="#f7b305" />
+    
+    if (filteredPosts.length === 0) {
+      return (
+        <View style={styles.emptyListContainer}>
+          {activeTab === 'inMarket' ? (
+            <>
+              <MaterialCommunityIcons name="storefront-outline" size={56} color="#bbb" />
+              <Text style={styles.emptyListText}>
+                {isViewingSeller 
+                  ? "This seller doesn't have any active listings" 
+                  : "You don't have any active listings"}
+              </Text>
+              {!isViewingSeller && (
+                <TouchableOpacity 
+                  style={styles.emptyListButton}
+                  onPress={handleAddListing}
+                >
+                  <Text style={styles.emptyListButtonText}>Post Something</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          ) : (
+            <>
+              <MaterialCommunityIcons name="archive-outline" size={56} color="#bbb" />
+              <Text style={styles.emptyListText}>
+                {isViewingSeller 
+                  ? "This seller doesn't have any archived items" 
+                  : "You don't have any archived items"}
+              </Text>
+            </>
+          )}
         </View>
-      )}
-      <View style={styles.bottomSpacing} />
-    </>
-  ), [isLoading]);
+      );
+    }
+    
+    return null;
+  }, [activeTab, filteredPosts.length, isLoadingProducts, productsError, handleRefresh, isViewingSeller, handleAddListing]);
+  
+  // Memoized Footer component
+  const ListFooterComponent = useMemo(() => {
+    if (filteredPosts.length > 0) {
+      return <View style={styles.listFooter} />;
+    }
+    return null;
+  }, [filteredPosts.length]);
 
   // Add component unmount cleanup at the end of the ProfileScreen component
   useEffect(() => {
@@ -992,23 +1024,6 @@ const ProfileScreen: React.FC = () => {
       }
     };
   }, [user?.email]);
-
-  // Add navigation handler for the floating button
-  const handleAddListing = useCallback(() => {
-    // Get user university and city from backend data or user object
-    const university = backendUserData?.university || user?.university || '';
-    const city = backendUserData?.city || user?.city || '';
-    
-    console.log('[ProfileScreen] Navigating to PostingScreen with params:', { 
-      userUniversity: university, 
-      userCity: city 
-    });
-    
-    navigation.navigate('PostingScreen', {
-      userUniversity: university,
-      userCity: city
-    });
-  }, [navigation, backendUserData, user]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -1038,23 +1053,43 @@ const ProfileScreen: React.FC = () => {
           >
             <MaterialIcons name="arrow-back" size={24} color="#FFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Profile</Text>
-          <TouchableOpacity 
-            style={styles.headerAction}
-            onPress={handleSignOut}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <MaterialIcons name="logout" size={24} color="#FFF" />
-          </TouchableOpacity>
+          <Text style={styles.headerTitle}>
+            {isViewingSeller ? 'Seller Profile' : 'My Profile'}
+          </Text>
+          {!isViewingSeller && (
+            <TouchableOpacity 
+              style={styles.headerAction}
+              onPress={handleSignOut}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <MaterialIcons name="logout" size={24} color="#FFF" />
+            </TouchableOpacity>
+          )}
+          {isViewingSeller && (
+            <View style={styles.headerAction} />
+          )}
         </View>
       </Animated.View>
       
-      {/* Display Loading Indicator */}
-      {isLoading && !isRefreshing && <LoadingIndicator />}
+      {/* Handle loading and error states for profile data */}
+      {isLoading && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#f7b305" />
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </View>
+      )}
       
-      {/* Display Error Message */}
-      {error && !isLoading && (
-        <ErrorDisplay message={error} onRetry={fetchUserData} />
+      {error && (
+        <View style={styles.errorContainer}>
+          <MaterialIcons name="error-outline" size={64} color="#e74c3c" />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={handleRefresh}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       )}
       
       {/* Using FlatList instead of ScrollView for better performance with large lists */}
@@ -1068,7 +1103,46 @@ const ProfileScreen: React.FC = () => {
           onScroll={handleScroll}
           scrollEventThrottle={16}
           contentContainerStyle={styles.scrollContent}
-          ListHeaderComponent={ListHeaderComponent}
+          ListHeaderComponent={() => (
+            <>
+              {/* Profile Banner with background color #f7b305 */}
+              <View style={styles.bannerContainer}>
+                <View style={styles.bannerContent}>
+                  <TouchableOpacity 
+                    style={styles.backButton}
+                    onPress={handleGoBack}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <MaterialIcons name="arrow-back" size={24} color="white" />
+                  </TouchableOpacity>
+                  
+                  {!isViewingSeller && (
+                    <TouchableOpacity 
+                      style={styles.signOutButton}
+                      onPress={handleSignOut}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <MaterialIcons name="logout" size={24} color="white" />
+                    </TouchableOpacity>
+                  )}
+                  {isViewingSeller && (
+                    <View style={styles.signOutButton} />
+                  )}
+                </View>
+              </View>
+              
+              <ProfileHeader 
+                userData={userData}
+                backendUserData={backendUserData}
+                filteredPosts={filteredPosts}
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
+                onEditProfile={handleEditProfile}
+                isLoadingProducts={isLoadingProducts}
+                isViewingSeller={isViewingSeller}
+              />
+            </>
+          )}
           ListEmptyComponent={ListEmptyComponent}
           ListFooterComponent={ListFooterComponent}
           columnWrapperStyle={styles.columnWrapper}
@@ -1089,15 +1163,17 @@ const ProfileScreen: React.FC = () => {
         />
       )}
       
-      {/* Floating Add Button */}
-      <TouchableOpacity 
-        style={styles.floatingButton}
-        activeOpacity={0.9}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        onPress={handleAddListing}
-      >
-        <Ionicons name="add" size={30} color="#FFF" />
-      </TouchableOpacity>
+      {/* Floating Add Button - only show when viewing own profile */}
+      {!isViewingSeller && (
+        <TouchableOpacity 
+          style={styles.floatingButton}
+          activeOpacity={0.9}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          onPress={handleAddListing}
+        >
+          <Ionicons name="add" size={30} color="#FFF" />
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 };
@@ -1145,7 +1221,7 @@ const styles = StyleSheet.create({
   bannerContainer: {
     height: PROFILE_BANNER_HEIGHT,
     width: '100%',
-    backgroundColor: '#f7b305', // Pure black background
+    backgroundColor: '#f7b305', // Yellow background
   },
   bannerContent: {
     flex: 1,
@@ -1563,6 +1639,42 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  emptyListContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyListText: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#555',
+    marginTop: 20,
+  },
+  emptyListErrorText: {
+    fontSize: 18,
+    color: '#e74c3c',
+    marginTop: 10,
+  },
+  emptyListButton: {
+    backgroundColor: '#f7b305',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  emptyListButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  listFooter: {
+    height: 30,
+  },
+  errorText: {
+    marginTop: 10,
+    fontSize: 18,
+    color: '#e74c3c',
   },
 });
 

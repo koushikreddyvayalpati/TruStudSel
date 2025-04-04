@@ -20,7 +20,9 @@ export type AuthStackParamList = {
 // Main App Stack Param List
 export type MainStackParamList = {
   Home: undefined;
-  Profile: undefined;
+  Profile: {
+    sellerEmail?: string;
+  };
   EditProfile: {
     name?: string;
     university?: string;

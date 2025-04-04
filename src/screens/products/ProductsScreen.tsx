@@ -427,15 +427,26 @@ const ProductsScreen = () => {
   // Memoize seller profile navigation
   const handleViewSellerProfile = useCallback(() => {
     try {
-      // @ts-ignore - TypeScript doesn't know about this route
-      navigation.navigate('SellerProfileScreen', { 
-        sellerId: product.seller?.id || 'unknown' 
+      // Get seller email from product
+      const sellerEmail = product.email || product.seller?.email;
+      
+      if (!sellerEmail) {
+        console.warn('[ProductsScreen] No seller email available for navigation');
+        Alert.alert('Error', 'Could not view seller profile - email not available.');
+        return;
+      }
+      
+      console.log('[ProductsScreen] Navigating to seller profile with email:', sellerEmail);
+      
+      // Navigate to the ProfileScreen with the seller's email
+      navigation.navigate('Profile', { 
+        sellerEmail: sellerEmail 
       });
     } catch (error) {
-      console.error('Navigation error:', error);
+      console.error('[ProductsScreen] Navigation error:', error);
       Alert.alert('Error', 'Could not view seller profile.');
     }
-  }, [navigation, product.seller]);
+  }, [navigation, product.email, product.seller?.email]);
 
   // Content sections are memoized for better performance
   const renderDescriptionSection = useMemo(() => (
