@@ -9,6 +9,10 @@ import {
   handleResponse,
   API_URL 
 } from './config';
+import axios from 'axios';
+
+// Define API base URL for product endpoints
+const API_BASE_URL = `${API_URL}/api`;
 
 // Utility to process product images (placeholder)
 const processProductImages = (product: any): any => {
@@ -614,6 +618,29 @@ export const getProductById = async (id: string): Promise<Product> => {
   }
 };
 
+/**
+ * Fetches all products listed by a specific user
+ * @param email - User's email address
+ * @returns Promise resolving to an array of products
+ */
+export const fetchUserProducts = async (email: string): Promise<Product[]> => {
+  try {
+    console.log(`[API] Fetching products for user: ${email}`);
+    const response = await axios.get(`${API_BASE_URL}/products/user/${email}`);
+    
+    if (response.status === 200) {
+      console.log(`[API] Successfully fetched ${response.data.length} products for user`);
+      return response.data.map((product: any) => processProductImages(product));
+    } else {
+      console.error(`[API] Error fetching user products: ${response.status}`);
+      return [];
+    }
+  } catch (error) {
+    console.error('[API] Error fetching user products:', error);
+    throw error;
+  }
+};
+
 export default {
   getProducts,
   getProductsByUniversity,
@@ -623,4 +650,5 @@ export default {
   getNewArrivals,
   createProductWithImageFilenames,
   getProductById,
+  fetchUserProducts,
 }; 

@@ -21,6 +21,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useAuth } from '../../contexts/AuthContext';
 import { ProfileScreenNavigationProp } from '../../types/navigation.types';
 import { fetchUserProfileById } from '../../api/users';
+import { fetchUserProducts, Product } from '../../api/products';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Constants
@@ -30,6 +31,16 @@ const HEADER_MAX_HEIGHT = Platform.OS === 'ios' ? 60 : 56;
 const HEADER_MIN_HEIGHT = Platform.OS === 'ios' ? 60 : 56;
 const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
 const ITEM_HEIGHT = 230; // Estimated post item height for better FlatList performance
+
+// Convert API product to Post interface
+const convertProductToPost = (product: Product): Post => ({
+  id: parseInt(product.id) || Math.floor(Math.random() * 1000),
+  image: product.primaryImage || product.imageUrls?.[0] || 'https://via.placeholder.com/150',
+  caption: product.name,
+  price: `$${product.price}`,
+  condition: product.productage || 'Unknown',
+  status: product.status === 'SOLD' ? 'sold' : (product.status === 'ARCHIVED' ? 'archived' : 'active')
+});
 
 // Post item type
 interface Post {
@@ -63,14 +74,6 @@ const ErrorDisplay = React.memo(({ message, onRetry }: { message: string, onRetr
   </View>
 ));
 
-// Sample posts data 
-const INITIAL_POSTS: Post[] = [
-  { id: 1, image: 'https://via.placeholder.com/150', caption: 'Calculus Textbook', price: '$45', condition: 'Good', status: 'active' },
-  { id: 2, image: 'https://via.placeholder.com/150', caption: 'Desk Lamp', price: '$20', condition: 'Like New', status: 'active' },
-  { id: 3, image: 'https://via.placeholder.com/150', caption: 'Bluetooth Speaker', price: '$30', condition: 'Fair', status: 'active' },
-  { id: 6, image: 'https://via.placeholder.com/150', caption: 'Backpack', price: '$25', condition: 'Good', status: 'archived' },
-];
-
 // Add this interface for backend user data
 interface BackendUserData {
   email: string;
@@ -95,6 +98,7 @@ const ProfileHeader = React.memo(({
   activeTab,
   onTabChange,
   onEditProfile,
+  isLoadingProducts,
 }: {
   userData: ReturnType<typeof useUserData>,
   backendUserData: BackendUserData | null,
@@ -102,6 +106,7 @@ const ProfileHeader = React.memo(({
   activeTab: TabType,
   onTabChange: (tab: TabType) => void,
   onEditProfile: () => void,
+  isLoadingProducts: boolean,
 }) => {
   // Get the first letter of the user's name for the profile circle
   const getInitial = useCallback(() => {
@@ -129,7 +134,7 @@ const ProfileHeader = React.memo(({
       </View>
       <View style={styles.statDivider} />
       <View style={styles.statItem}>
-        <Text style={styles.statNumber}>{filteredPosts.length}</Text>
+        <Text style={styles.statNumber}>{isLoadingProducts ? '...' : filteredPosts.length}</Text>
         <Text style={styles.statLabel}>Active Listings</Text>
       </View>
       <View style={styles.statDivider} />
@@ -138,7 +143,7 @@ const ProfileHeader = React.memo(({
         <Text style={styles.statLabel}>Rating</Text>
       </View>
     </View>
-  ), [userData.stats.sold, filteredPosts.length]);
+  ), [userData.stats.sold, filteredPosts.length, isLoadingProducts]);
 
   return (
     <View style={styles.profileContainer}>
@@ -225,31 +230,60 @@ const ProfileHeader = React.memo(({
 });
 
 // Post item component extracted for better performance
-const PostItem = React.memo(({ item }: { item: Post }) => (
-  <TouchableOpacity 
-    style={styles.postContainer}
-    onPress={() => console.log('Post pressed:', item)}
-    activeOpacity={0.8}
-  >
-    <View style={styles.postImageContainer}>
-      <Image 
-        source={{ uri: item.image }} 
-        style={styles.postImage}
-        resizeMode="cover"
-      />
-      <Text style={styles.postPrice}>{item.price}</Text>
-      {item.status === 'sold' && (
-        <View style={styles.soldOverlay}>
-          <Text style={styles.soldText}>SOLD</Text>
-        </View>
-      )}
-    </View>
-    <View style={styles.postInfo}>
-      <Text style={styles.postCaption} numberOfLines={1}>{item.caption}</Text>
-      <Text style={styles.postCondition}>{item.condition}</Text>
-    </View>
-  </TouchableOpacity>
-));
+const PostItem = React.memo(({ item, originalData }: { item: Post, originalData?: Product }) => {
+  const navigation = useNavigation<ProfileScreenNavigationProp>();
+  
+  const handleProductPress = useCallback(() => {
+    console.log('[ProfileScreen] Product pressed:', item.id);
+    
+    // If we have the original product data, use it for navigation
+    if (originalData) {
+      navigation.navigate('ProductInfoPage', { 
+        product: originalData,
+        productId: originalData.id
+      });
+    } else {
+      // If original data isn't available, navigate with the minimal data we have
+      navigation.navigate('ProductInfoPage', { 
+        product: {
+          id: item.id.toString(),
+          name: item.caption,
+          price: item.price?.replace('$', '') || '0',
+          image: item.image,
+          condition: item.condition,
+          primaryImage: item.image
+        },
+        productId: item.id.toString()
+      });
+    }
+  }, [item, originalData, navigation]);
+  
+  return (
+    <TouchableOpacity 
+      style={styles.postContainer}
+      onPress={handleProductPress}
+      activeOpacity={0.8}
+    >
+      <View style={styles.postImageContainer}>
+        <Image 
+          source={{ uri: item.image }} 
+          style={styles.postImage}
+          resizeMode="cover"
+        />
+        {item.status === 'sold' && (
+          <View style={styles.soldOverlay}>
+            <Text style={styles.soldText}>SOLD</Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.postInfo}>
+        <Text style={styles.postCaption} numberOfLines={1}>{item.caption}</Text>
+        <Text style={styles.postCondition}>{item.condition}</Text>
+        <Text style={styles.postPrice}>{item.price}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+});
 
 // Custom hook for user data to make the component more maintainable
 const useUserData = (user: any, backendUser: BackendUserData | null) => {
@@ -307,11 +341,16 @@ function cleanupCache() {
 
 // Add these variables outside the component for API request throttling
 const USER_PROFILE_CACHE_KEY = 'user_profile_cache_';
+const USER_PRODUCTS_CACHE_KEY = 'user_products_cache_';
 const CACHE_EXPIRY_TIME = 15 * 60 * 1000; // 15 minutes in milliseconds
+const PRODUCTS_CACHE_EXPIRY_TIME = 20 * 60 * 1000; // 20 minutes in milliseconds
 const API_REQUEST_TIMESTAMPS = new Map(); // Track timestamps of API requests by email
+const PRODUCTS_API_REQUEST_TIMESTAMPS = new Map(); // Track timestamps of product API requests by email
 const MIN_API_REQUEST_INTERVAL = 30000; // Minimum time between API requests for the same user (30 seconds)
 
-// Add after the MAP_CACHE_SIZE constant
+// Add this cache manager for products outside of the component
+const productsCache = new Map();
+
 // Background cache refresh mechanism to keep data fresh without blocking UI
 async function refreshCacheInBackground(email: string) {
   try {
@@ -349,6 +388,65 @@ async function refreshCacheInBackground(email: string) {
   }
 }
 
+// Add this function for products cache cleanup
+function cleanupProductsCache() {
+  if (productsCache.size > MAX_CACHE_SIZE) {
+    // Convert to array to sort by timestamp
+    const cacheEntries = Array.from(productsCache.entries());
+    
+    // Sort by timestamp (oldest first)
+    cacheEntries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+    
+    // Remove the oldest 20% entries
+    const entriesToRemove = Math.floor(productsCache.size * 0.2);
+    const oldestEntries = cacheEntries.slice(0, entriesToRemove);
+    
+    // Delete from Map
+    oldestEntries.forEach(([key]) => {
+      productsCache.delete(key);
+    });
+    
+    console.log(`Products cache cleanup: removed ${entriesToRemove} oldest entries`);
+  }
+}
+
+// Background refresh function for products
+async function refreshProductsCacheInBackground(email: string) {
+  try {
+    // Check if we're rate-limiting this user
+    const lastRequestTime = PRODUCTS_API_REQUEST_TIMESTAMPS.get(email);
+    const now = Date.now();
+    
+    if (lastRequestTime && (now - lastRequestTime < MIN_API_REQUEST_INTERVAL)) {
+      console.log(`Skipping background products refresh for ${email}: rate limited`);
+      return;
+    }
+    
+    console.log(`Background refreshing products for ${email}`);
+    PRODUCTS_API_REQUEST_TIMESTAMPS.set(email, now);
+    
+    // Fetch fresh data from API
+    const productData = await fetchUserProducts(email);
+    
+    // Update caches
+    const cacheData = {
+      data: productData,
+      timestamp: now
+    };
+    
+    productsCache.set(email, cacheData);
+    cleanupProductsCache();
+    
+    const cacheKey = `${USER_PRODUCTS_CACHE_KEY}${email}`;
+    await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
+    
+    console.log(`Background products refresh completed for ${email}`);
+  } catch (error) {
+    console.warn(`Background products refresh failed for ${email}:`, error);
+    // Don't propagate the error since this is a background operation
+  }
+}
+
 const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<ProfileScreenNavigationProp>();
   const { signOut, user } = useAuth();
@@ -358,6 +456,207 @@ const ProfileScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  
+  // State for user product data
+  const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(true);
+  const [productsError, setProductsError] = useState<string | null>(null);
+  const [products, setProducts] = useState<Post[]>([]);
+  
+  // Store a mapping between Post items and their original Product data
+  const [productsMap, setProductsMap] = useState<Map<number, Product>>(new Map());
+  
+  // Fetch user products from API with caching
+  const fetchUserProductData = useCallback(async () => {
+    if (!user?.email) {
+      setIsLoadingProducts(false);
+      return;
+    }
+    
+    setProductsError(null);
+    setIsLoadingProducts(true);
+    
+    try {
+      const cacheKey = `${USER_PRODUCTS_CACHE_KEY}${user.email}`;
+      
+      // First, check the in-memory cache for the fastest access
+      if (!isRefreshing && productsCache.has(user.email)) {
+        const { data, timestamp } = productsCache.get(user.email);
+        const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
+        const isStale = Date.now() - timestamp > (PRODUCTS_CACHE_EXPIRY_TIME / 3);
+        
+        if (!isExpired) {
+          console.log('[ProfileScreen] Using in-memory cached user products data');
+          
+          // Create a new map to store the relationship between Posts and Products
+          const newProductsMap = new Map<number, Product>();
+          
+          // Convert API products to Post format
+          const formattedPosts = data.map((product: Product) => {
+            const post = convertProductToPost(product);
+            // Store the original product data for future reference
+            newProductsMap.set(post.id, product);
+            return post;
+          });
+          
+          setProducts(formattedPosts);
+          setProductsMap(newProductsMap);
+          setIsLoadingProducts(false);
+          
+          // If data is stale but not expired, trigger a background refresh
+          if (isStale) {
+            console.log('[ProfileScreen] Products data is stale, triggering background refresh');
+            setTimeout(() => refreshProductsCacheInBackground(user.email), 100);
+          }
+          
+          return;
+        }
+      }
+      
+      // Then try AsyncStorage if not refreshing
+      if (!isRefreshing) {
+        try {
+          const cachedData = await AsyncStorage.getItem(cacheKey);
+          
+          if (cachedData) {
+            const { data, timestamp } = JSON.parse(cachedData);
+            const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
+            const isStale = Date.now() - timestamp > (PRODUCTS_CACHE_EXPIRY_TIME / 3);
+            
+            if (!isExpired) {
+              console.log('[ProfileScreen] Using AsyncStorage cached user products data');
+              
+              // Update in-memory cache too
+              productsCache.set(user.email, { data, timestamp });
+              
+              // Create a new map to store the relationship between Posts and Products
+              const newProductsMap = new Map<number, Product>();
+              
+              // Convert API products to Post format
+              const formattedPosts = data.map((product: Product) => {
+                const post = convertProductToPost(product);
+                // Store the original product data for future reference
+                newProductsMap.set(post.id, product);
+                return post;
+              });
+              
+              setProducts(formattedPosts);
+              setProductsMap(newProductsMap);
+              setIsLoadingProducts(false);
+              
+              // If data is stale but not expired, trigger a background refresh
+              if (isStale) {
+                console.log('[ProfileScreen] Products data is stale, triggering background refresh');
+                setTimeout(() => refreshProductsCacheInBackground(user.email), 100);
+              }
+              
+              return;
+            } else {
+              console.log('[ProfileScreen] Products cache expired, fetching fresh data');
+            }
+          }
+        } catch (cacheError) {
+          console.warn('[ProfileScreen] Error reading products from cache:', cacheError);
+          // Continue with API fetch on cache error
+        }
+      }
+      
+      // Check if we should rate limit this API request
+      const lastRequestTime = PRODUCTS_API_REQUEST_TIMESTAMPS.get(user.email);
+      const now = Date.now();
+      
+      if (lastRequestTime && (now - lastRequestTime < MIN_API_REQUEST_INTERVAL) && !isRefreshing) {
+        console.log(`[ProfileScreen] Rate limiting products API request for ${user.email}`);
+        // Use cache even if expired, but mark for refresh
+        if (productsCache.has(user.email)) {
+          const { data } = productsCache.get(user.email);
+          
+          // Create a new map to store the relationship between Posts and Products
+          const newProductsMap = new Map<number, Product>();
+          
+          // Convert API products to Post format
+          const formattedPosts = data.map((product: Product) => {
+            const post = convertProductToPost(product);
+            // Store the original product data for future reference
+            newProductsMap.set(post.id, product);
+            return post;
+          });
+          
+          setProducts(formattedPosts);
+          setProductsMap(newProductsMap);
+          setIsLoadingProducts(false);
+          
+          // Schedule a delayed refresh
+          setTimeout(() => refreshProductsCacheInBackground(user.email), MIN_API_REQUEST_INTERVAL);
+          return;
+        }
+      }
+      
+      // If cache miss or cache expired or explicitly refreshing, fetch from API
+      console.log(`[ProfileScreen] Fetching products for user: ${user.email}`);
+      PRODUCTS_API_REQUEST_TIMESTAMPS.set(user.email, now);
+      
+      const productData = await fetchUserProducts(user.email);
+      
+      // Create a new map to store the relationship between Posts and Products
+      const newProductsMap = new Map<number, Product>();
+      
+      // Convert API products to Post format
+      const formattedPosts = productData.map(product => {
+        const post = convertProductToPost(product);
+        // Store the original product data for future reference
+        newProductsMap.set(post.id, product);
+        return post;
+      });
+      
+      console.log(`[ProfileScreen] Loaded ${formattedPosts.length} products for user`);
+      
+      setProducts(formattedPosts);
+      setProductsMap(newProductsMap);
+      setIsLoadingProducts(false);
+      
+      // Save to both caches
+      const cacheData = {
+        data: productData,
+        timestamp: now
+      };
+      
+      // Update in-memory cache
+      productsCache.set(user.email, cacheData);
+      
+      // Run cache cleanup to prevent memory issues
+      cleanupProductsCache();
+      
+      // Update AsyncStorage cache
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
+      
+    } catch (error) {
+      console.error('[ProfileScreen] Error fetching user products:', error);
+      
+      // If we have cached data, use it despite the error
+      if (productsCache.has(user.email)) {
+        console.log('[ProfileScreen] Using cached products data after API error');
+        const { data } = productsCache.get(user.email);
+        
+        // Create a new map to store the relationship between Posts and Products
+        const newProductsMap = new Map<number, Product>();
+        
+        // Convert API products to Post format
+        const formattedPosts = data.map((product: Product) => {
+          const post = convertProductToPost(product);
+          // Store the original product data for future reference
+          newProductsMap.set(post.id, product);
+          return post;
+        });
+        
+        setProducts(formattedPosts);
+        setProductsMap(newProductsMap);
+      } else {
+        setProductsError('Failed to load your products');
+      }
+      
+      setIsLoadingProducts(false);
+    }
+  }, [user?.email, isRefreshing]);
   
   // Fetch user data from backend API with caching
   const fetchUserData = useCallback(async () => {
@@ -483,15 +782,17 @@ const ProfileScreen: React.FC = () => {
     }
   }, [user?.email, isRefreshing]);
   
-  // Replace the useEffect with useFocusEffect for better navigation handling
-  // Add after the fetchUserData function
+  // Load both user profile and products data
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
       
       const loadData = async () => {
         if (isActive) {
-          await fetchUserData();
+          await Promise.all([
+            fetchUserData(),
+            fetchUserProductData()
+          ]);
         }
       };
       
@@ -500,7 +801,7 @@ const ProfileScreen: React.FC = () => {
       return () => {
         isActive = false;
       };
-    }, [fetchUserData])
+    }, [fetchUserData, fetchUserProductData])
   );
   
   // Use custom hook for user data, now with backend data
@@ -517,30 +818,32 @@ const ProfileScreen: React.FC = () => {
   }, [scrollY]);
 
   // Component state
-  const [posts, _setPosts] = useState<Post[]>(INITIAL_POSTS);
   const [activeTab, setActiveTab] = useState<TabType>('inMarket');
 
   // Memoized filtered posts based on active tab
   const filteredPosts = useMemo(() => {
     switch (activeTab) {
       case 'inMarket':
-        return posts.filter(post => post.status === 'active');
+        return products.filter(post => post.status === 'active');
       case 'archive':
-        return posts.filter(post => post.status === 'archived');
+        return products.filter(post => post.status === 'archived');
       default:
-        return posts;
+        return products;
     }
-  }, [posts, activeTab]);
+  }, [products, activeTab]);
 
   // Pull-to-refresh handler
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
     
-    // Refresh backend user data
-    fetchUserData().finally(() => {
+    // Refresh backend user data and products
+    Promise.all([
+      fetchUserData(), 
+      fetchUserProductData()
+    ]).finally(() => {
       setIsRefreshing(false);
     });
-  }, [fetchUserData]);
+  }, [fetchUserData, fetchUserProductData]);
 
   // Sign out handler with proper error handling
   const handleSignOut = useCallback(async () => {
@@ -586,10 +889,10 @@ const ProfileScreen: React.FC = () => {
     const isEven = index % 2 === 0;
     return (
       <View style={[styles.postGridItem, isEven ? { paddingRight: 4 } : { paddingLeft: 4 }]}>
-        <PostItem item={item} />
+        <PostItem item={item} originalData={productsMap.get(item.id)} />
       </View>
     );
-  }, []);
+  }, [productsMap]);
 
   // Keyextractor for FlatList optimization
   const keyExtractor = useCallback((item: Post) => item.id.toString(), []);
@@ -633,14 +936,38 @@ const ProfileScreen: React.FC = () => {
         activeTab={activeTab} 
         onTabChange={handleTabChange}
         onEditProfile={handleEditProfile}
+        isLoadingProducts={isLoadingProducts}
       />
     </>
-  ), [userData, backendUserData, filteredPosts, activeTab, handleTabChange, handleEditProfile, handleGoBack, handleSignOut]);
+  ), [userData, backendUserData, filteredPosts, activeTab, handleTabChange, handleEditProfile, handleGoBack, handleSignOut, isLoadingProducts]);
 
-  // EmptyList component for better organization
-  const ListEmptyComponent = useCallback(() => (
-    <EmptyState activeTab={activeTab} />
-  ), [activeTab]);
+  // ListEmptyComponent for better organization
+  const ListEmptyComponent = useCallback(() => {
+    // Show loading indicator if products are still loading
+    if (isLoadingProducts) {
+      return (
+        <View style={styles.emptyState}>
+          <ActivityIndicator size="large" color="#f7b305" />
+          <Text style={styles.emptyStateText}>Loading your listings...</Text>
+        </View>
+      );
+    }
+    
+    // Show error message if there was an error loading products
+    if (productsError) {
+      return (
+        <View style={styles.emptyState}>
+          <FontAwesome5 name="exclamation-circle" size={50} color="#e74c3c" />
+          <Text style={styles.emptyStateText}>{productsError}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchUserProductData}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return <EmptyState activeTab={activeTab} />;
+  }, [activeTab, isLoadingProducts, productsError, fetchUserProductData]);
 
   // Footer component for better organization
   const ListFooterComponent = useCallback(() => (
@@ -661,9 +988,27 @@ const ProfileScreen: React.FC = () => {
       // Remove this user's data from the request timestamp tracking when component unmounts
       if (user?.email) {
         API_REQUEST_TIMESTAMPS.delete(user?.email);
+        PRODUCTS_API_REQUEST_TIMESTAMPS.delete(user?.email);
       }
     };
   }, [user?.email]);
+
+  // Add navigation handler for the floating button
+  const handleAddListing = useCallback(() => {
+    // Get user university and city from backend data or user object
+    const university = backendUserData?.university || user?.university || '';
+    const city = backendUserData?.city || user?.city || '';
+    
+    console.log('[ProfileScreen] Navigating to PostingScreen with params:', { 
+      userUniversity: university, 
+      userCity: city 
+    });
+    
+    navigation.navigate('PostingScreen', {
+      userUniversity: university,
+      userCity: city
+    });
+  }, [navigation, backendUserData, user]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -749,6 +1094,7 @@ const ProfileScreen: React.FC = () => {
         style={styles.floatingButton}
         activeOpacity={0.9}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        onPress={handleAddListing}
       >
         <Ionicons name="add" size={30} color="#FFF" />
       </TouchableOpacity>
@@ -1045,8 +1391,9 @@ const styles = StyleSheet.create({
   },
   postGridItem: {
     width: '50%',
-    marginBottom: 20,
+    marginBottom: 10,
     padding: 4,
+    marginTop: 10,
   },
   postContainer: {
     backgroundColor: '#fff',
@@ -1075,9 +1422,9 @@ const styles = StyleSheet.create({
   },
   postPrice: {
     position: 'absolute',
-    bottom: 8,
+    bottom: 10,
     right: 8,
-    backgroundColor: '#f7b305',
+    backgroundColor: '#e67e22',
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 12,
@@ -1163,7 +1510,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#000000',
+    backgroundColor: 'black',
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
