@@ -234,6 +234,55 @@ type FilterOption = {
   label: string;
 };
 
+// Add a component for a more professional dropdown
+const EnhancedDropdown: React.FC<{
+  items: { id: string; label: string }[];
+  selectedItems: string[];
+  onSelect: (id: string) => void;
+  multiSelect?: boolean;
+  title: string;
+}> = ({ items, selectedItems, onSelect, multiSelect = false, title }) => {
+  return (
+    <View style={styles.enhancedDropdown}>
+      <View style={styles.enhancedDropdownHeader}>
+        <Text style={styles.enhancedDropdownTitle}>{title}</Text>
+      </View>
+      <ScrollView style={styles.enhancedDropdownContent}>
+        {items.map((item) => (
+          <TouchableOpacity
+            key={item.id}
+            style={[
+              styles.enhancedDropdownItem,
+              selectedItems.includes(item.id) && styles.enhancedDropdownItemSelected
+            ]}
+            onPress={() => onSelect(item.id)}
+            activeOpacity={0.7}
+          >
+            <Text 
+              style={[
+                styles.enhancedDropdownItemText,
+                selectedItems.includes(item.id) && styles.enhancedDropdownItemTextSelected
+              ]}
+            >
+              {item.label}
+            </Text>
+            {selectedItems.includes(item.id) && (
+              <View style={styles.checkIconContainer}>
+                <MaterialIcons name={multiSelect ? "check-box" : "check-circle"} size={20} color="#f7b305" />
+              </View>
+            )}
+            {multiSelect && !selectedItems.includes(item.id) && (
+              <View style={styles.checkIconContainer}>
+                <MaterialIcons name="check-box-outline-blank" size={20} color="#ccc" />
+              </View>
+            )}
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+};
+
 const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) => {
   const navigation = useNavigation<NavigationProp>();
   const nav = propNavigation || navigation;
@@ -283,10 +332,8 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   const [error, setError] = useState<string | null>(null);
   
   // Sort states
-  const [sortDropdownVisible, setSortDropdownVisible] = useState(false);
   const [selectedSort, setSelectedSort] = useState<string>('default');
   // Add filter states
-  const [filterDropdownVisible, setFilterDropdownVisible] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   
   // Category data with icon identifiers for type safety
@@ -601,7 +648,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   const fetchUserProfile = useCallback(async () => {
     if (!user?.email) {
       console.log('[HomeScreen] fetchUserProfile: No user email available');
-      return;
+            return;
     }
     
     console.log(`[HomeScreen] fetchUserProfile: Starting fetch for user: ${user.email}, current university: ${user?.university || 'none'}, current city: ${user?.city || 'none'}`);
@@ -694,7 +741,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
         if (userUniversity) {
           loadQueue.push(() => loadNewArrivals().catch(err => console.warn('Error refreshing new arrivals:', err)));
         }
-            
+        
         // Add university products with error handling
         if (userUniversity) {
           loadQueue.push(() => loadUniversityProducts().catch(err => console.warn('Error refreshing university products:', err)));
@@ -722,7 +769,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
       });
   }, [
     loadFeaturedProducts, 
-    loadNewArrivals,
+    loadNewArrivals, 
     fetchUserProfile, 
     loadUniversityProducts, 
     loadCityProducts, 
@@ -845,7 +892,6 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   const handleSortOptionSelect = useCallback((optionId: string) => {
     console.log(`[HomeScreen] Sort option selected: ${optionId}`);
     setSelectedSort(optionId);
-    setSortDropdownVisible(false);
     
     // Apply sorting to all product sections
     const applySorting = (products: Product[]): Product[] => {
@@ -883,7 +929,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   const handleFilterOptionSelect = useCallback((optionId: string) => {
     console.log(`[HomeScreen] Filter option toggled: ${optionId}`);
     
-    // Toggle the filter on/off
+      // Toggle the filter on/off
     setSelectedFilters(prevFilters => {
       const newFilters = prevFilters.includes(optionId)
         ? prevFilters.filter(id => id !== optionId)
@@ -896,7 +942,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     // We need to implement filtering in a separate effect to make sure
     // we have the latest state of selectedFilters
   }, []);
-  
+
   // Use an effect to apply filters whenever selectedFilters changes
   useEffect(() => {
     console.log(`[HomeScreen] Filter effect triggered, filters:`, selectedFilters);
@@ -1024,7 +1070,11 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     _cityProductsOriginal
   ]);
 
-  // Close other dropdown when one is opened
+  // Replace modal states with dropdown visibility states 
+  const [sortDropdownVisible, setSortDropdownVisible] = useState(false);
+  const [filterDropdownVisible, setFilterDropdownVisible] = useState(false);
+
+  // Update button click handlers
   const handleSortButtonClick = useCallback(() => {
     setSortDropdownVisible(!sortDropdownVisible);
     if (filterDropdownVisible) setFilterDropdownVisible(false);
@@ -1131,46 +1181,47 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
           <View style={styles.buttonContainer}>
             <View style={{ position: 'relative' }}>
               <TouchableOpacity 
-                style={[styles.smallButton, styles.sortButton, { backgroundColor: '#f7b305', borderColor: '#ddd' }]}
+                style={[
+                  styles.smallButton, 
+                  styles.sortButton, 
+                  { backgroundColor: '#f7b305', borderColor: '#ddd' },
+                  selectedSort !== 'default' && styles.activeFilterButton
+                ]}
                 onPress={handleSortButtonClick}
+                activeOpacity={0.7}
               >
-                <Text style={[styles.buttonText, { color: 'black' }]}> Sort</Text>
+                <Text style={[styles.buttonText, { color: 'black' }]}>
+                  {selectedSort !== 'default' ? ` Sort: ${sortOptions.find(o => o.id === selectedSort)?.label || 'Custom'}` : ' Sort'}
+                </Text>
                 <Icon name="sort" size={14} color="black" />
               </TouchableOpacity>
               
-              {/* Sort Dropdown */}
+              {/* Enhanced Sort Dropdown */}
               {sortDropdownVisible && (
-                <View style={styles.dropdown}>
-                  {sortOptions.map((option) => (
-                    <TouchableOpacity
-                      key={option.id}
-                      style={[
-                        styles.dropdownItem,
-                        selectedSort === option.id && styles.selectedDropdownItem
-                      ]}
-                      onPress={() => handleSortOptionSelect(option.id)}
-                    >
-                      <Text 
-                        style={[
-                          styles.dropdownItemText,
-                          selectedSort === option.id && styles.selectedDropdownItemText
-                        ]}
-                      >
-                        {option.label}
-                      </Text>
-                      {selectedSort === option.id && (
-                        <MaterialIcons name="check" size={18} color="#f7b305" />
-                      )}
-                    </TouchableOpacity>
-                  ))}
+                <View style={styles.dropdownContainer}>
+                  <EnhancedDropdown
+                    items={sortOptions}
+                    selectedItems={[selectedSort]}
+                    onSelect={(id) => {
+                      handleSortOptionSelect(id);
+                      setSortDropdownVisible(false);
+                    }}
+                    title="Sort by"
+                  />
                 </View>
               )}
             </View>
             
             <View style={{ position: 'relative' }}>
               <TouchableOpacity 
-                style={[styles.smallButton, styles.filterButton, { backgroundColor: '#f7b305', borderColor: '#ddd' }]}
+                style={[
+                  styles.smallButton, 
+                  styles.filterButton, 
+                  { backgroundColor: '#f7b305', borderColor: '#ddd' },
+                  selectedFilters.length > 0 && styles.activeFilterButton
+                ]}
                 onPress={handleFilterButtonClick}
+                activeOpacity={0.7}
               >
                 <Text style={[styles.buttonText, { color: 'black' }]}>
                   {selectedFilters.length > 0 ? ` Filter (${selectedFilters.length})` : ' Filter'}
@@ -1178,31 +1229,16 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                 <Icon name="filter" size={14} color="black" />
               </TouchableOpacity>
               
-              {/* Filter Dropdown */}
+              {/* Enhanced Filter Dropdown */}
               {filterDropdownVisible && (
-                <View style={styles.dropdown}>
-                  {filterOptions.map((option) => (
-                    <TouchableOpacity
-                      key={option.id}
-                      style={[
-                        styles.dropdownItem,
-                        selectedFilters.includes(option.id) && styles.selectedDropdownItem
-                      ]}
-                      onPress={() => handleFilterOptionSelect(option.id)}
-                    >
-                      <Text 
-                        style={[
-                          styles.dropdownItemText,
-                          selectedFilters.includes(option.id) && styles.selectedDropdownItemText
-                        ]}
-                      >
-                        {option.label}
-                      </Text>
-                      {selectedFilters.includes(option.id) && (
-                        <MaterialIcons name="check" size={18} color="#f7b305" />
-                      )}
-                    </TouchableOpacity>
-                  ))}
+                <View style={styles.dropdownContainer}>
+                  <EnhancedDropdown
+                    items={filterOptions}
+                    selectedItems={selectedFilters}
+                    onSelect={handleFilterOptionSelect}
+                    multiSelect={true}
+                    title="Filter by"
+                  />
                 </View>
               )}
             </View>
@@ -1285,7 +1321,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
             onSeeAll={() => handleSeeAll('featured')}
             isLoading={loadingFeatured}
           />
-
+          
           {/* Error display */}
           {error && (
             <View style={styles.errorContainer}>
@@ -1382,20 +1418,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   smallButton: {
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 5,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 20,
     marginLeft: 10,
-    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    elevation: 2,
   },
   sortButton: {
   },
   filterButton: {
   },
   buttonText: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '500',
     marginLeft: 0,
     marginRight: 5,
   },
@@ -1500,44 +1541,64 @@ const styles = StyleSheet.create({
     color: '#777',
     fontSize: 14,
   },
-  dropdown: {
+  dropdownContainer: {
     position: 'absolute',
-    top: 40,
+    top: 45,
     right: 0,
-    width: Math.min(200, width * 0.5),
-    backgroundColor: 'white',
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
     zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.27,
+    shadowRadius: 4.65,
+    elevation: 6,
   },
-  dropdownItem: {
+  enhancedDropdown: {
+    width: Math.min(260, width * 0.6),
+    backgroundColor: 'white',
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  enhancedDropdownHeader: {
+    padding: 12,
+    backgroundColor: '#f8f8f8',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eaeaea',
+  },
+  enhancedDropdownTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  enhancedDropdownContent: {
+    maxHeight: 300,
+  },
+  enhancedDropdownItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
+    padding: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
-  selectedDropdownItem: {
-    backgroundColor: '#f9f9f9',
+  enhancedDropdownItemSelected: {
+    backgroundColor: '#fff9e6',
   },
-  dropdownItemText: {
-    fontSize: 14,
+  enhancedDropdownItemText: {
+    fontSize: 15,
     color: '#333',
+    flex: 1,
   },
-  selectedDropdownItemText: {
-    fontWeight: 'bold',
+  enhancedDropdownItemTextSelected: {
+    fontWeight: '500',
     color: '#f7b305',
   },
-  productCondition: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-    textTransform: 'capitalize',
+  checkIconContainer: {
+    width: 24,
+    alignItems: 'center',
+  },
+  activeFilterButton: {
+    backgroundColor: '#e69b00',
+    borderColor: '#e69b00',
   },
   errorContainer: {
     padding: 20,
@@ -1559,6 +1620,12 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: 'white',
     fontWeight: 'bold',
+  },
+  productCondition: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+    textTransform: 'capitalize',
   },
 });
 
