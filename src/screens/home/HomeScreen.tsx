@@ -241,11 +241,17 @@ const EnhancedDropdown: React.FC<{
   onSelect: (id: string) => void;
   multiSelect?: boolean;
   title: string;
-}> = ({ items, selectedItems, onSelect, multiSelect = false, title }) => {
+  onClose?: () => void;
+}> = ({ items, selectedItems, onSelect, multiSelect = false, title, onClose }) => {
   return (
     <View style={styles.enhancedDropdown}>
       <View style={styles.enhancedDropdownHeader}>
         <Text style={styles.enhancedDropdownTitle}>{title}</Text>
+        {onClose && (
+          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <MaterialIcons name="close" size={20} color="#666" />
+          </TouchableOpacity>
+        )}
       </View>
       <ScrollView style={styles.enhancedDropdownContent}>
         {items.map((item) => (
@@ -1207,6 +1213,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                       setSortDropdownVisible(false);
                     }}
                     title="Sort by"
+                    onClose={() => setSortDropdownVisible(false)}
                   />
                 </View>
               )}
@@ -1238,6 +1245,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                     onSelect={handleFilterOptionSelect}
                     multiSelect={true}
                     title="Filter by"
+                    onClose={() => setFilterDropdownVisible(false)}
                   />
                 </View>
               )}
@@ -1563,6 +1571,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f8f8',
     borderBottomWidth: 1,
     borderBottomColor: '#eaeaea',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   enhancedDropdownTitle: {
     fontSize: 16,
@@ -1626,6 +1637,11 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 2,
     textTransform: 'capitalize',
+  },
+  closeButton: {
+    padding: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.05)',
   },
 });
 

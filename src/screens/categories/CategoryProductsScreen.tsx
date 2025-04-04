@@ -11,7 +11,8 @@ import {
   StatusBar,
   RefreshControl,
   Dimensions,
-  TextInput
+  TextInput,
+  ScrollView
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -160,79 +161,58 @@ const ProductItem = React.memo<{
   );
 });
 
-// Create a separate dropdown component to improve modularity
-const SortDropdown = React.memo<{
-  visible: boolean;
-  options: SortOption[];
-  selectedOption: string;
+// EnhancedDropdown component for improved UI
+const EnhancedDropdown: React.FC<{
+  items: { id: string; label: string }[];
+  selectedItems: string[];
   onSelect: (id: string) => void;
-}>(({ visible, options, selectedOption, onSelect }) => {
-  if (!visible) return null;
-  
+  multiSelect?: boolean;
+  title: string;
+  onClose: () => void;
+}> = ({ items, selectedItems, onSelect, multiSelect = false, title, onClose }) => {
   return (
-    <View style={styles.dropdown}>
-      {options.map((option) => (
-        <TouchableOpacity
-          key={option.id}
-          style={[
-            styles.dropdownItem,
-            selectedOption === option.id && styles.selectedDropdownItem
-          ]}
-          onPress={() => onSelect(option.id)}
-        >
-          <Text 
-            style={[
-              styles.dropdownItemText,
-              selectedOption === option.id && styles.selectedDropdownItemText
-            ]}
-          >
-            {option.label}
-          </Text>
-          {selectedOption === option.id && (
-            <MaterialIcons name="check" size={18} color="#f7b305" />
-          )}
+    <View style={styles.enhancedDropdown}>
+      <View style={styles.enhancedDropdownHeader}>
+        <Text style={styles.enhancedDropdownTitle}>{title}</Text>
+        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+          <MaterialIcons name="close" size={20} color="#666" />
         </TouchableOpacity>
-      ))}
+      </View>
+      <ScrollView style={styles.enhancedDropdownContent}>
+        {items.map((item) => (
+          <TouchableOpacity
+            key={item.id}
+            style={[
+              styles.enhancedDropdownItem,
+              selectedItems.includes(item.id) && styles.enhancedDropdownItemSelected
+            ]}
+            onPress={() => onSelect(item.id)}
+            activeOpacity={0.7}
+          >
+            <Text 
+              style={[
+                styles.enhancedDropdownItemText,
+                selectedItems.includes(item.id) && styles.enhancedDropdownItemTextSelected
+              ]}
+            >
+              {item.label}
+            </Text>
+            {selectedItems.includes(item.id) && (
+              <View style={styles.checkIconContainer}>
+                <MaterialIcons name={multiSelect ? "check-box" : "check-circle"} size={20} color="#f7b305" />
+              </View>
+            )}
+            {multiSelect && !selectedItems.includes(item.id) && (
+              <View style={styles.checkIconContainer}>
+                <MaterialIcons name="check-box-outline-blank" size={20} color="#ccc" />
+              </View>
+            )}
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
     </View>
   );
-});
-
-// Create a separate dropdown component for filters
-const FilterDropdown = React.memo<{
-  visible: boolean;
-  options: FilterOption[];
-  selectedFilters: string[];
-  onSelect: (id: string) => void;
-}>(({ visible, options, selectedFilters, onSelect }) => {
-  if (!visible) return null;
-  
-  return (
-    <View style={styles.dropdown}>
-      {options.map((option) => (
-        <TouchableOpacity
-          key={option.id}
-          style={[
-            styles.dropdownItem,
-            selectedFilters.includes(option.id) && styles.selectedDropdownItem
-          ]}
-          onPress={() => onSelect(option.id)}
-        >
-          <Text 
-            style={[
-              styles.dropdownItemText,
-              selectedFilters.includes(option.id) && styles.selectedDropdownItemText
-            ]}
-          >
-            {option.label}
-          </Text>
-          {selectedFilters.includes(option.id) && (
-            <MaterialIcons name="check" size={18} color="#f7b305" />
-          )}
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-});
+};
 
 // EmptyState component for better code organization
 const EmptyState = React.memo<{ 
@@ -364,6 +344,7 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
   
   // State variables
   const [products, setProducts] = useState<Product[]>([]);
+  const [productsOriginal, setProductsOriginal] = useState<Product[]>([]); // Original products for filtering/sorting
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -394,8 +375,12 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
 
   // Memoize filter options
   const filterOptions = useMemo<FilterOption[]>(() => [
-    { id: 'new', label: 'Brand New' },
-    { id: 'used', label: 'Used' },
+    { id: 'brand-new', label: 'Brand New' },
+    { id: 'like-new', label: 'Like New' },
+    { id: 'very-good', label: 'Very Good' },
+    { id: 'good', label: 'Good' },
+    { id: 'acceptable', label: 'Acceptable' },
+    { id: 'for-parts', label: 'For Parts' },
     { id: 'rent', label: 'For Rent' },
     { id: 'sell', label: 'For Sale' },
     { id: 'free', label: 'Free Items' },
@@ -412,52 +397,6 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     return hash.toString();
   }, []);
 
-  // Memoize filters to prevent recreation on each render
-  const apiFilters = useMemo<ProductFilters>(() => {
-    const filters: ProductFilters = {
-      sortBy: selectedSortOption === 'price_low_high' ? 'price_low_high' : 
-              selectedSortOption === 'price_high_low' ? 'price_high_low' : 
-              selectedSortOption === 'newest' ? 'newest' : 
-              selectedSortOption === 'popularity' ? 'popularity' : undefined,
-    };
-    
-    // Add condition filters
-    if (selectedFilters.includes('new')) {
-      filters.condition = 'brand-new';
-    } else if (selectedFilters.includes('used')) {
-      filters.condition = 'used';
-    }
-    
-    // Add selling type filters
-    if (selectedFilters.includes('rent')) {
-      filters.sellingType = 'rent';
-    } else if (selectedFilters.includes('sell')) {
-      filters.sellingType = 'sell';
-    }
-    
-    // Add search query if present
-    if (searchQuery.trim()) {
-      filters.query = searchQuery.trim();
-    }
-    
-    // If user has university, filter by it
-    if (userUniversity) {
-      filters.university = userUniversity;
-    }
-    
-    // If user has city, filter by it
-    if (userCity) {
-      filters.city = userCity;
-    }
-    
-    // Add zipcode filter for nearby products if available
-    if (userZipcode) {
-      filters.zipcode = userZipcode;
-    }
-    
-    return filters;
-  }, [selectedSortOption, selectedFilters, userUniversity, userCity, userZipcode, searchQuery]);
-
   // At the top of the CategoryProductsScreen component
   // Add a new initialLoad ref to track the first load
   const isInitialLoadRef = useRef(true);
@@ -470,9 +409,13 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     isInitialLoadRef.current = false;
     
     try {
-      // Create a cache key that includes all filter parameters
+      // Create a cache key that includes all filter parameters (but exclude sort since we do that client-side)
       const filterString = JSON.stringify({
-        ...apiFilters,
+        // Only include query and location filters for API calls
+        query: searchQuery.trim() || undefined,
+        university: userUniversity || undefined,
+        city: userCity || undefined,
+        zipcode: userZipcode || undefined,
         isFeatured,
         isNewArrivals,
         isUniversity,
@@ -489,6 +432,7 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
           // If cache is not expired, use cached data
           if (!isExpired && Array.isArray(data) && data.length > 0) {
             console.log(`[CategoryProducts] Using cached data (${data?.length || 0} products)`);
+            setProductsOriginal(data); // Save original data
             setProducts(data);
             setTotalCount(data.length);
             setLoading(false);
@@ -503,6 +447,11 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
       } else {
         console.log('[CategoryProducts] No cache found, fetching from API');
       }
+      
+      // Create API filters for basic search, but handle condition/selling type filters client-side
+      const apiSearchFilters: ProductFilters = {
+        query: searchQuery.trim() || undefined,
+      };
       
       let result;
       // Determine which API to call based on the type
@@ -520,15 +469,15 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
       } else if (isUniversity && userUniversity) {
         // Call university products API
         console.log(`[CategoryProducts] Fetching university products for: "${userUniversity}"`);
-        result = await getProductsByUniversity(userUniversity, apiFilters);
+        result = await getProductsByUniversity(userUniversity, apiSearchFilters);
       } else if (isCity && userCity) {
         // Call city products API
         console.log(`[CategoryProducts] Fetching city products for: "${userCity}"`);
-        result = await getProductsByCity(userCity, apiFilters);
+        result = await getProductsByCity(userCity, apiSearchFilters);
       } else {
         // Default to category products
         console.log(`[CategoryProducts] Fetching category products for: "${categoryName.toLowerCase()}"`);
-        result = await getProductsByCategory(categoryName.toLowerCase(), apiFilters);
+        result = await getProductsByCategory(categoryName.toLowerCase(), apiSearchFilters);
       }
       
       // Handle different response formats from different APIs
@@ -541,6 +490,8 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
         setTotalCount(result.totalItems || result.products.length);
       }
       
+      // Save original products list for filtering
+      setProductsOriginal(productsList);
       setProducts(productsList);
       
       // Save to cache
@@ -552,17 +503,19 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
       console.error('[CategoryProducts] Error loading products:', err);
       setError(err?.message || 'Failed to load products');
       setProducts([]);
+      setProductsOriginal([]);
       setTotalCount(0);
     } finally {
       console.log('[CategoryProducts] FINISHED loading products, setting loading=false');
       setLoading(false);
     }
   }, [
-    apiFilters, 
     categoryName, 
     simpleHash, 
     userUniversity, 
     userCity,
+    userZipcode,
+    searchQuery,
     isFeatured,
     isNewArrivals,
     isUniversity,
@@ -606,9 +559,15 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     setSelectedFilters([]);
     setSearchQuery('');
     
-    // Force complete refresh after clearing filters
-    forceRefreshProducts();
-  }, [forceRefreshProducts]);
+    // Reset to original products instead of forcing a complete refresh
+    if (productsOriginal.length > 0) {
+      console.log('[CategoryProducts] Resetting to original products');
+      setProducts([...productsOriginal]);
+    } else {
+      // Fall back to refresh if no original products are available
+      forceRefreshProducts();
+    }
+  }, [forceRefreshProducts, productsOriginal]);
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
@@ -646,27 +605,49 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     setSelectedSortOption(optionId);
     setIsSortDropdownVisible(false);
     
-    // Only force reload if the option actually changed
-    if (optionId !== selectedSortOption) {
-      forceRefreshProducts();
-    }
-  }, [forceRefreshProducts, selectedSortOption]);
+    // Apply sorting locally instead of re-fetching
+    const applySorting = (products: Product[]): Product[] => {
+      const productsCopy = [...products];
+      
+      switch (optionId) {
+        case 'price_low_high':
+          return productsCopy.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+        case 'price_high_low':
+          return productsCopy.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+        case 'newest':
+          return productsCopy.sort((a, b) => {
+            const dateA = a.postingdate ? new Date(a.postingdate).getTime() : 0;
+            const dateB = b.postingdate ? new Date(b.postingdate).getTime() : 0;
+            return dateB - dateA;
+          });
+        case 'popularity':
+          // Sort by ID as a proxy for popularity (assuming newer IDs are more popular)
+          return productsCopy.sort((a, b) => parseInt(b.id) - parseInt(a.id));
+        case 'default':
+        default:
+          // Return original order
+          return [...productsOriginal];
+      }
+    };
+    
+    // Apply sorting to the products
+    setProducts(applySorting(productsOriginal));
+  }, [productsOriginal]);
 
+  // Handle filter option selection
   const handleFilterOptionSelect = useCallback((optionId: string) => {
     console.log(`[CategoryProducts] Filter option toggled: ${optionId}`);
     
+    // Toggle the filter on/off
     setSelectedFilters(prevFilters => {
-      // Toggle the filter on/off
       const newFilters = prevFilters.includes(optionId)
         ? prevFilters.filter(id => id !== optionId)
         : [...prevFilters, optionId];
       
-      // Force reload after filter change
-      setTimeout(() => forceRefreshProducts(), 100);
-      
       return newFilters;
     });
-  }, [forceRefreshProducts]);
+    // Filtering will be handled by the useEffect
+  }, []);
 
   const handleSortButtonClick = useCallback(() => {
     setIsSortDropdownVisible(prevState => !prevState);
@@ -737,15 +718,101 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     </View>
   ), [products.length, totalCount]);
 
-  // Add effect to reload products when filters change
+  // Use an effect to apply filters whenever selectedFilters changes
   useEffect(() => {
-    // Skip the first render since we're already loading in the initial effect
-    if (!isInitialLoadRef.current) {
-      console.log(`[CategoryProducts] Filters changed - reloading products`);
-      loadCategoryProducts();
+    // Skip if we're loading or if there are no original products
+    if (loading || productsOriginal.length === 0) return;
+    
+    console.log(`[CategoryProducts] Filter effect triggered, filters:`, selectedFilters);
+    
+    // When no filters are active, restore original products with current sort
+    if (selectedFilters.length === 0) {
+      console.log(`[CategoryProducts] No filters active, restoring original products`);
+      // Re-apply current sort option to original products
+      handleSortOptionSelect(selectedSortOption);
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiFilters]);
+    
+    console.log(`[CategoryProducts] Applying filters:`, selectedFilters);
+    
+    // Apply filtering to products
+    const applyFilters = (originalProducts: Product[]): Product[] => {
+      // If no filters active, return all products
+      if (selectedFilters.length === 0) {
+        return originalProducts;
+      }
+      
+      // Create sets of condition and selling type filters for easier checking
+      const conditionFilters = selectedFilters.filter(filter => 
+        ['brand-new', 'like-new', 'very-good', 'good', 'acceptable', 'for-parts'].includes(filter)
+      );
+      
+      const sellingTypeFilters = selectedFilters.filter(filter => 
+        ['rent', 'sell', 'free'].includes(filter)
+      );
+      
+      return originalProducts.filter(product => {
+        // Check if we need to filter by condition
+        if (conditionFilters.length > 0) {
+          // If this product doesn't match any of our selected condition filters, filter it out
+          const productCondition = product.productage || '';
+          const passesConditionFilter = conditionFilters.includes(productCondition);
+          
+          if (!passesConditionFilter) {
+            return false;
+          }
+        }
+        
+        // Check if we need to filter by selling type
+        if (sellingTypeFilters.length > 0) {
+          const productSellingType = product.sellingtype || '';
+          const isFree = parseFloat(product.price) === 0;
+          
+          // Special case for free items
+          if (sellingTypeFilters.includes('free') && isFree) {
+            return true; // Keep free items when "free" filter is active
+          }
+          
+          // Check for rent/sell filters
+          if (sellingTypeFilters.includes('rent') && productSellingType === 'rent') {
+            return true;
+          }
+          
+          if (sellingTypeFilters.includes('sell') && productSellingType === 'sell') {
+            return true;
+          }
+          
+          // If we have selling type filters but this product doesn't match any, filter it out
+          if (!sellingTypeFilters.includes('free') || !isFree) {
+            return false;
+          }
+        }
+        
+        // If we get here, the product passed all active filters
+        return true;
+      });
+    };
+    
+    // Apply filters with a small delay to allow for state updates
+    const filtersTimeoutId = setTimeout(() => {
+      // Apply filters to original products
+      const filteredProducts = applyFilters(productsOriginal);
+      
+      // Log the filtered results
+      console.log(`[CategoryProducts] Filtered products count: ${filteredProducts.length}`);
+      
+      // Update the displayed products
+      setProducts(filteredProducts);
+      
+      // Then apply current sort option to filtered products
+      if (selectedSortOption !== 'default') {
+        handleSortOptionSelect(selectedSortOption);
+      }
+    }, 100);
+    
+    // Cleanup function to clear the timeout if the component unmounts
+    return () => clearTimeout(filtersTimeoutId);
+  }, [selectedFilters, productsOriginal, selectedSortOption, handleSortOptionSelect, loading]);
 
   // Handle scroll events to show/hide back to top button
   const handleScroll = useCallback((event: any) => {
@@ -803,45 +870,65 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
             )}
             
             <TouchableOpacity
-              style={[styles.filterButton, isSortDropdownVisible && styles.activeFilterButton]}
+              style={[
+                styles.filterButton, 
+                isSortDropdownVisible && styles.activeFilterButton,
+                { backgroundColor: '#f7b305', borderColor: '#ddd' },
+                selectedSortOption !== 'default' && styles.activeFilterButton
+              ]}
               onPress={handleSortButtonClick}
             >
-              <Text style={styles.filterButtonText}>Sort</Text>
+              <Text style={styles.filterButtonText}>
+                {selectedSortOption !== 'default' ? 
+                  `Sort: ${sortOptions.find(o => o.id === selectedSortOption)?.label || 'Custom'}` : 
+                  'Sort'}
+              </Text>
               <Icon name="sort" size={14} color="black" />
-              {selectedSortOption !== 'default' && (
-                <View style={styles.activeFilterDot} />
-              )}
             </TouchableOpacity>
             
             <TouchableOpacity
-              style={[styles.filterButton, isFilterDropdownVisible && styles.activeFilterButton]}
+              style={[
+                styles.filterButton, 
+                isFilterDropdownVisible && styles.activeFilterButton,
+                { backgroundColor: '#f7b305', borderColor: '#ddd' },
+                selectedFilters.length > 0 && styles.activeFilterButton
+              ]}
               onPress={handleFilterButtonClick}
             >
-              <Text style={styles.filterButtonText}>Filter</Text>
+              <Text style={styles.filterButtonText}>
+                {selectedFilters.length > 0 ? `Filter (${selectedFilters.length})` : 'Filter'}
+              </Text>
               <Icon name="filter" size={14} color="black" />
-              {selectedFilters.length > 0 && (
-                <View style={styles.filterCountBadge}>
-                  <Text style={styles.filterCountText}>{selectedFilters.length}</Text>
-                </View>
-              )}
             </TouchableOpacity>
           </View>
         </View>
         
-        {/* Dropdowns for sort and filter */}
-        <SortDropdown 
-          visible={isSortDropdownVisible}
-          options={sortOptions}
-          selectedOption={selectedSortOption}
-          onSelect={handleSortOptionSelect}
-        />
+        {/* Enhanced Dropdowns for sort and filter */}
+        {isSortDropdownVisible && (
+          <View style={styles.dropdownContainer}>
+            <EnhancedDropdown
+              items={sortOptions}
+              selectedItems={[selectedSortOption]}
+              onSelect={handleSortOptionSelect}
+              multiSelect={false}
+              title="Sort By"
+              onClose={() => setIsSortDropdownVisible(false)}
+            />
+          </View>
+        )}
         
-        <FilterDropdown 
-          visible={isFilterDropdownVisible}
-          options={filterOptions}
-          selectedFilters={selectedFilters}
-          onSelect={handleFilterOptionSelect}
-        />
+        {isFilterDropdownVisible && (
+          <View style={styles.dropdownContainer}>
+            <EnhancedDropdown
+              items={filterOptions}
+              selectedItems={selectedFilters}
+              onSelect={handleFilterOptionSelect}
+              multiSelect={true}
+              title="Filter By"
+              onClose={() => setIsFilterDropdownVisible(false)}
+            />
+          </View>
+        )}
 
         {/* Show appropriate content based on state */}
         {loading && products.length === 0 ? (
@@ -943,58 +1030,81 @@ const styles = StyleSheet.create({
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 5,
-    marginRight: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginLeft: 10,
     backgroundColor: '#f7b305',
     borderWidth: 1,
     borderColor: '#ddd',
   },
   filterButtonText: {
-    fontSize: 12,
+    fontSize: 13,
     color: 'black',
     marginRight: 5,
     fontWeight: '500',
   },
   activeFilterButton: {
-    borderColor: '#f7b305',
-    backgroundColor: 'rgba(247, 179, 5, 0.08)',
+    backgroundColor: '#e69b00',
+    borderColor: '#e69b00',
   },
-  dropdown: {
+  dropdownContainer: {
     position: 'absolute',
-    top: 45,
-    left: 15,
-    width: 200,
-    backgroundColor: 'white',
-    borderRadius: 8,
+    top: 145,
+    right: 15,
+    zIndex: 1000,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 4,
-    zIndex: 1000,
-    borderWidth: 1,
-    borderColor: '#eaeaea',
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    elevation: 6,
   },
-  dropdownItem: {
+  enhancedDropdown: {
+    width: Math.min(260, Dimensions.get('window').width * 0.6),
+    backgroundColor: 'white',
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  enhancedDropdownHeader: {
+    padding: 12,
+    backgroundColor: '#f8f8f8',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eaeaea',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
+  },
+  enhancedDropdownTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  enhancedDropdownContent: {
+    maxHeight: 300,
+  },
+  enhancedDropdownItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
-  selectedDropdownItem: {
-    backgroundColor: 'rgba(247, 179, 5, 0.08)',
+  enhancedDropdownItemSelected: {
+    backgroundColor: '#fff9e6',
   },
-  dropdownItemText: {
-    fontSize: 14,
-    color: '#555',
+  enhancedDropdownItemText: {
+    fontSize: 15,
+    color: '#333',
+    flex: 1,
   },
-  selectedDropdownItemText: {
-    fontWeight: '600',
+  enhancedDropdownItemTextSelected: {
+    fontWeight: '500',
     color: '#f7b305',
+  },
+  checkIconContainer: {
+    width: 24,
+    alignItems: 'center',
   },
   productList: {
     padding: COLUMN_GAP,
@@ -1201,32 +1311,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  activeFilterDot: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: '#f7b305',
-    borderRadius: 10,
-    width: 4,
-    height: 4,
-  },
-  filterCountBadge: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: '#f7b305',
-    borderRadius: 10,
-    padding: 2,
-  },
-  filterCountText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: 'white',
-  },
   skeletonLine: {
     backgroundColor: '#e0e0e0',
     borderRadius: 4,
     marginVertical: 2,
+  },
+  closeButton: {
+    padding: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.05)',
   },
 });
 
