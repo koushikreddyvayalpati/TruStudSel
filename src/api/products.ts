@@ -69,15 +69,18 @@ export interface Product {
 
 export interface ProductFilters {
   category?: string;
-  sortBy?: 'price_low_high' | 'price_high_low' | 'newest' | 'popularity';
-  condition?: string;
-  sellingType?: string;
+  sortBy?: 'price_low_high' | 'price_high_low' | 'newest' | 'popularity' | 'default';
+  condition?: string | string[]; // Allow multiple conditions
+  sellingType?: string | string[]; // Allow multiple selling types
   page?: number;
   size?: number;
   university?: string; // For university filtering
   city?: string; // For city filtering
   zipcode?: string; // For zipcode-based filtering or proximity search
   query?: string; // For search filtering
+  minPrice?: string; // For price range filtering
+  maxPrice?: string; // For price range filtering
+  postedWithin?: string; // For filtering by posting date (e.g., "7d" for last week)
 }
 
 export interface ProductListResponse {
@@ -111,9 +114,19 @@ export const getProducts = async (filters: ProductFilters = {}): Promise<Product
   // Build query string from filters
   const queryParams = new URLSearchParams();
   
+  // Process filters properly, handling arrays for condition and sellingType
   Object.entries(filters).forEach(([key, value]) => {
     if (value !== undefined && value !== null) {
-      queryParams.append(key, value.toString());
+      if (Array.isArray(value)) {
+        // For array values, add multiple entries with the same key
+        value.forEach(item => {
+          if (item !== undefined && item !== null && item !== '') {
+            queryParams.append(key, item.toString());
+          }
+        });
+      } else {
+        queryParams.append(key, value.toString());
+      }
     }
   });
   
