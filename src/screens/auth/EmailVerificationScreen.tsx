@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -6,7 +6,11 @@ import {
   Alert,
   SafeAreaView,
   TouchableOpacity,
-  Image
+  Image,
+  Animated,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView
 } from 'react-native';
 import { Auth } from 'aws-amplify';
 import { useNavigation } from '@react-navigation/native';
@@ -14,6 +18,7 @@ import { EmailVerificationScreenProps, SignInScreenNavigationProp } from '../../
 import { useTheme } from '../../hooks';
 import { TextInput } from '../../components/common';
 import Entypo from 'react-native-vector-icons/Entypo';
+import LinearGradient from 'react-native-linear-gradient';
 
 // For consistent logging in development
 const SCREEN_NAME = 'EmailVerification';
@@ -26,26 +31,39 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
-  const [progressPercent, setProgressPercent] = useState(0);
+  
+  // Animated values
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
 
   // Animate progress from 0 to 30% when screen loads
   useEffect(() => {
-    // Start at 0%
-    setProgressPercent(0);
+    // Animate elements
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(progressAnim, {
+        toValue: 30,
+        duration: 1200,
+        useNativeDriver: false,
+      })
+    ]).start();
     
-    // Animate to 30% over time
-    const timer = setTimeout(() => {
-      setProgressPercent(10);
-      setTimeout(() => {
-        setProgressPercent(20);
-        setTimeout(() => {
-          setProgressPercent(30);
-        }, 300);
-      }, 300);
-    }, 300);
-    
-    return () => clearTimeout(timer);
-  }, []);
+    return () => {
+      progressAnim.setValue(0);
+      fadeAnim.setValue(0);
+      slideAnim.setValue(50);
+    };
+  }, [progressAnim, fadeAnim, slideAnim]);
 
   // Function to log important actions for easier debugging
   const logDebug = (message: string, data?: any) => {
@@ -106,14 +124,16 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
     setLoading(true);
     logDebug('Processing signup');
     
-    // Start progress at 30% (we were already at this point)
+    // Animate progress to 50%
+    Animated.timing(progressAnim, {
+      toValue: 50,
+      duration: 600,
+      useNativeDriver: false,
+    }).start();
     
     try {
       // Format phone number with + prefix if not already present
       const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
-      
-      // Update progress to 50%
-      setProgressPercent(50);
       
       // Generate a temporary password for the initial sign-up
       const tempPassword = Math.random().toString(36).slice(-8) + 'Aa1!';
@@ -132,14 +152,22 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
         }
       });
       
-      // Update progress to 80%
-      setProgressPercent(80);
+      // Animate progress to 80%
+      Animated.timing(progressAnim, {
+        toValue: 80,
+        duration: 600,
+        useNativeDriver: false,
+      }).start();
       
       // Simulate some delay for visual feedback (remove in production)
       await new Promise(resolve => setTimeout(resolve, 800));
       
-      // Update to 100% complete
-      setProgressPercent(100);
+      // Animate to 100% complete
+      Animated.timing(progressAnim, {
+        toValue: 100,
+        duration: 600,
+        useNativeDriver: false,
+      }).start();
       
       logDebug('Sign up successful, verification code sent:', signUpResponse);
       
@@ -158,7 +186,11 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
       logDebug('Error during signup:', error);
       
       // Reset progress on error
-      setProgressPercent(30); // Keep at initial progress
+      Animated.timing(progressAnim, {
+        toValue: 30,
+        duration: 300,
+        useNativeDriver: false,
+      }).start();
       
       // Handle specific error cases
       if (error.code === 'UsernameExistsException') {
@@ -175,11 +207,20 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
               onPress: async () => {
                 try {
                   setLoading(true);
-                  setProgressPercent(50);
+                  
+                  Animated.timing(progressAnim, {
+                    toValue: 50,
+                    duration: 600,
+                    useNativeDriver: false,
+                  }).start();
                   
                   await Auth.resendSignUp(email);
                   
-                  setProgressPercent(100);
+                  Animated.timing(progressAnim, {
+                    toValue: 100,
+                    duration: 600,
+                    useNativeDriver: false,
+                  }).start();
                   
                   await new Promise(resolve => setTimeout(resolve, 800));
                   
@@ -191,9 +232,15 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
                   });
                 } catch (resendError: any) {
                   Alert.alert('Error', resendError.message || 'Failed to resend verification code');
+                  
+                  // Reset progress on error
+                  Animated.timing(progressAnim, {
+                    toValue: 30,
+                    duration: 300,
+                    useNativeDriver: false,
+                  }).start();
                 } finally {
                   setLoading(false);
-                  setProgressPercent(30); // Back to initial state
                 }
               }
             }
@@ -207,88 +254,141 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
     }
   };
 
+  const progressWidth = progressAnim.interpolate({
+    inputRange: [0, 100],
+    outputRange: ['0%', '100%'],
+  });
+
+  const getButtonGradient = () => {
+    return loading 
+      ? ['rgba(150,150,150,0.5)', 'rgba(120,120,120,0.8)']
+      : [theme.colors.primary, theme.colors.primaryDark || '#007bff'];
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={goBack} 
-          style={styles.backButton}
-          activeOpacity={0.7}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidingView}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
         >
-          <Entypo name="chevron-left" size={28} color={theme.colors.secondary} />
-        </TouchableOpacity>
-      </View> 
-      <View style={styles.contentContainer}>
-        <Text style={[styles.title, { color: theme.colors.secondary }]}>Create Account</Text>
-        <View style={styles.imageContainer}>
-          <Image 
-            source={require('../../../assets/amico.png')} 
-            style={styles.image}
-            resizeMode="contain"
-          />
-        </View>
-        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>Please fill in your details</Text>
-        <TextInput
-          label="Full Name"
-          value={name}
-          onChangeText={setName}
-          placeholder="Enter your full name"
-          autoCapitalize="words"
-          containerStyle={styles.inputContainer}
-        />
-        
-        <TextInput
-          label="Email (.edu only)"
-          value={email}
-          onChangeText={setEmail}
-          placeholder="Enter your .edu email"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          containerStyle={styles.inputContainer}
-        />
-        
-        <TextInput
-          label="Phone Number"
-          value={phoneNumber}
-          onChangeText={setPhoneNumber}
-          placeholder="Enter with country code (e.g., +1...)"
-          keyboardType="phone-pad"
-          containerStyle={styles.inputContainer}
-        />
-        
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
+          <View style={styles.header}>
+            <TouchableOpacity 
+              onPress={goBack} 
+              style={styles.backButton}
+              activeOpacity={0.7}
+            >
+              <Entypo name="chevron-left" size={28} color={theme.colors.secondary} />
+            </TouchableOpacity>
+          </View> 
+          
+          <Animated.View 
             style={[
-              styles.continueButton,
-              {
-                backgroundColor: loading ? 'rgba(150,150,150,0.5)' : theme.colors.primary,
+              styles.contentContainer,
+              { 
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }]
               }
             ]}
-            onPress={handleContinue}
-            disabled={loading}
-            activeOpacity={0.7}
           >
-            <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
-              {loading ? "Processing..." : "Continue"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-        
-        {/* Progress indicator - only showing the bar */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressTrack}>
-            <View 
-              style={[
-                styles.progressBar, 
-                { 
-                  width: `${progressPercent}%`,
-                  backgroundColor: '#FFB347'
-                }
-              ]} 
-            />
-          </View>
-        </View>
-      </View>
+            <Text style={[styles.title, { color: theme.colors.secondary }]}>Create</Text>
+            <Text style={[styles.title, { color: theme.colors.secondary }]}>Account</Text>
+            
+            <View style={styles.imageContainer}>
+              <Image 
+                source={require('../../../assets/amico.png')} 
+                style={styles.image}
+                resizeMode="contain"
+              />
+            </View>
+            
+            {/* <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+              Please fill in your details
+            </Text> */}
+            
+            <View style={styles.formContainer}>
+              <TextInput
+                label="Full Name"
+                value={name}
+                onChangeText={setName}
+                placeholder="Enter your full name"
+                autoCapitalize="words"
+                containerStyle={styles.inputContainer}
+                leftIcon={<Entypo name="user" size={20} color={theme.colors.secondary} />}
+              />
+              
+              <TextInput
+                label="Email (.edu only)"
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Enter your .edu email"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                containerStyle={styles.inputContainer}
+                leftIcon={<Entypo name="mail" size={20} color={theme.colors.secondary} />}
+              />
+              
+              <TextInput
+                label="Phone Number"
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                placeholder="Enter with country code (e.g., +1...)"
+                keyboardType="phone-pad"
+                containerStyle={styles.inputContainer}
+                leftIcon={<Entypo name="phone" size={20} color={theme.colors.secondary} />}
+              />
+            </View>
+            
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={styles.continueButtonWrapper}
+                onPress={handleContinue}
+                disabled={loading}
+                activeOpacity={0.8}
+              >
+                <LinearGradient
+                  colors={getButtonGradient()}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.continueButton}
+                >
+                  <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
+                    {loading ? "Processing..." : "Continue"}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+            
+            {/* Progress indicator - with custom styling */}
+            <View style={styles.progressContainer}>
+              <View style={styles.progressTrack}>
+                <Animated.View 
+                  style={[
+                    styles.progressBar, 
+                    { 
+                      width: progressWidth,
+                      backgroundColor: loading ? '#FFB347' : theme.colors.primary,
+                    }
+                  ]} 
+                />
+              </View>
+            </View>
+            
+            <View style={styles.legalTextContainer}>
+              <Text style={styles.legalText}>
+                By continuing, you agree to our <Text style={styles.highlightedText}>Terms of Service</Text> and <Text style={styles.highlightedText}>Privacy Policy</Text>
+              </Text>
+            </View>
+          </Animated.View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+      
+      {/* Premium corner decorative elements */}
+      <View style={[styles.cornerDecoration, styles.topLeftCorner]} />
+      <View style={[styles.cornerDecoration, styles.bottomRightCorner]} />
     </SafeAreaView>
   );
 };
@@ -296,6 +396,13 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    position: 'relative',
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  scrollContainer: {
+    flexGrow: 1,
   },
   header: {
     height: 50,
@@ -309,46 +416,66 @@ const styles = StyleSheet.create({
     marginTop: 5,
     marginRight: 10,
   },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
   contentContainer: {
     padding: 20,
+    paddingTop: 0,
     flex: 1,
   },
   title: {
     fontSize: 36,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 0,
     fontFamily: 'Montserrat',
+    letterSpacing: 0.5,
   },
   subtitle: {
     fontSize: 16,
-    marginBottom: 30,
+    marginBottom: 20,
+    letterSpacing: 0.3,
+  },
+  formContainer: {
+    width: '100%',
+    marginBottom: 10,
   },
   inputContainer: {
-    marginBottom: 16,
+    marginBottom: 20,
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   buttonContainer: {
     width: '100%',
-    marginTop: 30,
+    marginTop: 20,
     alignItems: 'center',
+  },
+  continueButtonWrapper: {
+    width: '100%',
+    borderRadius: 14,
+    overflow: 'hidden',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
   },
   continueButton: {
     width: '100%',
-    height: 50,
+    height: 56,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 10,
+    borderRadius: 14,
   },
   buttonText: {
     fontSize: 18,
     fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
   imageContainer: {
+    marginTop: 20,
     alignItems: 'center',
-    marginBottom: 20,
   },
   image: {
     width: 200,
@@ -360,14 +487,45 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   progressTrack: {
-    height: 6,
+    height: 8,
     backgroundColor: '#E8E8E8',
-    borderRadius: 3,
+    borderRadius: 4,
     overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: 4,
+  },
+  legalTextContainer: {
+    marginTop: 24,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  legalText: {
+    fontSize: 12,
+    textAlign: 'center',
+    color: '#888',
+    lineHeight: 18,
+  },
+  highlightedText: {
+    fontWeight: '600',
+    color: '#555',
+  },
+  cornerDecoration: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    opacity: 0.08,
+    backgroundColor: '#FFB347',
+  },
+  topLeftCorner: {
+    top: -50,
+    left: -50,
+  },
+  bottomRightCorner: {
+    bottom: -50,
+    right: -50,
   },
 });
 
