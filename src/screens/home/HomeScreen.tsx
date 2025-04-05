@@ -1959,9 +1959,17 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
               }}
               testID="profile-button"
             >
-              <View style={[styles.profileCircle, { backgroundColor: '#e0e0e0' }]}>
-                <Text style={[styles.profileText, { color: '#333' }]}>{getInitial()}</Text>
-              </View>
+              {userProfileData?.userphoto ? (
+                <Image 
+                  source={{ uri: userProfileData.userphoto }} 
+                  style={styles.profileCircle}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={[styles.profileCircle, { backgroundColor: '#f7b305' }]}>
+                  <Text style={[styles.profileText, { color: 'black' }]}>{getInitial()}</Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
         </View>
