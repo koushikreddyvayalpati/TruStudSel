@@ -586,10 +586,7 @@ const MessageScreen = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={keyboardVerticalOffset}
       >
-        <LinearGradient
-          colors={['#f8f8f8', '#f0f0f0']}
-          style={styles.messagesBackground}
-        >
+        <View style={styles.messagesBackground}>
           <FlatList
             ref={flatListRef}
             data={messages}
@@ -619,7 +616,7 @@ const MessageScreen = () => {
           />
           
           {renderTypingIndicator()}
-        </LinearGradient>
+        </View>
         
         {/* Input Bar without animation */}
         <View style={styles.inputContainer}>
@@ -680,6 +677,7 @@ const styles = StyleSheet.create({
   },
   messagesBackground: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
@@ -789,9 +787,10 @@ const styles = StyleSheet.create({
     shadowColor: 'rgba(255, 179, 0, 0.2)',
   },
   otherBubble: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#f5f5f5',
     alignSelf: 'flex-start',
     borderBottomLeftRadius: 6,
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
   },
   messageText: {
     fontSize: 16,
