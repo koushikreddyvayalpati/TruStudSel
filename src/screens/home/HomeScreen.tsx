@@ -2000,13 +2000,6 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
               </TouchableOpacity>
             )}
           </View>
-          <TouchableOpacity
-            style={styles.searchButton}
-            onPress={handleSearch}
-            disabled={!searchQuery.trim()}
-          >
-            <Text style={styles.searchButtonText}>Search</Text>
-          </TouchableOpacity>
         </View>
         
         {/* Row with text and buttons */}
@@ -2300,7 +2293,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     marginVertical: 12,
-    paddingHorizontal: 5,
+    paddingHorizontal: 1,
     alignItems: 'center',
   },
   searchInputContainer: {
@@ -2310,7 +2303,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     alignItems: 'center',
     paddingHorizontal: 15,
-    height: 46,
+    height: 45,
   },
   searchIcon: {
     marginRight: 8,
@@ -2325,14 +2318,7 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   searchButton: {
-    backgroundColor: 'black',
-    borderRadius: 25,
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-    marginLeft: 10,
-    height: 46,
-    justifyContent: 'center',
-    alignItems: 'center',
+    display: 'none', // Hide the button but keep the style definition
   },
   searchButtonText: {
     color: 'white',
@@ -2348,6 +2334,8 @@ const styles = StyleSheet.create({
   plainText: {
     fontSize: 18,
     fontWeight: 'bold',
+    fontFamily: 'Montserrat',
+    marginLeft: 5,
   },
   buttonContainer: {
     flexDirection: 'row',
