@@ -49,6 +49,9 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
   const slideAnim = useRef(new Animated.Value(30)).current;
   const otpInputRef = useRef<RNTextInput>(null);
   
+  // Progress animation
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  
   // Define loading steps
   const otpLoadingSteps = useMemo(() => [
     { id: 'verifying', message: 'Verifying your code...' },
@@ -73,14 +76,21 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
         toValue: 0,
         duration: 800,
         useNativeDriver: true,
+      }),
+      // Update progress animation to 30% for OTP screen
+      Animated.timing(progressAnim, {
+        toValue: verificationStep === 'otp' ? 30 : 75,
+        duration: 1000,
+        useNativeDriver: false,
       })
     ]).start();
 
     return () => {
       fadeAnim.setValue(0);
       slideAnim.setValue(30);
+      progressAnim.setValue(0);
     };
-  }, [fadeAnim, slideAnim]);
+  }, [fadeAnim, slideAnim, progressAnim, verificationStep]);
   
   useEffect(() => {
     // Listen for keyboard events
@@ -115,6 +125,13 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
   // Animation when switching steps
   useEffect(() => {
     if (verificationStep === 'password') {
+      // Animate progress to 75% when moving to password step
+      Animated.timing(progressAnim, {
+        toValue: 75,
+        duration: 800,
+        useNativeDriver: false,
+      }).start();
+      
       Animated.sequence([
         Animated.parallel([
           Animated.timing(fadeAnim, {
@@ -147,7 +164,7 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
         ])
       ]).start();
     }
-  }, [verificationStep, fadeAnim, slideAnim]);
+  }, [verificationStep, fadeAnim, slideAnim, progressAnim]);
   
   useEffect(() => {
     console.log('Current OTP:', otpValue);
@@ -202,6 +219,11 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
       transform: [{ scale: lastFilled ? 1.05 : 1 }],
     };
   };
+
+  const progressWidth = progressAnim.interpolate({
+    inputRange: [0, 100],
+    outputRange: ['0%', '100%'],
+  });
 
   const renderOtpVerification = () => (
     <Animated.View 
@@ -321,6 +343,21 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
           </LinearGradient>
         </TouchableOpacity>
       </View>
+      
+      {/* Progress indicator moved to bottom */}
+      <View style={styles.progressContainer}>
+        <View style={styles.progressTrack}>
+          <Animated.View 
+            style={[
+              styles.progressBar, 
+              { 
+                width: progressWidth,
+                backgroundColor: loading ? '#FFB347' : theme.colors.primary,
+              }
+            ]} 
+          />
+        </View>
+      </View>
     </Animated.View>
   );
 
@@ -365,6 +402,13 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
         
         // Refresh the session to update auth state
         await refreshSession();
+        
+        // Animate progress to 100% when password is created successfully
+        Animated.timing(progressAnim, {
+          toValue: 100,
+          duration: 600,
+          useNativeDriver: false,
+        }).start();
         
         // Show preparing message
         setTimeout(() => {
@@ -433,14 +477,26 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
 
   const renderPasswordStrengthBar = () => {
     const strength = getPasswordStrength();
-    const strengthText = ['Weak', 'Fair', 'Good', 'Strong', 'Excellent'];
-    const strengthColor = [
-      '#FF6B6B', // Red (Weak)
-      '#FFD166', // Yellow (Fair)
-      '#06D6A0', // Green (Good)
-      '#118AB2', // Blue (Strong)
-      '#073B4C'  // Dark Blue (Excellent)
-    ];
+    const strengthText = ['Very Weak', 'Weak', 'Fair', 'Good', 'Strong'];
+    
+    // Professional color scheme using only red and green tones
+    const getSegmentColor = (index: number, currentStrength: number) => {
+      if (currentStrength === 0) return '#E0E0E0'; // Empty state
+      
+      if (index > currentStrength) return '#E0E0E0'; // Unfilled segment
+      
+      // Color gradient from red to green based on strength
+      if (currentStrength <= 2) {
+        // Weak to fair (red to light red)
+        return index === 1 ? '#FF3B30' : '#FF6E6A';
+      } else if (currentStrength === 3) {
+        // Good (yellow-green)
+        return index <= 2 ? '#A0D468' : '#8CC152';
+      } else {
+        // Strong (green)
+        return '#4CD964';
+      }
+    };
     
     return (
       <View style={styles.strengthContainer}>
@@ -450,56 +506,25 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
               key={index}
               style={[
                 styles.strengthSegment,
-                { 
-                  backgroundColor: strength >= index 
-                    ? strengthColor[index-1] 
-                    : '#E0E0E0'
-                }
+                { backgroundColor: getSegmentColor(index, strength) }
               ]}
             />
           ))}
         </View>
         {password && (
-          <Text style={styles.strengthText}>
-            Password Strength: {strengthText[strength-1] || 'Too weak'}
-          </Text>
-        )}
-      </View>
-    );
-  };
-
-  const renderPasswordCriteria = () => {
-    const criteria = [
-      { key: 'length', label: 'At least 8 characters', 
-        met: password.length >= 8 },
-      { key: 'upper', label: 'At least one uppercase letter', 
-        met: /[A-Z]/.test(password) },
-      { key: 'lower', label: 'At least one lowercase letter', 
-        met: /[a-z]/.test(password) },
-      { key: 'number', label: 'At least one number', 
-        met: /[0-9]/.test(password) },
-      { key: 'special', label: 'At least one special character', 
-        met: /[!@#$%^&*(),.?":{}|<>]/.test(password) }
-    ];
-    
-    return (
-      <View style={styles.criteriaContainer}>
-        {criteria.map(item => (
-          <View key={item.key} style={styles.criteriaRow}>
-            <Entypo 
-              name={item.met ? "check" : "circle"} 
-              size={16} 
-              color={item.met ? "#06D6A0" : "#BBBBBB"} 
-              style={styles.criteriaIcon}
-            />
+          <View style={styles.strengthTextContainer}>
             <Text style={[
-              styles.criteriaText,
-              { color: item.met ? theme.colors.secondary : "#888888" }
+              styles.strengthText,
+              { 
+                color: strength <= 2 ? '#FF3B30' : 
+                       strength <= 3 ? '#8CC152' : '#4CD964',
+                fontWeight: '600'
+              }
             ]}>
-              {item.label}
+              {strengthText[strength-1] || 'Too weak'}
             </Text>
           </View>
-        ))}
+        )}
       </View>
     );
   };
@@ -515,13 +540,15 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
       ]}
     >
       <Text style={[styles.title, { color: theme.colors.secondary }]}>
-        Create Password
+        Create
       </Text>
-      
+      <Text style={[styles.title, { color: theme.colors.secondary }]}>
+         Password
+      </Text>
       {!keyboardVisible && (
         <View style={styles.imageContainer}>
           <Image 
-            source={require('../../../assets/sms.png')} 
+            source={require('../../../assets/password.png')} 
             style={styles.image}
             resizeMode="contain"
           />
@@ -552,7 +579,6 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
         />
         
         {renderPasswordStrengthBar()}
-        {renderPasswordCriteria()}
         
         <TextInput
           label="Confirm Password"
@@ -593,6 +619,21 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
             </Text>
           </LinearGradient>
         </TouchableOpacity>
+      </View>
+      
+      {/* Progress indicator moved to bottom */}
+      <View style={styles.progressContainer}>
+        <View style={styles.progressTrack}>
+          <Animated.View 
+            style={[
+              styles.progressBar, 
+              { 
+                width: progressWidth,
+                backgroundColor: loading ? '#FFB347' : theme.colors.primary,
+              }
+            ]} 
+          />
+        </View>
       </View>
     </Animated.View>
   );
@@ -687,6 +728,7 @@ const styles = StyleSheet.create({
     paddingLeft: 0,
   },
   contentContainer: {
+    paddingTop: 0,
     padding: 20,
     flex: 1,
   },
@@ -696,7 +738,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 36,
     fontWeight: 'bold',
-    marginBottom: 10,
     fontFamily: 'Montserrat',
     letterSpacing: 0.5,
   },
@@ -809,27 +850,16 @@ const styles = StyleSheet.create({
     marginHorizontal: 2,
     borderRadius: 4,
   },
+  strengthTextContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: 4,
+  },
   strengthText: {
     fontSize: 12,
     color: '#777',
     textAlign: 'right',
-  },
-  criteriaContainer: {
-    marginBottom: 20,
-    backgroundColor: 'rgba(245,245,245,0.5)',
-    borderRadius: 10,
-    padding: 15,
-  },
-  criteriaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  criteriaIcon: {
-    marginRight: 8,
-  },
-  criteriaText: {
-    fontSize: 14,
   },
   resendContainer: {
     alignItems: 'center',
@@ -880,6 +910,22 @@ const styles = StyleSheet.create({
   bottomRightCorner: {
     bottom: -50,
     right: -50,
+  },
+  progressContainer: {
+    marginTop: 20,
+    marginBottom: 10,
+    paddingHorizontal: 5,
+    width: '100%',
+  },
+  progressTrack: {
+    height: 6,
+    backgroundColor: '#E8E8E8',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 3,
   },
 });
 
