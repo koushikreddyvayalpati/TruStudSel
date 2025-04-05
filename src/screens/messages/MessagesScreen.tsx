@@ -266,26 +266,8 @@ const MessagesScreen = () => {
     const timeDisplay = getTimeDisplay(item.lastMessageTime);
     const initials = displayName.charAt(0).toUpperCase();
     
-    // Generate a consistent color for the avatar based on the name
-    const getAvatarColor = (name: string) => {
-      let hash = 0;
-      for (let i = 0; i < name.length; i++) {
-        hash = name.charCodeAt(i) + ((hash << 5) - hash);
-      }
-      
-      // Use color variations based on the app theme
-      const colors = [
-        COLORS.primary,
-        '#f57c00', // darker orange
-        '#ffa000', // amber
-        '#ff8f00', // darker amber
-        '#ffca28', // lighter amber
-      ];
-      
-      return colors[Math.abs(hash) % colors.length];
-    };
-    
-    const avatarColor = getAvatarColor(displayName);
+    // Use consistent gold color for all avatars
+    const avatarColor = '#f7b305';
     
     return (
       <TouchableOpacity 
@@ -330,7 +312,7 @@ const MessagesScreen = () => {
         </View>
       </TouchableOpacity>
     );
-  }, [goToConversation, getConversationDisplayName, getTimeDisplay, COLORS]);
+  }, [goToConversation, getConversationDisplayName, getTimeDisplay]);
 
   // Memoize key extractor for performance
   const keyExtractor = useCallback((item: Conversation) => item.id, []);
