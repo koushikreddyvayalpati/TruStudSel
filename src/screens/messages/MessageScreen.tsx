@@ -189,8 +189,8 @@ const MessageScreen = () => {
   // Render Avatar Component
   const renderAvatar = useCallback((initials: string, isUser = false) => {
     const colors = isUser 
-      ? ['#ffb300', '#f57c00'] // Gold to amber gradient for user
-      : ['#5D4037', '#3E2723']; // Brown tones for recipient
+      ? ['#2D2D2D', '#000000'] // Black gradient for user
+      : ['#f7b305', '#f9a825']; // Gold gradient for recipient
     
     return (
       <View style={styles.avatarShadowContainer}>
@@ -828,8 +828,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#ffb300',
-    shadowColor: 'rgba(245, 124, 0, 0.3)',
+    backgroundColor: '#000000',
+    shadowColor: 'rgba(0, 0, 0, 0.3)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 3,
@@ -841,8 +841,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#5D4037',
-    shadowColor: 'rgba(0, 0, 0, 0.2)',
+    backgroundColor: '#f7b305',
+    shadowColor: 'rgba(247, 179, 5, 0.3)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 3,
