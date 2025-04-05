@@ -18,7 +18,6 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/FontAwesome';
-import EvilIcon from 'react-native-vector-icons/EvilIcons';
 import Entypoicon from 'react-native-vector-icons/Entypo';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
@@ -30,13 +29,27 @@ import { useUniversity, useCity } from '../../navigation/MainNavigator';
 
 // Import API methods
 import { 
+  getProductsByUniversity,
+  getProductsByCity,
   getFeaturedProducts,
   getNewArrivals,
   Product as ApiProduct,
-  ProductFilters,
-  getProductsByUniversity,
-  getProductsByCity
+  searchProducts,
+  SearchProductsParams,
+  ProductFilters
 } from '../../api/products';
+
+// Import new filter utilities
+import {
+  createFilterMaps,
+  FilterMap,
+  shouldUseClientSideFiltering,
+  applyOptimizedFiltering,
+  convertToApiFilters,
+  needsServerRefetch,
+  PRODUCT_SIZE_THRESHOLD,
+  SORTING_THRESHOLD
+} from '../../utils/filterUtils';
 
 // Import user profile API
 import { fetchUserProfileById } from '../../api/users';
@@ -289,6 +302,94 @@ const EnhancedDropdown: React.FC<{
   );
 };
 
+// Define condition and selling type mappings for the backend
+const conditionMapping = {
+  'brand-new': 'new',
+  'like-new': 'like-new',
+  'very-good': 'very-good',
+  'good': 'good',
+  'acceptable': 'acceptable',
+  'for-parts': 'for-parts'
+};
+
+// Filter functions
+const filterByCondition = (product: Product, conditions: string[]): boolean => {
+  if (!conditions.length) return true;
+  
+  // Check both condition and productage fields as they might be used inconsistently
+  const productCondition = product.condition?.toLowerCase() || product.productage?.toLowerCase();
+  
+  return conditions.some(condition => {
+    // Map UI condition to backend condition if needed
+    const backendCondition = conditionMapping[condition as keyof typeof conditionMapping] || condition;
+    return productCondition === backendCondition;
+  });
+};
+
+const filterBySellingType = (product: Product, sellingTypes: string[]): boolean => {
+  if (!sellingTypes.length) return true;
+  
+  const productSellingType = product.sellingtype?.toLowerCase();
+  
+  // Log the selling type to help with debugging
+  console.log(`[HomeScreen] Product ${product.id} selling type: ${productSellingType}`);
+  
+  return sellingTypes.some(type => productSellingType === type);
+};
+
+// Add this function to apply front-end filtering
+const applyFiltersToProducts = (products: Product[], filters: string[]): Product[] => {
+  if (!filters.length) return products;
+  
+  console.log(`[HomeScreen] Applying ${filters.length} filters to ${products.length} products`);
+  
+  // Extract condition filters
+  const conditionFilters = filters.filter(filter => 
+    ['brand-new', 'like-new', 'very-good', 'good', 'acceptable', 'for-parts'].includes(filter)
+  );
+  console.log(`[HomeScreen] Condition filters: ${conditionFilters.join(', ')}`);
+  
+  // Extract selling type filters
+  const sellingTypeFilters = filters.filter(filter => 
+    ['rent', 'sell'].includes(filter)
+  );
+  console.log(`[HomeScreen] Selling type filters: ${sellingTypeFilters.join(', ')}`);
+  
+  // Check if we need to filter for free items
+  const hasFreeFilter = filters.includes('free');
+  console.log(`[HomeScreen] Free filter: ${hasFreeFilter}`);
+  
+  // Apply all filters
+  const filteredProducts = products.filter(product => {
+    // For debugging: log product condition and selling type
+    console.log(`[HomeScreen] Checking product ${product.id}: condition=${product.condition || product.productage}, sellingtype=${product.sellingtype}, price=${product.price}`);
+    
+    // Filter by condition
+    if (!filterByCondition(product, conditionFilters)) {
+      console.log(`[HomeScreen] Product ${product.id} filtered out by condition`);
+      return false;
+    }
+    
+    // Filter by selling type
+    if (!filterBySellingType(product, sellingTypeFilters)) {
+      console.log(`[HomeScreen] Product ${product.id} filtered out by selling type`);
+      return false;
+    }
+    
+    // Filter by price (free items)
+    if (hasFreeFilter && parseFloat(product.price || '0') > 0) {
+      console.log(`[HomeScreen] Product ${product.id} filtered out by price (not free)`);
+      return false;
+    }
+    
+    console.log(`[HomeScreen] Product ${product.id} passed all filters`);
+    return true;
+  });
+  
+  console.log(`[HomeScreen] Filtering complete: ${filteredProducts.length} products remain`);
+  return filteredProducts;
+};
+
 const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) => {
   const navigation = useNavigation<NavigationProp>();
   const nav = propNavigation || navigation;
@@ -329,6 +430,40 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   const [_newArrivalsProductsOriginal, setNewArrivalsProductsOriginal] = useState<Product[]>([]);
   const [_universityProductsOriginal, setUniversityProductsOriginal] = useState<Product[]>([]);
   const [_cityProductsOriginal, setCityProductsOriginal] = useState<Product[]>([]);
+  
+  // Advanced filtering state
+  const [featuredFilterMaps, setFeaturedFilterMaps] = useState<{
+    conditionMap: FilterMap;
+    sellingTypeMap: FilterMap;
+    priceRangeMap: FilterMap;
+  }>({ conditionMap: {}, sellingTypeMap: {}, priceRangeMap: {} });
+  
+  const [newArrivalsFilterMaps, setNewArrivalsFilterMaps] = useState<{
+    conditionMap: FilterMap;
+    sellingTypeMap: FilterMap;
+    priceRangeMap: FilterMap;
+  }>({ conditionMap: {}, sellingTypeMap: {}, priceRangeMap: {} });
+  
+  const [universityFilterMaps, setUniversityFilterMaps] = useState<{
+    conditionMap: FilterMap;
+    sellingTypeMap: FilterMap;
+    priceRangeMap: FilterMap;
+  }>({ conditionMap: {}, sellingTypeMap: {}, priceRangeMap: {} });
+  
+  const [cityFilterMaps, setCityFilterMaps] = useState<{
+    conditionMap: FilterMap;
+    sellingTypeMap: FilterMap;
+    priceRangeMap: FilterMap;
+  }>({ conditionMap: {}, sellingTypeMap: {}, priceRangeMap: {} });
+  
+  // Total available product counts from server
+  const [totalFeaturedCount, setTotalFeaturedCount] = useState<number>(0);
+  const [totalNewArrivalsCount, setTotalNewArrivalsCount] = useState<number>(0);
+  const [totalUniversityCount, setTotalUniversityCount] = useState<number>(0);
+  const [totalCityCount, setTotalCityCount] = useState<number>(0);
+  
+  // Track if we're using server-side filtering
+  const [usingServerFiltering, setUsingServerFiltering] = useState<boolean>(false);
   
   // Loading states
   const [loadingFeatured, setLoadingFeatured] = useState(false);
@@ -375,6 +510,18 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     { id: 'free', label: 'Free Items' },
   ], []);
 
+  // Search related states
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [paginationToken, setPaginationToken] = useState<string | null>(null);
+  const [hasMoreSearchResults, setHasMoreSearchResults] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
   // Function to load products for university (wrapped in useCallback)
   const loadUniversityProducts = useCallback(async () => {
     if (!userUniversity) {
@@ -393,13 +540,28 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
       
       if (cachedData) {
         try {
-          const { data, timestamp } = JSON.parse(cachedData);
+          const { data, timestamp, totalCount, filterMaps } = JSON.parse(cachedData);
           const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
           
           if (!isExpired) {
             console.log('[HomeScreen] Using cached university products');
             setUniversityProducts(data);
             setUniversityProductsOriginal(data);
+            
+            // Load cached filter maps and total count if available
+            if (filterMaps) {
+              setUniversityFilterMaps(filterMaps);
+            } else {
+              // Create filter maps if not in cache
+              setUniversityFilterMaps(createFilterMaps(data));
+            }
+            
+            if (totalCount) {
+              setTotalUniversityCount(totalCount);
+            } else {
+              setTotalUniversityCount(data.length);
+            }
+            
             setLoadingUniversity(false);
             return;
           }
@@ -426,14 +588,22 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
           result?.products ? `${result.products.length} products found` : 'No products in response');
         
         if (result && Array.isArray(result.products)) {
+          // Create filter maps for optimized filtering
+          const filterMaps = createFilterMaps(result.products);
+          
           setUniversityProducts(result.products);
           setUniversityProductsOriginal(result.products);
+          setUniversityFilterMaps(filterMaps);
+          setTotalUniversityCount(result.totalItems || result.products.length);
+          
           console.log(`[HomeScreen] University products state updated with ${result.products.length} items`);
           
-          // Save to cache
+          // Save to cache with filter maps and total count
           const cacheData = {
             data: result.products,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            filterMaps,
+            totalCount: result.totalItems || result.products.length
           };
           await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
         } else {
@@ -441,6 +611,8 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
             typeof result === 'object' ? JSON.stringify(result) : typeof result);
           setUniversityProducts([]);
           setUniversityProductsOriginal([]);
+          setUniversityFilterMaps({ conditionMap: {}, sellingTypeMap: {}, priceRangeMap: {} });
+          setTotalUniversityCount(0);
         }
       } catch (error: any) {
         console.warn(`[HomeScreen] API error when loading university products:`, 
@@ -450,12 +622,16 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
         // Fallback to an empty array to avoid UI crashes
         setUniversityProducts([]);
         setUniversityProductsOriginal([]);
+        setUniversityFilterMaps({ conditionMap: {}, sellingTypeMap: {}, priceRangeMap: {} });
+        setTotalUniversityCount(0);
       }
     } catch (err: any) {
       console.error('[HomeScreen] Error loading university products:', err);
       setError('Failed to load university products');
       setUniversityProducts([]);
       setUniversityProductsOriginal([]);
+      setUniversityFilterMaps({ conditionMap: {}, sellingTypeMap: {}, priceRangeMap: {} });
+      setTotalUniversityCount(0);
     } finally {
       console.log(`[HomeScreen] University products loading complete`);
       setLoadingUniversity(false);
@@ -568,13 +744,28 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
       
       if (cachedData) {
         try {
-          const { data, timestamp } = JSON.parse(cachedData);
+          const { data, timestamp, totalCount, filterMaps } = JSON.parse(cachedData);
           const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
           
           if (!isExpired) {
             console.log('[HomeScreen] Using cached featured products');
             setFeaturedProducts(data);
             setFeaturedProductsOriginal(data);
+            
+            // Load cached filter maps and total count if available
+            if (filterMaps) {
+              setFeaturedFilterMaps(filterMaps);
+            } else {
+              // Create filter maps if not in cache
+              setFeaturedFilterMaps(createFilterMaps(data));
+            }
+            
+            if (totalCount) {
+              setTotalFeaturedCount(totalCount);
+            } else {
+              setTotalFeaturedCount(data.length);
+            }
+            
             setLoadingFeatured(false);
             return;
           }
@@ -585,13 +776,21 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
       }
       
       const products = await getFeaturedProducts(userUniversity, userCity);
+      
+      // Create filter maps for optimized filtering
+      const filterMaps = createFilterMaps(products);
+      
       setFeaturedProducts(products);
       setFeaturedProductsOriginal(products);
+      setFeaturedFilterMaps(filterMaps);
+      setTotalFeaturedCount(products.length);
       
-      // Save to cache
+      // Save to cache with filter maps and total count
       const cacheData = {
         data: products,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        filterMaps,
+        totalCount: products.length
       };
       await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
     } catch (err) {
@@ -858,11 +1057,592 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     console.log(`Category selected: ${category.name}`);
   }, [nav]);
 
-  const handleSearch = useCallback(() => {
-    // Implement search functionality here
-    console.log(`Searching for: ${searchQuery}`);
-  }, [searchQuery]);
+  const handleSearch = useCallback(async () => {
+    if (!searchQuery) return;
+    
+    setIsSearching(true);
+    setShowSearchResults(true);
+    setSearchError(null);
+    
+    console.log(`[HomeScreen] Searching for: ${searchQuery}`);
+    
+    try {
+      // Construct search parameters
+      const searchParams: SearchProductsParams = {
+        query: searchQuery,
+        university: userUniversity || undefined,
+        city: userCity || undefined,
+        size: 20
+      };
+      
+      // Add filters if selected
+      if (selectedFilters.length > 0) {
+        // Map condition filters to backend format
+        const conditionFilters = selectedFilters.filter(filter => 
+          ['brand-new', 'like-new', 'very-good', 'good', 'acceptable', 'for-parts'].includes(filter)
+        ).map(filter => conditionMapping[filter as keyof typeof conditionMapping] || filter);
+        
+        // Extract selling type filters (these already match backend format)
+        const sellingTypeFilters = selectedFilters.filter(filter => 
+          ['rent', 'sell'].includes(filter)
+        );
+        
+        // Only add conditions if there are any
+        if (conditionFilters.length > 0) {
+          searchParams.condition = conditionFilters;
+        }
+        
+        // Only add selling types if there are any
+        if (sellingTypeFilters.length > 0) {
+          searchParams.sellingType = sellingTypeFilters;
+        }
+        
+        // Add price filter for "free" (price = 0)
+        if (selectedFilters.includes('free')) {
+          searchParams.maxPrice = 0;
+        }
+      }
+      
+      // Add sorting if selected
+      if (selectedSort !== 'default') {
+        // Map frontend sort options to backend parameters
+        switch (selectedSort) {
+          case 'price_low_to_high':
+            searchParams.sortBy = 'price';
+            searchParams.sortDirection = 'asc';
+            break;
+          case 'price_high_to_low':
+            searchParams.sortBy = 'price';
+            searchParams.sortDirection = 'desc';
+            break;
+          case 'newest':
+            searchParams.sortBy = 'postingdate';
+            searchParams.sortDirection = 'desc';
+            break;
+          case 'popularity':
+            searchParams.sortBy = 'popularity';
+            searchParams.sortDirection = 'desc';
+            break;
+        }
+      }
+      
+      console.log(`[HomeScreen] Search params:`, searchParams);
+      
+      const result = await searchProducts(searchParams);
+      
+      // Update results state
+      setSearchResults(result.products || []);
+      setHasMoreSearchResults(result.hasMorePages || false);
+      setPaginationToken(result.nextPageToken || null);
+      setCurrentPage(result.currentPage || 1);
+      setTotalPages(result.totalPages || 1);
+      console.log(`[HomeScreen] Search found ${result.products?.length || 0} results`);
+      
+    } catch (error) {
+      console.error('[HomeScreen] Search error:', error);
+      setSearchError(error instanceof Error ? error.message : 'Failed to search products');
+      
+      // Display empty results with error
+      setSearchResults([]);
+      setHasMoreSearchResults(false);
+      setPaginationToken(null);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [searchQuery, userUniversity, userCity, selectedFilters, selectedSort]);
 
+  // handleLoadMoreSearchResults function
+  const handleLoadMoreSearchResults = useCallback(async () => {
+    if (isLoadingMore || !hasMoreSearchResults) return;
+    
+    setIsLoadingMore(true);
+    setLoadMoreError(null);
+    
+    try {
+      // Construct search parameters for next page
+      const searchParams: SearchProductsParams = {
+        query: searchQuery,
+        university: userUniversity || undefined,
+        city: userCity || undefined,
+        size: 20
+      };
+      
+      // Handle both token-based and page-based pagination
+      if (paginationToken) {
+        // Token-based pagination (preferred)
+        searchParams.paginationToken = paginationToken;
+      } else {
+        // Page-based pagination (fallback)
+        searchParams.page = currentPage + 1;
+      }
+      
+      // Add filters if selected
+      if (selectedFilters.length > 0) {
+        const conditionFilters = selectedFilters.filter(filter => 
+          filter === 'new' || filter === 'used'
+        );
+        
+        const sellingTypeFilters = selectedFilters.filter(filter => 
+          filter === 'sell' || filter === 'rent'
+        );
+        
+        // Only add conditions if there are any
+        if (conditionFilters.length > 0) {
+          searchParams.condition = conditionFilters;
+        }
+        
+        // Only add selling types if there are any
+        if (sellingTypeFilters.length > 0) {
+          searchParams.sellingType = sellingTypeFilters;
+        }
+        
+        // Add price filter for "free" (price = 0)
+        if (selectedFilters.includes('free')) {
+          searchParams.maxPrice = 0;
+        }
+      }
+      
+      // Add sorting if selected
+      if (selectedSort !== 'default') {
+        searchParams.sortBy = selectedSort;
+      }
+      
+      console.log(`[HomeScreen] Loading more search results with params:`, searchParams);
+      
+      const result = await searchProducts(searchParams);
+      
+      // Append new results to existing results
+      setSearchResults(prev => [...prev, ...(result.products || [])]);
+      setHasMoreSearchResults(result.hasMorePages || false);
+      setPaginationToken(result.nextPageToken || null);
+      setCurrentPage(result.currentPage || currentPage + 1);
+      setTotalPages(result.totalPages || totalPages);
+      
+      console.log(`[HomeScreen] Loaded ${result.products?.length || 0} more search results`);
+      
+    } catch (error) {
+      console.error('[HomeScreen] Error loading more search results:', error);
+      setLoadMoreError(error instanceof Error ? error.message : 'Failed to load more results');
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [
+    isLoadingMore, 
+    hasMoreSearchResults, 
+    searchQuery, 
+    userUniversity, 
+    userCity, 
+    paginationToken, 
+    currentPage, 
+    totalPages,
+    selectedFilters, 
+    selectedSort
+  ]);
+
+  // Add handleClearSearch function
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
+    setShowSearchResults(false);
+    setSearchResults([]);
+    setSearchError(null);
+    setPaginationToken(null);
+    setHasMoreSearchResults(false);
+    console.log('[HomeScreen] Search cleared');
+  }, []);
+
+  // Pagination footer component for search results
+  const SearchPaginationFooter = ({ 
+    isLoadingMore, 
+    hasMore, 
+    onLoadMore, 
+    error 
+  }: { 
+    isLoadingMore: boolean, 
+    hasMore: boolean, 
+    onLoadMore: () => void,
+    error: string | null 
+  }) => {
+    if (error) {
+      return (
+        <View style={styles.paginationFooter}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity onPress={onLoadMore} style={styles.retryButton}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    
+    if (isLoadingMore) {
+      return (
+        <View style={styles.paginationFooter}>
+          <ActivityIndicator size="small" color="#007AFF" />
+          <Text style={styles.loadingMoreText}>Loading more results...</Text>
+        </View>
+      );
+    }
+    
+    if (hasMore) {
+      return (
+        <View style={styles.paginationFooter}>
+          <TouchableOpacity onPress={onLoadMore} style={styles.loadMoreButton}>
+            <Text style={styles.loadMoreButtonText}>Load More</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    
+    return null;
+  };
+
+  // Replace modal states with dropdown visibility states 
+  const [sortDropdownVisible, setSortDropdownVisible] = useState(false);
+  const [filterDropdownVisible, setFilterDropdownVisible] = useState(false);
+
+  // Update button click handlers
+  const handleSortButtonClick = useCallback(() => {
+    setSortDropdownVisible(!sortDropdownVisible);
+    if (filterDropdownVisible) setFilterDropdownVisible(false);
+  }, [sortDropdownVisible, filterDropdownVisible]);
+
+  const handleFilterButtonClick = useCallback(() => {
+    setFilterDropdownVisible(!filterDropdownVisible);
+    if (sortDropdownVisible) setSortDropdownVisible(false);
+  }, [filterDropdownVisible, sortDropdownVisible]);
+
+  // Update the handleFilterOptionSelect function
+  const handleFilterOptionSelect = useCallback((optionId: string) => {
+    console.log(`[HomeScreen] Filter option toggled: ${optionId}`);
+    
+    // Toggle the filter on/off
+    setSelectedFilters(prevFilters => {
+      const newFilters = prevFilters.includes(optionId)
+        ? prevFilters.filter(id => id !== optionId)
+        : [...prevFilters, optionId];
+        
+      console.log(`[HomeScreen] Updated filters:`, newFilters);
+      
+      // Determine if we should use server-side filtering for any of the product sets
+      const useFeaturedServerFiltering = _featuredProductsOriginal.length > 0 && 
+        !shouldUseClientSideFiltering(_featuredProductsOriginal, newFilters, totalFeaturedCount);
+      
+      const useNewArrivalsServerFiltering = _newArrivalsProductsOriginal.length > 0 && 
+        !shouldUseClientSideFiltering(_newArrivalsProductsOriginal, newFilters, totalNewArrivalsCount);
+      
+      const useUniversityServerFiltering = _universityProductsOriginal.length > 0 && 
+        !shouldUseClientSideFiltering(_universityProductsOriginal, newFilters, totalUniversityCount);
+      
+      const useCityServerFiltering = _cityProductsOriginal.length > 0 && 
+        !shouldUseClientSideFiltering(_cityProductsOriginal, newFilters, totalCityCount);
+      
+      // Check if we need to do progressive loading - fetch more data from server
+      const needsProgressiveLoading = 
+        needsServerRefetch(newFilters, prevFilters, totalFeaturedCount, _featuredProductsOriginal) ||
+        needsServerRefetch(newFilters, prevFilters, totalNewArrivalsCount, _newArrivalsProductsOriginal) ||
+        needsServerRefetch(newFilters, prevFilters, totalUniversityCount, _universityProductsOriginal) ||
+        needsServerRefetch(newFilters, prevFilters, totalCityCount, _cityProductsOriginal);
+      
+      // If any product set needs server filtering or progressive loading, set the flag
+      const useServer = useFeaturedServerFiltering || 
+                        useNewArrivalsServerFiltering || 
+                        useUniversityServerFiltering || 
+                        useCityServerFiltering ||
+                        needsProgressiveLoading;
+      
+      setUsingServerFiltering(useServer);
+      
+      if (useServer) {
+        // Apply server-side filtering by reloading with filters
+        console.log('[HomeScreen] Using server-side filtering for large datasets or progressive loading');
+        
+        // Convert filters to API-compatible format
+        const apiFilters = convertToApiFilters(newFilters, selectedSort);
+        
+        // Set loading states
+        if (useFeaturedServerFiltering || 
+            (needsProgressiveLoading && _featuredProductsOriginal.length > 0)) {
+          setLoadingFeatured(true);
+          // Load featured products with filters
+          loadFilteredFeaturedProducts(apiFilters)
+            .finally(() => setLoadingFeatured(false));
+        }
+        
+        if (useNewArrivalsServerFiltering || 
+            (needsProgressiveLoading && _newArrivalsProductsOriginal.length > 0)) {
+          setLoadingNewArrivals(true);
+          // Load new arrivals with filters
+          loadFilteredNewArrivals(apiFilters)
+            .finally(() => setLoadingNewArrivals(false));
+        }
+        
+        if (useUniversityServerFiltering || 
+            (needsProgressiveLoading && _universityProductsOriginal.length > 0)) {
+          setLoadingUniversity(true);
+          // Load university products with filters
+          loadFilteredUniversityProducts(apiFilters)
+            .finally(() => setLoadingUniversity(false));
+        }
+        
+        if (useCityServerFiltering || 
+            (needsProgressiveLoading && _cityProductsOriginal.length > 0)) {
+          setLoadingCity(true);
+          // Load city products with filters
+          loadFilteredCityProducts(apiFilters)
+            .finally(() => setLoadingCity(false));
+        }
+      } else {
+        // Use client-side filtering for smaller datasets
+        console.log('[HomeScreen] Using optimized client-side filtering');
+        
+        // Apply filters to products in real-time with optimized filtering
+        if (_featuredProductsOriginal.length > 0) {
+          setFeaturedProducts(
+            _featuredProductsOriginal.length < 100 ? 
+              applySortingAndFilters(_featuredProductsOriginal, selectedSort, newFilters) :
+              applyOptimizedFiltering(_featuredProductsOriginal, newFilters, featuredFilterMaps)
+          );
+        }
+        
+        if (_newArrivalsProductsOriginal.length > 0) {
+          setNewArrivalsProducts(
+            _newArrivalsProductsOriginal.length < 100 ? 
+              applySortingAndFilters(_newArrivalsProductsOriginal, selectedSort, newFilters) :
+              applyOptimizedFiltering(_newArrivalsProductsOriginal, newFilters, newArrivalsFilterMaps)
+          );
+        }
+        
+        if (_universityProductsOriginal.length > 0) {
+          setUniversityProducts(
+            _universityProductsOriginal.length < 100 ? 
+              applySortingAndFilters(_universityProductsOriginal, selectedSort, newFilters) :
+              applyOptimizedFiltering(_universityProductsOriginal, newFilters, universityFilterMaps)
+          );
+        }
+        
+        if (_cityProductsOriginal.length > 0) {
+          setCityProducts(
+            _cityProductsOriginal.length < 100 ? 
+              applySortingAndFilters(_cityProductsOriginal, selectedSort, newFilters) :
+              applyOptimizedFiltering(_cityProductsOriginal, newFilters, cityFilterMaps)
+          );
+        }
+        
+        // Apply to search results if visible
+        if (showSearchResults && searchResults.length > 0) {
+          // For search results, use applySortingAndFilters since we 
+          // don't maintain filter maps for search results
+          setSearchResults(prevResults => 
+            applySortingAndFilters(prevResults, selectedSort, newFilters)
+          );
+        }
+      }
+      
+      return newFilters;
+    });
+    
+    // Close dropdown if not multi-select
+    if (!filterDropdownVisible) {
+      setFilterDropdownVisible(false);
+    }
+  }, [
+    _featuredProductsOriginal, 
+    _newArrivalsProductsOriginal, 
+    _universityProductsOriginal, 
+    _cityProductsOriginal, 
+    selectedSort, 
+    filterDropdownVisible,
+    showSearchResults,
+    searchResults,
+    totalFeaturedCount,
+    totalNewArrivalsCount,
+    totalUniversityCount,
+    totalCityCount,
+    featuredFilterMaps,
+    newArrivalsFilterMaps,
+    universityFilterMaps,
+    cityFilterMaps
+  ]);
+
+  // Update the handleSortOptionSelect function
+  const handleSortOptionSelect = useCallback((optionId: string) => {
+    console.log(`[HomeScreen] Sort option selected: ${optionId}`);
+    setSelectedSort(optionId);
+    setSortDropdownVisible(false);
+    
+    // Determine if we need server-side sorting for any product set
+    // We generally only need server-side sorting for very large datasets
+    // or if we're already using server-side filtering
+    const useFeaturedServerSorting = 
+      _featuredProductsOriginal.length > SORTING_THRESHOLD || 
+      (usingServerFiltering && _featuredProductsOriginal.length > 0);
+    
+    const useNewArrivalsServerSorting = 
+      _newArrivalsProductsOriginal.length > SORTING_THRESHOLD || 
+      (usingServerFiltering && _newArrivalsProductsOriginal.length > 0);
+    
+    const useUniversityServerSorting = 
+      _universityProductsOriginal.length > SORTING_THRESHOLD || 
+      (usingServerFiltering && _universityProductsOriginal.length > 0);
+    
+    const useCityServerSorting = 
+      _cityProductsOriginal.length > SORTING_THRESHOLD || 
+      (usingServerFiltering && _cityProductsOriginal.length > 0);
+    
+    const useServerSorting = 
+      useFeaturedServerSorting || 
+      useNewArrivalsServerSorting || 
+      useUniversityServerSorting || 
+      useCityServerSorting;
+    
+    if (useServerSorting) {
+      console.log('[HomeScreen] Using server-side sorting for large datasets');
+      
+      // Convert filters and sorts to API-compatible format
+      const apiFilters = convertToApiFilters(selectedFilters, optionId);
+      
+      // Apply server-side sorting (and filtering if needed)
+      if (useFeaturedServerSorting) {
+        setLoadingFeatured(true);
+        loadFilteredFeaturedProducts(apiFilters)
+          .finally(() => setLoadingFeatured(false));
+      }
+      
+      if (useNewArrivalsServerSorting) {
+        setLoadingNewArrivals(true);
+        loadFilteredNewArrivals(apiFilters)
+          .finally(() => setLoadingNewArrivals(false));
+      }
+      
+      if (useUniversityServerSorting) {
+        setLoadingUniversity(true);
+        loadFilteredUniversityProducts(apiFilters)
+          .finally(() => setLoadingUniversity(false));
+      }
+      
+      if (useCityServerSorting) {
+        setLoadingCity(true);
+        loadFilteredCityProducts(apiFilters)
+          .finally(() => setLoadingCity(false));
+      }
+    } else {
+      console.log('[HomeScreen] Using client-side sorting');
+      
+      // Apply sorting to products with existing filters
+      if (_featuredProductsOriginal.length > 0) {
+        console.log(`[HomeScreen] Sorting featured products (${_featuredProductsOriginal.length} items)`);
+        setFeaturedProducts(applySortingAndFilters(_featuredProductsOriginal, optionId, selectedFilters));
+      }
+      
+      if (_newArrivalsProductsOriginal.length > 0) {
+        console.log(`[HomeScreen] Sorting new arrivals (${_newArrivalsProductsOriginal.length} items)`);
+        setNewArrivalsProducts(applySortingAndFilters(_newArrivalsProductsOriginal, optionId, selectedFilters));
+      }
+      
+      if (_universityProductsOriginal.length > 0) {
+        console.log(`[HomeScreen] Sorting university products (${_universityProductsOriginal.length} items)`);
+        setUniversityProducts(applySortingAndFilters(_universityProductsOriginal, optionId, selectedFilters));
+      }
+      
+      if (_cityProductsOriginal.length > 0) {
+        console.log(`[HomeScreen] Sorting city products (${_cityProductsOriginal.length} items)`);
+        setCityProducts(applySortingAndFilters(_cityProductsOriginal, optionId, selectedFilters));
+      }
+      
+      // Apply to search results if visible
+      if (showSearchResults && searchResults.length > 0) {
+        console.log(`[HomeScreen] Sorting search results (${searchResults.length} items)`);
+        setSearchResults(prevResults => applySortingAndFilters(prevResults, optionId, selectedFilters));
+      }
+    }
+  }, [
+    _featuredProductsOriginal, 
+    _newArrivalsProductsOriginal, 
+    _universityProductsOriginal, 
+    _cityProductsOriginal, 
+    selectedFilters,
+    showSearchResults,
+    searchResults,
+    usingServerFiltering,
+    loadFilteredFeaturedProducts,
+    loadFilteredNewArrivals,
+    loadFilteredUniversityProducts,
+    loadFilteredCityProducts
+  ]);
+
+  // Comprehensive function to apply both sorting and filtering
+  const applySortingAndFilters = (products: Product[], sortOption: string, filters: string[]): Product[] => {
+    // First apply filters
+    let filteredProducts = filters.length > 0 ? applyFiltersToProducts(products, filters) : [...products];
+    
+    // Then apply sorting
+    switch (sortOption) {
+      case 'price_low_to_high':
+        filteredProducts.sort((a, b) => parseFloat(a.price || '0') - parseFloat(b.price || '0'));
+        break;
+      case 'price_high_to_low':
+        filteredProducts.sort((a, b) => parseFloat(b.price || '0') - parseFloat(a.price || '0'));
+        break;
+      case 'newest':
+        filteredProducts.sort((a, b) => {
+          const dateA = a.postingdate ? new Date(a.postingdate).getTime() : 0;
+          const dateB = b.postingdate ? new Date(b.postingdate).getTime() : 0;
+          return dateB - dateA;
+        });
+        break;
+      case 'popularity':
+        // If you have a popularity metric, sort by that here
+        // For now, we'll just use ID as a proxy
+        filteredProducts.sort((a, b) => a.id.localeCompare(b.id));
+        break;
+      // Default case - no sorting
+      default:
+        break;
+    }
+    
+    return filteredProducts;
+  };
+
+  // Add a "Clear Filters" button near the filter dropdown
+  const handleClearFilters = useCallback(() => {
+    // Reset filters and sort
+    setSelectedFilters([]);
+    setSelectedSort('default');
+    
+    // Reset all products to their originals
+    if (_featuredProductsOriginal.length > 0) {
+      setFeaturedProducts([..._featuredProductsOriginal]);
+    }
+    
+    if (_newArrivalsProductsOriginal.length > 0) {
+      setNewArrivalsProducts([..._newArrivalsProductsOriginal]);
+    }
+    
+    if (_universityProductsOriginal.length > 0) {
+      setUniversityProducts([..._universityProductsOriginal]);
+    }
+    
+    if (_cityProductsOriginal.length > 0) {
+      setCityProducts([..._cityProductsOriginal]);
+    }
+    
+    // Reset search results if visible
+    if (showSearchResults && searchResults.length > 0) {
+      // We'd need to re-run the search without filters
+      handleSearch();
+    }
+    
+    console.log('[HomeScreen] All filters and sorting cleared');
+  }, [
+    _featuredProductsOriginal,
+    _newArrivalsProductsOriginal,
+    _universityProductsOriginal,
+    _cityProductsOriginal,
+    showSearchResults,
+    searchResults.length,
+    handleSearch
+  ]);
+
+  // Navigate to category products screen with appropriate section
   const handleSeeAll = useCallback((section: ProductSectionType) => {
     // Navigate to the CategoryProducts screen with appropriate parameters
     if (section === 'featured') {
@@ -892,204 +1672,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
         userCity: userCity
       });
     }
-  }, [userUniversity, userCity, nav]);
-
-  // Handle sort option selection
-  const handleSortOptionSelect = useCallback((optionId: string) => {
-    console.log(`[HomeScreen] Sort option selected: ${optionId}`);
-    setSelectedSort(optionId);
-    
-    // Apply sorting to all product sections
-    const applySorting = (products: Product[]): Product[] => {
-      const productsCopy = [...products];
-      
-      switch (optionId) {
-        case 'price_low_to_high':
-          return productsCopy.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
-        case 'price_high_to_low':
-          return productsCopy.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
-        case 'newest':
-          return productsCopy.sort((a, b) => {
-            const dateA = a.postingdate ? new Date(a.postingdate).getTime() : 0;
-            const dateB = b.postingdate ? new Date(b.postingdate).getTime() : 0;
-            return dateB - dateA;
-          });
-        case 'popularity':
-          // Sort by ID as a proxy for popularity (assuming newer IDs are more popular)
-          return productsCopy.sort((a, b) => parseInt(b.id) - parseInt(a.id));
-        case 'default':
-        default:
-          // Return original order
-          return products;
-      }
-    };
-    
-    // Apply sorting to all product categories
-    setFeaturedProducts(applySorting([..._featuredProductsOriginal]));
-    setNewArrivalsProducts(applySorting([..._newArrivalsProductsOriginal]));
-    setUniversityProducts(applySorting([..._universityProductsOriginal]));
-    setCityProducts(applySorting([..._cityProductsOriginal]));
-  }, [_featuredProductsOriginal, _newArrivalsProductsOriginal, _universityProductsOriginal, _cityProductsOriginal]);
-
-  // Handle filter option selection
-  const handleFilterOptionSelect = useCallback((optionId: string) => {
-    console.log(`[HomeScreen] Filter option toggled: ${optionId}`);
-    
-      // Toggle the filter on/off
-    setSelectedFilters(prevFilters => {
-      const newFilters = prevFilters.includes(optionId)
-        ? prevFilters.filter(id => id !== optionId)
-        : [...prevFilters, optionId];
-        
-      console.log(`[HomeScreen] Updated filters:`, newFilters);
-      return newFilters;
-    });
-    
-    // We need to implement filtering in a separate effect to make sure
-    // we have the latest state of selectedFilters
-  }, []);
-
-  // Use an effect to apply filters whenever selectedFilters changes
-  useEffect(() => {
-    console.log(`[HomeScreen] Filter effect triggered, filters:`, selectedFilters);
-    
-    // When no filters are active, restore original products
-    if (selectedFilters.length === 0) {
-      console.log(`[HomeScreen] No filters active, restoring original products`);
-      setFeaturedProducts([..._featuredProductsOriginal]);
-      setNewArrivalsProducts([..._newArrivalsProductsOriginal]);
-      setUniversityProducts([..._universityProductsOriginal]);
-      setCityProducts([..._cityProductsOriginal]);
-      return;
-    }
-    
-    console.log(`[HomeScreen] Applying filters:`, selectedFilters);
-    
-    // Apply filtering to all product sections
-    const applyFilters = (originalProducts: Product[]): Product[] => {
-      // If no filters active, return all products
-      if (selectedFilters.length === 0) {
-        return originalProducts;
-      }
-      
-      // Create sets of condition and selling type filters for easier checking
-      const conditionFilters = selectedFilters.filter(filter => 
-        ['brand-new', 'like-new', 'very-good', 'good', 'acceptable', 'for-parts'].includes(filter)
-      );
-      
-      const sellingTypeFilters = selectedFilters.filter(filter => 
-        ['rent', 'sell', 'free'].includes(filter)
-      );
-      
-      return originalProducts.filter(product => {
-        // Log the product data to inspect what we're filtering
-        console.log(`[HomeScreen] Checking product:`, {
-          id: product.id,
-          productage: product.productage,
-          sellingtype: product.sellingtype,
-          price: product.price
-        });
-        
-        // Check if we need to filter by condition
-        if (conditionFilters.length > 0) {
-          // If this product doesn't match any of our selected condition filters, filter it out
-          const productCondition = product.productage || '';
-          const passesConditionFilter = conditionFilters.includes(productCondition);
-          
-          if (!passesConditionFilter) {
-            console.log(`[HomeScreen] Product ${product.id} filtered out by condition`);
-            return false;
-          }
-        }
-        
-        // Check if we need to filter by selling type
-        if (sellingTypeFilters.length > 0) {
-          const productSellingType = product.sellingtype || '';
-          const isFree = parseFloat(product.price) === 0;
-          
-          // Special case for free items
-          if (sellingTypeFilters.includes('free') && isFree) {
-            return true; // Keep free items when "free" filter is active
-          }
-          
-          // Check for rent/sell filters
-          if (sellingTypeFilters.includes('rent') && productSellingType === 'rent') {
-            return true;
-          }
-          
-          if (sellingTypeFilters.includes('sell') && productSellingType === 'sell') {
-            return true;
-          }
-          
-          // If we have selling type filters but this product doesn't match any, filter it out
-          if (!sellingTypeFilters.includes('free') || !isFree) {
-            console.log(`[HomeScreen] Product ${product.id} filtered out by selling type`);
-            return false;
-          }
-        }
-        
-        // If we get here, the product passed all active filters
-        return true;
-      });
-    };
-    
-    // Apply filters with a small delay to allow for state updates
-    const filtersTimeoutId = setTimeout(() => {
-      console.log(`[HomeScreen] Applying filters to product lists`);
-      
-      // Log the original products state to make sure we have data
-      console.log(`[HomeScreen] Original products counts:`, {
-        featured: _featuredProductsOriginal.length,
-        newArrivals: _newArrivalsProductsOriginal.length,
-        university: _universityProductsOriginal.length,
-        city: _cityProductsOriginal.length
-      });
-      
-      // Apply filters to each product list
-      const filteredFeatured = applyFilters(_featuredProductsOriginal);
-      const filteredNewArrivals = applyFilters(_newArrivalsProductsOriginal);
-      const filteredUniversity = applyFilters(_universityProductsOriginal);
-      const filteredCity = applyFilters(_cityProductsOriginal);
-      
-      // Log the filtered results
-      console.log(`[HomeScreen] Filtered products counts:`, {
-        featured: filteredFeatured.length,
-        newArrivals: filteredNewArrivals.length,
-        university: filteredUniversity.length,
-        city: filteredCity.length
-      });
-      
-      // Update the state with filtered results
-      setFeaturedProducts(filteredFeatured);
-      setNewArrivalsProducts(filteredNewArrivals);
-      setUniversityProducts(filteredUniversity);
-      setCityProducts(filteredCity);
-    }, 100);
-    
-    // Cleanup function to clear the timeout if the component unmounts
-    return () => clearTimeout(filtersTimeoutId);
-  }, [
-    selectedFilters, 
-    _featuredProductsOriginal, 
-    _newArrivalsProductsOriginal, 
-    _universityProductsOriginal, 
-    _cityProductsOriginal
-  ]);
-
-  // Replace modal states with dropdown visibility states 
-  const [sortDropdownVisible, setSortDropdownVisible] = useState(false);
-  const [filterDropdownVisible, setFilterDropdownVisible] = useState(false);
-
-  // Update button click handlers
-  const handleSortButtonClick = useCallback(() => {
-    setSortDropdownVisible(!sortDropdownVisible);
-    if (filterDropdownVisible) setFilterDropdownVisible(false);
-  }, [sortDropdownVisible, filterDropdownVisible]);
-
-  const handleFilterButtonClick = useCallback(() => {
-    setFilterDropdownVisible(!filterDropdownVisible);
-    if (sortDropdownVisible) setSortDropdownVisible(false);
-  }, [filterDropdownVisible, sortDropdownVisible]);
+  }, [nav, userCity, userUniversity]);
 
   // Effect to load featured products
   useEffect(() => {
@@ -1123,6 +1706,224 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   useEffect(() => {
     fetchUserProfile();
   }, [fetchUserProfile]);
+
+  // Load filtered featured products from server
+  const loadFilteredFeaturedProducts = useCallback(async (apiFilters: ProductFilters) => {
+    if (!userUniversity || !userCity) return;
+    
+    console.log('[HomeScreen] Loading filtered featured products from server');
+    
+    try {
+      // Add location filters
+      const filters = {
+        ...apiFilters,
+        university: userUniversity,
+        city: userCity
+      };
+      
+      const products = await getFeaturedProducts(userUniversity, userCity);
+      
+      // Client-side filter if server doesn't support filtering for this endpoint
+      let filteredProducts = products;
+      
+      if (Object.keys(apiFilters).length > 0) {
+        // Apply manual filtering for condition
+        if (apiFilters.condition) {
+          const conditions = Array.isArray(apiFilters.condition) 
+            ? apiFilters.condition 
+            : [apiFilters.condition];
+            
+          filteredProducts = filteredProducts.filter(product => {
+            const productCondition = (product.condition || product.productage || '').toLowerCase();
+            return conditions.some(c => productCondition === c);
+          });
+        }
+        
+        // Apply manual filtering for selling type
+        if (apiFilters.sellingType) {
+          const types = Array.isArray(apiFilters.sellingType)
+            ? apiFilters.sellingType
+            : [apiFilters.sellingType];
+            
+          filteredProducts = filteredProducts.filter(product => {
+            const sellingType = (product.sellingtype || '').toLowerCase();
+            return types.some(t => sellingType === t);
+          });
+        }
+        
+        // Apply manual filtering for price
+        if (apiFilters.maxPrice !== undefined) {
+          const maxPrice = parseFloat(apiFilters.maxPrice.toString());
+          filteredProducts = filteredProducts.filter(product => {
+            const price = parseFloat(product.price || '0');
+            return price <= maxPrice;
+          });
+        }
+        
+        if (apiFilters.minPrice !== undefined) {
+          const minPrice = parseFloat(apiFilters.minPrice.toString());
+          filteredProducts = filteredProducts.filter(product => {
+            const price = parseFloat(product.price || '0');
+            return price >= minPrice;
+          });
+        }
+      }
+      
+      // Create filter maps for the filtered products
+      const filterMaps = createFilterMaps(filteredProducts);
+      
+      setFeaturedProducts(filteredProducts);
+      setFeaturedFilterMaps(filterMaps);
+      
+      return filteredProducts;
+    } catch (err) {
+      console.error('Error loading filtered featured products:', err);
+      return [];
+    }
+  }, [userUniversity, userCity]);
+  
+  // Load filtered new arrivals from server
+  const loadFilteredNewArrivals = useCallback(async (apiFilters: ProductFilters) => {
+    if (!userUniversity) return;
+    
+    console.log('[HomeScreen] Loading filtered new arrivals from server');
+    
+    try {
+      // Add location filters
+      const filters = {
+        ...apiFilters,
+        university: userUniversity
+      };
+      
+      const products = await getNewArrivals(userUniversity);
+      
+      // Client-side filter if server doesn't support filtering for this endpoint
+      let filteredProducts = products;
+      
+      if (Object.keys(apiFilters).length > 0) {
+        // Apply manual filtering for condition
+        if (apiFilters.condition) {
+          const conditions = Array.isArray(apiFilters.condition) 
+            ? apiFilters.condition 
+            : [apiFilters.condition];
+            
+          filteredProducts = filteredProducts.filter(product => {
+            const productCondition = (product.condition || product.productage || '').toLowerCase();
+            return conditions.some(c => productCondition === c);
+          });
+        }
+        
+        // Apply manual filtering for selling type
+        if (apiFilters.sellingType) {
+          const types = Array.isArray(apiFilters.sellingType)
+            ? apiFilters.sellingType
+            : [apiFilters.sellingType];
+            
+          filteredProducts = filteredProducts.filter(product => {
+            const sellingType = (product.sellingtype || '').toLowerCase();
+            return types.some(t => sellingType === t);
+          });
+        }
+        
+        // Apply manual filtering for price
+        if (apiFilters.maxPrice !== undefined) {
+          const maxPrice = parseFloat(apiFilters.maxPrice.toString());
+          filteredProducts = filteredProducts.filter(product => {
+            const price = parseFloat(product.price || '0');
+            return price <= maxPrice;
+          });
+        }
+        
+        if (apiFilters.minPrice !== undefined) {
+          const minPrice = parseFloat(apiFilters.minPrice.toString());
+          filteredProducts = filteredProducts.filter(product => {
+            const price = parseFloat(product.price || '0');
+            return price >= minPrice;
+          });
+        }
+      }
+      
+      // Create filter maps for the filtered products
+      const filterMaps = createFilterMaps(filteredProducts);
+      
+      setNewArrivalsProducts(filteredProducts);
+      setNewArrivalsFilterMaps(filterMaps);
+      
+      return filteredProducts;
+    } catch (err) {
+      console.error('Error loading filtered new arrivals:', err);
+      return [];
+    }
+  }, [userUniversity]);
+  
+  // Load filtered university products from server
+  const loadFilteredUniversityProducts = useCallback(async (apiFilters: ProductFilters) => {
+    if (!userUniversity) return;
+    
+    console.log('[HomeScreen] Loading filtered university products from server');
+    
+    try {
+      // Adjusted filters to match backend expected parameters
+      const filters: ProductFilters = {
+        ...apiFilters,
+        sortBy: apiFilters.sortBy || 'newest',
+        page: 1,
+        size: 20
+      };
+      
+      const result = await getProductsByUniversity(userUniversity, filters);
+      
+      if (result && Array.isArray(result.products)) {
+        // Create filter maps for the filtered products
+        const filterMaps = createFilterMaps(result.products);
+        
+        setUniversityProducts(result.products);
+        setUniversityFilterMaps(filterMaps);
+        
+        return result.products;
+      }
+      
+      return [];
+    } catch (err) {
+      console.error('Error loading filtered university products:', err);
+      return [];
+    }
+  }, [userUniversity]);
+  
+  // Load filtered city products from server
+  const loadFilteredCityProducts = useCallback(async (apiFilters: ProductFilters) => {
+    if (!userCity) return;
+    
+    console.log('[HomeScreen] Loading filtered city products from server');
+    
+    try {
+      // Adjusted filters to match backend expected parameters
+      const filters: ProductFilters = {
+        ...apiFilters,
+        sortBy: apiFilters.sortBy || 'newest',
+        page: 1,
+        size: 20,
+        university: userUniversity // Include university if available
+      };
+      
+      const result = await getProductsByCity(userCity, filters);
+      
+      if (result && Array.isArray(result.products)) {
+        // Create filter maps for the filtered products
+        const filterMaps = createFilterMaps(result.products);
+        
+        setCityProducts(result.products);
+        setCityFilterMaps(filterMaps);
+        
+        return result.products;
+      }
+      
+      return [];
+    } catch (err) {
+      console.error('Error loading filtered city products:', err);
+      return [];
+    }
+  }, [userCity, userUniversity]);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: 'white' }]}>
@@ -1166,23 +1967,52 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
         </View>
         
         {/* Search Bar */}
-        <View style={[styles.searchBox, { backgroundColor: 'white', borderColor: 'gray' }]}>
-          <EvilIcon name="search" size={20} color="black" />
-          <TextInput 
-            placeholder="Search..." 
-            style={[styles.input, { color: 'black' }]}
-            placeholderTextColor="gray"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={handleSearch}
-            returnKeyType="search"
-          />
+        <View style={styles.searchContainer}>
+          <View style={styles.searchInputContainer}>
+            <FontAwesome name="search" size={20} color="#999" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search products..."
+              value={searchQuery}
+              onChangeText={(text) => {
+                setSearchQuery(text);
+                // Automatically clear search results when search box is emptied
+                if (!text) {
+                  setShowSearchResults(false);
+                  setSearchResults([]);
+                  setSearchError(null);
+                  setPaginationToken(null);
+                  setHasMoreSearchResults(false);
+                  console.log('[HomeScreen] Search cleared (text empty)');
+                }
+              }}
+              returnKeyType="search"
+              onSubmitEditing={handleSearch}
+              placeholderTextColor="#999"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity 
+                style={styles.clearButton} 
+                onPress={handleClearSearch}
+                activeOpacity={0.7}
+              >
+                <FontAwesome name="times-circle" size={20} color="#999" />
+              </TouchableOpacity>
+            )}
+          </View>
+          <TouchableOpacity
+            style={styles.searchButton}
+            onPress={handleSearch}
+            disabled={!searchQuery.trim()}
+          >
+            <Text style={styles.searchButtonText}>Search</Text>
+          </TouchableOpacity>
         </View>
         
         {/* Row with text and buttons */}
         <View style={styles.rowContainer}>
           <Text style={[styles.plainText, { color: 'black' }]}>
-            All Items
+            {showSearchResults ? 'Search Results' : 'All Items'}
           </Text>
           <View style={styles.buttonContainer}>
             <View style={{ position: 'relative' }}>
@@ -1208,10 +2038,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                   <EnhancedDropdown
                     items={sortOptions}
                     selectedItems={[selectedSort]}
-                    onSelect={(id) => {
-                      handleSortOptionSelect(id);
-                      setSortDropdownVisible(false);
-                    }}
+                    onSelect={handleSortOptionSelect}
                     title="Sort by"
                     onClose={() => setSortDropdownVisible(false)}
                   />
@@ -1250,102 +2077,174 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                 </View>
               )}
             </View>
+            
+            {/* Clear filters button - only show if filters are applied */}
+            {(selectedFilters.length > 0 || selectedSort !== 'default') && (
+              <TouchableOpacity
+                style={styles.clearFiltersButton}
+                onPress={handleClearFilters}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.clearFiltersText}>Clear</Text>
+                <MaterialIcons name="clear" size={14} color="#f7b305" />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
         
-        {/* Category Circles */}
-        <View style={styles.categoryContainer}>
-          <FlatList
-            data={categories}
-            renderItem={({ item }) => (
-              <CategoryItem 
-                item={item} 
-                onPress={handleCategoryPress}
-              />
+        {/* Show either search results or normal content */}
+        {showSearchResults ? (
+          <View style={styles.searchResultsContainer}>
+            {isSearching ? (
+              <View style={styles.searchLoadingContainer}>
+                <ActivityIndicator size="large" color="#007AFF" />
+                <Text style={styles.loadingText}>Searching...</Text>
+              </View>
+            ) : searchError ? (
+              <View style={styles.searchErrorContainer}>
+                <Text style={styles.errorText}>Error: {searchError}</Text>
+                <TouchableOpacity style={styles.retryButton} onPress={handleSearch}>
+                  <Text style={styles.retryButtonText}>Retry Search</Text>
+                </TouchableOpacity>
+              </View>
+            ) : searchResults.length === 0 ? (
+              <View style={styles.noResultsContainer}>
+                <FontAwesome name="search" size={40} color="#ccc" />
+                <Text style={styles.noResultsText}>No products found</Text>
+                <Text style={styles.noResultsSubText}>Try a different search or filter</Text>
+              </View>
+            ) : (
+              <>
+                <FlatList
+                  data={searchResults}
+                  renderItem={({ item }) => (
+                    <ProductItem
+                      item={item}
+                      wishlist={wishlist}
+                      onToggleWishlist={toggleWishlist}
+                      onPress={handleProductPress}
+                    />
+                  )}
+                  keyExtractor={item => item.id.toString()}
+                  numColumns={2}
+                  contentContainerStyle={styles.productsGrid}
+                  ListFooterComponent={
+                    <SearchPaginationFooter
+                      isLoadingMore={isLoadingMore}
+                      hasMore={hasMoreSearchResults}
+                      onLoadMore={handleLoadMoreSearchResults}
+                      error={loadMoreError}
+                    />
+                  }
+                />
+                {searchResults.length > 0 && (
+                  <View style={styles.searchStatsContainer}>
+                    <Text style={styles.searchStatsText}>
+                      Showing {searchResults.length} results • Page {currentPage} of {totalPages}
+                    </Text>
+                  </View>
+                )}
+              </>
             )}
-            keyExtractor={item => item.id.toString()}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-          />
-        </View>
-        
-        {/* Scrollable container for all product sections */}
-        <ScrollView 
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
-          }
-        >
-          {/* New Arrivals Section */}
-          <ProductSection 
-            title="New Arrivals"
-            data={newArrivalsProducts}
-            wishlist={wishlist}
-            onToggleWishlist={toggleWishlist}
-            onProductPress={handleProductPress}
-            onSeeAll={() => handleSeeAll('newArrivals')}
-            isLoading={loadingNewArrivals}
-          />
-
-          {/* University Products Section */}
-          {(userUniversity && (!loadingUniversity || universityProducts.length > 0)) && (
-            <ProductSection 
-              title={loadingUniversity 
-                ? "Loading University Products..." 
-                : `${userUniversity || 'University'} Products`
-              }
-              data={universityProducts}
-              wishlist={wishlist}
-              onToggleWishlist={toggleWishlist}
-              onProductPress={handleProductPress}
-              onSeeAll={() => handleSeeAll('university')}
-              isLoading={loadingUniversity}
-            />
-          )}
-
-          {/* City Products Section */}
-          {(userCity && (!loadingCity || cityProducts.length > 0)) && (
-            <ProductSection 
-              title={loadingCity 
-                ? "Loading City Products..." 
-                : `${userCity || 'City'} Products`
-              }
-              data={cityProducts}
-              wishlist={wishlist}
-              onToggleWishlist={toggleWishlist}
-              onProductPress={handleProductPress}
-              onSeeAll={() => handleSeeAll('city')}
-              isLoading={loadingCity}
-            />
-          )}
-          
-          {/* Featured Items Section */}
-          <ProductSection 
-            title="Featured Items"
-            data={featuredProducts}
-            wishlist={wishlist}
-            onToggleWishlist={toggleWishlist}
-            onProductPress={handleProductPress}
-            onSeeAll={() => handleSeeAll('featured')}
-            isLoading={loadingFeatured}
-          />
-          
-          {/* Error display */}
-          {error && (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{error}</Text>
-              <TouchableOpacity 
-                style={styles.retryButton}
-                onPress={handleRefresh}
-              >
-                <Text style={styles.retryButtonText}>Retry</Text>
-              </TouchableOpacity>
+          </View>
+        ) : (
+          // Original content - Categories and Product Sections
+          <>
+            {/* Category Circles */}
+            <View style={styles.categoryContainer}>
+              <FlatList
+                data={categories}
+                renderItem={({ item }) => (
+                  <CategoryItem 
+                    item={item} 
+                    onPress={handleCategoryPress}
+                  />
+                )}
+                keyExtractor={item => item.id.toString()}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+              />
             </View>
-          )}
-          
-          {/* Bottom padding to avoid content being hidden behind navigation */}
-          <View style={{height: 70}} />
-        </ScrollView>
+            
+            {/* Scrollable container for all product sections */}
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+              }
+            >
+              {/* New Arrivals Section */}
+              <ProductSection 
+                title="New Arrivals"
+                data={newArrivalsProducts}
+                wishlist={wishlist}
+                onToggleWishlist={toggleWishlist}
+                onProductPress={handleProductPress}
+                onSeeAll={() => handleSeeAll('newArrivals')}
+                isLoading={loadingNewArrivals}
+              />
+
+              {/* University Products Section */}
+              {(userUniversity && (!loadingUniversity || universityProducts.length > 0)) && (
+                <ProductSection 
+                  title={loadingUniversity 
+                    ? "Loading University Products..." 
+                    : `${userUniversity || 'University'} Products`
+                  }
+                  data={universityProducts}
+                  wishlist={wishlist}
+                  onToggleWishlist={toggleWishlist}
+                  onProductPress={handleProductPress}
+                  onSeeAll={() => handleSeeAll('university')}
+                  isLoading={loadingUniversity}
+                />
+              )}
+
+              {/* City Products Section */}
+              {(userCity && (!loadingCity || cityProducts.length > 0)) && (
+                <ProductSection 
+                  title={loadingCity 
+                    ? "Loading City Products..." 
+                    : `${userCity || 'City'} Products`
+                  }
+                  data={cityProducts}
+                  wishlist={wishlist}
+                  onToggleWishlist={toggleWishlist}
+                  onProductPress={handleProductPress}
+                  onSeeAll={() => handleSeeAll('city')}
+                  isLoading={loadingCity}
+                />
+              )}
+              
+              {/* Featured Items Section */}
+              <ProductSection 
+                title="Featured Items"
+                data={featuredProducts}
+                wishlist={wishlist}
+                onToggleWishlist={toggleWishlist}
+                onProductPress={handleProductPress}
+                onSeeAll={() => handleSeeAll('featured')}
+                isLoading={loadingFeatured}
+              />
+              
+              {/* Error display */}
+              {error && (
+                <View style={styles.errorContainer}>
+                  <Text style={styles.errorText}>{error}</Text>
+                  <TouchableOpacity 
+                    style={styles.retryButton}
+                    onPress={handleRefresh}
+                  >
+                    <Text style={styles.retryButtonText}>Retry</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              
+              {/* Bottom padding to avoid content being hidden behind navigation */}
+              <View style={{height: 70}} />
+            </ScrollView>
+          </>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -1368,7 +2267,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 10,
-    marginBottom: 20,
+    marginBottom:5,
   },
   menuButton: {
     padding: 5,
@@ -1398,19 +2297,47 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
   },
-  searchBox: {
-    height: 40,
-    borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 10,
-    marginBottom: 20,
+  searchContainer: {
     flexDirection: 'row',
+    marginVertical: 12,
+    paddingHorizontal: 5,
     alignItems: 'center',
-    gap: 10,
   },
-  input: {
+  searchInputContainer: {
     flex: 1,
-    height: 40,
+    flexDirection: 'row',
+    backgroundColor: '#f2f2f2',
+    borderRadius: 25,
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    height: 46,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    height: '100%',
+  },
+  clearButton: {
+    padding: 6,
+  },
+  searchButton: {
+    backgroundColor: 'black',
+    borderRadius: 25,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    marginLeft: 10,
+    height: 46,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 15,
   },
   rowContainer: {
     flexDirection: 'row',
@@ -1642,6 +2569,98 @@ const styles = StyleSheet.create({
     padding: 4,
     borderRadius: 12,
     backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  searchResultsContainer: {
+    flex: 1,
+    backgroundColor: '#f8f8f8',
+  },
+  searchResultsList: {
+    padding: 10,
+    paddingBottom: 20,
+  },
+  searchLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#666',
+    fontSize: 14,
+  },
+  searchErrorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  noResultsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  noResultsText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 15,
+  },
+  noResultsSubText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
+  },
+  searchStatsContainer: {
+    padding: 10,
+    backgroundColor: '#f8f8f8',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  searchStatsText: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+  },
+  paginationFooter: {
+    padding: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadMoreButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  loadMoreButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  loadingMoreText: {
+    marginTop: 8,
+    color: '#666',
+  },
+  productsGrid: {
+    padding: 8,
+  },
+  clearFiltersButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#f7b305',
+    marginRight: 8,
+  },
+  clearFiltersText: {
+    color: '#f7b305',
+    fontSize: 12,
+    marginRight: 4,
+    fontWeight: '500',
   },
 });
 

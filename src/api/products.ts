@@ -67,20 +67,21 @@ export interface Product {
   sellerName?: string;
 }
 
+// Product filter options
 export interface ProductFilters {
+  university?: string;
+  city?: string;
   category?: string;
-  sortBy?: 'price_low_high' | 'price_high_low' | 'newest' | 'popularity' | 'default';
-  condition?: string | string[]; // Allow multiple conditions
-  sellingType?: string | string[]; // Allow multiple selling types
+  zipcode?: string;
+  postedWithin?: number; // in days
+  minPrice?: number | string;
+  maxPrice?: number | string;
+  condition?: string | string[];
+  sellingType?: string | string[];
+  sortBy?: string; // Support dynamic sort options
+  sortDirection?: 'asc' | 'desc';
   page?: number;
   size?: number;
-  university?: string; // For university filtering
-  city?: string; // For city filtering
-  zipcode?: string; // For zipcode-based filtering or proximity search
-  query?: string; // For search filtering
-  minPrice?: string; // For price range filtering
-  maxPrice?: string; // For price range filtering
-  postedWithin?: string; // For filtering by posting date (e.g., "7d" for last week)
 }
 
 export interface ProductListResponse {
@@ -654,6 +655,359 @@ export const fetchUserProducts = async (email: string): Promise<Product[]> => {
   }
 };
 
+// Define interface for search parameters
+export interface SearchProductsParams {
+  query?: string;
+  university?: string;
+  category?: string;
+  city?: string;
+  minPrice?: number | string;
+  maxPrice?: number | string;
+  condition?: string | string[];
+  sellingType?: string | string[];
+  sortBy?: string;
+  sortDirection?: string;
+  page?: number;
+  size?: number;
+  paginationToken?: string;
+}
+
+// Define interface for search results
+export interface SearchProductsResponse {
+  products: Product[];
+  totalItems: number;
+  currentPage: number;
+  totalPages: number;
+  hasMorePages?: boolean;
+  nextPageToken?: string | null;
+}
+
+/**
+ * Search products with multiple parameters and filters
+ * 
+ * @param {SearchProductsParams} searchParams Search parameters and filters
+ * @returns {Promise<SearchProductsResponse>} Search results with pagination
+ */
+export const searchProducts = async (searchParams: SearchProductsParams = {}): Promise<SearchProductsResponse> => {
+  console.log(`[API:products] Searching products with params:`, JSON.stringify(searchParams));
+  
+  try {
+    // Build query parameters
+    const queryParams = new URLSearchParams();
+    
+    // Add all search parameters
+    if (searchParams.query) queryParams.append('query', searchParams.query);
+    if (searchParams.university) queryParams.append('university', searchParams.university);
+    if (searchParams.category) queryParams.append('category', searchParams.category);
+    if (searchParams.city) queryParams.append('city', searchParams.city);
+    if (searchParams.minPrice) queryParams.append('minPrice', searchParams.minPrice.toString());
+    if (searchParams.maxPrice) queryParams.append('maxPrice', searchParams.maxPrice.toString());
+    
+    // Handle condition and sellingType which can be arrays safely
+    if (searchParams.condition) {
+      if (Array.isArray(searchParams.condition)) {
+        searchParams.condition.forEach(cond => {
+          if (cond) queryParams.append('condition', cond);
+        });
+      } else if (typeof searchParams.condition === 'string') {
+        queryParams.append('condition', searchParams.condition);
+      }
+    }
+    
+    if (searchParams.sellingType) {
+      if (Array.isArray(searchParams.sellingType)) {
+        searchParams.sellingType.forEach(type => {
+          if (type) queryParams.append('sellingType', type);
+        });
+      } else if (typeof searchParams.sellingType === 'string') {
+        queryParams.append('sellingType', searchParams.sellingType);
+      }
+    }
+    
+    // Sorting
+    if (searchParams.sortBy) queryParams.append('sortBy', searchParams.sortBy);
+    if (searchParams.sortDirection) queryParams.append('sortDirection', searchParams.sortDirection);
+    
+    // Pagination
+    if (searchParams.page) queryParams.append('page', searchParams.page.toString());
+    if (searchParams.size) queryParams.append('size', searchParams.size.toString());
+    if (searchParams.paginationToken) queryParams.append('paginationToken', searchParams.paginationToken);
+    
+    const searchUrl = `${API_URL}/api/products/search?${queryParams}`;
+    console.log(`[API:products] Attempting search API at: ${searchUrl}`);
+    
+    // Try with the search endpoint first
+    try {
+      const response = await fetchWithTimeout(searchUrl, { method: 'GET' });
+      console.log(`[API:products] Search API response status: ${response.status}`);
+      
+      if (response.ok) {
+        // If search API works, use it
+        const result = await handleResponse<SearchProductsResponse>(response);
+        console.log(`[API:products] Search API returned ${result.products?.length || 0} products`);
+        
+        // Ensure products is an array and process images
+        if (result.products && Array.isArray(result.products)) {
+          result.products = result.products.map(product => processProductImages(product));
+          return result;
+        }
+      } else {
+        // Log detailed error information
+        console.error(`[API:products] Search API error: ${response.status} ${response.statusText}`);
+        
+        try {
+          // Clone response to inspect body without consuming the original
+          const responseClone = response.clone();
+          const errorText = await responseClone.text();
+          console.error('[API:products] Error response details:', errorText.substring(0, 200));
+          
+          // Try to parse as JSON if possible
+          try {
+            const errorJson = JSON.parse(errorText);
+            console.error('[API:products] Error JSON:', JSON.stringify(errorJson));
+          } catch (jsonError) {
+            console.log('[API:products] Error response is not valid JSON');
+          }
+        } catch (readError) {
+          console.error('[API:products] Failed to read error response:', readError);
+        }
+      }
+      
+      // If we get here, the search API failed but didn't throw an error
+      // Fall back to university or category endpoint
+      throw new Error(`Search API failed with status: ${response.status}`);
+      
+    } catch (searchError) {
+      // Search API failed, fall back to university or category endpoints
+      console.warn(`[API:products] Search API unavailable or failed: ${searchError}`);
+      console.log('[API:products] Falling back to alternative API endpoints');
+      
+      // Determine which fallback endpoint to use
+      return await handleSearchFallback(searchParams);
+    }
+  } catch (error) {
+    console.error('[API:products] Error in searchProducts function:', error);
+    
+    // Try fallback as last resort
+    try {
+      return await handleSearchFallback(searchParams);
+    } catch (fallbackError) {
+      console.error('[API:products] Even fallback search failed:', fallbackError);
+      
+      // Return a safe empty result when all methods fail
+      return {
+        products: [],
+        totalItems: 0,
+        currentPage: 1,
+        totalPages: 1,
+        hasMorePages: false,
+        nextPageToken: null
+      };
+    }
+  }
+};
+
+/**
+ * Handle search fallback when the primary search API fails
+ * Uses existing backend endpoints instead of client-side filtering
+ */
+const handleSearchFallback = async (searchParams: SearchProductsParams): Promise<SearchProductsResponse> => {
+  console.log('[API:products] Using backend fallback for search');
+  
+  try {
+    let fallbackResult: ProductListResponse | null = null;
+    
+    // First priority: Use university endpoint if university is specified
+    if (searchParams.university) {
+      console.log(`[API:products] Fallback: Using university endpoint with "${searchParams.university}"`);
+      
+      // Build filter object for university search
+      const uniFilters: ProductFilters = {};
+      
+      // Apply available filters to university request
+      if (searchParams.sortBy) uniFilters.sortBy = searchParams.sortBy;
+      if (searchParams.condition) uniFilters.condition = searchParams.condition;
+      if (searchParams.sellingType) uniFilters.sellingType = searchParams.sellingType;
+      if (searchParams.minPrice) uniFilters.minPrice = searchParams.minPrice;
+      if (searchParams.maxPrice) uniFilters.maxPrice = searchParams.maxPrice;
+      
+      try {
+        fallbackResult = await getProductsByUniversity(searchParams.university, uniFilters);
+        
+        // Text filtering on the query parameter must be done client-side for now
+        // But this is a fallback mechanism only when search API is down
+        if (searchParams.query && fallbackResult.products) {
+          const query = searchParams.query.toLowerCase();
+          console.log(`[API:products] Fallback: Filtering university results by query "${query}" (${fallbackResult.products.length} before filtering)`);
+          
+          fallbackResult.products = fallbackResult.products.filter(product => 
+            product.name.toLowerCase().includes(query) || 
+            (product.description && product.description.toLowerCase().includes(query))
+          );
+          
+          // Update total count
+          fallbackResult.totalItems = fallbackResult.products.length;
+          fallbackResult.totalPages = Math.ceil(fallbackResult.totalItems / (searchParams.size || 20));
+          
+          console.log(`[API:products] Fallback: Found ${fallbackResult.products.length} matching university products after filtering`);
+        }
+      } catch (uniError) {
+        console.error(`[API:products] University fallback failed:`, uniError);
+      }
+    }
+    
+    // Second priority: Use category endpoint if category is specified and university failed
+    if (!fallbackResult && searchParams.category) {
+      console.log(`[API:products] Fallback: Using category endpoint with "${searchParams.category}"`);
+      
+      // Build filter object for category search
+      const categoryFilters: ProductFilters = {};
+      
+      // Apply available filters to category request
+      if (searchParams.sortBy) categoryFilters.sortBy = searchParams.sortBy;
+      if (searchParams.condition) categoryFilters.condition = searchParams.condition;
+      if (searchParams.sellingType) categoryFilters.sellingType = searchParams.sellingType;
+      if (searchParams.minPrice) categoryFilters.minPrice = searchParams.minPrice;
+      if (searchParams.maxPrice) categoryFilters.maxPrice = searchParams.maxPrice;
+      
+      try {
+        fallbackResult = await getProductsByCategory(searchParams.category, categoryFilters);
+        
+        // Text filtering on the query parameter must be done client-side for now
+        // But this is a fallback mechanism only when search API is down
+        if (searchParams.query && fallbackResult.products) {
+          const query = searchParams.query.toLowerCase();
+          console.log(`[API:products] Fallback: Filtering category results by query "${query}" (${fallbackResult.products.length} before filtering)`);
+          
+          fallbackResult.products = fallbackResult.products.filter(product => 
+            product.name.toLowerCase().includes(query) || 
+            (product.description && product.description.toLowerCase().includes(query))
+          );
+          
+          // Update total count
+          fallbackResult.totalItems = fallbackResult.products.length;
+          fallbackResult.totalPages = Math.ceil(fallbackResult.totalItems / (searchParams.size || 20));
+          
+          console.log(`[API:products] Fallback: Found ${fallbackResult.products.length} matching category products after filtering`);
+        }
+      } catch (categoryError) {
+        console.error(`[API:products] Category fallback failed:`, categoryError);
+      }
+    }
+    
+    // Third priority: Use city endpoint if city is specified and other methods failed
+    if (!fallbackResult && searchParams.city) {
+      console.log(`[API:products] Fallback: Using city endpoint with "${searchParams.city}"`);
+      
+      // Build filter object for city search
+      const cityFilters: ProductFilters = {};
+      
+      // Apply available filters to city request
+      if (searchParams.sortBy) cityFilters.sortBy = searchParams.sortBy;
+      if (searchParams.condition) cityFilters.condition = searchParams.condition;
+      if (searchParams.sellingType) cityFilters.sellingType = searchParams.sellingType;
+      if (searchParams.minPrice) cityFilters.minPrice = searchParams.minPrice;
+      if (searchParams.maxPrice) cityFilters.maxPrice = searchParams.maxPrice;
+      
+      try {
+        fallbackResult = await getProductsByCity(searchParams.city, cityFilters);
+        
+        // Text filtering on the query parameter must be done client-side for now
+        // But this is a fallback mechanism only when search API is down
+        if (searchParams.query && fallbackResult.products) {
+          const query = searchParams.query.toLowerCase();
+          console.log(`[API:products] Fallback: Filtering city results by query "${query}" (${fallbackResult.products.length} before filtering)`);
+          
+          fallbackResult.products = fallbackResult.products.filter(product => 
+            product.name.toLowerCase().includes(query) || 
+            (product.description && product.description.toLowerCase().includes(query))
+          );
+          
+          // Update total count
+          fallbackResult.totalItems = fallbackResult.products.length;
+          fallbackResult.totalPages = Math.ceil(fallbackResult.totalItems / (searchParams.size || 20));
+          
+          console.log(`[API:products] Fallback: Found ${fallbackResult.products.length} matching city products after filtering`);
+        }
+      } catch (cityError) {
+        console.error(`[API:products] City fallback failed:`, cityError);
+      }
+    }
+    
+    // Last resort: Use general products endpoint if everything else failed
+    if (!fallbackResult) {
+      console.log(`[API:products] Fallback: Using general products endpoint as last resort`);
+      
+      // Build filter object for general search
+      const generalFilters: ProductFilters = {};
+      
+      // Apply all possible filters
+      if (searchParams.sortBy) generalFilters.sortBy = searchParams.sortBy;
+      if (searchParams.condition) generalFilters.condition = searchParams.condition;
+      if (searchParams.sellingType) generalFilters.sellingType = searchParams.sellingType;
+      if (searchParams.minPrice) generalFilters.minPrice = searchParams.minPrice;
+      if (searchParams.maxPrice) generalFilters.maxPrice = searchParams.maxPrice;
+      if (searchParams.university) generalFilters.university = searchParams.university as string;
+      if (searchParams.city) generalFilters.city = searchParams.city;
+      if (searchParams.category) generalFilters.category = searchParams.category;
+      
+      try {
+        fallbackResult = await getProducts(generalFilters);
+        
+        // Text filtering on the query parameter must be done client-side for now
+        // But this is a fallback mechanism only when search API is down
+        if (searchParams.query && fallbackResult.products) {
+          const query = searchParams.query.toLowerCase();
+          console.log(`[API:products] Fallback: Filtering general results by query "${query}" (${fallbackResult.products.length} before filtering)`);
+          
+          fallbackResult.products = fallbackResult.products.filter(product => 
+            product.name.toLowerCase().includes(query) || 
+            (product.description && product.description.toLowerCase().includes(query))
+          );
+          
+          // Update total count
+          fallbackResult.totalItems = fallbackResult.products.length;
+          fallbackResult.totalPages = Math.ceil(fallbackResult.totalItems / (searchParams.size || 20));
+          
+          console.log(`[API:products] Fallback: Found ${fallbackResult.products.length} matching products after filtering`);
+        }
+      } catch (generalError) {
+        console.error(`[API:products] General products fallback failed:`, generalError);
+        throw new Error('All search fallback methods failed');
+      }
+    }
+    
+    if (!fallbackResult) {
+      throw new Error('No search fallback method returned results');
+    }
+    
+    // Convert result to expected SearchProductsResponse format
+    const response: SearchProductsResponse = {
+      products: fallbackResult.products || [],
+      totalItems: fallbackResult.totalItems || fallbackResult.products?.length || 0,
+      currentPage: searchParams.page || 1,
+      totalPages: fallbackResult.totalPages || Math.ceil((fallbackResult.totalItems || fallbackResult.products?.length || 0) / (searchParams.size || 20)),
+      hasMorePages: false,
+      nextPageToken: null
+    };
+    
+    // Calculate pagination information
+    const currentPage = searchParams.page || 1;
+    response.hasMorePages = currentPage < response.totalPages;
+    
+    if (response.hasMorePages) {
+      response.nextPageToken = `page_${currentPage + 1}`;
+    }
+    
+    console.log(`[API:products] Fallback search complete. Returning ${response.products.length} products. Page ${currentPage}/${response.totalPages}`);
+    
+    return response;
+  } catch (error) {
+    console.error('[API:products] All fallback methods failed:', error);
+    throw error;
+  }
+};
+
 export default {
   getProducts,
   getProductsByUniversity,
@@ -664,4 +1018,5 @@ export default {
   createProductWithImageFilenames,
   getProductById,
   fetchUserProducts,
+  searchProducts,
 }; 
