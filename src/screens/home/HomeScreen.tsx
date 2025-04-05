@@ -432,35 +432,35 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   const [_cityProductsOriginal, setCityProductsOriginal] = useState<Product[]>([]);
   
   // Advanced filtering state
-  const [featuredFilterMaps, setFeaturedFilterMaps] = useState<{
-    conditionMap: FilterMap;
-    sellingTypeMap: FilterMap;
-    priceRangeMap: FilterMap;
-  }>({ conditionMap: {}, sellingTypeMap: {}, priceRangeMap: {} });
+  const [featuredFilterMaps, setFeaturedFilterMaps] = useState<FilterMap>({
+    condition: new Map(),
+    sellingType: new Map(),
+    price: new Map()
+  });
   
-  const [newArrivalsFilterMaps, setNewArrivalsFilterMaps] = useState<{
-    conditionMap: FilterMap;
-    sellingTypeMap: FilterMap;
-    priceRangeMap: FilterMap;
-  }>({ conditionMap: {}, sellingTypeMap: {}, priceRangeMap: {} });
+  const [newArrivalsFilterMaps, setNewArrivalsFilterMaps] = useState<FilterMap>({
+    condition: new Map(),
+    sellingType: new Map(),
+    price: new Map()
+  });
   
-  const [universityFilterMaps, setUniversityFilterMaps] = useState<{
-    conditionMap: FilterMap;
-    sellingTypeMap: FilterMap;
-    priceRangeMap: FilterMap;
-  }>({ conditionMap: {}, sellingTypeMap: {}, priceRangeMap: {} });
+  const [universityFilterMaps, setUniversityFilterMaps] = useState<FilterMap>({
+    condition: new Map(),
+    sellingType: new Map(),
+    price: new Map()
+  });
   
-  const [cityFilterMaps, setCityFilterMaps] = useState<{
-    conditionMap: FilterMap;
-    sellingTypeMap: FilterMap;
-    priceRangeMap: FilterMap;
-  }>({ conditionMap: {}, sellingTypeMap: {}, priceRangeMap: {} });
+  const [cityFilterMaps, setCityFilterMaps] = useState<FilterMap>({
+    condition: new Map(),
+    sellingType: new Map(),
+    price: new Map()
+  });
   
   // Total available product counts from server
   const [totalFeaturedCount, setTotalFeaturedCount] = useState<number>(0);
-  const [totalNewArrivalsCount, setTotalNewArrivalsCount] = useState<number>(0);
+  const [totalNewArrivalsCount, _setTotalNewArrivalsCount] = useState<number>(0); // Prefix with _ to indicate unused
   const [totalUniversityCount, setTotalUniversityCount] = useState<number>(0);
-  const [totalCityCount, setTotalCityCount] = useState<number>(0);
+  const [totalCityCount, _setTotalCityCount] = useState<number>(0); // Prefix with _ to indicate unused
   
   // Track if we're using server-side filtering
   const [usingServerFiltering, setUsingServerFiltering] = useState<boolean>(false);
@@ -521,6 +521,218 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+
+  // Load filtered featured products from server
+  const loadFilteredFeaturedProducts = useCallback(async (apiFilters: ProductFilters) => {
+    if (!userUniversity || !userCity) return [];
+    
+    console.log('[HomeScreen] Loading filtered featured products from server');
+    
+    try {
+      // Use apiFilters directly
+      const products = await getFeaturedProducts(userUniversity, userCity);
+      
+      // Client-side filter if server doesn't support filtering for this endpoint
+      let filteredProducts = products;
+      
+      // Check if we should use client-side filtering based on products size threshold
+      if (products.length > PRODUCT_SIZE_THRESHOLD && Object.keys(apiFilters).length > 0) {
+        console.log(`[HomeScreen] Using optimized filtering for ${products.length} products (over threshold of ${PRODUCT_SIZE_THRESHOLD})`);
+      }
+      
+      if (Object.keys(apiFilters).length > 0) {
+        // Apply manual filtering for condition
+        if (apiFilters.condition) {
+          const conditions = Array.isArray(apiFilters.condition) 
+            ? apiFilters.condition 
+            : [apiFilters.condition];
+            
+          filteredProducts = filteredProducts.filter(product => {
+            const productCondition = (product.condition || product.productage || '').toLowerCase();
+            return conditions.some(c => productCondition === c);
+          });
+        }
+        
+        // Apply manual filtering for selling type
+        if (apiFilters.sellingType) {
+          const types = Array.isArray(apiFilters.sellingType)
+            ? apiFilters.sellingType
+            : [apiFilters.sellingType];
+            
+          filteredProducts = filteredProducts.filter(product => {
+            const sellingType = (product.sellingtype || '').toLowerCase();
+            return types.some(t => sellingType === t);
+          });
+        }
+        
+        // Apply manual filtering for price
+        if (apiFilters.maxPrice !== undefined) {
+          const maxPrice = parseFloat(apiFilters.maxPrice.toString());
+          filteredProducts = filteredProducts.filter(product => {
+            const price = parseFloat(product.price || '0');
+            return price <= maxPrice;
+          });
+        }
+        
+        if (apiFilters.minPrice !== undefined) {
+          const minPrice = parseFloat(apiFilters.minPrice.toString());
+          filteredProducts = filteredProducts.filter(product => {
+            const price = parseFloat(product.price || '0');
+            return price >= minPrice;
+          });
+        }
+      }
+      
+      // Create filter maps for the filtered products
+      const filterMaps = createFilterMaps(filteredProducts);
+      
+      setFeaturedProducts(filteredProducts);
+      setFeaturedFilterMaps(filterMaps);
+      
+      return filteredProducts;
+    } catch (err) {
+      console.error('Error loading filtered featured products:', err);
+      return [];
+    }
+  }, [userUniversity, userCity]);
+
+  // Load filtered new arrivals from server
+  const loadFilteredNewArrivals = useCallback(async (apiFilters: ProductFilters) => {
+    if (!userUniversity) return [];
+    
+    console.log('[HomeScreen] Loading filtered new arrivals from server');
+    
+    try {
+      // Use apiFilters directly
+      const products = await getNewArrivals(userUniversity);
+      
+      // Client-side filter if server doesn't support filtering for this endpoint
+      let filteredProducts = products;
+      
+      if (Object.keys(apiFilters).length > 0) {
+        // Apply manual filtering for condition
+        if (apiFilters.condition) {
+          const conditions = Array.isArray(apiFilters.condition) 
+            ? apiFilters.condition 
+            : [apiFilters.condition];
+            
+          filteredProducts = filteredProducts.filter(product => {
+            const productCondition = (product.condition || product.productage || '').toLowerCase();
+            return conditions.some(c => productCondition === c);
+          });
+        }
+        
+        // Apply manual filtering for selling type
+        if (apiFilters.sellingType) {
+          const types = Array.isArray(apiFilters.sellingType)
+            ? apiFilters.sellingType
+            : [apiFilters.sellingType];
+            
+          filteredProducts = filteredProducts.filter(product => {
+            const sellingType = (product.sellingtype || '').toLowerCase();
+            return types.some(t => sellingType === t);
+          });
+        }
+        
+        // Apply manual filtering for price
+        if (apiFilters.maxPrice !== undefined) {
+          const maxPrice = parseFloat(apiFilters.maxPrice.toString());
+          filteredProducts = filteredProducts.filter(product => {
+            const price = parseFloat(product.price || '0');
+            return price <= maxPrice;
+          });
+        }
+        
+        if (apiFilters.minPrice !== undefined) {
+          const minPrice = parseFloat(apiFilters.minPrice.toString());
+          filteredProducts = filteredProducts.filter(product => {
+            const price = parseFloat(product.price || '0');
+            return price >= minPrice;
+          });
+        }
+      }
+      
+      // Create filter maps for the filtered products
+      const filterMaps = createFilterMaps(filteredProducts);
+      
+      setNewArrivalsProducts(filteredProducts);
+      setNewArrivalsFilterMaps(filterMaps);
+      
+      return filteredProducts;
+    } catch (err) {
+      console.error('Error loading filtered new arrivals:', err);
+      return [];
+    }
+  }, [userUniversity]);
+
+  // Load filtered university products from server
+  const loadFilteredUniversityProducts = useCallback(async (apiFilters: ProductFilters) => {
+    if (!userUniversity) return [];
+    
+    console.log('[HomeScreen] Loading filtered university products from server');
+    
+    try {
+      // Adjusted filters to match backend expected parameters
+      const filters: ProductFilters = {
+        ...apiFilters,
+        sortBy: apiFilters.sortBy || 'newest',
+        page: 1,
+        size: 20
+      };
+      
+      const result = await getProductsByUniversity(userUniversity, filters);
+      
+      if (result && Array.isArray(result.products)) {
+        // Create filter maps for the filtered products
+        const filterMaps = createFilterMaps(result.products);
+        
+        setUniversityProducts(result.products);
+        setUniversityFilterMaps(filterMaps);
+        
+        return result.products;
+      }
+      
+      return [];
+    } catch (err) {
+      console.error('Error loading filtered university products:', err);
+      return [];
+    }
+  }, [userUniversity]);
+
+  // Load filtered city products from server
+  const loadFilteredCityProducts = useCallback(async (apiFilters: ProductFilters) => {
+    if (!userCity) return [];
+    
+    console.log('[HomeScreen] Loading filtered city products from server');
+    
+    try {
+      // Adjusted filters to match backend expected parameters
+      const filters: ProductFilters = {
+        ...apiFilters,
+        sortBy: apiFilters.sortBy || 'newest',
+        page: 1, // Will be converted to 0-indexed in the API layer
+        size: 20,
+        university: userUniversity // Include university if available
+      };
+      
+      const result = await getProductsByCity(userCity, filters);
+      
+      if (result && Array.isArray(result.products)) {
+        // Create filter maps for the filtered products
+        const filterMaps = createFilterMaps(result.products);
+        
+        setCityProducts(result.products);
+        setCityFilterMaps(filterMaps);
+        
+        return result.products;
+      }
+      
+      return [];
+    } catch (err) {
+      console.error('Error loading filtered city products:', err);
+      return [];
+    }
+  }, [userCity, userUniversity]);
 
   // Function to load products for university (wrapped in useCallback)
   const loadUniversityProducts = useCallback(async () => {
@@ -611,7 +823,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
             typeof result === 'object' ? JSON.stringify(result) : typeof result);
           setUniversityProducts([]);
           setUniversityProductsOriginal([]);
-          setUniversityFilterMaps({ conditionMap: {}, sellingTypeMap: {}, priceRangeMap: {} });
+          setUniversityFilterMaps({ condition: new Map(), sellingType: new Map(), price: new Map() });
           setTotalUniversityCount(0);
         }
       } catch (error: any) {
@@ -622,7 +834,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
         // Fallback to an empty array to avoid UI crashes
         setUniversityProducts([]);
         setUniversityProductsOriginal([]);
-        setUniversityFilterMaps({ conditionMap: {}, sellingTypeMap: {}, priceRangeMap: {} });
+        setUniversityFilterMaps({ condition: new Map(), sellingType: new Map(), price: new Map() });
         setTotalUniversityCount(0);
       }
     } catch (err: any) {
@@ -630,7 +842,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
       setError('Failed to load university products');
       setUniversityProducts([]);
       setUniversityProductsOriginal([]);
-      setUniversityFilterMaps({ conditionMap: {}, sellingTypeMap: {}, priceRangeMap: {} });
+      setUniversityFilterMaps({ condition: new Map(), sellingType: new Map(), price: new Map() });
       setTotalUniversityCount(0);
     } finally {
       console.log(`[HomeScreen] University products loading complete`);
@@ -1344,10 +1556,10 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
       
       // If any product set needs server filtering or progressive loading, set the flag
       const useServer = useFeaturedServerFiltering || 
-                        useNewArrivalsServerFiltering || 
-                        useUniversityServerFiltering || 
-                        useCityServerFiltering ||
-                        needsProgressiveLoading;
+                      useNewArrivalsServerFiltering || 
+                      useUniversityServerFiltering || 
+                      useCityServerFiltering ||
+                      needsProgressiveLoading;
       
       setUsingServerFiltering(useServer);
       
@@ -1460,7 +1672,11 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     featuredFilterMaps,
     newArrivalsFilterMaps,
     universityFilterMaps,
-    cityFilterMaps
+    cityFilterMaps,
+    loadFilteredFeaturedProducts,
+    loadFilteredNewArrivals,
+    loadFilteredUniversityProducts,
+    loadFilteredCityProducts
   ]);
 
   // Update the handleSortOptionSelect function
@@ -1707,224 +1923,6 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     fetchUserProfile();
   }, [fetchUserProfile]);
 
-  // Load filtered featured products from server
-  const loadFilteredFeaturedProducts = useCallback(async (apiFilters: ProductFilters) => {
-    if (!userUniversity || !userCity) return;
-    
-    console.log('[HomeScreen] Loading filtered featured products from server');
-    
-    try {
-      // Add location filters
-      const filters = {
-        ...apiFilters,
-        university: userUniversity,
-        city: userCity
-      };
-      
-      const products = await getFeaturedProducts(userUniversity, userCity);
-      
-      // Client-side filter if server doesn't support filtering for this endpoint
-      let filteredProducts = products;
-      
-      if (Object.keys(apiFilters).length > 0) {
-        // Apply manual filtering for condition
-        if (apiFilters.condition) {
-          const conditions = Array.isArray(apiFilters.condition) 
-            ? apiFilters.condition 
-            : [apiFilters.condition];
-            
-          filteredProducts = filteredProducts.filter(product => {
-            const productCondition = (product.condition || product.productage || '').toLowerCase();
-            return conditions.some(c => productCondition === c);
-          });
-        }
-        
-        // Apply manual filtering for selling type
-        if (apiFilters.sellingType) {
-          const types = Array.isArray(apiFilters.sellingType)
-            ? apiFilters.sellingType
-            : [apiFilters.sellingType];
-            
-          filteredProducts = filteredProducts.filter(product => {
-            const sellingType = (product.sellingtype || '').toLowerCase();
-            return types.some(t => sellingType === t);
-          });
-        }
-        
-        // Apply manual filtering for price
-        if (apiFilters.maxPrice !== undefined) {
-          const maxPrice = parseFloat(apiFilters.maxPrice.toString());
-          filteredProducts = filteredProducts.filter(product => {
-            const price = parseFloat(product.price || '0');
-            return price <= maxPrice;
-          });
-        }
-        
-        if (apiFilters.minPrice !== undefined) {
-          const minPrice = parseFloat(apiFilters.minPrice.toString());
-          filteredProducts = filteredProducts.filter(product => {
-            const price = parseFloat(product.price || '0');
-            return price >= minPrice;
-          });
-        }
-      }
-      
-      // Create filter maps for the filtered products
-      const filterMaps = createFilterMaps(filteredProducts);
-      
-      setFeaturedProducts(filteredProducts);
-      setFeaturedFilterMaps(filterMaps);
-      
-      return filteredProducts;
-    } catch (err) {
-      console.error('Error loading filtered featured products:', err);
-      return [];
-    }
-  }, [userUniversity, userCity]);
-  
-  // Load filtered new arrivals from server
-  const loadFilteredNewArrivals = useCallback(async (apiFilters: ProductFilters) => {
-    if (!userUniversity) return;
-    
-    console.log('[HomeScreen] Loading filtered new arrivals from server');
-    
-    try {
-      // Add location filters
-      const filters = {
-        ...apiFilters,
-        university: userUniversity
-      };
-      
-      const products = await getNewArrivals(userUniversity);
-      
-      // Client-side filter if server doesn't support filtering for this endpoint
-      let filteredProducts = products;
-      
-      if (Object.keys(apiFilters).length > 0) {
-        // Apply manual filtering for condition
-        if (apiFilters.condition) {
-          const conditions = Array.isArray(apiFilters.condition) 
-            ? apiFilters.condition 
-            : [apiFilters.condition];
-            
-          filteredProducts = filteredProducts.filter(product => {
-            const productCondition = (product.condition || product.productage || '').toLowerCase();
-            return conditions.some(c => productCondition === c);
-          });
-        }
-        
-        // Apply manual filtering for selling type
-        if (apiFilters.sellingType) {
-          const types = Array.isArray(apiFilters.sellingType)
-            ? apiFilters.sellingType
-            : [apiFilters.sellingType];
-            
-          filteredProducts = filteredProducts.filter(product => {
-            const sellingType = (product.sellingtype || '').toLowerCase();
-            return types.some(t => sellingType === t);
-          });
-        }
-        
-        // Apply manual filtering for price
-        if (apiFilters.maxPrice !== undefined) {
-          const maxPrice = parseFloat(apiFilters.maxPrice.toString());
-          filteredProducts = filteredProducts.filter(product => {
-            const price = parseFloat(product.price || '0');
-            return price <= maxPrice;
-          });
-        }
-        
-        if (apiFilters.minPrice !== undefined) {
-          const minPrice = parseFloat(apiFilters.minPrice.toString());
-          filteredProducts = filteredProducts.filter(product => {
-            const price = parseFloat(product.price || '0');
-            return price >= minPrice;
-          });
-        }
-      }
-      
-      // Create filter maps for the filtered products
-      const filterMaps = createFilterMaps(filteredProducts);
-      
-      setNewArrivalsProducts(filteredProducts);
-      setNewArrivalsFilterMaps(filterMaps);
-      
-      return filteredProducts;
-    } catch (err) {
-      console.error('Error loading filtered new arrivals:', err);
-      return [];
-    }
-  }, [userUniversity]);
-  
-  // Load filtered university products from server
-  const loadFilteredUniversityProducts = useCallback(async (apiFilters: ProductFilters) => {
-    if (!userUniversity) return;
-    
-    console.log('[HomeScreen] Loading filtered university products from server');
-    
-    try {
-      // Adjusted filters to match backend expected parameters
-      const filters: ProductFilters = {
-        ...apiFilters,
-        sortBy: apiFilters.sortBy || 'newest',
-        page: 1,
-        size: 20
-      };
-      
-      const result = await getProductsByUniversity(userUniversity, filters);
-      
-      if (result && Array.isArray(result.products)) {
-        // Create filter maps for the filtered products
-        const filterMaps = createFilterMaps(result.products);
-        
-        setUniversityProducts(result.products);
-        setUniversityFilterMaps(filterMaps);
-        
-        return result.products;
-      }
-      
-      return [];
-    } catch (err) {
-      console.error('Error loading filtered university products:', err);
-      return [];
-    }
-  }, [userUniversity]);
-  
-  // Load filtered city products from server
-  const loadFilteredCityProducts = useCallback(async (apiFilters: ProductFilters) => {
-    if (!userCity) return;
-    
-    console.log('[HomeScreen] Loading filtered city products from server');
-    
-    try {
-      // Adjusted filters to match backend expected parameters
-      const filters: ProductFilters = {
-        ...apiFilters,
-        sortBy: apiFilters.sortBy || 'newest',
-        page: 1,
-        size: 20,
-        university: userUniversity // Include university if available
-      };
-      
-      const result = await getProductsByCity(userCity, filters);
-      
-      if (result && Array.isArray(result.products)) {
-        // Create filter maps for the filtered products
-        const filterMaps = createFilterMaps(result.products);
-        
-        setCityProducts(result.products);
-        setCityFilterMaps(filterMaps);
-        
-        return result.products;
-      }
-      
-      return [];
-    } catch (err) {
-      console.error('Error loading filtered city products:', err);
-      return [];
-    }
-  }, [userCity, userUniversity]);
-
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: 'white' }]}>
       <View style={styles.container}>
@@ -2086,8 +2084,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                 onPress={handleClearFilters}
                 activeOpacity={0.7}
               >
-                <Text style={styles.clearFiltersText}>Clear</Text>
-                <MaterialIcons name="clear" size={14} color="#f7b305" />
+                <MaterialIcons name="clear" size={14} color="black" />
               </TouchableOpacity>
             )}
           </View>
@@ -2625,7 +2622,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loadMoreButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: 'black',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
@@ -2645,12 +2642,13 @@ const styles = StyleSheet.create({
   clearFiltersButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#f7b305',
     marginRight: 8,
+    marginLeft: 8,
   },
   clearFiltersText: {
     color: '#f7b305',

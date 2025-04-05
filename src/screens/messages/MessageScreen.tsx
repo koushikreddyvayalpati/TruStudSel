@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   userBubble: {
-    backgroundColor: '#DCF8C5',
+    backgroundColor: '#f7b305',
     alignSelf: 'flex-end',
     borderBottomRightRadius: 4,
   },
