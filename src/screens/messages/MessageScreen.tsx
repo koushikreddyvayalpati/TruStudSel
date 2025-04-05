@@ -71,10 +71,6 @@ const MessageItem = memo(({
   const showDate = index === 0 || 
     !isDateEqual(new Date(item.createdAt), new Date(messages[index - 1].createdAt));
   
-  // Determine if we need to show the avatar (first message in sequence)
-  const showAvatar = index === 0 || 
-    (messages[index - 1] && messages[index - 1].senderId !== item.senderId);
-  
   return (
     <View style={styles.messageWrapper}>
       {showDate && (
@@ -87,7 +83,7 @@ const MessageItem = memo(({
         styles.messageRow,
         isUser ? { justifyContent: 'flex-end' } : { justifyContent: 'flex-start' }
       ]}>
-        {!isUser && showAvatar && (
+        {!isUser && (
           <View style={{
             marginRight: 8,
             alignSelf: 'flex-end',
@@ -193,8 +189,8 @@ const MessageScreen = () => {
   // Render Avatar Component
   const renderAvatar = useCallback((initials: string, isUser = false) => {
     const colors = isUser 
-      ? ['#f7b305', '#f9a825'] 
-      : ['#808080', '#606060'];
+      ? ['#ffb300', '#f57c00'] // Gold to amber gradient for user
+      : ['#5D4037', '#3E2723']; // Brown tones for recipient
     
     return (
       <View style={styles.avatarShadowContainer}>
@@ -833,7 +829,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#ffb300',
-    shadowColor: 'rgba(255, 179, 0, 0.4)',
+    shadowColor: 'rgba(245, 124, 0, 0.3)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 3,
@@ -845,7 +841,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#808080',
+    backgroundColor: '#5D4037',
     shadowColor: 'rgba(0, 0, 0, 0.2)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
