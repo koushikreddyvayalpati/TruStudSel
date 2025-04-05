@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   TextInput,
   ActivityIndicator,
   RefreshControl,
+  Animated,
+  Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -35,6 +37,23 @@ const MessagesScreen = () => {
   const [showDebug, setShowDebug] = useState(false);
   const [debugInfo, setDebugInfo] = useState<string>('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const searchBarAnim = useRef(new Animated.Value(0)).current;
+  
+  // App theme colors - memoized to prevent re-renders
+  const COLORS = useMemo(() => ({
+    primary: '#ffb300',
+    primaryDark: '#f57c00',
+    background: '#f8f8f8',
+    surface: '#ffffff',
+    text: '#333333', 
+    textSecondary: '#666666',
+    textLight: '#888888',
+    border: '#eeeeee',
+    shadow: 'rgba(0, 0, 0, 0.12)'
+  }), []);
   
   // Function to get current user ID only once
   const fetchCurrentUserId = useCallback(async () => {
@@ -51,7 +70,23 @@ const MessagesScreen = () => {
   // Fetch current user ID on component mount
   useEffect(() => {
     fetchCurrentUserId();
-  }, [fetchCurrentUserId]);
+    
+    // Trigger fade-in animation on mount
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [fetchCurrentUserId, fadeAnim]);
+
+  // Animate search bar in/out
+  useEffect(() => {
+    Animated.timing(searchBarAnim, {
+      toValue: isSearchActive ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [isSearchActive, searchBarAnim]);
 
   // Fetch conversations
   const fetchConversations = useCallback(async () => {
@@ -177,8 +212,6 @@ const MessagesScreen = () => {
     // If the current user is NOT the owner of the conversation
     if (conversation.owner && conversation.owner !== currentUserId) {
       // When we're the recipient, the best name to show is the owner's name
-      // This typically should be the conversation name that was set on creation
-      // But due to the issue in the logs, we handle the special case above
       return conversation.name || 'Unknown Contact';
     }
     
@@ -197,9 +230,62 @@ const MessagesScreen = () => {
     return conversation.name || 'Unknown Contact';
   }, [currentUserId]);
 
-  // Render conversation item
+  // Get conversation timestamp for today/yesterday handling
+  const getTimeDisplay = useCallback((timestamp?: string) => {
+    if (!timestamp) return '';
+    
+    try {
+      const date = new Date(timestamp);
+      const now = new Date();
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      
+      const isToday = date.getDate() === now.getDate() && 
+                      date.getMonth() === now.getMonth() && 
+                      date.getFullYear() === now.getFullYear();
+                      
+      const isYesterday = date.getDate() === yesterday.getDate() && 
+                          date.getMonth() === yesterday.getMonth() && 
+                          date.getFullYear() === yesterday.getFullYear();
+      
+      if (isToday) {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      } else if (isYesterday) {
+        return 'Yesterday';
+      } else {
+        return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      }
+    } catch (error) {
+      return formatRelativeTime(timestamp);
+    }
+  }, [formatRelativeTime]);
+
+  // Render conversation item with optimized performance
   const renderItem = useCallback(({ item }: { item: Conversation }) => {
     const displayName = getConversationDisplayName(item);
+    const timeDisplay = getTimeDisplay(item.lastMessageTime);
+    const initials = displayName.charAt(0).toUpperCase();
+    
+    // Generate a consistent color for the avatar based on the name
+    const getAvatarColor = (name: string) => {
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      
+      // Use color variations based on the app theme
+      const colors = [
+        COLORS.primary,
+        '#f57c00', // darker orange
+        '#ffa000', // amber
+        '#ff8f00', // darker amber
+        '#ffca28', // lighter amber
+      ];
+      
+      return colors[Math.abs(hash) % colors.length];
+    };
+    
+    const avatarColor = getAvatarColor(displayName);
     
     return (
       <TouchableOpacity 
@@ -207,8 +293,8 @@ const MessagesScreen = () => {
         onPress={() => goToConversation(item)}
         activeOpacity={0.7}
       >
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{displayName.charAt(0) || '?'}</Text>
+        <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
+          <Text style={styles.avatarText}>{initials || '?'}</Text>
         </View>
         
         <View style={styles.messageContent}>
@@ -217,13 +303,16 @@ const MessagesScreen = () => {
               {displayName}
             </Text>
             <Text style={styles.messageTime}>
-              {formatRelativeTime(item.lastMessageTime)}
+              {timeDisplay}
             </Text>
           </View>
           
           <View style={styles.messagePreviewRow}>
             <Text 
-              style={styles.messageText} 
+              style={[
+                styles.messageText,
+                !item.lastMessageContent && styles.emptyMessageText
+              ]} 
               numberOfLines={1}
               ellipsizeMode="tail"
             >
@@ -241,12 +330,23 @@ const MessagesScreen = () => {
         </View>
       </TouchableOpacity>
     );
-  }, [goToConversation, formatRelativeTime, getConversationDisplayName]);
+  }, [goToConversation, getConversationDisplayName, getTimeDisplay, COLORS]);
+
+  // Memoize key extractor for performance
+  const keyExtractor = useCallback((item: Conversation) => item.id, []);
+
+  // Memoized separator component
+  const ItemSeparator = useCallback(() => <View style={styles.separator} />, []);
 
   // Render empty state when no conversations match search
   const renderEmptyComponent = useCallback(() => (
-    <View style={styles.emptyContainer}>
-      <Icon name="comments-o" size={70} color="#CCCCCC" />
+    <Animated.View 
+      style={[
+        styles.emptyContainer,
+        { opacity: fadeAnim }
+      ]}
+    >
+      <Icon name="comments-o" size={80} color="#E0E0E0" />
       <Text style={styles.emptyTitle}>
         {isLoading ? 'Loading conversations...' : 
          error ? 'Error loading conversations' :
@@ -255,10 +355,19 @@ const MessagesScreen = () => {
       <Text style={styles.emptySubtitle}>
         {isLoading ? 'Please wait...' :
          error ? error :
-         searchQuery ? 'Try a different search term' : 'When you start a conversation, it will appear here'}
+         searchQuery ? 'Try a different search term' : 'Start a conversation by tapping the + button below'}
       </Text>
-    </View>
-  ), [searchQuery, isLoading, error]);
+      
+      {!isLoading && !error && !searchQuery && (
+        <TouchableOpacity 
+          style={styles.emptyActionButton}
+          onPress={() => navigation.navigate('UserSearchScreen')}
+        >
+          <Text style={styles.emptyActionButtonText}>Find Someone to Chat With</Text>
+        </TouchableOpacity>
+      )}
+    </Animated.View>
+  ), [isLoading, error, searchQuery, fadeAnim, navigation]);
 
   // Render loader at the bottom of the list
   const renderFooter = useCallback(() => {
@@ -266,20 +375,39 @@ const MessagesScreen = () => {
     
     return (
       <View style={styles.loaderFooter}>
-        <ActivityIndicator size="small" color="#f7b305" />
+        <ActivityIndicator size="small" color={COLORS.primary} />
       </View>
     );
-  }, [isLoading, isRefreshing]);
+  }, [isLoading, isRefreshing, COLORS]);
+
+  // Get optimized list layout to improve FlatList performance
+  const getItemLayout = useCallback((data: ArrayLike<Conversation> | null | undefined, index: number) => ({
+    length: 80, // height of item + margins + separator
+    offset: 80 * index,
+    index,
+  }), []);
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f7b305" />
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       
       {/* Header */}
       <View style={styles.headerContainer}>
-        {isSearchActive ? (
-          /* Search Header */
-          <View style={styles.searchHeader}>
+        {isSearchActive && (
+          <Animated.View 
+            style={[
+              styles.searchHeader,
+              {
+                opacity: searchBarAnim,
+                transform: [{ 
+                  translateY: searchBarAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-20, 0]
+                  })
+                }]
+              }
+            ]}
+          >
             <TouchableOpacity 
               onPress={toggleSearch}
               style={styles.searchBackButton}
@@ -297,10 +425,21 @@ const MessagesScreen = () => {
               returnKeyType="search"
               clearButtonMode="while-editing"
             />
-          </View>
-        ) : (
-          /* Normal Header */
-          <>
+          </Animated.View>
+        )}
+        
+        {!isSearchActive && (
+          <Animated.View 
+            style={[
+              styles.normalHeader,
+              {
+                opacity: searchBarAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, 0]
+                })
+              }
+            ]}
+          >
             <TouchableOpacity 
               onPress={() => navigation.goBack()} 
               style={styles.backButton}
@@ -319,31 +458,39 @@ const MessagesScreen = () => {
                 <Ionicons name="search" size={24} color="#333" />
               </TouchableOpacity>
             </View>
-          </>
+          </Animated.View>
         )}
       </View>
       
       {/* Message List */}
-      <FlatList
-        data={filteredConversations}
-        renderItem={renderItem}
-        keyExtractor={item => item.id}
-        contentContainerStyle={[
-          styles.listContainer,
-          filteredConversations.length === 0 && styles.emptyListContainer
-        ]}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            colors={['#f7b305']}
-            tintColor="#f7b305"
-          />
-        }
-        ListEmptyComponent={renderEmptyComponent}
-        ListFooterComponent={renderFooter}
-      />
+      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+        <FlatList
+          data={filteredConversations}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
+          contentContainerStyle={[
+            styles.listContainer,
+            filteredConversations.length === 0 && styles.emptyListContainer
+          ]}
+          ItemSeparatorComponent={ItemSeparator}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={[COLORS.primary]}
+              tintColor={COLORS.primary}
+            />
+          }
+          ListEmptyComponent={renderEmptyComponent}
+          ListFooterComponent={renderFooter}
+          showsVerticalScrollIndicator={false}
+          getItemLayout={getItemLayout}
+          initialNumToRender={10}
+          maxToRenderPerBatch={8}
+          windowSize={10}
+          removeClippedSubviews={Platform.OS === 'android'}
+        />
+      </Animated.View>
       
       {/* Debug Button */}
       <TouchableOpacity 
@@ -378,8 +525,9 @@ const MessagesScreen = () => {
       <TouchableOpacity 
         style={styles.composeButton}
         onPress={() => navigation.navigate('UserSearchScreen')}
+        activeOpacity={0.9}
       >
-        <Icon name="user-plus" size={22} color="#FFF" />
+        <Ionicons name="chatbubble-ellipses" size={24} color="#FFF" />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -388,86 +536,101 @@ const MessagesScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f8f8',
   },
   headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#eeeeee',
+    shadowColor: 'rgba(0, 0, 0, 0.08)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 3,
+    elevation: 3,
+    zIndex: 10,
+  },
+  normalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   backButton: {
-    padding: 5,
+    padding: 8,
+    marginRight: 4,
   },
   header: {
     flex: 1,
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginLeft: 10,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#333',
   },
   headerActions: {
     flexDirection: 'row',
+    alignItems: 'center',
   },
   actionButton: {
-    padding: 5,
-    marginLeft: 10,
+    padding: 8,
   },
   searchHeader: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   searchBackButton: {
-    padding: 5,
+    padding: 8,
+    marginRight: 6,
   },
   searchInput: {
     flex: 1,
     height: 40,
-    marginLeft: 10,
     fontSize: 16,
+    color: '#333',
   },
   listContainer: {
-    padding: 10,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 80,
   },
   emptyListContainer: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
+    paddingBottom: 0,
   },
   messageContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 10,
+    shadowColor: 'rgba(0, 0, 0, 0.06)',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#f7b305',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#ffb300',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
+    shadowColor: 'rgba(0, 0, 0, 0.15)',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   avatarText: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#fff',
-  },
-  onlineIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#4CAF50',
-    borderWidth: 2,
-    borderColor: '#fff',
   },
   messageContent: {
     flex: 1,
@@ -476,17 +639,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   senderName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
+    color: '#333',
     flex: 1,
-    marginRight: 5,
+    marginRight: 12,
   },
   messageTime: {
     fontSize: 12,
-    color: '#999',
+    color: '#888',
   },
   messagePreviewRow: {
     flexDirection: 'row',
@@ -497,10 +661,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     flex: 1,
-    marginRight: 5,
+    marginRight: 8,
+  },
+  emptyMessageText: {
+    fontStyle: 'italic',
+    color: '#999',
   },
   productBadge: {
-    backgroundColor: '#e0f7fa',
+    backgroundColor: 'rgba(255, 179, 0, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
@@ -508,15 +676,17 @@ const styles = StyleSheet.create({
   },
   productText: {
     fontSize: 11,
-    color: '#0277bd',
+    color: '#f57c00',
+    fontWeight: '500',
   },
   unreadBadge: {
-    backgroundColor: '#f7b305',
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
+    backgroundColor: '#ffb300',
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: 8,
   },
   unreadCount: {
     fontSize: 11,
@@ -524,8 +694,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   separator: {
-    height: 1,
-    backgroundColor: '#f0f0f0',
+    height: 0,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -533,51 +702,67 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#666',
-    marginTop: 15,
+    color: '#555',
+    marginTop: 20,
+    textAlign: 'center',
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: '#999',
+    fontSize: 15,
+    color: '#888',
     textAlign: 'center',
-    marginTop: 5,
+    marginTop: 10,
+    lineHeight: 22,
+    maxWidth: '80%',
+  },
+  emptyActionButton: {
+    marginTop: 24,
+    backgroundColor: '#ffb300',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 30,
+    shadowColor: 'rgba(0, 0, 0, 0.2)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  emptyActionButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 15,
   },
   loaderFooter: {
     paddingVertical: 20,
+    alignItems: 'center',
   },
   composeButton: {
     position: 'absolute',
     right: 20,
-    bottom: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#f7b305',
+    bottom: 24,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#ffb300',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
   debugButton: {
     position: 'absolute',
-    bottom: 80,
-    right: 16,
-    backgroundColor: '#444',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    bottom: 95,
+    right: 20,
+    backgroundColor: 'rgba(80, 80, 80, 0.8)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
   },
   debugOverlay: {
     position: 'absolute',
@@ -606,7 +791,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   refreshButton: {
-    backgroundColor: '#f7b305',
+    backgroundColor: '#ffb300',
     padding: 10,
     borderRadius: 5,
     alignItems: 'center',
