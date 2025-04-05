@@ -11,10 +11,8 @@ import {
   StatusBar,
   Keyboard,
   Animated,
-  Easing,
   LayoutAnimation,
   UIManager,
-  InteractionManager,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -55,7 +53,6 @@ const MessageItem = memo(({
   index, 
   messages, 
   currentUserId, 
-  messageAnimations,
   formatMessageTime,
   formatDateHeader,
   isDateEqual,
@@ -65,7 +62,6 @@ const MessageItem = memo(({
   index: number,
   messages: Message[],
   currentUserId: string | null,
-  messageAnimations: Map<string, { fadeAnim: Animated.Value, slideAnim: Animated.Value }>,
   formatMessageTime: (dateString: string) => string,
   formatDateHeader: (dateString: string) => string,
   isDateEqual: (date1: Date, date2: Date) => boolean,
@@ -79,23 +75,12 @@ const MessageItem = memo(({
   const showAvatar = index === 0 || 
     (messages[index - 1] && messages[index - 1].senderId !== item.senderId);
   
-  // Use existing animation values
-  const { fadeAnim, slideAnim } = messageAnimations.get(item.id) || { 
-    fadeAnim: new Animated.Value(1), 
-    slideAnim: new Animated.Value(0) 
-  };
-  
   return (
     <View style={styles.messageWrapper}>
       {showDate && (
-        <Animated.View 
-          style={[
-            styles.dateContainer,
-            { opacity: fadeAnim }
-          ]}
-        >
+        <View style={styles.dateContainer}>
           <Text style={styles.dateText}>{formatDateHeader(item.createdAt)}</Text>
-        </Animated.View>
+        </View>
       )}
       
       <View style={[
@@ -103,8 +88,7 @@ const MessageItem = memo(({
         isUser ? { justifyContent: 'flex-end' } : { justifyContent: 'flex-start' }
       ]}>
         {!isUser && showAvatar && (
-          <Animated.View style={{
-            opacity: fadeAnim,
+          <View style={{
             marginRight: 8,
             alignSelf: 'flex-end',
             marginBottom: 2
@@ -112,26 +96,15 @@ const MessageItem = memo(({
             <View style={styles.recipientInitialsContainer}>
               <Text style={styles.avatarText}>{recipientInitials}</Text>
             </View>
-          </Animated.View>
+          </View>
         )}
         
         <View style={[
           { maxWidth: '65%' }
         ]}>
-          <Animated.View style={[
+          <View style={[
             styles.messageBubble,
-            isUser ? styles.userBubble : styles.otherBubble,
-            { 
-              opacity: fadeAnim,
-              transform: [
-                { translateX: slideAnim },
-                { scale: fadeAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.95, 1]
-                  })
-                }
-              ] 
-            }
+            isUser ? styles.userBubble : styles.otherBubble
           ]}>
             <Text style={[
               styles.messageText,
@@ -154,32 +127,23 @@ const MessageItem = memo(({
                     <Ionicons name="checkmark" size={14} color="rgba(255, 255, 255, 0.7)" />}
                   {item.status === MessageStatus.DELIVERED && 
                     <Ionicons name="checkmark-done" size={14} color="rgba(255, 255, 255, 0.7)" />}
-                  {item.status === MessageStatus.READ && (
-                    <Animated.View style={{ 
-                      opacity: fadeAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0, 1]
-                      }) 
-                    }}>
-                      <Ionicons name="checkmark-done" size={14} color="#fff" />
-                    </Animated.View>
-                  )}
+                  {item.status === MessageStatus.READ && 
+                    <Ionicons name="checkmark-done" size={14} color="#fff" />}
                 </View>
               )}
             </View>
-          </Animated.View>
+          </View>
         </View>
         
         {isUser && (
-          <Animated.View style={{
-            opacity: fadeAnim,
+          <View style={{
             marginLeft: 8,
             alignSelf: 'flex-end'
           }}>
             <View style={styles.userInitialsContainer}>
               <Text style={styles.avatarText}>KR</Text>
             </View>
-          </Animated.View>
+          </View>
         )}
       </View>
     </View>
@@ -211,25 +175,13 @@ const MessageScreen = () => {
   const inputRef = useRef<TextInput>(null);
   const messageSubscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
   
-  // Enhanced animation refs
-  const typingIndicatorOpacity = useRef(new Animated.Value(0)).current;
-  const typingDotScale = useRef(new Animated.Value(1)).current;
-  const headerHeight = useRef(new Animated.Value(60)).current;
-  const headerOpacity = useRef(new Animated.Value(1)).current;
-  const sendButtonScale = useRef(new Animated.Value(1)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
-  const errorSlideAnim = useRef(new Animated.Value(-50)).current;
-  const errorOpacityAnim = useRef(new Animated.Value(0)).current;
-  const inputFocusAnim = useRef(new Animated.Value(0)).current;
-  const loadingRotation = useRef(new Animated.Value(0)).current;
+  // Animation refs for header only
+  const headerHeightJS = useRef(new Animated.Value(60)).current; // JS-driven for layout
+  const headerOpacityNative = useRef(new Animated.Value(1)).current; // Native-driven for opacity
   
   // State for recipient initials (for avatar)
   const [recipientInitials, setRecipientInitials] = useState('');
   const [_userInitials, setUserInitials] = useState('');
-  
-  // Map to track message animations
-  const messageAnimations = useRef(new Map()).current;
   
   // Function to scroll to bottom of messages
   const scrollToBottom = useCallback(() => {
@@ -258,43 +210,83 @@ const MessageScreen = () => {
     );
   }, []);
   
-  // Run entry animation when screen mounts
-  useEffect(() => {
-    // Custom layout animation config
-    const customLayoutAnimation = {
-      duration: 300,
-      create: {
-        type: LayoutAnimation.Types.spring,
-        property: LayoutAnimation.Properties.scaleXY,
-        springDamping: 0.7,
-      },
-      update: {
-        type: LayoutAnimation.Types.spring,
-        springDamping: 0.7,
-      },
+  // Format message time
+  const formatMessageTime = useCallback((dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      
+      if (isToday(date)) {
+        return format(date, 'h:mm a');
+      } else if (isYesterday(date)) {
+        return 'Yesterday, ' + format(date, 'h:mm a');
+      } else {
+        return format(date, 'MMM d, h:mm a');
+      }
+    } catch (error) {
+      return dateString;
+    }
+  }, []);
+  
+  // Use useMemo for static values to prevent unnecessary rerenders
+  const isDateEqual = useMemo(() => {
+    return (date1: Date, date2: Date) => {
+      return (
+        date1.getFullYear() === date2.getFullYear() &&
+        date1.getMonth() === date2.getMonth() &&
+        date1.getDate() === date2.getDate()
+      );
     };
+  }, []);
+  
+  // Format date header with useMemo
+  const formatDateHeader = useMemo(() => {
+    return (dateString: string) => {
+      try {
+        const date = new Date(dateString);
+        
+        if (isToday(date)) {
+          return 'Today';
+        } else if (isYesterday(date)) {
+          return 'Yesterday';
+        } else {
+          return format(date, 'MMMM d, yyyy');
+        }
+      } catch (error) {
+        return dateString;
+      }
+    };
+  }, []);
+  
+  // Enhanced message sending with animation
+  const handleSend = useCallback(async () => {
+    if (!inputText.trim() || !actualConversationId) return;
     
-    // Start the entry animation
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }),
-    ]).start();
+    Keyboard.dismiss();
     
-    // Run layout animation after navigation transition completes
-    InteractionManager.runAfterInteractions(() => {
-      LayoutAnimation.configureNext(customLayoutAnimation);
-    });
-  }, [fadeAnim, slideAnim]);
-
+    // Clear input before sending to make UI feel more responsive
+    const messageText = inputText.trim();
+    setInputText('');
+    
+    // Show typing indicator briefly for visual feedback
+    setIsLoading(true);
+    
+    // Apply layout animation for smooth UI updates
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    
+    try {
+      // Send message
+      await sendMessage(actualConversationId, messageText);
+      setError(null);
+    } catch (err) {
+      console.error('Error sending message:', err);
+      setError('Failed to send message. Please try again.');
+      // Restore input text if sending failed
+      setInputText(messageText);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [inputText, actualConversationId]);
+  
   // Effect to get current user
   useEffect(() => {
     const loadUser = async () => {
@@ -326,9 +318,6 @@ const MessageScreen = () => {
             console.log('[MessageScreen] Recipient ID appears to be an email, trying to map to user ID');
             
             try {
-              // Use Auth.adminGetUser or a similar function if available in your app
-              // For this example, we'll skip ahead and use the email as ID
-              
               // You could also check the route params to see if user ID was provided
               if (route.params.recipientUserId) {
                 effectiveRecipientId = route.params.recipientUserId;
@@ -416,11 +405,6 @@ const MessageScreen = () => {
       
       // Show typing indicator and then hide it
       setIsTyping(false);
-      Animated.timing(typingIndicatorOpacity, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
     });
     
     messageSubscriptionRef.current = subscription;
@@ -431,7 +415,7 @@ const MessageScreen = () => {
         messageSubscriptionRef.current.unsubscribe();
       }
     };
-  }, [actualConversationId, currentUserId, typingIndicatorOpacity]);
+  }, [actualConversationId, currentUserId]);
   
   // Effect to scroll to bottom on load and when new messages arrive
   useEffect(() => {
@@ -442,67 +426,6 @@ const MessageScreen = () => {
     return () => clearTimeout(timeoutId);
   }, [messages, scrollToBottom]);
   
-  // Animate typing dots with enhanced animation
-  useEffect(() => {
-    if (isTyping) {
-      // Show typing indicator
-      Animated.timing(typingIndicatorOpacity, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-      
-      // Animate typing dots
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(typingDotScale, {
-            toValue: 1.3,
-            duration: 400,
-            easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-            useNativeDriver: true,
-          }),
-          Animated.timing(typingDotScale, {
-            toValue: 1,
-            duration: 400,
-            easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    } else {
-      // Hide typing indicator
-      Animated.timing(typingIndicatorOpacity, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-      
-      // Reset typing dot scale
-      typingDotScale.setValue(1);
-    }
-    
-    return () => {
-      typingDotScale.setValue(1);
-    };
-  }, [isTyping, typingIndicatorOpacity, typingDotScale]);
-
-  // Format message time
-  const formatMessageTime = useCallback((dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      
-      if (isToday(date)) {
-        return format(date, 'h:mm a');
-      } else if (isYesterday(date)) {
-        return 'Yesterday, ' + format(date, 'h:mm a');
-      } else {
-        return format(date, 'MMM d, h:mm a');
-      }
-    } catch (error) {
-      return dateString;
-    }
-  }, []);
-
   // Determine initials for avatar display
   useEffect(() => {
     if (recipientName) {
@@ -526,151 +449,21 @@ const MessageScreen = () => {
     getUserInitials();
   }, [recipientName]);
   
-  // Animate loading spinner for a more professional look
-  useEffect(() => {
-    if (isLoading) {
-      Animated.loop(
-        Animated.timing(loadingRotation, {
-          toValue: 1,
-          duration: 1200,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        })
-      ).start();
-    } else {
-      loadingRotation.setValue(0);
-    }
-  }, [isLoading, loadingRotation]);
-
-  // Enhanced message sending with animation
-  const handleSend = useCallback(async () => {
-    if (!inputText.trim() || !actualConversationId) return;
-    
-    Keyboard.dismiss();
-    
-    // Animate send button when pressed
-    Animated.sequence([
-      Animated.timing(sendButtonScale, {
-        toValue: 0.8,
-        duration: 50,
-        useNativeDriver: true,
-      }),
-      Animated.timing(sendButtonScale, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
-    
-    // Clear input before sending to make UI feel more responsive
-    const messageText = inputText.trim();
-    setInputText('');
-    
-    // Show typing indicator briefly for visual feedback
-    setIsLoading(true);
-    
-    // Apply layout animation for smooth UI updates
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    
-    try {
-      // Send message
-      await sendMessage(actualConversationId, messageText);
-      setError(null);
-    } catch (err) {
-      console.error('Error sending message:', err);
-      setError('Failed to send message. Please try again.');
-      // Restore input text if sending failed
-      setInputText(messageText);
-      
-      // Show error with animation
-      Animated.parallel([
-        Animated.timing(errorOpacityAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(errorSlideAnim, {
-          toValue: 0,
-          duration: 300,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } finally {
-      setIsLoading(false);
-    }
-  }, [inputText, actualConversationId, sendButtonScale, errorOpacityAnim, errorSlideAnim]);
-  
-  // Use useMemo for static values to prevent unnecessary rerenders
-  const isDateEqual = useMemo(() => {
-    return (date1: Date, date2: Date) => {
-      return (
-        date1.getFullYear() === date2.getFullYear() &&
-        date1.getMonth() === date2.getMonth() &&
-        date1.getDate() === date2.getDate()
-      );
-    };
-  }, []);
-  
-  // Format date header with useMemo
-  const formatDateHeader = useMemo(() => {
-    return (dateString: string) => {
-      try {
-        const date = new Date(dateString);
-        
-        if (isToday(date)) {
-          return 'Today';
-        } else if (isYesterday(date)) {
-          return 'Yesterday';
-        } else {
-          return format(date, 'MMMM d, yyyy');
-        }
-      } catch (error) {
-        return dateString;
-      }
-    };
-  }, []);
-  
   // Render item function for FlatList
   const renderItem = useCallback(({ item, index }: { item: Message; index: number }) => {
-    // Create animation value for this message if it doesn't exist
-    if (!messageAnimations.has(item.id)) {
-      const fadeAnim = new Animated.Value(0);
-      const slideAnim = new Animated.Value(currentUserId === item.senderId ? 20 : -20);
-      messageAnimations.set(item.id, { fadeAnim, slideAnim });
-      
-      // Start animation for this message
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 250,
-          delay: index * 30, // Slightly faster stagger
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 250,
-          delay: index * 30,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-    
     return (
       <MessageItem 
         item={item}
         index={index}
         messages={messages}
         currentUserId={currentUserId}
-        messageAnimations={messageAnimations}
         formatMessageTime={formatMessageTime}
         formatDateHeader={formatDateHeader}
         isDateEqual={isDateEqual}
         recipientInitials={recipientInitials}
       />
     );
-  }, [messages, currentUserId, formatMessageTime, messageAnimations, recipientInitials, formatDateHeader, isDateEqual]);
+  }, [messages, currentUserId, formatMessageTime, recipientInitials, formatDateHeader, isDateEqual]);
   
   // Add optimized window size parameters for FlatList
   const getItemLayout = useCallback((data: ArrayLike<Message> | null | undefined, index: number) => ({
@@ -687,152 +480,34 @@ const MessageScreen = () => {
     if (!isTyping) return null;
     
     return (
-      <Animated.View 
-        style={[
-          styles.typingContainer, 
-          { 
-            opacity: typingIndicatorOpacity,
-            transform: [{
-              translateY: typingIndicatorOpacity.interpolate({
-                inputRange: [0, 1],
-                outputRange: [10, 0]
-              })
-            }]
-          }
-        ]}
-      >
+      <View style={styles.typingContainer}>
         <View style={styles.typingBubble}>
-          <Animated.View style={[
-            styles.typingDot,
-            { transform: [{ scale: typingDotScale.interpolate({
-              inputRange: [1, 1.3],
-              outputRange: [1, 1]
-            }) }] }
-          ]} />
-          <Animated.View style={[
-            styles.typingDot, 
-            { transform: [{ scale: typingDotScale }] }
-          ]} />
-          <Animated.View style={[
-            styles.typingDot,
-            { transform: [{ scale: typingDotScale.interpolate({
-              inputRange: [1, 1.3],
-              outputRange: [1, 1]
-            }) }] }
-          ]} />
+          <View style={styles.typingDot} />
+          <View style={styles.typingDot} />
+          <View style={styles.typingDot} />
         </View>
-      </Animated.View>
+      </View>
     );
-  }, [isTyping, typingIndicatorOpacity, typingDotScale]);
+  }, [isTyping]);
   
-  // Enhanced error message with animation
+  // Enhanced error message without animation
   const renderErrorMessage = useCallback(() => {
     if (!error) return null;
     
     return (
-      <Animated.View style={[
-        styles.errorContainer,
-        {
-          opacity: errorOpacityAnim,
-          transform: [{ translateY: errorSlideAnim }]
-        }
-      ]}>
+      <View style={styles.errorContainer}>
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity 
-          onPress={() => {
-            // Animate out before removing
-            Animated.parallel([
-              Animated.timing(errorOpacityAnim, {
-                toValue: 0,
-                duration: 200,
-                useNativeDriver: true,
-              }),
-              Animated.timing(errorSlideAnim, {
-                toValue: -50,
-                duration: 200,
-                useNativeDriver: true,
-              }),
-            ]).start(() => setError(null));
-          }}
+          onPress={() => setError(null)}
         >
           <Text style={styles.dismissText}>Dismiss</Text>
         </TouchableOpacity>
-      </Animated.View>
+      </View>
     );
-  }, [error, errorOpacityAnim, errorSlideAnim]);
-  
-  // Enhanced keyboard handling
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      'keyboardDidShow',
-      () => {
-        // Animate input focus
-        Animated.timing(inputFocusAnim, {
-          toValue: 1,
-          duration: 250,
-          useNativeDriver: false,
-        }).start();
-        
-        // Shrink header height and reduce opacity
-        Animated.parallel([
-          Animated.timing(headerHeight, {
-            toValue: 48,
-            duration: 200,
-            easing: Easing.ease,
-            useNativeDriver: false,
-          }),
-          Animated.timing(headerOpacity, {
-            toValue: 0.9,
-            duration: 200,
-            useNativeDriver: false,
-          }),
-        ]).start();
-        
-        // Make sure we scroll to the bottom
-        setTimeout(scrollToBottom, 100);
-      }
-    );
-    
-    const keyboardDidHideListener = Keyboard.addListener(
-      'keyboardDidHide',
-      () => {
-        // Animate input blur
-        Animated.timing(inputFocusAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: false,
-        }).start();
-        
-        // Restore header height and opacity
-        Animated.parallel([
-          Animated.timing(headerHeight, {
-            toValue: 60,
-            duration: 200,
-            easing: Easing.ease,
-            useNativeDriver: false,
-          }),
-          Animated.timing(headerOpacity, {
-            toValue: 1,
-            duration: 200,
-            useNativeDriver: false,
-          }),
-        ]).start();
-      }
-    );
-    
-    return () => {
-      keyboardDidShowListener.remove();
-      keyboardDidHideListener.remove();
-    };
-  }, [headerHeight, headerOpacity, inputFocusAnim, scrollToBottom]);
+  }, [error]);
   
   // Enhanced loading state
   if ((isLoading && messages.length === 0) || (routeConversationId === 'new' && !actualConversationId)) {
-    const spin = loadingRotation.interpolate({
-      inputRange: [0, 1],
-      outputRange: ['0deg', '360deg']
-    });
-    
     return (
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -841,8 +516,8 @@ const MessageScreen = () => {
         <Animated.View style={[
           styles.header,
           { 
-            height: headerHeight,
-            opacity: headerOpacity 
+            height: headerHeightJS,
+            opacity: headerOpacityNative 
           }
         ]}>
           <TouchableOpacity 
@@ -859,30 +534,12 @@ const MessageScreen = () => {
         </Animated.View>
         
         <View style={styles.loadingContainer}>
-          <Animated.View style={{ transform: [{ rotate: spin }] }}>
-            <MaterialIcons name="chat" size={48} color="#f7b305" />
-          </Animated.View>
-          <Animated.Text 
-            style={[
-              styles.loadingText,
-              {
-                opacity: fadeAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, 1]
-                }),
-                transform: [{
-                  translateY: fadeAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [20, 0]
-                  })
-                }]
-              }
-            ]}
-          >
+          <MaterialIcons name="chat" size={48} color="#f7b305" />
+          <Text style={styles.loadingText}>
             {routeConversationId === 'new' && !actualConversationId 
               ? 'Setting up conversation...' 
               : 'Loading messages...'}
-          </Animated.Text>
+          </Text>
         </View>
       </View>
     );
@@ -898,29 +555,16 @@ const MessageScreen = () => {
         style={[
           styles.header,
           { 
-            height: headerHeight,
-            opacity: headerOpacity 
+            height: headerHeightJS,
+            opacity: headerOpacityNative 
           }
         ]}
       >
         <TouchableOpacity 
           style={styles.backButton} 
           onPress={() => {
-            // Animate out before navigating back
-            Animated.parallel([
-              Animated.timing(fadeAnim, {
-                toValue: 0,
-                duration: 200,
-                useNativeDriver: true,
-              }),
-              Animated.timing(slideAnim, {
-                toValue: 50,
-                duration: 200,
-                useNativeDriver: true,
-              }),
-            ]).start(() => {
-              navigation.goBack();
-            });
+            // Simple navigation without animation
+            navigation.goBack();
           }}
           testID="back-button"
           hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
@@ -957,7 +601,7 @@ const MessageScreen = () => {
             keyExtractor={item => item.id}
             contentContainerStyle={[
               styles.messagesList,
-              { paddingBottom: 24 }
+              { paddingBottom: 30, paddingTop: 10 }
             ]}
             showsVerticalScrollIndicator={false}
             inverted={false}
@@ -968,24 +612,11 @@ const MessageScreen = () => {
             getItemLayout={getItemLayout}
             updateCellsBatchingPeriod={50}
             ListEmptyComponent={
-              <Animated.View 
-                style={[
-                  styles.emptyContainer,
-                  {
-                    opacity: fadeAnim,
-                    transform: [{
-                      translateY: fadeAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [20, 0]
-                      })
-                    }]
-                  }
-                ]}
-              >
+              <View style={styles.emptyContainer}>
                 <FontAwesome name="comments-o" size={50} color="#ccc" style={{ marginBottom: 20 }} />
                 <Text style={styles.emptyText}>No messages yet</Text>
                 <Text style={styles.emptySubtitle}>Send a message to start the conversation</Text>
-              </Animated.View>
+              </View>
             }
             onEndReached={scrollToBottom}
             onEndReachedThreshold={0.1}
@@ -994,43 +625,10 @@ const MessageScreen = () => {
           {renderTypingIndicator()}
         </LinearGradient>
         
-        {/* Input Bar with enhanced animation */}
-        <Animated.View 
-          style={[
-            styles.inputContainer,
-            {
-              transform: [{
-                translateY: fadeAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [50, 0]
-                })
-              }],
-              shadowOpacity: inputFocusAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0.1, 0.2]
-              }),
-              shadowRadius: inputFocusAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [3, 5]
-              }),
-              marginTop: -8,
-            }
-          ]}
-        >
+        {/* Input Bar without animation */}
+        <View style={styles.inputContainer}>
           <View style={styles.inputWrapper}>
-            <Animated.View style={[
-              styles.inputBackground,
-              {
-                backgroundColor: inputFocusAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ['#f0f0f0', '#f5f5f5']
-                }),
-                shadowOpacity: inputFocusAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0.05, 0.1]
-                }),
-              }
-            ]}>
+            <View style={styles.inputBackground}>
               <TextInput
                 ref={inputRef}
                 style={styles.input}
@@ -1047,16 +645,13 @@ const MessageScreen = () => {
                 returnKeyType="send"
                 onSubmitEditing={inputText.trim() ? handleSend : undefined}
               />
-            </Animated.View>
+            </View>
             
-            <Animated.View 
-              style={{
-                position: 'absolute',
-                right: 8,
-                bottom: 8,
-                transform: [{ scale: sendButtonScale }]
-              }}
-            >
+            <View style={{
+              position: 'absolute',
+              right: 10,
+              bottom: 5
+            }}>
               <TouchableOpacity 
                 style={[
                   styles.sendButton,
@@ -1069,13 +664,13 @@ const MessageScreen = () => {
               >
                 <Ionicons 
                   name="send" 
-                  size={25} 
+                  size={20} 
                   color={inputText.trim() ? "#FFFFFF" : "#CCCCCC"} 
                 />
               </TouchableOpacity>
-            </Animated.View>
+            </View>
           </View>
-        </Animated.View>
+        </View>
       </KeyboardAvoidingView>
     </View>
   );
@@ -1164,43 +759,43 @@ const styles = StyleSheet.create({
   },
   dateContainer: {
     alignItems: 'center',
-    marginVertical: 14,
+    marginVertical: 16,
   },
   dateText: {
     fontSize: 13,
     color: '#505050',
     backgroundColor: '#e8e8e8',
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 14,
     overflow: 'hidden',
-    fontWeight: '600',
-    shadowColor: 'rgba(0, 0, 0, 0.08)',
+    fontWeight: '500',
+    shadowColor: 'rgba(0, 0, 0, 0.05)',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 1,
+    elevation: 1,
   },
   messageBubble: {
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 18,
-    shadowColor: 'rgba(0, 0, 0, 0.12)',
-    shadowOffset: { width: 0, height: 2 },
+    shadowColor: 'rgba(0, 0, 0, 0.08)',
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 1,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowRadius: 1,
+    elevation: 1,
   },
   userBubble: {
     backgroundColor: '#ffb300',
     alignSelf: 'flex-end',
-    borderBottomRightRadius: 4,
-    shadowColor: 'rgba(255, 179, 0, 0.4)',
+    borderBottomRightRadius: 6,
+    shadowColor: 'rgba(255, 179, 0, 0.2)',
   },
   otherBubble: {
     backgroundColor: '#FFFFFF',
     alignSelf: 'flex-start',
-    borderBottomLeftRadius: 4,
+    borderBottomLeftRadius: 6,
   },
   messageText: {
     fontSize: 16,
@@ -1259,54 +854,50 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     backgroundColor: '#fff',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderTopWidth: 1,
-    borderTopColor: '#e5e5e5',
-    shadowColor: 'rgba(0, 0, 0, 0.18)',
-    shadowOffset: { width: 0, height: -6 },
+    borderTopColor: '#eeeeee',
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
+    shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 1,
-    shadowRadius: 10,
-    elevation: 12,
+    shadowRadius: 5,
+    elevation: 8,
     zIndex: 10,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    marginBottom: 10,
+    marginTop: -8,
   },
   inputWrapper: {
     position: 'relative',
   },
   inputBackground: {
-    borderRadius: 20,
-    shadowColor: 'rgba(0, 0, 0, 0.08)',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 1,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: '#fff',
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
   },
   input: {
     backgroundColor: 'transparent',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingRight: 50,
     minHeight: 46,
     maxHeight: 120,
     fontSize: 16,
-    borderRadius: 20,
+    borderRadius: 25,
     color: '#333',
   },
   sendButton: {
-    backgroundColor: '#f7b305',
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    backgroundColor: '#ffb300',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: 'rgba(247, 179, 5, 0.4)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowColor: 'rgba(255, 179, 0, 0.4)',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.8,
+    shadowRadius: 2,
+    elevation: 2,
   },
   sendButtonDisabled: {
     backgroundColor: '#f0f0f0',
