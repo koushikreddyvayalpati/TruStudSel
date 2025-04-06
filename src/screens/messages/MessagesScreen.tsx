@@ -42,13 +42,13 @@ const MessagesScreen = () => {
   const COLORS = useMemo(() => ({
     primary: '#ffb300',
     primaryDark: '#f57c00',
-    background: '#f8f8f8',
+    background: '#fff',
     surface: '#ffffff',
     text: '#333333', 
     textSecondary: '#666666',
     textLight: '#888888',
-    border: '#eeeeee',
-    shadow: 'rgba(0, 0, 0, 0.12)'
+    border: '#f0f0f0',
+    shadow: 'rgba(0, 0, 0, 0.08)'
   }), []);
   
   // Function to get current user email only once
@@ -338,37 +338,34 @@ const MessagesScreen = () => {
       .join('')
       .toUpperCase();
     
-    // Generate consistent color based on name
-    const nameHash = displayName.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
-    const hue = nameHash % 360;
-    const avatarColor = `hsl(${hue}, 60%, 60%)`;
-    
     // Check if this conversation has unread messages
     const hasUnreadMessages = !!(item.unreadCount && item.unreadCount > 0);
     
     return (
       <TouchableOpacity
-        style={styles.conversationItem}
+        style={[
+          styles.conversationItem,
+          hasUnreadMessages && styles.unreadConversationItem
+        ]}
         onPress={() => goToConversation(item)}
         activeOpacity={0.7}
       >
-        <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
+        {/* Unread indicator */}
+        {hasUnreadMessages && <View style={styles.unreadIndicator} />}
+        
+        <View style={styles.avatar}>
           <Text style={styles.avatarText}>{initials}</Text>
-          {hasUnreadMessages && (
-            <View style={styles.avatarBadge}>
-              <Text style={styles.avatarBadgeText}>
-                {item.unreadCount! > 9 ? '9+' : item.unreadCount}
-              </Text>
-            </View>
-          )}
         </View>
         
         <View style={styles.conversationContent}>
           <View style={styles.conversationHeader}>
             <Text style={[styles.conversationName, hasUnreadMessages && styles.unreadText]}>
               {displayName}
+              {hasUnreadMessages && <View style={styles.dotIndicator} />}
             </Text>
-            <Text style={styles.conversationTime}>{timeDisplay}</Text>
+            <Text style={[styles.conversationTime, hasUnreadMessages && styles.unreadTime]}>
+              {timeDisplay}
+            </Text>
           </View>
           <View style={styles.conversationPreview}>
             <Text 
@@ -380,10 +377,10 @@ const MessagesScreen = () => {
             >
               {truncatedMessage}
             </Text>
-            {hasUnreadMessages && (
+            {hasUnreadMessages && item.unreadCount && item.unreadCount > 0 && (
               <View style={styles.unreadBadge}>
                 <Text style={styles.unreadBadgeText}>
-                  {item.unreadCount}
+                  {item.unreadCount > 9 ? '9+' : item.unreadCount}
                 </Text>
               </View>
             )}
@@ -403,7 +400,7 @@ const MessagesScreen = () => {
     >
       {!isLoading && !error && searchQuery.trim() === '' && (
         <>
-          <Ionicons name="chatbubble-ellipses-outline" size={60} color="#ccc" />
+          <Ionicons name="chatbubble-ellipses-outline" size={80} color="#eee" />
           <Text style={styles.emptyTitle}>No Conversations Yet</Text>
           <Text style={styles.emptyText}>
             When you start chatting with other users, your conversations will appear here.
@@ -543,7 +540,7 @@ const MessagesScreen = () => {
       </View>
       
       {/* Message List */}
-      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+      <Animated.View style={[styles.listWrapper, { opacity: fadeAnim }]}>
         <FlatList
           data={filteredConversations}
           renderItem={renderItem}
@@ -565,10 +562,12 @@ const MessagesScreen = () => {
           ListFooterComponent={renderFooter}
           showsVerticalScrollIndicator={false}
           getItemLayout={getItemLayout}
-          initialNumToRender={10}
-          maxToRenderPerBatch={8}
-          windowSize={10}
+          initialNumToRender={12}
+          maxToRenderPerBatch={10}
+          windowSize={21}
           removeClippedSubviews={Platform.OS === 'android'}
+          onEndReachedThreshold={0.2}
+          extraData={currentUserEmail}
         />
       </Animated.View>
       
@@ -587,17 +586,17 @@ const MessagesScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#fff',
   },
   headerContainer: {
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#eeeeee',
+    borderBottomColor: '#f0f0f0',
     shadowColor: 'rgba(0, 0, 0, 0.08)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.8,
+    shadowRadius: 2,
+    elevation: 2,
     zIndex: 10,
   },
   normalHeader: {
@@ -640,15 +639,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
+  listWrapper: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   listContainer: {
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 80,
+    backgroundColor: '#fff',
   },
   emptyListContainer: {
     flexGrow: 1,
     justifyContent: 'center',
     paddingBottom: 0,
+    backgroundColor: '#fff',
   },
   conversationItem: {
     flexDirection: 'row',
@@ -658,28 +663,45 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     marginBottom: 10,
-    shadowColor: 'rgba(0, 0, 0, 0.06)',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 1,
-    shadowRadius: 2,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#f5f5f5',
+    position: 'relative', // For absolute positioning of unread indicator
+    overflow: 'hidden', // To clip the unread indicator
+  },
+  unreadConversationItem: {
+    borderLeftWidth: 0, // We'll use a separate indicator
+    borderColor: '#f0f0f0',
+  },
+  unreadIndicator: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: '#ffb300',
+    borderTopLeftRadius: 12,
+    borderBottomLeftRadius: 12,
+  },
+  dotIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#ffb300',
+    marginLeft: 6,
+    marginRight: 2,
+    marginBottom: 1,
   },
   avatar: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#ffb300',
+    backgroundColor: '#000', // Black avatar for premium feel
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
-    shadowColor: 'rgba(0, 0, 0, 0.15)',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 1,
-    shadowRadius: 2,
-    elevation: 2,
   },
   avatarText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
     color: '#fff',
   },
@@ -694,14 +716,20 @@ const styles = StyleSheet.create({
   },
   conversationName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#333',
     flex: 1,
     marginRight: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   conversationTime: {
     fontSize: 12,
     color: '#888',
+  },
+  unreadTime: {
+    color: '#555',
+    fontWeight: '600',
   },
   conversationPreview: {
     flexDirection: 'row',
@@ -715,7 +743,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   unreadText: {
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#000',
   },
   unreadBadge: {
@@ -726,7 +754,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
-    paddingHorizontal: 4,
+    paddingHorizontal: 5,
   },
   unreadBadgeText: {
     color: '#fff',
@@ -740,11 +768,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
+    backgroundColor: '#fff',
   },
   emptyTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#555',
+    color: '#333',
     marginTop: 20,
     textAlign: 'center',
   },
@@ -829,36 +858,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 20,
     bottom: 24,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#ffb300',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: 'rgba(0, 0, 0, 0.2)',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.8,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  avatarBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#ff3b30',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 5,
-    borderWidth: 1.5,
-    borderColor: '#fff',
-  },
-  avatarBadgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    elevation: 4,
   },
 });
 

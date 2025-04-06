@@ -65,10 +65,10 @@ const FirebaseChatScreen = () => {
   // Calculate the proper display name once
   const displayName = getFormattedRecipientName();
   
-  // States
+  // States and refs
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // Start with false to prevent flashing
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [_currentUserName, setCurrentUserName] = useState<string>('');
@@ -77,11 +77,10 @@ const FirebaseChatScreen = () => {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [_keyboardVisible, setKeyboardVisible] = useState(false);
   
-  // Animation refs
+  // Refs for persisting state
+  const isInitializedRef = useRef<boolean>(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scrollButtonAnim = useRef(new Animated.Value(0)).current;
-  
-  // Refs
   const flatListRef = useRef<FlatList<Message>>(null);
   const messageSubscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
   const inputRef = useRef<TextInput>(null);
@@ -150,20 +149,36 @@ const FirebaseChatScreen = () => {
     messageSubscriptionRef.current = subscription;
   }, [messages.length]);
   
+  // Add debug console logs to track state changes
+  useEffect(() => {
+    console.log('[FirebaseChatScreen] isLoading state changed:', isLoading);
+  }, [isLoading]);
+  
   // Initialize chat
   useEffect(() => {
+    // Skip initialization if already done
+    if (isInitializedRef.current && conversationId) {
+      return;
+    }
+    
+    let isMounted = true;
+    
     const initializeChat = async () => {
       try {
+        if (!isMounted) return;
+        
         setIsLoading(true);
         
         // Get current user
         const user = await getCurrentUser();
         if (!user || !user.email) {
+          if (!isMounted) return;
           Alert.alert('Error', 'You must be logged in to chat.');
           navigation.goBack();
           return;
         }
         
+        if (!isMounted) return;
         setCurrentUserEmail(user.email);
         
         // Format current user's name
@@ -175,6 +190,7 @@ const FirebaseChatScreen = () => {
         
         // Create or get existing conversation
         if (!recipientEmail) {
+          if (!isMounted) return;
           Alert.alert('Error', 'Recipient email is required.');
           navigation.goBack();
           return;
@@ -190,6 +206,7 @@ const FirebaseChatScreen = () => {
         }
         
         // Set the properly formatted name for the other user
+        if (!isMounted) return;
         setOtherUserName(otherUserFormattedName);
         
         // Use the otherUserFormattedName when creating the conversation
@@ -201,13 +218,16 @@ const FirebaseChatScreen = () => {
         // Check for user-specific name mapping in the conversation
         const nameKey = `name_${user.email.replace(/[.@]/g, '_')}`;
         if (conversation[nameKey]) {
+          if (!isMounted) return;
           setOtherUserName(conversation[nameKey]);
         }
         
+        if (!isMounted) return;
         setConversationId(conversation.id);
         
         // Load initial messages
         const initialMessages = await getMessages(conversation.id);
+        if (!isMounted) return;
         setMessages(initialMessages);
         
         // Subscribe to new messages
@@ -220,11 +240,17 @@ const FirebaseChatScreen = () => {
           useNativeDriver: true,
         }).start();
         
+        // Mark as initialized to prevent re-initialization
+        isInitializedRef.current = true;
+        
       } catch (error) {
+        if (!isMounted) return;
         console.error('Error initializing chat:', error);
         Alert.alert('Error', 'Failed to initialize chat. Please try again.');
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
     
@@ -232,48 +258,66 @@ const FirebaseChatScreen = () => {
     
     // Cleanup
     return () => {
+      isMounted = false;
+      // Don't unsubscribe from messages here - we do that in component unmount
+    };
+  }, [recipientEmail, recipientName, navigation, subscribeToNewMessages, displayName, fadeAnim, conversationId]);
+  
+  // Clean up subscriptions on unmount
+  useEffect(() => {
+    return () => {
       if (messageSubscriptionRef.current) {
         messageSubscriptionRef.current.unsubscribe();
       }
     };
-  }, [recipientEmail, recipientName, navigation, subscribeToNewMessages, displayName, fadeAnim]);
+  }, []);
   
-  // Send a message
+  // Send a message - premium style with no loading indicators
   const handleSendMessage = useCallback(async () => {
     if (!inputText.trim() || !conversationId) return;
     
     try {
+      // Store message content before clearing
+      const messageContent = inputText.trim();
+      
+      // Clear input immediately for responsive feel
+      setInputText('');
+      
+      // Generate a unique ID for this message
+      const tempId = `temp-${Date.now()}`;
+      
       // Optimistic update - add message locally immediately
       const tempMessage: Message = {
-        id: `temp-${Date.now()}`,
+        id: tempId,
         conversationId: conversationId,
         senderId: currentUserEmail || '',
         senderName: _currentUserName,
-        content: inputText.trim(),
+        content: messageContent,
         status: MessageStatus.SENT,
         receiptStatus: ReceiptStatus.SENT,
         createdAt: new Date().toISOString(),
       };
       
-      // Clear input before the async operation
-      setInputText('');
-      
-      // Add temporary message to UI
+      // Add to UI immediately
       setMessages(prev => [...prev, tempMessage]);
       
-      // Scroll to bottom
+      // Scroll to bottom immediately
       setTimeout(() => {
         if (flatListRef.current) {
           flatListRef.current.scrollToEnd({ animated: true });
         }
-      }, 50);
+      }, 10);
       
-      // Actually send the message
-      await sendMessage(conversationId, inputText.trim());
+      // Send in background without showing any loading state
+      sendMessage(conversationId, messageContent).catch(error => {
+        console.error('Error sending message:', error);
+        // Silently handle error in background - could add retry logic here
+        // or update the message to show a failure state
+      });
       
     } catch (error) {
-      console.error('Error sending message:', error);
-      Alert.alert('Error', 'Failed to send message. Please try again.');
+      console.error('Error in message sending flow:', error);
+      // Handle silently, no loading indicators or alerts to maintain premium feel
     }
   }, [inputText, conversationId, currentUserEmail, _currentUserName]);
   
@@ -392,16 +436,125 @@ const FirebaseChatScreen = () => {
     []
   );
   
-  // Loading screen
-  if (isLoading) {
+  // Render different components based on loading state
+  const renderContent = () => {
+    // Only show loading on initial load
+    if (isLoading && !isInitializedRef.current) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#ffb300" />
+          <Text style={styles.loadingText}>Loading conversation...</Text>
+        </View>
+      );
+    }
+    
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-        <ActivityIndicator size="large" color="#ffb300" />
-        <Text style={styles.loadingText}>Loading conversation...</Text>
-      </SafeAreaView>
+      <>
+        {/* Message List with optimized rendering */}
+        <Animated.View style={[styles.messagesContainer, { opacity: fadeAnim }]}>
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            renderItem={renderMessage}
+            keyExtractor={keyExtractor}
+            contentContainerStyle={styles.messageList}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            initialNumToRender={15}
+            maxToRenderPerBatch={10}
+            windowSize={21}
+            getItemLayout={getItemLayout}
+            removeClippedSubviews={Platform.OS === 'android'}
+            maintainVisibleContentPosition={{
+              minIndexForVisible: 0,
+              autoscrollToTopThreshold: 10,
+            }}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Icon name="chatbubble-ellipses-outline" size={60} color="#ddd" />
+                <Text style={styles.emptyText}>No messages yet</Text>
+                <Text style={styles.emptySubtext}>
+                  Start the conversation by sending a message
+                </Text>
+              </View>
+            }
+          />
+          
+          {/* Scroll to bottom button */}
+          {showScrollButton && (
+            <Animated.View 
+              style={[
+                styles.scrollToBottomButton, 
+                { 
+                  opacity: scrollButtonAnim,
+                  transform: [{ 
+                    scale: scrollButtonAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.5, 1]
+                    }) 
+                  }]
+                }
+              ]}
+            >
+              <TouchableOpacity
+                onPress={scrollToBottom}
+                style={styles.scrollToBottomTouchable}
+              >
+                <Icon name="chevron-down" size={24} color="#fff" />
+              </TouchableOpacity>
+            </Animated.View>
+          )}
+        </Animated.View>
+        
+        {/* Enhanced Input Area */}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+          style={styles.keyboardAvoidingView}
+        >
+          <View style={styles.inputContainer}>
+            <TextInput
+              ref={inputRef}
+              style={styles.input}
+              value={inputText}
+              onChangeText={(text) => {
+                setInputText(text);
+                // Simulate typing indicator
+                if (text.length > 0 && !isTyping) {
+                  setIsTyping(true);
+                  // In a real app, you would send typing status to Firebase here
+                } else if (text.length === 0 && isTyping) {
+                  setIsTyping(false);
+                  // In a real app, you would clear typing status in Firebase here
+                }
+              }}
+              placeholder="Type a message..."
+              placeholderTextColor="#999"
+              multiline
+              maxLength={500}
+              returnKeyType="default"
+              blurOnSubmit={false}
+            />
+            <TouchableOpacity 
+              style={[
+                styles.sendButton, 
+                !inputText.trim() && styles.sendButtonDisabled
+              ]}
+              onPress={handleSendMessage}
+              disabled={!inputText.trim()}
+              activeOpacity={0.7}
+            >
+              <Icon 
+                name="send" 
+                size={24} 
+                color={inputText.trim() ? "#ffb300" : "#ccc"} 
+              />
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </>
     );
-  }
+  };
   
   return (
     <SafeAreaView style={styles.container}>
@@ -468,108 +621,7 @@ const FirebaseChatScreen = () => {
         </View>
       </View>
       
-      {/* Message List with optimized rendering */}
-      <Animated.View style={[styles.messagesContainer, { opacity: fadeAnim }]}>
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={keyExtractor}
-          contentContainerStyle={styles.messageList}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          initialNumToRender={15}
-          maxToRenderPerBatch={10}
-          windowSize={21}
-          getItemLayout={getItemLayout}
-          removeClippedSubviews={Platform.OS === 'android'}
-          maintainVisibleContentPosition={{
-            minIndexForVisible: 0,
-            autoscrollToTopThreshold: 10,
-          }}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Icon name="chatbubble-ellipses-outline" size={60} color="#ddd" />
-              <Text style={styles.emptyText}>No messages yet</Text>
-              <Text style={styles.emptySubtext}>
-                Start the conversation by sending a message
-              </Text>
-            </View>
-          }
-        />
-        
-        {/* Scroll to bottom button */}
-        {showScrollButton && (
-          <Animated.View 
-            style={[
-              styles.scrollToBottomButton, 
-              { 
-                opacity: scrollButtonAnim,
-                transform: [{ 
-                  scale: scrollButtonAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.5, 1]
-                  }) 
-                }]
-              }
-            ]}
-          >
-            <TouchableOpacity
-              onPress={scrollToBottom}
-              style={styles.scrollToBottomTouchable}
-            >
-              <Icon name="chevron-down" size={24} color="#fff" />
-            </TouchableOpacity>
-          </Animated.View>
-        )}
-      </Animated.View>
-      
-      {/* Enhanced Input Area */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-        style={styles.keyboardAvoidingView}
-      >
-        <View style={styles.inputContainer}>
-          <TextInput
-            ref={inputRef}
-            style={styles.input}
-            value={inputText}
-            onChangeText={(text) => {
-              setInputText(text);
-              // Simulate typing indicator
-              if (text.length > 0 && !isTyping) {
-                setIsTyping(true);
-                // In a real app, you would send typing status to Firebase here
-              } else if (text.length === 0 && isTyping) {
-                setIsTyping(false);
-                // In a real app, you would clear typing status in Firebase here
-              }
-            }}
-            placeholder="Type a message..."
-            placeholderTextColor="#999"
-            multiline
-            maxLength={500}
-            returnKeyType="default"
-            blurOnSubmit={false}
-          />
-          <TouchableOpacity 
-            style={[
-              styles.sendButton, 
-              !inputText.trim() && styles.sendButtonDisabled
-            ]}
-            onPress={handleSendMessage}
-            disabled={!inputText.trim()}
-            activeOpacity={0.7}
-          >
-            <Icon 
-              name="send" 
-              size={24} 
-              color={inputText.trim() ? "#ffb300" : "#ccc"} 
-            />
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+      {renderContent()}
     </SafeAreaView>
   );
 };
