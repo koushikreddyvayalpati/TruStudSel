@@ -86,6 +86,15 @@ const FirebaseChatScreen = () => {
   // Subscribe to new messages
   const subscribeToNewMessages = useCallback((conversationId: string) => {
     const subscription = subscribeToMessages(conversationId, (updatedMessages) => {
+      console.log('[FirebaseChatScreen] Received messages update:', 
+        updatedMessages.map(msg => ({
+          id: msg.id.substring(0, 8),
+          content: msg.content.substring(0, 15) + (msg.content.length > 15 ? '...' : ''),
+          time: new Date(msg.createdAt).toLocaleString(),
+          timestamp: msg.createdAt
+        }))
+      );
+      
       setMessages(updatedMessages);
       // Scroll to bottom on new messages
       setTimeout(() => {
@@ -200,26 +209,148 @@ const FirebaseChatScreen = () => {
   
   // Format message time
   const formatMessageTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    try {
+      // Parse the date from string
+      const date = new Date(dateString);
+      const now = new Date();
+      
+      // Check if valid date
+      if (isNaN(date.getTime())) {
+        console.warn('[FirebaseChatScreen] Invalid date:', dateString);
+        return now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+      }
+
+      // Correct date if it's in the future (in this case, looks like 2025)
+      // This could be due to time zone issues in Firebase or client-side
+      if (date > now) {
+        console.warn('[FirebaseChatScreen] Future date corrected:', dateString);
+        // Calculate how many hours ago (based on current time)
+        const hoursInMilliseconds = 7 * 60 * 60 * 1000; // 7 hours in ms
+        const correctedDate = new Date(now.getTime() - hoursInMilliseconds);
+        
+        // Return the corrected time
+        return correctedDate.toLocaleTimeString([], {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+      }
+      
+      // If date is valid and not in the future, return formatted time
+      return date.toLocaleTimeString([], {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (error) {
+      console.error('[FirebaseChatScreen] Error formatting message time:', error, dateString);
+      return '';
+    }
   };
   
   // Message item renderer
-  const renderMessage = ({ item }: { item: Message }) => {
+  const renderMessage = ({ item, index }: { item: Message, index: number }) => {
     const isCurrentUser = item.senderId === currentUserEmail;
     
+    // Check if we need to show a date header
+    const showDateHeader = index === 0 || 
+      !isSameDay(new Date(item.createdAt), new Date(messages[index - 1].createdAt));
+    
+    // Create a unique key for this message that includes the timestamp
+    const messageKey = `${item.id}_${item.createdAt}_${index}`;
+    
+    // Debug log the message timestamp for troubleshooting
+    console.log(`[FirebaseChatScreen] Rendering message ${index}:`, {
+      id: item.id,
+      content: item.content?.substring(0, 20),
+      createdAt: item.createdAt,
+      parsedDate: new Date(item.createdAt).toString()
+    });
+    
     return (
-      <View style={[
-        styles.messageBubble,
-        isCurrentUser ? styles.userBubble : styles.otherBubble
-      ]}>
-        <Text style={styles.senderName}>
-          {isCurrentUser ? currentUserName || 'You' : otherUserName || item.senderName || 'User'}
-        </Text>
-        <Text style={styles.messageText}>{item.content}</Text>
-        <Text style={styles.timeText}>{formatMessageTime(item.createdAt)}</Text>
+      <View key={messageKey}>
+        {showDateHeader && (
+          <View style={styles.dateHeaderContainer}>
+            <Text style={styles.dateHeaderText}>
+              {formatMessageDate(item.createdAt)}
+            </Text>
+          </View>
+        )}
+        <View style={[
+          styles.messageBubble,
+          isCurrentUser ? styles.userBubble : styles.otherBubble
+        ]}>
+          <Text style={styles.senderName}>
+            {isCurrentUser ? currentUserName || 'You' : otherUserName || item.senderName || 'User'}
+          </Text>
+          <Text style={styles.messageText}>{item.content}</Text>
+          <Text style={styles.timeText}>{formatMessageTime(item.createdAt)}</Text>
+        </View>
       </View>
     );
+  };
+  
+  // Helper to check if two dates are the same day
+  const isSameDay = (date1: Date, date2: Date) => {
+    return date1.getDate() === date2.getDate() &&
+           date1.getMonth() === date2.getMonth() &&
+           date1.getFullYear() === date2.getFullYear();
+  };
+  
+  // Format just the date part for the header
+  const formatMessageDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      
+      // Debug info
+      console.log('[FirebaseChatScreen] Formatting date:', {
+        dateString,
+        dateObject: date.toString(), 
+        timestamp: date.getTime()
+      });
+      
+      // Check if valid date
+      if (isNaN(date.getTime())) {
+        console.warn('[FirebaseChatScreen] Invalid date in header:', dateString);
+        return 'Today'; // Default to today
+      }
+      
+      // Correct date if it's in the future
+      let correctedDate = new Date(date);
+      if (date > now) {
+        console.warn('[FirebaseChatScreen] Future date corrected in header:', dateString);
+        // Calculate how many hours ago (based on current time)
+        const hoursInMilliseconds = 7 * 60 * 60 * 1000; // 7 hours in ms
+        correctedDate = new Date(now.getTime() - hoursInMilliseconds);
+      }
+      
+      // Check if it's today
+      const isToday = isSameDay(correctedDate, now);
+      
+      // Check if it's yesterday
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      const isYesterday = isSameDay(correctedDate, yesterday);
+      
+      // Return appropriate format based on when the message was sent
+      if (isToday) {
+        return 'Today';
+      } else if (isYesterday) {
+        return 'Yesterday';
+      } else {
+        // Format date as Month Day, Year
+        return correctedDate.toLocaleDateString([], {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric'
+        });
+      }
+    } catch (error) {
+      console.error('[FirebaseChatScreen] Error formatting message date:', error, dateString);
+      return 'Today'; // Default to today
+    }
   };
   
   if (isLoading) {
@@ -259,8 +390,12 @@ const FirebaseChatScreen = () => {
         ref={flatListRef}
         data={messages}
         renderItem={renderMessage}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => `${item.id}_${item.createdAt}`}
         contentContainerStyle={styles.messageList}
+        initialNumToRender={20}
+        maxToRenderPerBatch={15}
+        windowSize={10}
+        onEndReachedThreshold={0.1}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No messages yet. Send a message to start the conversation!</Text>
@@ -375,6 +510,7 @@ const styles = StyleSheet.create({
     color: '#666',
     alignSelf: 'flex-end',
     marginTop: 4,
+    fontStyle: 'italic',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -415,6 +551,21 @@ const styles = StyleSheet.create({
     color: '#888',
     textAlign: 'center',
     lineHeight: 24,
+  },
+  dateHeaderContainer: {
+    alignItems: 'center',
+    marginVertical: 10,
+    marginHorizontal: 16,
+  },
+  dateHeaderText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
 });
 

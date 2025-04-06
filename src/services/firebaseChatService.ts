@@ -77,18 +77,50 @@ export const getCurrentUser = async () => {
 
 // Safe timestamp conversion helper function
 const safeTimestampToISOString = (timestamp: any): string => {
-  // Check if timestamp exists and has toDate method
-  if (timestamp && typeof timestamp.toDate === 'function') {
-    return timestamp.toDate().toISOString();
+  try {
+    // For debugging
+    console.log('[firebaseChatService] Processing timestamp:', 
+      typeof timestamp, 
+      timestamp instanceof Date ? 'Date object' : '',
+      timestamp && typeof timestamp.toDate === 'function' ? 'Firestore timestamp' : '',
+      timestamp && typeof timestamp === 'object' ? JSON.stringify(timestamp) : timestamp
+    );
+    
+    // Check if timestamp exists and has toDate method (Firestore Timestamp)
+    if (timestamp && typeof timestamp.toDate === 'function') {
+      return timestamp.toDate().toISOString();
+    }
+    
+    // Handle server timestamp objects with seconds and nanoseconds
+    if (timestamp && typeof timestamp === 'object' && 'seconds' in timestamp) {
+      // Convert seconds to milliseconds, add nanoseconds converted to milliseconds
+      const milliseconds = (timestamp.seconds * 1000) + 
+        (timestamp.nanoseconds ? timestamp.nanoseconds / 1000000 : 0);
+      const date = new Date(milliseconds);
+      return date.toISOString();
+    }
+    
+    // If timestamp is a string that looks like an ISO date
+    if (typeof timestamp === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(timestamp)) {
+      // Ensure it's a valid date
+      const date = new Date(timestamp);
+      if (!isNaN(date.getTime())) {
+        return timestamp; // Already a valid ISO string
+      }
+    }
+    
+    // If timestamp is a number (milliseconds since epoch)
+    if (typeof timestamp === 'number') {
+      return new Date(timestamp).toISOString();
+    }
+    
+    // Return current date as fallback
+    console.warn('[firebaseChatService] Using current date for invalid timestamp:', timestamp);
+    return new Date().toISOString();
+  } catch (error) {
+    console.error('[firebaseChatService] Error converting timestamp:', error, timestamp);
+    return new Date().toISOString();
   }
-  
-  // Return current date if timestamp is a server timestamp placeholder
-  if (timestamp && typeof timestamp === 'object' && 'seconds' in timestamp) {
-    return new Date(timestamp.seconds * 1000).toISOString();
-  }
-  
-  // Return current date as fallback
-  return new Date().toISOString();
 };
 
 /**
@@ -199,11 +231,13 @@ export const getOrCreateConversation = async (
             
         // Store separate names for each participant
         const nameKey = `name_${currentUser.email.replace(/[.@]/g, '_')}`;
+        const otherUserNameKey = `name_${otherUserEmail.replace(/[.@]/g, '_')}`;
         
         // Update the conversation with the user-specific name if needed
         const conversationRef = doc(db, 'conversations', conversationId);
         await updateDoc(conversationRef, {
-          [nameKey]: otherUserName
+          [nameKey]: otherUserName,
+          [otherUserNameKey]: formattedCurrentUserName // Make sure the other user sees our name correctly too
         });
         
         console.log(`[firebaseChatService] Updated conversation with user-specific name: ${nameKey} = ${otherUserName}`);
@@ -272,14 +306,34 @@ export const getMessages = async (conversationId: string): Promise<Message[]> =>
     
     querySnapshot.forEach((doc) => {
       const data = doc.data();
+      
+      // Parse the createdAt timestamp and ensure it's valid
+      const createdAtStr = safeTimestampToISOString(data.createdAt);
+      const parsedDate = new Date(createdAtStr);
+      
+      // Check if the parsed date is valid (if not, use current time)
+      const validCreatedAt = !isNaN(parsedDate.getTime()) 
+        ? createdAtStr 
+        : new Date().toISOString();
+      
+      // Log the timestamp conversion for debugging
+      console.log('[firebaseChatService] Message timestamp conversion:', {
+        original: data.createdAt,
+        convertedString: createdAtStr,
+        parsedDate: parsedDate.toString(),
+        valid: !isNaN(parsedDate.getTime()),
+        finalCreatedAt: validCreatedAt
+      });
+      
+      // Add message with validated timestamp
       messages.push({
         id: doc.id,
         conversationId,
-        senderId: data.senderId,
-        senderName: data.senderName,
-        content: data.content,
+        senderId: data.senderId || '',
+        senderName: data.senderName || '',
+        content: data.content || '',
         status: data.status || MessageStatus.SENT,
-        createdAt: safeTimestampToISOString(data.createdAt),
+        createdAt: validCreatedAt,
         updatedAt: safeTimestampToISOString(data.updatedAt)
       });
     });
@@ -305,30 +359,46 @@ export const sendMessage = async (conversationId: string, content: string): Prom
         user.email.split('@')[0].charAt(0).toUpperCase() + user.email.split('@')[0].slice(1) : 
         user.username || 'User');
     
-    // Create message data
+    // Create message with ID and current timestamp
     const messageId = uuidv4();
-    const rawMessageData = {
+    
+    // Create an explicit date object for the current time
+    // Ensure we use the exact system time rather than Firebase's serverTimestamp
+    const now = new Date();
+    const nowISO = now.toISOString();
+    
+    // Log the exact timestamp we're using for debugging
+    console.log('[firebaseChatService] Creating message with explicit timestamp:', {
+      iso: nowISO,
+      localTime: now.toLocaleString(),
+      year: now.getFullYear(),
+      month: now.getMonth(),
+      day: now.getDate(),
+      hours: now.getHours(),
+      minutes: now.getMinutes()
+    });
+    
+    // Create message data with explicit timestamp values
+    const messageData = {
       id: messageId,
       conversationId,
       senderId: user.email,
       senderName: senderName,
       content,
       status: MessageStatus.SENT,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
+      // Use explicit date strings instead of serverTimestamp()
+      createdAt: nowISO,
+      updatedAt: nowISO
     };
-    
-    // Sanitize data for Firestore
-    const messageData = sanitizeDataForFirestore(rawMessageData);
     
     // Add message to conversation's messages subcollection
     await setDoc(doc(db, 'conversations', conversationId, 'messages', messageId), messageData);
     
-    // Update conversation with last message details
+    // Update conversation with last message details (also using explicit timestamp)
     await updateDoc(doc(db, 'conversations', conversationId), {
       lastMessageContent: content,
-      lastMessageTime: serverTimestamp(),
-      updatedAt: serverTimestamp()
+      lastMessageTime: nowISO,
+      updatedAt: nowISO
     });
     
     return;
@@ -376,6 +446,16 @@ export const subscribeToMessages = (
           try {
             const data = doc.data();
             
+            // Parse the createdAt timestamp and ensure it's valid
+            const createdAtStr = safeTimestampToISOString(data.createdAt);
+            const parsedDate = new Date(createdAtStr);
+            
+            // Check if the parsed date is valid (if not, use current time)
+            const validCreatedAt = !isNaN(parsedDate.getTime()) 
+              ? createdAtStr 
+              : new Date().toISOString();
+            
+            // Add message with validated timestamp
             messages.push({
               id: doc.id,
               conversationId,
@@ -383,7 +463,7 @@ export const subscribeToMessages = (
               senderName: data.senderName || '',
               content: data.content || '',
               status: data.status || MessageStatus.SENT,
-              createdAt: safeTimestampToISOString(data.createdAt),
+              createdAt: validCreatedAt,
               updatedAt: safeTimestampToISOString(data.updatedAt)
             });
           } catch (docError) {
