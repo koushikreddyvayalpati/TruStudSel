@@ -9,6 +9,9 @@ import { HomeScreen } from '../screens/home';
 import { ProfileScreen, EditProfileScreen } from '../screens/profile';
 import { ProductsScreen } from '../screens/products';
 import { MessagesScreen, MessageScreen } from '../screens/messages';
+import FirebaseChatScreen from '../screens/messages/FirebaseChatScreen';
+import FirebaseChatTestScreen from '../screens/messages/FirebaseChatTestScreen';
+import FirebaseTestScreen from '../screens/messages/FirebaseTestScreen';
 import { PostingScreen } from '../screens/posting';
 import { WishlistScreen } from '../screens/wishlist';
 import UserSearchScreen from '../screens/UserSearchScreen';
@@ -149,9 +152,9 @@ const MainNavigator: React.FC = () => {
             borderTopRightRadius: 20,
             borderBottomRightRadius: 20,
           },
-          swipeEnabled: true, // Enable drawer swipe from edge
-          swipeEdgeWidth: 50, // Width of the edge area that detects swipes
-          overlayColor: 'rgba(0, 0, 0, 0.5)', // Overlay color when drawer is open
+          swipeEnabled: true,
+          swipeEdgeWidth: 50,
+          overlayColor: 'rgba(0, 0, 0, 0.5)',
         }}
       >
         <Drawer.Screen 
@@ -168,6 +171,21 @@ const MainNavigator: React.FC = () => {
           name="MessagesScreen" 
           component={MessagesScreen}
           options={{ drawerLabel: 'Messages', drawerItemStyle: { display: 'none' } }}
+        />
+        <Drawer.Screen 
+          name="FirebaseChatTest" 
+          component={FirebaseChatTestScreen}
+          options={{ drawerLabel: 'Firebase Chat Test' }}
+        />
+        <Drawer.Screen 
+          name="FirebaseTest" 
+          component={FirebaseTestScreen}
+          options={{ drawerLabel: 'Firebase Connectivity Test' }}
+        />
+        <Drawer.Screen 
+          name="FirebaseChatScreen" 
+          component={FirebaseChatScreen}
+          options={{ drawerLabel: 'Firebase Chat', drawerItemStyle: { display: 'none' } }}
         />
         <Drawer.Screen 
           name="Wishlist" 

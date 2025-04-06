@@ -395,17 +395,25 @@ const ProductsScreen = () => {
       try {
         // Get seller info from product attributes
         const sellerName = product.sellerName || product.seller?.name || 'Seller';
-        const sellerEmail = product.email || product.seller?.email || 'unknown';
+        const sellerEmail = product.email || product.seller?.email;
         
-        // @ts-ignore - We know this route exists but TypeScript doesn't
-        navigation.navigate('MessageScreen', { 
-          conversationId: 'new', 
-          recipientName: sellerName,
-          recipientId: sellerEmail // Using seller email as the recipientId
+        if (!sellerEmail) {
+          console.warn('[ProductsScreen] No seller email available for chat');
+          Alert.alert('Error', 'Could not start chat - seller email not available.');
+          return;
+        }
+        
+        console.log('[ProductsScreen] Navigating to Firebase chat with seller:', sellerName, sellerEmail);
+        
+        // Navigate to the Firebase Chat screen instead of MessageScreen
+        // Use the 'any' type to avoid TypeScript issues with the navigation
+        (navigation as any).navigate('FirebaseChatScreen', { 
+          recipientEmail: sellerEmail,
+          recipientName: sellerName
         });
       } catch (error) {
         console.error('Navigation error:', error);
-        Alert.alert('Error', 'Could not open messaging screen.');
+        Alert.alert('Error', 'Could not open chat screen.');
       }
     }
   }, [navigation, product]);

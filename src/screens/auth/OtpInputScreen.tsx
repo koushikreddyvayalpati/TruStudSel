@@ -22,6 +22,7 @@ import { useAuth } from '../../contexts';
 import { TextInput, LoadingOverlay } from '../../components/common';
 import Entypo from 'react-native-vector-icons/Entypo';
 import LinearGradient from 'react-native-linear-gradient';
+import { addUserToFirebase } from '../../services/firebaseService';
 
 // const { width } = Dimensions.get('window');
 
@@ -403,6 +404,25 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
         // Refresh the session to update auth state
         await refreshSession();
         
+        // Add user to Firebase Firestore
+        try {
+          await addUserToFirebase(
+            email,
+            name, 
+            phoneNumber,
+            {
+              // Add any additional user data here
+              cognito_sub: user.attributes?.sub,
+              cognito_username: user.username,
+              isPasswordSet: true
+            }
+          );
+          console.log('User added to Firebase successfully');
+        } catch (firebaseError) {
+          console.error('Error adding user to Firebase:', firebaseError);
+          // Don't stop the flow if Firebase addition fails
+        }
+        
         // Animate progress to 100% when password is created successfully
         Animated.timing(progressAnim, {
           toValue: 100,
@@ -430,6 +450,21 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
         }, 1000);
       } else {
         // If no temp password (shouldn't happen in normal flow)
+        // Still try to add the user to Firebase if possible
+        try {
+          await addUserToFirebase(
+            email,
+            name, 
+            phoneNumber,
+            {
+              isPasswordSet: true
+            }
+          );
+          console.log('User added to Firebase successfully');
+        } catch (firebaseError) {
+          console.error('Error adding user to Firebase:', firebaseError);
+        }
+        
         setLoading(false);
         Alert.alert(
           'Success',

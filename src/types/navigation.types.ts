@@ -34,6 +34,9 @@ export type MainStackParamList = {
   };
   MessagesScreen: undefined;
   MessageScreen: { conversationId: string; recipientName: string; recipientId?: string };
+  FirebaseChatScreen: { recipientEmail: string; recipientName: string };
+  FirebaseChatTest: undefined;
+  FirebaseTest: undefined;
   PostingScreen: {
     userUniversity?: string;
     userCity?: string;

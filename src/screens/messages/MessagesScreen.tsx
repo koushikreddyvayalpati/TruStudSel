@@ -15,13 +15,11 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { MainStackParamList } from '../../types/navigation.types';
 import { Conversation } from '../../types/chat.types';
-import { getConversations, getCurrentUser } from '../../services/chatService';
-import { formatDistanceToNow } from 'date-fns';
+import { getConversations, getCurrentUser } from '../../services/firebaseChatService';
 
 // Navigation prop type with stack methods
 type MessagesScreenNavigationProp = StackNavigationProp<MainStackParamList, 'MessagesScreen'>;
@@ -34,9 +32,7 @@ const MessagesScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [showDebug, setShowDebug] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string>('');
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -55,21 +51,22 @@ const MessagesScreen = () => {
     shadow: 'rgba(0, 0, 0, 0.12)'
   }), []);
   
-  // Function to get current user ID only once
-  const fetchCurrentUserId = useCallback(async () => {
+  // Function to get current user email only once
+  const fetchCurrentUser = useCallback(async () => {
     try {
       const user = await getCurrentUser();
-      if (user) {
-        setCurrentUserId(user.id);
+      if (user && user.email) {
+        setCurrentUserEmail(user.email);
+        console.log('[MessagesScreen] Current user email:', user.email);
       }
     } catch (error) {
-      console.error('[MessagesScreen] Error fetching current user ID:', error);
+      console.error('[MessagesScreen] Error fetching current user:', error);
     }
   }, []);
   
-  // Fetch current user ID on component mount
+  // Fetch current user email on component mount
   useEffect(() => {
-    fetchCurrentUserId();
+    fetchCurrentUser();
     
     // Trigger fade-in animation on mount
     Animated.timing(fadeAnim, {
@@ -77,7 +74,7 @@ const MessagesScreen = () => {
       duration: 300,
       useNativeDriver: true,
     }).start();
-  }, [fetchCurrentUserId, fadeAnim]);
+  }, [fetchCurrentUser, fadeAnim]);
 
   // Animate search bar in/out
   useEffect(() => {
@@ -92,9 +89,9 @@ const MessagesScreen = () => {
   const fetchConversations = useCallback(async () => {
     try {
       setIsLoading(true);
-      console.log('[MessagesScreen] Fetching conversations...');
+      console.log('[MessagesScreen] Fetching Firebase conversations...');
       const fetchedConversations = await getConversations();
-      console.log('[MessagesScreen] Fetched conversations:', 
+      console.log('[MessagesScreen] Fetched Firebase conversations:', 
         fetchedConversations.map(c => ({
           id: c.id,
           name: c.name,
@@ -103,37 +100,11 @@ const MessagesScreen = () => {
         }))
       );
       
-      // Sort conversations by lastMessageTime (most recent first)
-      const sortedConversations = [...fetchedConversations].sort((a, b) => {
-        const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
-        const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
-        return timeB - timeA;
-      });
-      
-      console.log('[MessagesScreen] Sorted conversations by time:', 
-        sortedConversations.map(c => ({
-          id: c.id,
-          time: c.lastMessageTime
-        }))
-      );
-      
-      setConversations(sortedConversations);
-      setDebugInfo(JSON.stringify({
-        conversationCount: sortedConversations.length,
-        conversationIds: sortedConversations.map(c => c.id),
-        participantsList: sortedConversations.map(c => c.participants),
-        lastMessageTimes: sortedConversations.map(c => c.lastMessageTime),
-        timestamp: new Date().toISOString()
-      }, null, 2));
+      setConversations(fetchedConversations);
       setError(null);
     } catch (err) {
-      console.error('[MessagesScreen] Failed to fetch conversations:', err);
+      console.error('[MessagesScreen] Failed to fetch Firebase conversations:', err);
       setError(`Failed to load conversations: ${err instanceof Error ? err.message : String(err)}`);
-      setDebugInfo(JSON.stringify({
-        error: err instanceof Error ? err.message : String(err),
-        stack: err instanceof Error ? err.stack : 'No stack trace',
-        timestamp: new Date().toISOString()
-      }, null, 2));
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -171,64 +142,47 @@ const MessagesScreen = () => {
     }
   }, [isSearchActive]);
 
-  // Toggle debug info
-  const toggleDebug = useCallback(() => {
-    setShowDebug(prev => !prev);
-  }, []);
-
-  // Navigate to conversation
+  // Navigate to conversation using FirebaseChatScreen
   const goToConversation = useCallback((conversation: Conversation) => {
-    navigation.navigate('MessageScreen', { 
-      conversationId: conversation.id, 
-      recipientName: conversation.name || 'Chat'
-    });
-  }, [navigation]);
-
-  // Format relative time
-  const formatRelativeTime = useCallback((dateString?: string) => {
-    if (!dateString) return '';
+    // Find the other participant in the conversation (not the current user)
+    const otherParticipant = conversation.participants.find(p => p !== currentUserEmail) || '';
     
-    try {
-      const date = new Date(dateString);
-      return formatDistanceToNow(date, { addSuffix: true });
-    } catch (error) {
-      return dateString;
-    }
-  }, []);
+    // Navigate to Firebase chat screen with recipient info
+    navigation.navigate('FirebaseChatScreen', { 
+      recipientEmail: otherParticipant,
+      recipientName: conversation.name || otherParticipant
+    });
+  }, [navigation, currentUserEmail]);
 
   // Get display name for a conversation (the other participant's name)
   const getConversationDisplayName = useCallback((conversation: Conversation) => {
-    if (!currentUserId) return conversation.name || 'Unknown Contact';
+    if (!currentUserEmail) return conversation.name || 'Unknown Contact';
     
-    // Find the other participant ID (the person we're talking to)
-    const otherParticipant = conversation.participants.find(p => p !== currentUserId);
+    // Find the other participant (the person we're talking to)
+    const otherParticipant = conversation.participants.find(p => p !== currentUserEmail);
     
-    // For the specific case in the logs (Sarah viewing Koushik's message)
-    // If user is Sarah (skonakan@uab.edu) and conversation owner is Koushik
-    if (currentUserId.includes('f17bb590') && conversation.owner?.includes('a1cbd5d0')) {
-      return "Koushik"; // Use hardcoded name for the demo
-    }
-    
-    // If the current user is NOT the owner of the conversation
-    if (conversation.owner && conversation.owner !== currentUserId) {
-      // When we're the recipient, the best name to show is the owner's name
+    // If we're not the owner of the conversation, show the owner's name
+    if (conversation.owner && conversation.owner !== currentUserEmail) {
       return conversation.name || 'Unknown Contact';
     }
     
-    // If the current user IS the owner of the conversation
+    // Show the recipient's name or email
     if (otherParticipant) {
-      // For conversations we initiated, show the recipient's name or email
+      if (conversation.name && conversation.name !== otherParticipant) {
+        return conversation.name;
+      }
+      
+      // Format email to show just the username part
       if (otherParticipant.includes('@')) {
         return otherParticipant.split('@')[0];
       }
       
-      // If we have a different name set, use it
-      return conversation.name || 'Unknown Contact';
+      return otherParticipant;
     }
     
     // Default fallback
     return conversation.name || 'Unknown Contact';
-  }, [currentUserId]);
+  }, [currentUserEmail]);
 
   // Get conversation timestamp for today/yesterday handling
   const getTimeDisplay = useCallback((timestamp?: string) => {
@@ -256,100 +210,132 @@ const MessagesScreen = () => {
         return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
       }
     } catch (error) {
-      return formatRelativeTime(timestamp);
+      console.error('[MessagesScreen] Error formatting time:', error);
+      return '';
     }
-  }, [formatRelativeTime]);
+  }, []);
 
-  // Render conversation item with optimized performance
+  // Conversation item separator
+  const ItemSeparator = useCallback(() => (
+    <View style={styles.separator} />
+  ), []);
+
+  // Key extractor for FlatList
+  const keyExtractor = useCallback((item: Conversation) => item.id, []);
+
+  // Render each conversation item
   const renderItem = useCallback(({ item }: { item: Conversation }) => {
     const displayName = getConversationDisplayName(item);
     const timeDisplay = getTimeDisplay(item.lastMessageTime);
-    const initials = displayName.charAt(0).toUpperCase();
     
-    // Use consistent gold color for all avatars
-    const avatarColor = '#f7b305';
+    const lastMessage = item.lastMessageContent || 'No messages yet';
+    const truncatedMessage = lastMessage.length > 40 
+      ? `${lastMessage.substring(0, 40)}...` 
+      : lastMessage;
+    
+    // Generate initials for avatar
+    const initials = displayName
+      .split(' ')
+      .map(word => word[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase();
+    
+    // Generate consistent color based on name
+    const nameHash = displayName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const hue = nameHash % 360;
+    const avatarColor = `hsl(${hue}, 60%, 60%)`;
     
     return (
-      <TouchableOpacity 
-        style={styles.messageContainer}
+      <TouchableOpacity
+        style={styles.conversationItem}
         onPress={() => goToConversation(item)}
         activeOpacity={0.7}
       >
         <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
-          <Text style={styles.avatarText}>{initials || '?'}</Text>
+          <Text style={styles.avatarText}>{initials}</Text>
         </View>
         
-        <View style={styles.messageContent}>
-          <View style={styles.headerRow}>
-            <Text style={styles.senderName} numberOfLines={1}>
+        <View style={styles.conversationContent}>
+          <View style={styles.topRow}>
+            <Text style={styles.conversationName} numberOfLines={1}>
               {displayName}
             </Text>
-            <Text style={styles.messageTime}>
+            <Text style={styles.timeText}>
               {timeDisplay}
             </Text>
           </View>
           
-          <View style={styles.messagePreviewRow}>
-            <Text 
-              style={[
-                styles.messageText,
-                !item.lastMessageContent && styles.emptyMessageText
-              ]} 
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {item.lastMessageContent || 'No messages yet'}
+          <View style={styles.bottomRow}>
+            <Text style={styles.messagePreview} numberOfLines={1}>
+              {truncatedMessage}
             </Text>
             
-            {item.productName && (
-              <View style={styles.productBadge}>
-                <Text style={styles.productText} numberOfLines={1}>
-                  {item.productName}
-                </Text>
-              </View>
+            {/* Optional dot for unread messages */}
+            {false && (
+              <View style={styles.unreadDot} />
             )}
           </View>
         </View>
       </TouchableOpacity>
     );
-  }, [goToConversation, getConversationDisplayName, getTimeDisplay]);
+  }, [getConversationDisplayName, getTimeDisplay, goToConversation]);
 
-  // Memoize key extractor for performance
-  const keyExtractor = useCallback((item: Conversation) => item.id, []);
-
-  // Memoized separator component
-  const ItemSeparator = useCallback(() => <View style={styles.separator} />, []);
-
-  // Render empty state when no conversations match search
+  // Empty state component
   const renderEmptyComponent = useCallback(() => (
     <Animated.View 
       style={[
-        styles.emptyContainer,
+        styles.emptyContainer, 
         { opacity: fadeAnim }
       ]}
     >
-      <Icon name="comments-o" size={80} color="#E0E0E0" />
-      <Text style={styles.emptyTitle}>
-        {isLoading ? 'Loading conversations...' : 
-         error ? 'Error loading conversations' :
-         searchQuery ? 'No matching conversations' : 'No conversations yet'}
-      </Text>
-      <Text style={styles.emptySubtitle}>
-        {isLoading ? 'Please wait...' :
-         error ? error :
-         searchQuery ? 'Try a different search term' : 'Start a conversation by tapping the + button below'}
-      </Text>
+      {!isLoading && !error && searchQuery.trim() === '' && (
+        <>
+          <Ionicons name="chatbubble-ellipses-outline" size={60} color="#ccc" />
+          <Text style={styles.emptyTitle}>No Conversations Yet</Text>
+          <Text style={styles.emptyText}>
+            When you start chatting with other users, your conversations will appear here.
+          </Text>
+          <TouchableOpacity 
+            style={styles.startChatButton}
+            onPress={() => navigation.navigate('FirebaseChatTest')}
+          >
+            <Text style={styles.startChatButtonText}>Start a New Chat</Text>
+          </TouchableOpacity>
+        </>
+      )}
       
-      {!isLoading && !error && !searchQuery && (
-        <TouchableOpacity 
-          style={styles.emptyActionButton}
-          onPress={() => navigation.navigate('UserSearchScreen')}
-        >
-          <Text style={styles.emptyActionButtonText}>Find Someone to Chat With</Text>
-        </TouchableOpacity>
+      {!isLoading && !error && searchQuery.trim() !== '' && (
+        <>
+          <Ionicons name="search-outline" size={60} color="#ccc" />
+          <Text style={styles.emptyTitle}>No Results Found</Text>
+          <Text style={styles.emptyText}>
+            We couldn't find any conversations matching "{searchQuery}".
+          </Text>
+          <TouchableOpacity 
+            style={styles.clearButton}
+            onPress={() => setSearchQuery('')}
+          >
+            <Text style={styles.clearButtonText}>Clear Search</Text>
+          </TouchableOpacity>
+        </>
+      )}
+      
+      {!isLoading && error && (
+        <>
+          <Ionicons name="alert-circle-outline" size={60} color="#e74c3c" />
+          <Text style={styles.errorTitle}>Something Went Wrong</Text>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={fetchConversations}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </>
       )}
     </Animated.View>
-  ), [isLoading, error, searchQuery, fadeAnim, navigation]);
+  ), [isLoading, error, searchQuery, fadeAnim, navigation, fetchConversations]);
 
   // Render loader at the bottom of the list
   const renderFooter = useCallback(() => {
@@ -474,39 +460,10 @@ const MessagesScreen = () => {
         />
       </Animated.View>
       
-      {/* Debug Button */}
-      <TouchableOpacity 
-        style={styles.debugButton}
-        onPress={toggleDebug}
-      >
-        <Ionicons name="bug" size={20} color="#FFF" />
-      </TouchableOpacity>
-      
-      {/* Debug overlay */}
-      {showDebug && (
-        <View style={styles.debugOverlay}>
-          <View style={styles.debugHeader}>
-            <Text style={styles.debugTitle}>Debug Info</Text>
-            <TouchableOpacity onPress={toggleDebug}>
-              <Ionicons name="close" size={24} color="#FFF" />
-            </TouchableOpacity>
-          </View>
-          
-          <TouchableOpacity 
-            style={styles.refreshButton} 
-            onPress={fetchConversations}
-          >
-            <Text style={styles.refreshButtonText}>Force Refresh</Text>
-          </TouchableOpacity>
-          
-          <Text style={styles.debugText}>{debugInfo}</Text>
-        </View>
-      )}
-      
-      {/* Compose Button - Navigate to User Search Screen */}
+      {/* Compose Button - Navigate to Chat Test Screen */}
       <TouchableOpacity 
         style={styles.composeButton}
-        onPress={() => navigation.navigate('UserSearchScreen')}
+        onPress={() => navigation.navigate('FirebaseChatTest')}
         activeOpacity={0.9}
       >
         <Ionicons name="chatbubble-ellipses" size={24} color="#FFF" />
@@ -581,7 +538,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingBottom: 0,
   },
-  messageContainer: {
+  conversationItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
@@ -614,66 +571,43 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
-  messageContent: {
+  conversationContent: {
     flex: 1,
   },
-  headerRow: {
+  topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 6,
   },
-  senderName: {
+  conversationName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
     flex: 1,
     marginRight: 12,
   },
-  messageTime: {
+  timeText: {
     fontSize: 12,
     color: '#888',
   },
-  messagePreviewRow: {
+  bottomRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  messageText: {
+  messagePreview: {
     fontSize: 14,
     color: '#666',
     flex: 1,
     marginRight: 8,
   },
-  emptyMessageText: {
-    fontStyle: 'italic',
-    color: '#999',
-  },
-  productBadge: {
-    backgroundColor: 'rgba(255, 179, 0, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    maxWidth: 120,
-  },
-  productText: {
-    fontSize: 11,
-    color: '#f57c00',
-    fontWeight: '500',
-  },
-  unreadBadge: {
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: '#ffb300',
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginLeft: 8,
-  },
-  unreadCount: {
-    fontSize: 11,
-    color: '#fff',
-    fontWeight: 'bold',
   },
   separator: {
     height: 0,
@@ -690,7 +624,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     textAlign: 'center',
   },
-  emptySubtitle: {
+  emptyText: {
     fontSize: 15,
     color: '#888',
     textAlign: 'center',
@@ -698,7 +632,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     maxWidth: '80%',
   },
-  emptyActionButton: {
+  startChatButton: {
     marginTop: 24,
     backgroundColor: '#ffb300',
     paddingVertical: 12,
@@ -710,10 +644,58 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
-  emptyActionButtonText: {
+  startChatButtonText: {
     color: '#fff',
     fontWeight: '600',
     fontSize: 15,
+  },
+  clearButton: {
+    marginTop: 24,
+    backgroundColor: '#ffb300',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 30,
+    shadowColor: 'rgba(0, 0, 0, 0.2)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  clearButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  retryButton: {
+    marginTop: 24,
+    backgroundColor: '#ffb300',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 30,
+    shadowColor: 'rgba(0, 0, 0, 0.2)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  errorTitle: {
+    fontSize: 20, 
+    fontWeight: 'bold',
+    color: '#e74c3c',
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#fff',
+    textAlign: 'center',
+    maxWidth: '90%',
+    marginBottom: 10,
   },
   loaderFooter: {
     paddingVertical: 20,
@@ -729,60 +711,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffb300',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-  },
-  debugButton: {
-    position: 'absolute',
-    bottom: 95,
-    right: 20,
-    backgroundColor: 'rgba(80, 80, 80, 0.8)',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  debugOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    padding: 20,
-    zIndex: 100,
-  },
-  debugHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  debugTitle: {
-    color: '#FFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  debugText: {
-    color: '#FFF',
-    fontFamily: 'monospace',
-    fontSize: 12,
-  },
-  refreshButton: {
-    backgroundColor: '#ffb300',
-    padding: 10,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  refreshButtonText: {
-    color: '#FFF',
-    fontWeight: 'bold',
-  },
+    shadowColor: 'rgba(0, 0, 0, 0.2)',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.8,
+    shadowRadius: 5,
+    elevation: 5,
+  }
 });
 
 export default MessagesScreen;
