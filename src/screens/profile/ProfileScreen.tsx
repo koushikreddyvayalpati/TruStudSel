@@ -11,7 +11,8 @@ import {
   RefreshControl,
   Animated,
   Platform,
-  Alert
+  Alert,
+  Dimensions
 } from 'react-native';
 import { useNavigation, useFocusEffect, useRoute, RouteProp } from '@react-navigation/native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -32,6 +33,7 @@ const HEADER_MAX_HEIGHT = Platform.OS === 'ios' ? 60 : 56;
 const HEADER_MIN_HEIGHT = Platform.OS === 'ios' ? 60 : 56;
 const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
 const ITEM_HEIGHT = 230; // Estimated post item height for better FlatList performance
+const { width } = Dimensions.get('window'); // Get screen width for tab slider
 
 // Convert API product to Post interface
 const convertProductToPost = (product: Product): Post => ({
@@ -92,6 +94,18 @@ const ProfileHeader = React.memo(({
   isLoadingProducts: boolean,
   isViewingSeller: boolean,
 }) => {
+  // Create animated value for tab animation
+  const tabPosition = useRef(new Animated.Value(activeTab === 'archive' ? 1 : 0)).current;
+
+  // Update animated value when tab changes
+  useEffect(() => {
+    Animated.timing(tabPosition, {
+      toValue: activeTab === 'archive' ? 1 : 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, [activeTab, tabPosition]);
+
   // Get the first letter of the user's name for the profile circle
   const getInitial = useCallback(() => {
     if (userData.name) {
@@ -161,7 +175,7 @@ const ProfileHeader = React.memo(({
               onPress={onEditProfile}
               hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
             >
-              <FontAwesome name="edit" size={16} color="#555555" />
+              <FontAwesome name="edit" size={18} color="#1b74e4" />
             </TouchableOpacity>
           )}
         </View>
@@ -209,6 +223,20 @@ const ProfileHeader = React.memo(({
       
       {/* Tab Buttons */}
       <View style={styles.tabsContainer}>
+        <Animated.View 
+          style={[
+            styles.tabSlider,
+            {
+              transform: [{
+                translateX: tabPosition.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, width / 2 - 3],
+                  extrapolate: 'clamp'
+                })
+              }]
+            }
+          ]}
+        />
         <TouchableOpacity
           style={[
             styles.tabButton,
@@ -288,11 +316,13 @@ const PostItem = React.memo(({ item, originalData }: { item: Post, originalData?
             <Text style={styles.soldText}>SOLD</Text>
           </View>
         )}
+        <View style={styles.priceTagContainer}>
+          <Text style={styles.postPrice}>{item.price}</Text>
+        </View>
       </View>
       <View style={styles.postInfo}>
         <Text style={styles.postCaption} numberOfLines={1}>{item.caption}</Text>
         <Text style={styles.postCondition}>{item.condition}</Text>
-        <Text style={styles.postPrice}>{item.price}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -923,13 +953,6 @@ const ProfileScreen: React.FC = () => {
   
   // Animated values with useMemo to avoid recreating on every render
   const scrollY = useMemo(() => new Animated.Value(0), []);
-  const headerOpacity = useMemo(() => {
-    return scrollY.interpolate({
-      inputRange: [0, HEADER_SCROLL_DISTANCE / 2, HEADER_SCROLL_DISTANCE],
-      outputRange: [0, 0.5, 1],
-      extrapolate: 'clamp'
-    });
-  }, [scrollY]);
 
   // Memoized filtered posts based on active tab
   const filteredPosts = useMemo(() => {
@@ -1091,11 +1114,10 @@ const ProfileScreen: React.FC = () => {
         style={[
           styles.animatedHeader, 
           { 
-            opacity: headerOpacity,
             transform: [{ 
               translateY: scrollY.interpolate({
                 inputRange: [0, HEADER_SCROLL_DISTANCE],
-                outputRange: [0, -HEADER_MIN_HEIGHT/4],
+                outputRange: [0, 0],
                 extrapolate: 'clamp',
               })
             }]
@@ -1165,26 +1187,7 @@ const ProfileScreen: React.FC = () => {
               {/* Profile Banner with background color #f7b305 */}
               <View style={styles.bannerContainer}>
                 <View style={styles.bannerContent}>
-                  <TouchableOpacity 
-                    style={styles.backButton}
-                    onPress={handleGoBack}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <MaterialIcons name="arrow-back" size={24} color="white" />
-                  </TouchableOpacity>
-                  
-                  {!isViewingSeller && (
-                    <TouchableOpacity 
-                      style={styles.signOutButton}
-                      onPress={handleSignOut}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                      <MaterialIcons name="logout" size={24} color="white" />
-                    </TouchableOpacity>
-                  )}
-                  {isViewingSeller && (
-                    <View style={styles.signOutButton} />
-                  )}
+                  {/* Banner content without buttons */}
                 </View>
               </View>
               
@@ -1252,10 +1255,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: HEADER_MAX_HEIGHT,
-    backgroundColor: '#000000',
+    backgroundColor: '#f7b305',
     zIndex: 100,
-    paddingTop: StatusBar.currentHeight || 0,
+    paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 10,
     paddingBottom: 8,
+    marginTop: StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 50,
   },
   headerContent: {
     flex: 1,
@@ -1263,17 +1267,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
+    marginTop: 0,
   },
   backButtonHeader: {
     padding: 8,
+    backgroundColor: '#f7b305',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
     color: '#FFF',
+    fontFamily: 'Montserrat',
   },
   headerAction: {
     padding: 8,
+    backgroundColor: '#f7b305',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   bannerContainer: {
     height: PROFILE_BANNER_HEIGHT,
@@ -1409,11 +1427,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   editProfileButton: {
-    marginLeft: 10,
+    marginTop: 2,
+    marginLeft: 4,
     padding: 6,
     borderRadius: 50,
     backgroundColor: '#fff',
-    borderWidth: 1,
+    borderWidth: 0,
     borderColor: '#e0e0e0',
     ...Platform.select({
       ios: {
@@ -1491,33 +1510,37 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: '#ffffff',
     borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 14,
-    marginTop: 4,
-    marginBottom: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    marginTop: 2,
+    marginBottom: 12,
+    marginHorizontal: 4,
     borderWidth: 1,
-    borderColor: '#eaeaea',
+    borderColor: '#eeeeee',
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
     ...Platform.select({
       ios: {
         shadowColor: 'rgba(0, 0, 0, 0.08)',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 4,
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
       },
       android: {
-        elevation: 2,
+        elevation: 1,
       }
     }),
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
+    paddingVertical: 2,
   },
   statNumber: {
     fontSize: 26,
     fontWeight: '700',
     color: '#000000',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   statLabelRow: {
     flexDirection: 'row',
@@ -1526,10 +1549,10 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
-    color: '#666',
+    color: '#444',
     fontWeight: '500',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   statDivider: {
     width: 1,
@@ -1540,17 +1563,44 @@ const styles = StyleSheet.create({
   tabsContainer: {
     flexDirection: 'row',
     marginBottom: 14,
-    marginHorizontal: 0,
+    marginHorizontal: 5,
+    borderRadius: 12,
+    backgroundColor: '#f0f0f0',
+    padding: 3,
+    position: 'relative',
+    height: 46,
   },
   tabButton: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 12,
     alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    justifyContent: 'center',
+    borderRadius: 9,
+    zIndex: 2,
   },
   activeTabButton: {
-    borderBottomColor: '#000000',
+    backgroundColor: 'transparent',
+  },
+  tabSlider: {
+    position: 'absolute',
+    height: 40,
+    width: '49.5%',
+    backgroundColor: '#f7b305',
+    borderRadius: 9,
+    top: 3,
+    left: 3,
+    zIndex: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(0, 0, 0, 0.15)',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      }
+    }),
   },
   tabText: {
     fontSize: 15,
@@ -1558,8 +1608,9 @@ const styles = StyleSheet.create({
     color: '#888',
   },
   activeTabText: {
-    color: '#000000',
+    color: '#ffffff',
     fontWeight: '600',
+    letterSpacing: 0.3,
   },
   postsSection: {
     flex: 1,
@@ -1602,25 +1653,30 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 14,
     borderTopRightRadius: 14,
   },
-  postPrice: {
+  priceTagContainer: {
     position: 'absolute',
     bottom: 10,
-    right: 8,
-    backgroundColor: '#e67e22',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 12,
+    right: 10,
+    zIndex: 5,
+  },
+  postPrice: {
+    backgroundColor: '#000000',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
     fontWeight: 'bold',
-    color: '#fff',
+    fontSize: 16,
+    color: '#ffffff',
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: 'rgba(0, 0, 0, 0.5)',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 2,
+        shadowOpacity: 0.3,
+        shadowRadius: 3,
       },
       android: {
-        elevation: 2,
+        elevation: 3,
       }
     }),
   },
@@ -1692,18 +1748,18 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#000000',
+    backgroundColor: '#f7b305',
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
       ios: {
         shadowColor: 'rgba(0, 0, 0, 0.3)',
         shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
       },
       android: {
-        elevation: 5,
+        elevation: 4,
       }
     }),
   },
