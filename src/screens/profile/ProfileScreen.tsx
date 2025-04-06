@@ -26,8 +26,8 @@ import { fetchUserProducts, Product } from '../../api/products';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Constants
-const PROFILE_BANNER_HEIGHT = 180;
-const PROFILE_IMAGE_SIZE = 110;
+const PROFILE_BANNER_HEIGHT = 160;
+const PROFILE_IMAGE_SIZE = 100;
 const HEADER_MAX_HEIGHT = Platform.OS === 'ios' ? 60 : 56;
 const HEADER_MIN_HEIGHT = Platform.OS === 'ios' ? 60 : 56;
 const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
@@ -114,17 +114,23 @@ const ProfileHeader = React.memo(({
     <View style={styles.statsCard}>
       <View style={styles.statItem}>
         <Text style={styles.statNumber}>{parseInt(userData.soldProducts, 10)}</Text>
-        <Text style={styles.statLabel}>Items Sold</Text>
+        <View style={styles.statLabelRow}>
+          <Text style={styles.statLabel}>Sold</Text>
+        </View>
       </View>
       <View style={styles.statDivider} />
       <View style={styles.statItem}>
         <Text style={styles.statNumber}>{isLoadingProducts ? '...' : filteredPosts.length}</Text>
-        <Text style={styles.statLabel}>Active Listings</Text>
+        <View style={styles.statLabelRow}>
+          <Text style={styles.statLabel}>Active</Text>
+        </View>
       </View>
       <View style={styles.statDivider} />
       <View style={styles.statItem}>
         <Text style={styles.statNumber}>{userData.totalProducts}</Text>
-        <Text style={styles.statLabel}>Total</Text>
+        <View style={styles.statLabelRow}>
+          <Text style={styles.statLabel}>Rating</Text>
+        </View>
       </View>
     </View>
   ), [userData.soldProducts, userData.totalProducts, filteredPosts.length, isLoadingProducts]);
@@ -147,42 +153,59 @@ const ProfileHeader = React.memo(({
       </View>
       
       <View style={styles.profileDetailsContainer}>
-        <View style={styles.nameEditRow}>
+        <View style={styles.nameRow}>
           <Text style={styles.profileName}>{userData.name}</Text>
           {!isViewingSeller && (
             <TouchableOpacity 
               style={styles.editProfileButton}
               onPress={onEditProfile}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
             >
-              <Text style={styles.editButtonText}>Edit Profile</Text>
+              <FontAwesome name="edit" size={16} color="#555555" />
             </TouchableOpacity>
           )}
         </View>
         
         <View style={styles.userInfoRow}>
-          <View style={styles.userInfoItem}>
-            <FontAwesome5 name="university" size={16} color="#666" />
-            <Text style={styles.userInfoText}>{userData.university}</Text>
+          <View style={[styles.userInfoItem, styles.universityItem]}>
+            <View style={styles.iconContainer}>
+              <FontAwesome5 name="university" size={16} color="black" />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={styles.infoLabel}>UNIVERSITY</Text>
+              <Text style={styles.userInfoText}>{userData.university}</Text>
+            </View>
           </View>
+          
           {/* Only show email if viewing own profile, not someone else's */}
           {!isViewingSeller && (
-            <View style={styles.userInfoItem}>
-              <MaterialCommunityIcons name="email-outline" size={16} color="#666" />
-              <Text style={styles.userInfoText} numberOfLines={1}>{userData.email}</Text>
+            <View style={[styles.userInfoItem, styles.emailItem]}>
+              <View style={styles.iconContainer}>
+                <MaterialCommunityIcons name="email-outline" size={18} color="black" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>EMAIL</Text>
+                <Text style={styles.userInfoText} numberOfLines={1}>{userData.email}</Text>
+              </View>
             </View>
           )}
+          
           {backendUserData?.city && backendUserData?.state && (
-            <View style={styles.userInfoItem}>
-              <FontAwesome5 name="map-marker-alt" size={16} color="#666" />
-              <Text style={styles.userInfoText}>{backendUserData.city}, {backendUserData.state}</Text>
+            <View style={[styles.userInfoItem, styles.locationItem]}>
+              <View style={styles.iconContainer}>
+                <FontAwesome5 name="map-marker-alt" size={16} color="#f7b305" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>LOCATION</Text>
+                <Text style={styles.userInfoText}>{backendUserData.city}, {backendUserData.state}</Text>
+              </View>
             </View>
           )}
         </View>
+
+        {/* Stats Card */}
+        {StatsCard}
       </View>
-      
-      {/* Stats Card */}
-      {StatsCard}
       
       {/* Tab Buttons */}
       <View style={styles.tabsContainer}>
@@ -1302,7 +1325,7 @@ const styles = StyleSheet.create({
   profileImageWrapper: {
     alignSelf: 'center',
     marginTop: -PROFILE_IMAGE_SIZE / 2,
-    marginBottom: 16,
+    marginBottom: 8,
     position: 'relative',
     ...Platform.select({
       ios: {
@@ -1334,7 +1357,7 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
   },
   profileInitial: {
-    fontSize: 38,
+    fontSize: 34,
     fontWeight: 'bold',
     color: 'white',
   },
@@ -1367,29 +1390,42 @@ const styles = StyleSheet.create({
   },
   profileDetailsContainer: {
     alignItems: 'center',
-    marginBottom: 24,
-  },
-  nameEditRow: {
+    marginBottom: 5,
     width: '100%',
+  },
+  nameRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 10,
+    width: '100%',
+    position: 'relative',
   },
   profileName: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#222',
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#222222',
+    letterSpacing: 0.3,
     textAlign: 'center',
-    marginRight: 10,
   },
   editProfileButton: {
-    backgroundColor: 'white',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
+    marginLeft: 10,
+    padding: 6,
+    borderRadius: 50,
+    backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#1b74e4',
+    borderColor: '#e0e0e0',
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(0, 0, 0, 0.1)',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      }
+    }),
   },
   editButtonText: {
     fontSize: 12,
@@ -1398,36 +1434,78 @@ const styles = StyleSheet.create({
   },
   userInfoRow: {
     width: '100%',
-    marginVertical: 10,
+    marginBottom: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   userInfoItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#ffffff',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
     marginBottom: 8,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+    borderLeftWidth: 3,
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(0, 0, 0, 0.05)',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 1,
+      }
+    }),
+  },
+  iconContainer: {
+    width: 32,
+    height: 32,
     justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 16,
+  },
+  infoContent: {
+    flex: 1,
   },
   userInfoText: {
-    fontSize: 15,
-    color: '#555',
-    marginLeft: 10,
-    fontWeight: '400',
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  infoLabel: {
+    fontSize: 11,
+    color: '#777',
+    marginBottom: 2,
+    fontWeight: '500',
   },
   statsCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: '#f9f9f9',
-    borderRadius: 14,
-    padding: 18,
-    marginBottom: 24,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
+    marginTop: 4,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#eaeaea',
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: 'rgba(0, 0, 0, 0.08)',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
+        shadowOpacity: 0.15,
         shadowRadius: 4,
       },
       android: {
-        elevation: 3,
+        elevation: 2,
       }
     }),
   },
@@ -1436,57 +1514,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'black',
-    marginBottom: 4,
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#000000',
+    marginBottom: 6,
+  },
+  statLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statLabel: {
-    fontSize: 14,
-    color: '#000000',
-    fontWeight: '400',
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   statDivider: {
     width: 1,
-    height: '85%',
-    backgroundColor: '#e0e0e0',
+    height: '70%',
+    backgroundColor: '#eeeeee',
     alignSelf: 'center',
   },
   tabsContainer: {
     flexDirection: 'row',
-    marginBottom: 16,
-    borderRadius: 10,
-    backgroundColor: '#f5f5f5',
-    padding: 4,
-    marginHorizontal: 8,
+    marginBottom: 14,
+    marginHorizontal: 0,
   },
   tabButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 14,
     alignItems: 'center',
-    borderRadius: 8,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
   },
   activeTabButton: {
-    backgroundColor: 'black',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 2,
-      }
-    }),
+    borderBottomColor: '#000000',
   },
   tabText: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#999',
+    color: '#888',
   },
   activeTabText: {
-    color: 'white',
+    color: '#000000',
     fontWeight: '600',
   },
   postsSection: {
@@ -1617,21 +1689,21 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 24,
     right: 24,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'black',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
+        shadowColor: 'rgba(0, 0, 0, 0.3)',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
       },
       android: {
-        elevation: 8,
+        elevation: 5,
       }
     }),
   },
@@ -1709,6 +1781,18 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 18,
     color: '#e74c3c',
+  },
+  universityItem: {
+    borderLeftColor: '#f7b305',
+    width: '100%',
+  },
+  emailItem: {
+    borderLeftColor: '#f7b305',
+    width: '100%',
+  },
+  locationItem: {
+    borderLeftColor: '#f7b305', 
+    width: '100%',
   },
 });
 
