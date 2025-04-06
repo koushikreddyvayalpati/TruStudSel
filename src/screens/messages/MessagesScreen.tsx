@@ -85,12 +85,49 @@ const MessagesScreen = () => {
     }).start();
   }, [isSearchActive, searchBarAnim]);
 
+  // Get display name for a conversation (the other participant's name)
+  const getConversationDisplayName = useCallback((conversation: Conversation) => {
+    if (!currentUserEmail) return conversation.name || 'Unknown Contact';
+    
+    // Find the other participant (the person we're talking to)
+    const otherParticipant = conversation.participants.find(p => p !== currentUserEmail);
+    
+    // If no other participant is found or we're looking at our own conversation
+    if (!otherParticipant) {
+      return conversation.name || 'Unknown Contact';
+    }
+    
+    // Check for user-specific name mapping first (new format)
+    const nameKey = `name_${currentUserEmail.replace(/[.@]/g, '_')}`;
+    if (conversation[nameKey]) {
+      return conversation[nameKey];
+    }
+    
+    // Use conversation name if available - but ONLY if it doesn't match the current user's name
+    const currentUserBaseName = currentUserEmail.split('@')[0].toLowerCase();
+    if (conversation.name && 
+        conversation.name.toLowerCase() !== currentUserBaseName) {
+      // Format name with proper capitalization
+      return conversation.name.charAt(0).toUpperCase() + conversation.name.slice(1);
+    }
+    
+    // Format email to show just the username part
+    if (otherParticipant.includes('@')) {
+      // Extract just the username part of the email
+      const username = otherParticipant.split('@')[0];
+      // Convert to proper case (first letter uppercase)
+      return username.charAt(0).toUpperCase() + username.slice(1);
+    }
+    
+    return otherParticipant;
+  }, [currentUserEmail]);
+
   // Fetch conversations
   const fetchConversations = useCallback(async () => {
     try {
       setIsLoading(true);
       console.log('[MessagesScreen] Fetching Firebase conversations...');
-      const fetchedConversations = await getConversations();
+      let fetchedConversations = await getConversations();
       console.log('[MessagesScreen] Fetched Firebase conversations:', 
         fetchedConversations.map(c => ({
           id: c.id,
@@ -99,6 +136,48 @@ const MessagesScreen = () => {
           lastMessage: c.lastMessageContent
         }))
       );
+      
+      // Ensure all conversation names are properly formatted
+      // and update any that need to be corrected
+      if (fetchedConversations.length > 0 && currentUserEmail) {
+        try {
+          // Import the necessary functions for updating Firestore
+          const { doc, updateDoc } = await import('firebase/firestore');
+          const { db } = await import('../../services/firebaseService');
+          
+          // Check each conversation and update names if needed
+          const updatedConversations = await Promise.all(fetchedConversations.map(async (conv) => {
+            // Find the other participant
+            const otherParticipant = conv.participants.find(p => p !== currentUserEmail);
+            if (!otherParticipant) return conv;
+            
+            // Get the properly formatted name
+            const properName = getConversationDisplayName(conv);
+            
+            // If the name is different, update it in Firestore
+            if (conv.name !== properName) {
+              try {
+                const conversationRef = doc(db, 'conversations', conv.id);
+                await updateDoc(conversationRef, { name: properName });
+                console.log(`[MessagesScreen] Updated conversation ${conv.id} name to: ${properName}`);
+                
+                // Return the conversation with the updated name
+                return { ...conv, name: properName };
+              } catch (error) {
+                console.error(`[MessagesScreen] Error updating conversation ${conv.id} name:`, error);
+                return conv;
+              }
+            }
+            
+            return conv;
+          }));
+          
+          // Use the updated conversations
+          fetchedConversations = updatedConversations;
+        } catch (error) {
+          console.error('[MessagesScreen] Error updating conversation names:', error);
+        }
+      }
       
       setConversations(fetchedConversations);
       setError(null);
@@ -109,7 +188,7 @@ const MessagesScreen = () => {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [currentUserEmail, getConversationDisplayName]);
 
   // Initial load
   useEffect(() => {
@@ -141,48 +220,32 @@ const MessagesScreen = () => {
       setSearchQuery('');
     }
   }, [isSearchActive]);
-
+  
   // Navigate to conversation using FirebaseChatScreen
   const goToConversation = useCallback((conversation: Conversation) => {
     // Find the other participant in the conversation (not the current user)
-    const otherParticipant = conversation.participants.find(p => p !== currentUserEmail) || '';
+    const otherParticipantEmail = conversation.participants.find(p => p !== currentUserEmail) || '';
+    
+    // Get the name from conversation using our helper function
+    // This handles user-specific name mappings and formatting automatically
+    const displayName = getConversationDisplayName(conversation);
+    
+    console.log('[MessagesScreen] Navigating to chat with:', {
+      otherParticipant: otherParticipantEmail,
+      displayName,
+      conversationName: conversation.name,
+      // For debugging, also log user-specific name mapping if available
+      nameMapping: currentUserEmail ? 
+        conversation[`name_${currentUserEmail.replace(/[.@]/g, '_')}`] : 
+        undefined
+    });
     
     // Navigate to Firebase chat screen with recipient info
     navigation.navigate('FirebaseChatScreen', { 
-      recipientEmail: otherParticipant,
-      recipientName: conversation.name || otherParticipant
+      recipientEmail: otherParticipantEmail,
+      recipientName: displayName
     });
-  }, [navigation, currentUserEmail]);
-
-  // Get display name for a conversation (the other participant's name)
-  const getConversationDisplayName = useCallback((conversation: Conversation) => {
-    if (!currentUserEmail) return conversation.name || 'Unknown Contact';
-    
-    // Find the other participant (the person we're talking to)
-    const otherParticipant = conversation.participants.find(p => p !== currentUserEmail);
-    
-    // If we're not the owner of the conversation, show the owner's name
-    if (conversation.owner && conversation.owner !== currentUserEmail) {
-      return conversation.name || 'Unknown Contact';
-    }
-    
-    // Show the recipient's name or email
-    if (otherParticipant) {
-      if (conversation.name && conversation.name !== otherParticipant) {
-        return conversation.name;
-      }
-      
-      // Format email to show just the username part
-      if (otherParticipant.includes('@')) {
-        return otherParticipant.split('@')[0];
-      }
-      
-      return otherParticipant;
-    }
-    
-    // Default fallback
-    return conversation.name || 'Unknown Contact';
-  }, [currentUserEmail]);
+  }, [navigation, currentUserEmail, getConversationDisplayName]);
 
   // Get conversation timestamp for today/yesterday handling
   const getTimeDisplay = useCallback((timestamp?: string) => {
@@ -236,13 +299,13 @@ const MessagesScreen = () => {
     // Generate initials for avatar
     const initials = displayName
       .split(' ')
-      .map(word => word[0])
+      .map((word: string) => word[0])
       .slice(0, 2)
       .join('')
       .toUpperCase();
     
     // Generate consistent color based on name
-    const nameHash = displayName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const nameHash = displayName.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
     const hue = nameHash % 360;
     const avatarColor = `hsl(${hue}, 60%, 60%)`;
     
@@ -298,7 +361,7 @@ const MessagesScreen = () => {
           </Text>
           <TouchableOpacity 
             style={styles.startChatButton}
-            onPress={() => navigation.navigate('FirebaseChatTest')}
+            onPress={() => navigation.navigate('UserSearchScreen')}
           >
             <Text style={styles.startChatButtonText}>Start a New Chat</Text>
           </TouchableOpacity>
@@ -460,10 +523,10 @@ const MessagesScreen = () => {
         />
       </Animated.View>
       
-      {/* Compose Button - Navigate to Chat Test Screen */}
+      {/* Compose Button - Navigate to UserSearchScreen */}
       <TouchableOpacity 
         style={styles.composeButton}
-        onPress={() => navigation.navigate('FirebaseChatTest')}
+        onPress={() => navigation.navigate('UserSearchScreen')}
         activeOpacity={0.9}
       >
         <Ionicons name="chatbubble-ellipses" size={24} color="#FFF" />

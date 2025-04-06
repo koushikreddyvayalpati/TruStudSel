@@ -26,6 +26,7 @@ export interface Conversation {
   createdAt: string;
   updatedAt?: string;
   owner?: string;
+  [key: string]: any;
 }
 
 export interface ChatState {

@@ -189,12 +189,46 @@ export const getOrCreateConversation = async (
     // Try to fetch existing conversation
     const existingConversation = await getConversation(conversationId);
     if (existingConversation) {
+      // For existing conversations, make sure we have the correct name mapping for this user
+      try {
+        // Format the current user's name properly
+        const formattedCurrentUserName = currentUser.name || 
+          (currentUser.email.includes('@') ? 
+            currentUser.email.split('@')[0].charAt(0).toUpperCase() + currentUser.email.split('@')[0].slice(1) : 
+            currentUser.email);
+            
+        // Store separate names for each participant
+        const nameKey = `name_${currentUser.email.replace(/[.@]/g, '_')}`;
+        
+        // Update the conversation with the user-specific name if needed
+        const conversationRef = doc(db, 'conversations', conversationId);
+        await updateDoc(conversationRef, {
+          [nameKey]: otherUserName
+        });
+        
+        console.log(`[firebaseChatService] Updated conversation with user-specific name: ${nameKey} = ${otherUserName}`);
+      } catch (error) {
+        console.error('[firebaseChatService] Error updating conversation with user names:', error);
+      }
+      
       return existingConversation;
     }
     
-    // Create raw conversation data
+    // Format the current user's name properly
+    const formattedCurrentUserName = currentUser.name || 
+      (currentUser.email.includes('@') ? 
+        currentUser.email.split('@')[0].charAt(0).toUpperCase() + currentUser.email.split('@')[0].slice(1) : 
+        currentUser.email);
+    
+    // For new conversations, store separate names for each participant
+    const currentUserNameKey = `name_${currentUser.email.replace(/[.@]/g, '_')}`;
+    const otherUserNameKey = `name_${otherUserEmail.replace(/[.@]/g, '_')}`;
+    
+    // Create raw conversation data with user-specific name mappings
     const rawConversationData = {
-      name: otherUserName || 'Chat',
+      name: otherUserName, // Default name (used for transition period)
+      [currentUserNameKey]: otherUserName, // For current user, show other user's name
+      [otherUserNameKey]: formattedCurrentUserName, // For other user, show current user's name
       participants: participants,
       productId: productId,
       productName: productName,
@@ -212,7 +246,7 @@ export const getOrCreateConversation = async (
     // Return the newly created conversation
     return {
       id: conversationId,
-      name: otherUserName || 'Chat',
+      name: otherUserName,
       participants,
       productId,
       productName,
@@ -258,30 +292,27 @@ export const getMessages = async (conversationId: string): Promise<Message[]> =>
 };
 
 /**
- * Send a message to a conversation
+ * Send a message in a conversation
  */
-export const sendMessage = async (
-  conversationId: string,
-  content: string
-): Promise<Message> => {
+export const sendMessage = async (conversationId: string, content: string): Promise<void> => {
   try {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) throw new Error('User not authenticated');
+    const user = await getCurrentUser();
+    if (!user) throw new Error('User not authenticated');
     
-    // Get the conversation to update its last message
-    const conversationRef = doc(db, 'conversations', conversationId);
-    const conversationDoc = await getDoc(conversationRef);
+    // Format the user's name properly
+    const senderName = user.name || 
+      (user.email.includes('@') ? 
+        user.email.split('@')[0].charAt(0).toUpperCase() + user.email.split('@')[0].slice(1) : 
+        user.username || 'User');
     
-    if (!conversationDoc.exists()) {
-      throw new Error('Conversation not found');
-    }
-    
-    // Create raw message data
+    // Create message data
     const messageId = uuidv4();
     const rawMessageData = {
-      senderId: currentUser.email,
-      senderName: currentUser.name,
-      content: content,
+      id: messageId,
+      conversationId,
+      senderId: user.email,
+      senderName: senderName,
+      content,
       status: MessageStatus.SENT,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
@@ -290,29 +321,17 @@ export const sendMessage = async (
     // Sanitize data for Firestore
     const messageData = sanitizeDataForFirestore(rawMessageData);
     
-    // Add the message to the conversation's messages subcollection
-    const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
-    await setDoc(messageRef, messageData);
+    // Add message to conversation's messages subcollection
+    await setDoc(doc(db, 'conversations', conversationId, 'messages', messageId), messageData);
     
-    // Update the conversation with the last message data
-    const lastMessageData = sanitizeDataForFirestore({
+    // Update conversation with last message details
+    await updateDoc(doc(db, 'conversations', conversationId), {
       lastMessageContent: content,
       lastMessageTime: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
     
-    await updateDoc(conversationRef, lastMessageData);
-    
-    // Return the newly created message
-    return {
-      id: messageId,
-      conversationId,
-      senderId: currentUser.email || '',
-      senderName: currentUser.name || '',
-      content: content || '',
-      status: MessageStatus.SENT,
-      createdAt: new Date().toISOString()
-    };
+    return;
   } catch (error) {
     console.error('[firebaseChatService] Error sending message:', error);
     throw error;

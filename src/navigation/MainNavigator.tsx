@@ -10,11 +10,9 @@ import { ProfileScreen, EditProfileScreen } from '../screens/profile';
 import { ProductsScreen } from '../screens/products';
 import { MessagesScreen, MessageScreen } from '../screens/messages';
 import FirebaseChatScreen from '../screens/messages/FirebaseChatScreen';
-import FirebaseChatTestScreen from '../screens/messages/FirebaseChatTestScreen';
-import FirebaseTestScreen from '../screens/messages/FirebaseTestScreen';
+import UserSearchScreen from '../screens/UserSearchScreen';
 import { PostingScreen } from '../screens/posting';
 import { WishlistScreen } from '../screens/wishlist';
-import UserSearchScreen from '../screens/UserSearchScreen';
 import { CategoryProductsScreen } from '../screens/categories';
 import { CategoryProductsScreenRouteProp, CategoryProductsScreenNavigationProp } from '../types/navigation.types';
 
@@ -108,6 +106,13 @@ const MainStack = () => {
         }}
       />
       <Stack.Screen 
+        name="FirebaseChatScreen" 
+        component={FirebaseChatScreen} 
+        options={{ 
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
         name="UserSearchScreen" 
         component={UserSearchScreen} 
         options={{ 
@@ -171,16 +176,6 @@ const MainNavigator: React.FC = () => {
           name="MessagesScreen" 
           component={MessagesScreen}
           options={{ drawerLabel: 'Messages', drawerItemStyle: { display: 'none' } }}
-        />
-        <Drawer.Screen 
-          name="FirebaseChatTest" 
-          component={FirebaseChatTestScreen}
-          options={{ drawerLabel: 'Firebase Chat Test' }}
-        />
-        <Drawer.Screen 
-          name="FirebaseTest" 
-          component={FirebaseTestScreen}
-          options={{ drawerLabel: 'Firebase Connectivity Test' }}
         />
         <Drawer.Screen 
           name="FirebaseChatScreen" 

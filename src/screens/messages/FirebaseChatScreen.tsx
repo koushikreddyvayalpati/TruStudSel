@@ -36,12 +36,48 @@ const FirebaseChatScreen = () => {
   // Get parameters from navigation
   const { recipientEmail, recipientName } = route.params || {};
   
+  // Log route params to debug name issue
+  console.log('[FirebaseChatScreen] Route params:', {
+    recipientEmail,
+    recipientName
+  });
+  
+  // Format the recipient name consistently
+  const getFormattedRecipientName = useCallback(() => {
+    if (!recipientEmail) return recipientName || 'Chat';
+    
+    // If we have a proper name that's not just the email, use it
+    if (recipientName && 
+        recipientName !== recipientEmail && 
+        recipientName !== recipientEmail.split('@')[0]) {
+      return recipientName;
+    }
+    
+    // Format email to show just the username part
+    if (recipientEmail.includes('@')) {
+      // Extract just the username part of the email
+      const username = recipientEmail.split('@')[0];
+      // Convert to proper case (first letter uppercase)
+      return username.charAt(0).toUpperCase() + username.slice(1);
+    }
+    
+    return recipientName || recipientEmail;
+  }, [recipientEmail, recipientName]);
+  
+  // Calculate the proper display name once
+  const displayName = getFormattedRecipientName();
+  
+  // Log the display name being used
+  console.log('[FirebaseChatScreen] Using display name:', displayName);
+  
   // States
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+  const [currentUserName, setCurrentUserName] = useState<string>('');
+  const [otherUserName, setOtherUserName] = useState<string>('');
   
   // Refs
   const flatListRef = useRef<FlatList<Message>>(null);
@@ -78,17 +114,49 @@ const FirebaseChatScreen = () => {
         
         setCurrentUserEmail(user.email);
         
+        // Format current user's name
+        const formattedCurrentUserName = user.name || 
+          (user.email.includes('@') ? 
+            user.email.split('@')[0].charAt(0).toUpperCase() + user.email.split('@')[0].slice(1) : 
+            user.email);
+        setCurrentUserName(formattedCurrentUserName);
+        
         // Create or get existing conversation
         if (!recipientEmail) {
           Alert.alert('Error', 'Recipient email is required.');
           navigation.goBack();
           return;
         }
+
+        // Format recipient name (other user)
+        let otherUserFormattedName = '';
+        if (recipientEmail.includes('@')) {
+          const username = recipientEmail.split('@')[0];
+          otherUserFormattedName = username.charAt(0).toUpperCase() + username.slice(1);
+        } else {
+          otherUserFormattedName = recipientName || recipientEmail;
+        }
         
+        // Set the properly formatted name for the other user
+        setOtherUserName(otherUserFormattedName);
+        
+        console.log('[FirebaseChatScreen] Users in conversation:', {
+          currentUser: formattedCurrentUserName,
+          otherUser: otherUserFormattedName
+        });
+        
+        // Use the otherUserFormattedName when creating the conversation
         const conversation = await getOrCreateConversation(
           recipientEmail,
-          recipientName || recipientEmail
+          otherUserFormattedName
         );
+        
+        // Check for user-specific name mapping in the conversation
+        const nameKey = `name_${user.email.replace(/[.@]/g, '_')}`;
+        if (conversation[nameKey]) {
+          console.log(`[FirebaseChatScreen] Found user-specific name mapping: ${nameKey} = ${conversation[nameKey]}`);
+          setOtherUserName(conversation[nameKey]);
+        }
         
         setConversationId(conversation.id);
         
@@ -146,7 +214,7 @@ const FirebaseChatScreen = () => {
         isCurrentUser ? styles.userBubble : styles.otherBubble
       ]}>
         <Text style={styles.senderName}>
-          {isCurrentUser ? 'You' : item.senderName || recipientName || 'User'}
+          {isCurrentUser ? currentUserName || 'You' : otherUserName || item.senderName || 'User'}
         </Text>
         <Text style={styles.messageText}>{item.content}</Text>
         <Text style={styles.timeText}>{formatMessageTime(item.createdAt)}</Text>
@@ -169,7 +237,7 @@ const FirebaseChatScreen = () => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{recipientName || recipientEmail}</Text>
+        <Text style={styles.headerTitle}>{otherUserName || displayName}</Text>
         <TouchableOpacity 
           style={styles.profileButton}
           onPress={() => {
