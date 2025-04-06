@@ -19,8 +19,16 @@ export const safeTimestampToISOString = (timestamp: any): string => {
       return timestamp.toISOString();
     }
     
+    // Check for serverTimestamp() references
+    if (timestamp && 
+        typeof timestamp === 'object' && 
+        '_methodName' in timestamp && 
+        timestamp._methodName === 'serverTimestamp') {
+      return new Date().toISOString();
+    }
+    
     // If it's a Firestore Timestamp with seconds and nanoseconds
-    if (timestamp && typeof timestamp.seconds === 'number') {
+    if (timestamp && typeof timestamp === 'object' && 'seconds' in timestamp) {
       return new Date(timestamp.seconds * 1000 + (timestamp.nanoseconds || 0) / 1000000).toISOString();
     }
     

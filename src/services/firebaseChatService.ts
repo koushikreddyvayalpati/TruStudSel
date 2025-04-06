@@ -10,7 +10,8 @@ import {
   onSnapshot,
   serverTimestamp,
   setDoc,
-  increment
+  increment,
+  Unsubscribe
 } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from './firebaseService';
@@ -82,10 +83,19 @@ const safeTimestampToISOString = (timestamp: any): string => {
     // For debugging
     console.log('[firebaseChatService] Processing timestamp:', 
       typeof timestamp, 
+      typeof timestamp === 'string' ? timestamp : '',
       timestamp instanceof Date ? 'Date object' : '',
-      timestamp && typeof timestamp.toDate === 'function' ? 'Firestore timestamp' : '',
-      timestamp && typeof timestamp === 'object' ? JSON.stringify(timestamp) : timestamp
+      timestamp && typeof timestamp.toDate === 'function' ? 'Firestore timestamp' : ''
     );
+    
+    // Check if it's a serverTimestamp() function reference
+    if (timestamp && 
+        typeof timestamp === 'object' && 
+        '_methodName' in timestamp && 
+        timestamp._methodName === 'serverTimestamp') {
+      // For serverTimestamp() that hasn't been committed yet, use current date
+      return new Date().toISOString();
+    }
     
     // Check if timestamp exists and has toDate method (Firestore Timestamp)
     if (timestamp && typeof timestamp.toDate === 'function') {
@@ -116,7 +126,8 @@ const safeTimestampToISOString = (timestamp: any): string => {
     }
     
     // Return current date as fallback
-    console.warn('[firebaseChatService] Using current date for invalid timestamp:', timestamp);
+    console.warn('[firebaseChatService] Using current date for invalid timestamp:', 
+      typeof timestamp === 'object' ? JSON.stringify(timestamp) : timestamp);
     return new Date().toISOString();
   } catch (error) {
     console.error('[firebaseChatService] Error converting timestamp:', error, timestamp);
@@ -576,4 +587,72 @@ const markMessagesAsRead = async (
   } catch (error) {
     console.error('[firebaseChatService] Error marking messages as read:', error);
   }
+};
+
+/**
+ * Subscribe to all conversations for a specific user
+ * This enables real-time updates to the conversation list
+ */
+export const subscribeToUserConversations = (
+  userEmail: string,
+  callback: (conversations: Conversation[]) => void
+): Unsubscribe => {
+  console.log(`Setting up subscription for user ${userEmail}`);
+  
+  // Query conversations where the user is a participant
+  const q = query(
+    collection(db, 'conversations'),
+    where('participants', 'array-contains', userEmail)
+  );
+  
+  // Set up the listener
+  const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    try {
+      const conversationData: Conversation[] = [];
+      
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        
+        // Convert timestamps to strings
+        const lastMessageTime = data.lastMessageTime 
+          ? safeTimestampToISOString(data.lastMessageTime)
+          : undefined;
+        
+        const createdAt = data.createdAt
+          ? safeTimestampToISOString(data.createdAt)
+          : new Date().toISOString(); // Default to current time if missing
+            
+        conversationData.push({
+          id: doc.id,
+          name: data.name || '',
+          participants: data.participants || [],
+          lastMessageContent: data.lastMessageContent || '',
+          lastMessage: data.lastMessage || '',
+          lastMessageTime,
+          createdAt: createdAt,
+          updatedAt: data.updatedAt ? safeTimestampToISOString(data.updatedAt) : undefined,
+          owner: data.owner,
+          unreadCount: data.unreadCount || 0,
+          lastReadMessageId: data.lastReadMessageId,
+          productId: data.productId,
+          productName: data.productName
+        });
+      });
+      
+      // Sort by most recent message first
+      conversationData.sort((a, b) => {
+        if (!a.lastMessageTime) return 1;
+        if (!b.lastMessageTime) return -1;
+        return new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime();
+      });
+      
+      console.log(`Received ${conversationData.length} conversations from subscription`);
+      callback(conversationData);
+      
+    } catch (error) {
+      console.error('Error in conversation subscription:', error);
+    }
+  });
+  
+  return unsubscribe;
 }; 

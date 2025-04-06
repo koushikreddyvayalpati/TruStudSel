@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useLayoutEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -16,6 +16,7 @@ import {
   Dimensions,
   Keyboard
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -36,6 +37,10 @@ type FirebaseChatScreenNavigationProp = StackNavigationProp<MainStackParamList, 
 
 // Window dimensions for responsive sizing
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// AsyncStorage key prefixes
+const MESSAGES_STORAGE_KEY_PREFIX = '@TruStudSel_messages_';
+const CONVERSATION_STORAGE_KEY_PREFIX = '@TruStudSel_conversation_';
 
 const FirebaseChatScreen = () => {
   const navigation = useNavigation<FirebaseChatScreenNavigationProp>();
@@ -77,13 +82,15 @@ const FirebaseChatScreen = () => {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [_keyboardVisible, setKeyboardVisible] = useState(false);
   
-  // Refs for persisting state
+  // Refs for tracking animation and component state
   const isInitializedRef = useRef<boolean>(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scrollButtonAnim = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList<Message>>(null);
   const messageSubscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
   const inputRef = useRef<TextInput>(null);
+  const isMountedRef = useRef<boolean>(true);
+  const shouldShowScrollButtonRef = useRef<boolean>(false);
   
   // Generate avatar initials
   const getInitials = useCallback((name: string) => {
@@ -123,62 +130,267 @@ const FirebaseChatScreen = () => {
     };
   }, [messages.length]);
   
-  // Animate fade-in effect
+  // Set up component mount/unmount tracking
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [fadeAnim]);
-  
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // Animate fade-in effect using useLayoutEffect to run before browser paint
+  useLayoutEffect(() => {
+    if (isMountedRef.current) {
+      // Start with 1 opacity instead of animating from 0 to prevent invisibility
+      fadeAnim.setValue(1); 
+      
+      // Optional subtle fade in if desired
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+    
+    return () => {
+      // Make sure animations are stopped on unmount
+      fadeAnim.stopAnimation();
+      scrollButtonAnim.stopAnimation();
+    };
+  }, [fadeAnim, scrollButtonAnim]);
+
+  // Handle scroll events with improved animation safety
+  const handleScroll = useCallback((event: any) => {
+    if (!isMountedRef.current) return;
+    
+    const offsetY = event.nativeEvent.contentOffset.y;
+    const contentHeight = event.nativeEvent.contentSize.height;
+    const layoutHeight = event.nativeEvent.layoutMeasurement.height;
+    
+    // Show scroll button when not at bottom and have enough content
+    const isAtBottom = offsetY >= contentHeight - layoutHeight - 100;
+    const hasEnoughContent = contentHeight > layoutHeight * 1.5;
+    
+    // Only update state and animate when there's an actual change needed
+    const shouldShowButton = !isAtBottom && hasEnoughContent;
+    
+    // Store current state in ref to avoid issues during unmount
+    if (shouldShowButton !== shouldShowScrollButtonRef.current) {
+      shouldShowScrollButtonRef.current = shouldShowButton;
+      
+      if (shouldShowButton) {
+        // First update state, then animate - but check if still mounted
+        if (isMountedRef.current) {
+          setShowScrollButton(true);
+          // Use requestAnimationFrame to ensure state update completes first
+          requestAnimationFrame(() => {
+            if (isMountedRef.current) {
+              Animated.timing(scrollButtonAnim, {
+                toValue: 1,
+                duration: 200,
+                useNativeDriver: true,
+              }).start();
+            }
+          });
+        }
+      } else {
+        // For hiding, animate first, then update state after confirming still mounted
+        Animated.timing(scrollButtonAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }).start(({ finished }) => {
+          // Only update state if animation completed and component is mounted
+          if (finished && isMountedRef.current) {
+            setShowScrollButton(false);
+          }
+        });
+      }
+    }
+  }, [scrollButtonAnim]);
+
+  // Cancel animations in effect cleanup for messages
+  useEffect(() => {
+    return () => {
+      // Clean up message subscription
+      if (messageSubscriptionRef.current) {
+        messageSubscriptionRef.current.unsubscribe();
+        messageSubscriptionRef.current = null;
+      }
+      
+      // Ensure animations are stopped
+      fadeAnim.stopAnimation();
+      scrollButtonAnim.stopAnimation();
+    };
+  }, [fadeAnim, scrollButtonAnim]);
+
+  // Load cached messages
+  const loadCachedMessages = useCallback(async (conversationId: string): Promise<Message[] | null> => {
+    try {
+      const storageKey = `${MESSAGES_STORAGE_KEY_PREFIX}${conversationId}`;
+      const cachedData = await AsyncStorage.getItem(storageKey);
+      
+      if (cachedData) {
+        const { messages, timestamp } = JSON.parse(cachedData);
+        const cacheAge = new Date().getTime() - new Date(timestamp).getTime();
+        const cacheAgeMinutes = cacheAge / (1000 * 60);
+        
+        console.log(`[AsyncStorage] Found cached messages (${messages.length}) from ${cacheAgeMinutes.toFixed(1)} minutes ago`);
+        
+        // Only use cache if it's less than 30 minutes old
+        if (cacheAgeMinutes < 30) {
+          return messages;
+        } else {
+          console.log('[AsyncStorage] Cache too old, will fetch fresh data');
+          return null;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('[AsyncStorage] Error loading cached messages:', error);
+      return null;
+    }
+  }, []);
+
+  // Process messages before caching to ensure consistent timestamps
+  const processMessagesForCache = useCallback((messages: Message[]): Message[] => {
+    return messages.map(message => {
+      // Create a new message object with validated timestamps
+      return {
+        ...message,
+        // Ensure createdAt is a valid ISO string (not a serverTimestamp reference)
+        createdAt: message.createdAt || new Date().toISOString(),
+        // Only include updatedAt if it exists and is valid
+        updatedAt: message.updatedAt || undefined,
+        // Only include readAt if it exists and is valid
+        readAt: message.readAt || undefined
+      };
+    });
+  }, []);
+
+  // Enhanced caching with timestamp validation
+  const cacheMessages = useCallback(async (conversationId: string, messages: Message[]) => {
+    try {
+      const storageKey = `${MESSAGES_STORAGE_KEY_PREFIX}${conversationId}`;
+      // Process messages to ensure valid timestamps
+      const processedMessages = processMessagesForCache(messages);
+      
+      const dataToStore = JSON.stringify({
+        messages: processedMessages,
+        timestamp: new Date().toISOString(),
+      });
+      await AsyncStorage.setItem(storageKey, dataToStore);
+      console.log(`[AsyncStorage] Cached ${messages.length} messages for conversation ${conversationId}`);
+    } catch (error) {
+      console.error('[AsyncStorage] Error caching messages:', error);
+      // Don't throw - this is a background operation
+    }
+  }, [processMessagesForCache]);
+
   // Subscribe to new messages
   const subscribeToNewMessages = useCallback((conversationId: string) => {
     const subscription = subscribeToMessages(conversationId, (updatedMessages) => {
-      setMessages(updatedMessages);
-      // Scroll to bottom on new messages if user is already at bottom
-      if (updatedMessages.length > messages.length) {
-        setTimeout(() => {
-          if (flatListRef.current) {
-            flatListRef.current.scrollToEnd({ animated: true });
-          }
-        }, 100);
+      console.log('[FirebaseChatScreen] Received updated messages:', updatedMessages.length);
+      
+      // Ensure we're not setting empty messages
+      if (updatedMessages && updatedMessages.length > 0) {
+        setMessages(updatedMessages);
+        
+        // Cache updated messages
+        cacheMessages(conversationId, updatedMessages);
+        
+        // Scroll to bottom on new messages if user is already at bottom
+        if (updatedMessages.length > messages.length) {
+          setTimeout(() => {
+            if (flatListRef.current) {
+              flatListRef.current.scrollToEnd({ animated: true });
+            }
+          }, 100);
+        }
+      } else {
+        console.warn('[FirebaseChatScreen] Received empty messages from subscription');
       }
     });
     
     messageSubscriptionRef.current = subscription;
-  }, [messages.length]);
-  
+  }, [messages.length, cacheMessages]);
+
+  // Cache conversation data
+  const cacheConversation = useCallback(async (conversation: any) => {
+    if (!conversation?.id) return;
+    
+    try {
+      const storageKey = `${CONVERSATION_STORAGE_KEY_PREFIX}${conversation.id}`;
+      await AsyncStorage.setItem(storageKey, JSON.stringify({
+        conversation,
+        timestamp: new Date().toISOString(),
+      }));
+    } catch (error) {
+      console.error('[AsyncStorage] Error caching conversation:', error);
+    }
+  }, []);
+
+  // Load cached conversation
+  const loadCachedConversation = useCallback(async (recipientEmail: string): Promise<any | null> => {
+    try {
+      // This is an approximation since we don't know the conversation ID yet
+      // We'll scan for a conversation that contains this recipient
+      const keys = await AsyncStorage.getAllKeys();
+      const conversationKeys = keys.filter(k => k.startsWith(CONVERSATION_STORAGE_KEY_PREFIX));
+      
+      for (const key of conversationKeys) {
+        const data = await AsyncStorage.getItem(key);
+        if (data) {
+          const { conversation, timestamp } = JSON.parse(data);
+          if (conversation.participants?.includes(recipientEmail)) {
+            const cacheAge = new Date().getTime() - new Date(timestamp).getTime();
+            const cacheAgeMinutes = cacheAge / (1000 * 60);
+            
+            // Only use cache if it's less than 1 hour old
+            if (cacheAgeMinutes < 60) {
+              return conversation;
+            }
+          }
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('[AsyncStorage] Error loading cached conversation:', error);
+      return null;
+    }
+  }, []);
+
   // Add debug console logs to track state changes
   useEffect(() => {
     console.log('[FirebaseChatScreen] isLoading state changed:', isLoading);
   }, [isLoading]);
-  
-  // Initialize chat
+
+  // Initialize chat with improved safety
   useEffect(() => {
     // Skip initialization if already done
     if (isInitializedRef.current && conversationId) {
       return;
     }
     
-    let isMounted = true;
+    // Track mounted state locally within this effect
+    let effectMounted = true;
     
     const initializeChat = async () => {
       try {
-        if (!isMounted) return;
+        if (!effectMounted || !isMountedRef.current) return;
         
         setIsLoading(true);
         
         // Get current user
         const user = await getCurrentUser();
         if (!user || !user.email) {
-          if (!isMounted) return;
+          if (!effectMounted || !isMountedRef.current) return;
           Alert.alert('Error', 'You must be logged in to chat.');
           navigation.goBack();
           return;
         }
         
-        if (!isMounted) return;
+        if (!effectMounted || !isMountedRef.current) return;
         setCurrentUserEmail(user.email);
         
         // Format current user's name
@@ -190,7 +402,7 @@ const FirebaseChatScreen = () => {
         
         // Create or get existing conversation
         if (!recipientEmail) {
-          if (!isMounted) return;
+          if (!effectMounted || !isMountedRef.current) return;
           Alert.alert('Error', 'Recipient email is required.');
           navigation.goBack();
           return;
@@ -206,49 +418,88 @@ const FirebaseChatScreen = () => {
         }
         
         // Set the properly formatted name for the other user
-        if (!isMounted) return;
+        if (!effectMounted || !isMountedRef.current) return;
         setOtherUserName(otherUserFormattedName);
         
-        // Use the otherUserFormattedName when creating the conversation
-        const conversation = await getOrCreateConversation(
-          recipientEmail,
-          displayName // Use our consistently formatted display name
-        );
+        // Try to get cached conversation first for faster load
+        const cachedConversation = await loadCachedConversation(recipientEmail);
+        let conversation;
+        
+        if (cachedConversation) {
+          conversation = cachedConversation;
+          console.log('[AsyncStorage] Using cached conversation');
+        } else {
+          // Get conversation from Firebase
+          conversation = await getOrCreateConversation(
+            recipientEmail,
+            displayName
+          );
+          
+          // Cache the conversation for future use
+          cacheConversation(conversation);
+        }
         
         // Check for user-specific name mapping in the conversation
         const nameKey = `name_${user.email.replace(/[.@]/g, '_')}`;
         if (conversation[nameKey]) {
-          if (!isMounted) return;
+          if (!effectMounted || !isMountedRef.current) return;
           setOtherUserName(conversation[nameKey]);
         }
         
-        if (!isMounted) return;
+        if (!effectMounted || !isMountedRef.current) return;
         setConversationId(conversation.id);
         
-        // Load initial messages
-        const initialMessages = await getMessages(conversation.id);
-        if (!isMounted) return;
-        setMessages(initialMessages);
+        // Try to get cached messages first
+        let initialMessages: Message[] = [];
+        const cachedMessages = await loadCachedMessages(conversation.id);
+        
+        if (cachedMessages && cachedMessages.length > 0) {
+          // Use cached messages for immediate display
+          initialMessages = cachedMessages;
+          
+          if (!effectMounted || !isMountedRef.current) return;
+          setMessages(initialMessages);
+          
+          // Mark as initialized to prevent re-initialization
+          isInitializedRef.current = true;
+          
+          // We can set loading to false early since we have cached data
+          setIsLoading(false);
+          
+          // Then fetch fresh messages in the background
+          getMessages(conversation.id).then(freshMessages => {
+            if (effectMounted && isMountedRef.current && freshMessages.length !== initialMessages.length) {
+              setMessages(freshMessages);
+              cacheMessages(conversation.id, freshMessages);
+            }
+          }).catch(error => {
+            console.error('[FirebaseChatScreen] Error fetching fresh messages:', error);
+          });
+        } else {
+          // No cached messages, fetch from Firebase
+          initialMessages = await getMessages(conversation.id);
+          
+          if (!effectMounted || !isMountedRef.current) return;
+          setMessages(initialMessages);
+          
+          // Cache the messages
+          cacheMessages(conversation.id, initialMessages);
+        }
         
         // Subscribe to new messages
-        subscribeToNewMessages(conversation.id);
-        
-        // Apply fade-in animation
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }).start();
-        
-        // Mark as initialized to prevent re-initialization
-        isInitializedRef.current = true;
-        
+        if (effectMounted && isMountedRef.current) {
+          subscribeToNewMessages(conversation.id);
+          
+          // Mark as initialized to prevent re-initialization
+          isInitializedRef.current = true;
+        }
+
       } catch (error) {
-        if (!isMounted) return;
+        if (!effectMounted || !isMountedRef.current) return;
         console.error('Error initializing chat:', error);
         Alert.alert('Error', 'Failed to initialize chat. Please try again.');
       } finally {
-        if (isMounted) {
+        if (effectMounted && isMountedRef.current) {
           setIsLoading(false);
         }
       }
@@ -258,21 +509,13 @@ const FirebaseChatScreen = () => {
     
     // Cleanup
     return () => {
-      isMounted = false;
+      effectMounted = false;
+      
       // Don't unsubscribe from messages here - we do that in component unmount
     };
-  }, [recipientEmail, recipientName, navigation, subscribeToNewMessages, displayName, fadeAnim, conversationId]);
-  
-  // Clean up subscriptions on unmount
-  useEffect(() => {
-    return () => {
-      if (messageSubscriptionRef.current) {
-        messageSubscriptionRef.current.unsubscribe();
-      }
-    };
-  }, []);
-  
-  // Send a message - premium style with no loading indicators
+  }, [recipientEmail, recipientName, navigation, subscribeToNewMessages, displayName, conversationId, loadCachedMessages, cacheMessages, loadCachedConversation, cacheConversation]);
+
+  // Send a message - premium style with AsyncStorage
   const handleSendMessage = useCallback(async () => {
     if (!inputText.trim() || !conversationId) return;
     
@@ -299,7 +542,11 @@ const FirebaseChatScreen = () => {
       };
       
       // Add to UI immediately
-      setMessages(prev => [...prev, tempMessage]);
+      const updatedMessages = [...messages, tempMessage];
+      setMessages(updatedMessages);
+      
+      // Update cache immediately for offline access
+      cacheMessages(conversationId, updatedMessages);
       
       // Scroll to bottom immediately
       setTimeout(() => {
@@ -311,43 +558,13 @@ const FirebaseChatScreen = () => {
       // Send in background without showing any loading state
       sendMessage(conversationId, messageContent).catch(error => {
         console.error('Error sending message:', error);
-        // Silently handle error in background - could add retry logic here
-        // or update the message to show a failure state
+        // If sending fails, we could update the message status here
       });
       
     } catch (error) {
       console.error('Error in message sending flow:', error);
-      // Handle silently, no loading indicators or alerts to maintain premium feel
     }
-  }, [inputText, conversationId, currentUserEmail, _currentUserName]);
-  
-  // Handle scroll events
-  const handleScroll = useCallback((event: any) => {
-    const offsetY = event.nativeEvent.contentOffset.y;
-    const contentHeight = event.nativeEvent.contentSize.height;
-    const layoutHeight = event.nativeEvent.layoutMeasurement.height;
-    
-    // Show scroll button when not at bottom and have enough content
-    const isAtBottom = offsetY >= contentHeight - layoutHeight - 100;
-    const hasEnoughContent = contentHeight > layoutHeight * 1.5;
-    
-    if (!isAtBottom && hasEnoughContent && !showScrollButton) {
-      setShowScrollButton(true);
-      Animated.timing(scrollButtonAnim, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-    } else if ((isAtBottom || !hasEnoughContent) && showScrollButton) {
-      Animated.timing(scrollButtonAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start(() => {
-        setShowScrollButton(false);
-      });
-    }
-  }, [showScrollButton, scrollButtonAnim]);
+  }, [inputText, conversationId, currentUserEmail, _currentUserName, messages, cacheMessages]);
   
   // Scroll to bottom
   const scrollToBottom = useCallback(() => {
@@ -371,6 +588,13 @@ const FirebaseChatScreen = () => {
     const isCurrentUser = item.senderId === currentUserEmail;
     const messageTime = formatMessageTime(item.createdAt);
     const showDateHeader = shouldShowDateHeader(index);
+    
+    // Debug the message content to ensure there's data
+    console.log(`Rendering message: ${item.id}`, {
+      content: item.content,
+      isCurrentUser,
+      createdAt: item.createdAt
+    });
     
     return (
       <>
@@ -401,7 +625,9 @@ const FirebaseChatScreen = () => {
               isCurrentUser ? styles.sentMessage : styles.receivedMessage,
             ]}
           >
-            <Text style={styles.messageText}>{item.content}</Text>
+            <Text style={styles.messageText}>
+              {item.content || ""}
+            </Text>
             <View style={styles.messageFooter}>
               <Text style={styles.messageTime}>{messageTime}</Text>
               
@@ -436,7 +662,7 @@ const FirebaseChatScreen = () => {
     []
   );
   
-  // Render different components based on loading state
+  // Modify the renderContent function to avoid animation issues
   const renderContent = () => {
     // Only show loading on initial load
     if (isLoading && !isInitializedRef.current) {
@@ -451,7 +677,14 @@ const FirebaseChatScreen = () => {
     return (
       <>
         {/* Message List with optimized rendering */}
-        <Animated.View style={[styles.messagesContainer, { opacity: fadeAnim }]}>
+        <Animated.View 
+          style={[
+            styles.messagesContainer, 
+            // Set opacity to 1 to ensure messages are always visible
+            { opacity: 1 }
+          ]}
+          collapsable={false}
+        >
           <FlatList
             ref={flatListRef}
             data={messages}
@@ -464,7 +697,8 @@ const FirebaseChatScreen = () => {
             maxToRenderPerBatch={10}
             windowSize={21}
             getItemLayout={getItemLayout}
-            removeClippedSubviews={Platform.OS === 'android'}
+            removeClippedSubviews={false}
+            extraData={messages}
             maintainVisibleContentPosition={{
               minIndexForVisible: 0,
               autoscrollToTopThreshold: 10,
@@ -495,6 +729,7 @@ const FirebaseChatScreen = () => {
                   }]
                 }
               ]}
+              collapsable={false}
             >
               <TouchableOpacity
                 onPress={scrollToBottom}
@@ -771,6 +1006,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#000',
     lineHeight: 22,
+    opacity: 1,
+    fontWeight: '400',
   },
   messageFooter: {
     flexDirection: 'row',

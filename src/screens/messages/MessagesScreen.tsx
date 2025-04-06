@@ -13,13 +13,18 @@ import {
   Animated,
   Platform,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { MainStackParamList } from '../../types/navigation.types';
 import { Conversation } from '../../types/chat.types';
-import { getConversations, getCurrentUser } from '../../services/firebaseChatService';
+import { getConversations, getCurrentUser, subscribeToUserConversations } from '../../services/firebaseChatService';
+
+// AsyncStorage key for conversations
+const CONVERSATIONS_STORAGE_KEY = '@TruStudSel_conversations';
+const CONVERSATIONS_TIMESTAMP_KEY = '@TruStudSel_conversations_timestamp';
 
 // Navigation prop type with stack methods
 type MessagesScreenNavigationProp = StackNavigationProp<MainStackParamList, 'MessagesScreen'>;
@@ -33,6 +38,12 @@ const MessagesScreen = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+  
+  // Reference for conversation subscription
+  const conversationSubscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
+  
+  // Flag to track if we've shown cached data
+  const hasCachedDataRef = useRef<boolean>(false);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -64,6 +75,95 @@ const MessagesScreen = () => {
     }
   }, []);
   
+  // Cache conversations to AsyncStorage
+  const cacheConversations = useCallback(async (conversationsToCache: Conversation[]) => {
+    try {
+      await AsyncStorage.setItem(CONVERSATIONS_STORAGE_KEY, JSON.stringify(conversationsToCache));
+      await AsyncStorage.setItem(CONVERSATIONS_TIMESTAMP_KEY, new Date().toISOString());
+      console.log(`[AsyncStorage] Cached ${conversationsToCache.length} conversations`);
+    } catch (error) {
+      console.error('[AsyncStorage] Error caching conversations:', error);
+    }
+  }, []);
+  
+  // Load cached conversations from AsyncStorage
+  const loadCachedConversations = useCallback(async (): Promise<Conversation[] | null> => {
+    try {
+      const cachedConversationsJson = await AsyncStorage.getItem(CONVERSATIONS_STORAGE_KEY);
+      const cachedTimestamp = await AsyncStorage.getItem(CONVERSATIONS_TIMESTAMP_KEY);
+      
+      if (cachedConversationsJson && cachedTimestamp) {
+        const cachedConversations = JSON.parse(cachedConversationsJson);
+        
+        // Check if cache is too old (more than 1 hour)
+        const cacheAge = new Date().getTime() - new Date(cachedTimestamp).getTime();
+        const cacheAgeMinutes = cacheAge / (1000 * 60);
+        
+        console.log(`[AsyncStorage] Found cached conversations (${cachedConversations.length}) from ${cacheAgeMinutes.toFixed(1)} minutes ago`);
+        
+        if (cacheAgeMinutes < 60) {
+          return cachedConversations;
+        } else {
+          console.log('[AsyncStorage] Cache too old, will fetch fresh data');
+          return null;
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('[AsyncStorage] Error loading cached conversations:', error);
+      return null;
+    }
+  }, []);
+  
+  // Subscribe to real-time conversation updates
+  const setupConversationSubscription = useCallback(() => {
+    // Clean up any existing subscription first
+    if (conversationSubscriptionRef.current) {
+      conversationSubscriptionRef.current.unsubscribe();
+      conversationSubscriptionRef.current = null;
+    }
+    
+    if (!currentUserEmail) return;
+    
+    try {
+      console.log('[MessagesScreen] Setting up real-time conversation subscription');
+      
+      const unsubscribe = subscribeToUserConversations(currentUserEmail, (updatedConversations: Conversation[]) => {
+        // Compare with current conversations to see if there are new messages
+        setConversations(prevConversations => {
+          const hasNewMessages = updatedConversations.some((newConv: Conversation) => {
+            const existingConv = prevConversations.find(conv => conv.id === newConv.id);
+            
+            // New conversation or more recent message in existing conversation
+            if (!existingConv || 
+               (existingConv.lastMessageTime && newConv.lastMessageTime && 
+                new Date(newConv.lastMessageTime) > new Date(existingConv.lastMessageTime))) {
+              return true;
+            }
+            
+            // Check unread count
+            return (newConv.unreadCount || 0) > (existingConv?.unreadCount || 0);
+          });
+          
+          if (hasNewMessages) {
+            console.log('[MessagesScreen] New messages detected in subscription update');
+          }
+          
+          // Also update cache
+          cacheConversations(updatedConversations);
+          
+          return updatedConversations;
+        });
+      });
+      
+      conversationSubscriptionRef.current = { unsubscribe };
+      
+    } catch (error) {
+      console.error('[MessagesScreen] Error setting up conversation subscription:', error);
+    }
+  }, [currentUserEmail, cacheConversations]);
+  
   // Fetch current user email on component mount
   useEffect(() => {
     fetchCurrentUser();
@@ -74,7 +174,22 @@ const MessagesScreen = () => {
       duration: 300,
       useNativeDriver: true,
     }).start();
+    
+    // Cleanup subscription on unmount
+    return () => {
+      if (conversationSubscriptionRef.current) {
+        conversationSubscriptionRef.current.unsubscribe();
+        conversationSubscriptionRef.current = null;
+      }
+    };
   }, [fetchCurrentUser, fadeAnim]);
+  
+  // Set up real-time subscription when user email is available
+  useEffect(() => {
+    if (currentUserEmail) {
+      setupConversationSubscription();
+    }
+  }, [currentUserEmail, setupConversationSubscription]);
 
   // Animate search bar in/out
   useEffect(() => {
@@ -122,11 +237,29 @@ const MessagesScreen = () => {
     return otherParticipant;
   }, [currentUserEmail]);
 
-  // Fetch conversations
+  // Fetch conversations with caching
   const fetchConversations = useCallback(async () => {
+    if (!currentUserEmail) return;
+    
     try {
       setIsLoading(true);
-      console.log('[MessagesScreen] Fetching Firebase conversations...');
+      console.log('[MessagesScreen] Fetching conversations...');
+      
+      // Try to get cached conversations first for immediate display
+      if (!hasCachedDataRef.current) {
+        const cachedConversations = await loadCachedConversations();
+        
+        if (cachedConversations && cachedConversations.length > 0) {
+          hasCachedDataRef.current = true;
+          setConversations(cachedConversations);
+          setIsLoading(false);
+          console.log('[MessagesScreen] Displayed cached conversations while fetching fresh data');
+          
+          // We still continue to fetch fresh data below, but we've already shown something to the user
+        }
+      }
+      
+      // Get fresh data from Firebase
       let fetchedConversations = await getConversations();
       console.log('[MessagesScreen] Fetched Firebase conversations:', 
         fetchedConversations.map(c => ({
@@ -179,21 +312,26 @@ const MessagesScreen = () => {
         }
       }
       
+      // Cache the fresh conversations
+      cacheConversations(fetchedConversations);
+      
       setConversations(fetchedConversations);
       setError(null);
     } catch (err) {
-      console.error('[MessagesScreen] Failed to fetch Firebase conversations:', err);
+      console.error('[MessagesScreen] Failed to fetch conversations:', err);
       setError(`Failed to load conversations: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [currentUserEmail, getConversationDisplayName]);
+  }, [currentUserEmail, getConversationDisplayName, loadCachedConversations, cacheConversations]);
 
   // Initial load
   useEffect(() => {
-    fetchConversations();
-  }, [fetchConversations]);
+    if (currentUserEmail) {
+      fetchConversations();
+    }
+  }, [fetchConversations, currentUserEmail]);
 
   // Memoize filtered conversations for performance
   const filteredConversations = useMemo(() => {
