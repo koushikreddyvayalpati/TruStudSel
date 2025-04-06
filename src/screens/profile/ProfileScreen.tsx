@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -440,6 +440,18 @@ const ProfileScreen: React.FC = () => {
     return sellerEmail.toLowerCase() !== user.email.toLowerCase();
   }, [sellerEmail, user?.email]);
   
+  // Add a ref to track refresh count
+  const refreshCountRef = useRef<number>(0);
+  
+  // Reset refresh count when component unmounts or when profile changes
+  useEffect(() => {
+    refreshCountRef.current = 0;
+    
+    return () => {
+      refreshCountRef.current = 0;
+    };
+  }, [sellerEmail]);
+  
   // For logging purposes
   useEffect(() => {
     if (sellerEmail) {
@@ -538,13 +550,19 @@ const ProfileScreen: React.FC = () => {
     }
     
     setProductsError(null);
-    setIsLoadingProducts(true);
+    if (!isRefreshing) setIsLoadingProducts(true);
+    
+    // If this is the second or more refresh, log it and force refresh from API
+    const shouldForceRefresh = isRefreshing && refreshCountRef.current >= 1;
+    if (shouldForceRefresh) {
+      console.log(`[ProfileScreen] Force refreshing user products from API (refresh count: ${refreshCountRef.current + 1})`);
+    }
     
     try {
       const cacheKey = `${USER_PRODUCTS_CACHE_KEY}${emailToFetch}`;
       
       // First, check the in-memory cache for the fastest access
-      if (!isRefreshing && productsCache.has(emailToFetch)) {
+      if (!shouldForceRefresh && !isRefreshing && productsCache.has(emailToFetch)) {
         const { data, timestamp } = productsCache.get(emailToFetch);
         const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
         const isStale = Date.now() - timestamp > (PRODUCTS_CACHE_EXPIRY_TIME / 3);
@@ -577,8 +595,8 @@ const ProfileScreen: React.FC = () => {
         }
       }
       
-      // Then try AsyncStorage if not refreshing
-      if (!isRefreshing) {
+      // Then try AsyncStorage if not refreshing and not forcing refresh
+      if (!shouldForceRefresh && !isRefreshing) {
         try {
           const cachedData = await AsyncStorage.getItem(cacheKey);
           
@@ -625,11 +643,11 @@ const ProfileScreen: React.FC = () => {
         }
       }
       
-      // Check if we should rate limit this API request
+      // Check if we should rate limit this API request (skip if forcing refresh)
       const lastRequestTime = PRODUCTS_API_REQUEST_TIMESTAMPS.get(emailToFetch);
       const now = Date.now();
       
-      if (lastRequestTime && (now - lastRequestTime < MIN_API_REQUEST_INTERVAL) && !isRefreshing) {
+      if (!shouldForceRefresh && lastRequestTime && (now - lastRequestTime < MIN_API_REQUEST_INTERVAL) && !isRefreshing) {
         console.log(`[ProfileScreen] Rate limiting products API request for ${emailToFetch}`);
         // Use cache even if expired, but mark for refresh
         if (productsCache.has(emailToFetch)) {
@@ -668,18 +686,16 @@ const ProfileScreen: React.FC = () => {
       const newProductsMap = new Map<number, Product>();
       
       // Convert API products to Post format
-      const formattedPosts = productData.map(product => {
+      const formattedPosts = productData.map((product: Product) => {
         const post = convertProductToPost(product);
         // Store the original product data for future reference
         newProductsMap.set(post.id, product);
         return post;
       });
       
-      console.log(`[ProfileScreen] Loaded ${formattedPosts.length} products for user`);
-      
+      // Update state with new data
       setProducts(formattedPosts);
       setProductsMap(newProductsMap);
-      setIsLoadingProducts(false);
       
       // Save to both caches
       const cacheData = {
@@ -696,8 +712,8 @@ const ProfileScreen: React.FC = () => {
       // Update AsyncStorage cache
       await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
       
-    } catch (error) {
-      console.error('[ProfileScreen] Error fetching user products:', error);
+    } catch (error: any) {
+      console.error('[ProfileScreen] Error fetching user products:', error.message || error);
       
       // If we have cached data, use it despite the error
       if (productsCache.has(emailToFetch)) {
@@ -718,12 +734,12 @@ const ProfileScreen: React.FC = () => {
         setProducts(formattedPosts);
         setProductsMap(newProductsMap);
       } else {
-        setProductsError('Failed to load your products');
+        setProductsError('Network error while fetching products');
       }
-      
+    } finally {
       setIsLoadingProducts(false);
     }
-  }, [sellerEmail, user?.email, isRefreshing, isViewingSeller]);
+  }, [sellerEmail, user?.email, isRefreshing, isViewingSeller, refreshCountRef]);
   
   // Fetch user data from backend API with caching
   const fetchUserData = useCallback(async () => {
@@ -738,23 +754,29 @@ const ProfileScreen: React.FC = () => {
     setError(null);
     if (!isRefreshing) setIsLoading(true);
     
+    // If this is the second or more refresh, log it and force refresh from API
+    const shouldForceRefresh = isRefreshing && refreshCountRef.current >= 1;
+    if (shouldForceRefresh) {
+      console.log(`[ProfileScreen] Force refreshing user profile from API (refresh count: ${refreshCountRef.current + 1})`);
+    }
+    
     try {
       const cacheKey = `${USER_PROFILE_CACHE_KEY}${emailToFetch}`;
       
       // First, check the in-memory cache for the fastest access
-      if (!isRefreshing && profileCache.has(emailToFetch)) {
+      if (!shouldForceRefresh && !isRefreshing && profileCache.has(emailToFetch)) {
         const { data, timestamp } = profileCache.get(emailToFetch);
         const isExpired = Date.now() - timestamp > CACHE_EXPIRY_TIME;
         const isStale = Date.now() - timestamp > (CACHE_EXPIRY_TIME / 3);
         
         if (!isExpired) {
-          console.log('Using in-memory cached user profile data');
+          console.log('[ProfileScreen] Using in-memory cached user profile data');
           setBackendUserData(data);
           setIsLoading(false);
           
           // If data is stale but not expired, trigger a background refresh
           if (isStale && !isViewingSeller) {
-            console.log('Data is stale, triggering background refresh');
+            console.log('[ProfileScreen] Data is stale, triggering background refresh');
             setTimeout(() => refreshCacheInBackground(emailToFetch), 100);
           }
           
@@ -762,8 +784,8 @@ const ProfileScreen: React.FC = () => {
         }
       }
       
-      // Then try AsyncStorage if not refreshing
-      if (!isRefreshing) {
+      // Then try AsyncStorage if not refreshing and not forcing refresh
+      if (!shouldForceRefresh && !isRefreshing) {
         try {
           const cachedData = await AsyncStorage.getItem(cacheKey);
           
@@ -773,7 +795,7 @@ const ProfileScreen: React.FC = () => {
             const isStale = Date.now() - timestamp > (CACHE_EXPIRY_TIME / 3);
             
             if (!isExpired) {
-              console.log('Using AsyncStorage cached user profile data');
+              console.log('[ProfileScreen] Using AsyncStorage cached user profile data');
               // Update in-memory cache too
               profileCache.set(emailToFetch, { data, timestamp });
               setBackendUserData(data);
@@ -781,27 +803,27 @@ const ProfileScreen: React.FC = () => {
               
               // If data is stale but not expired, trigger a background refresh
               if (isStale && !isViewingSeller) {
-                console.log('Data is stale, triggering background refresh');
+                console.log('[ProfileScreen] Data is stale, triggering background refresh');
                 setTimeout(() => refreshCacheInBackground(emailToFetch), 100);
               }
               
               return;
             } else {
-              console.log('Cache expired, fetching fresh data');
+              console.log('[ProfileScreen] Cache expired, fetching fresh data');
             }
           }
         } catch (cacheError) {
-          console.warn('Error reading from cache:', cacheError);
+          console.warn('[ProfileScreen] Error reading from cache:', cacheError);
           // Continue with API fetch on cache error
         }
       }
       
-      // Check if we should rate limit this API request
+      // Check if we should rate limit this API request (skip if forcing refresh)
       const lastRequestTime = API_REQUEST_TIMESTAMPS.get(emailToFetch);
       const now = Date.now();
       
-      if (lastRequestTime && (now - lastRequestTime < MIN_API_REQUEST_INTERVAL) && !isRefreshing) {
-        console.log(`Rate limiting API request for ${emailToFetch}`);
+      if (!shouldForceRefresh && lastRequestTime && (now - lastRequestTime < MIN_API_REQUEST_INTERVAL) && !isRefreshing) {
+        console.log(`[ProfileScreen] Rate limiting API request for ${emailToFetch}`);
         // Use cache even if expired, but mark for refresh
         if (profileCache.has(emailToFetch)) {
           const { data } = profileCache.get(emailToFetch);
@@ -816,7 +838,7 @@ const ProfileScreen: React.FC = () => {
       }
       
       // If cache miss or cache expired or explicitly refreshing, fetch from API
-      console.log('Fetching user profile from API');
+      console.log('[ProfileScreen] Fetching user profile from API');
       API_REQUEST_TIMESTAMPS.set(emailToFetch, now);
       
       const data = await fetchUserProfileById(emailToFetch);
@@ -840,11 +862,11 @@ const ProfileScreen: React.FC = () => {
       await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
       
     } catch (error: any) {
-      console.error('Error fetching user data:', error.message || error);
+      console.error('[ProfileScreen] Error fetching user data:', error.message || error);
       
       // If we have cached data, use it despite the error
       if (profileCache.has(emailToFetch)) {
-        console.log('Using cached data after API error');
+        console.log('[ProfileScreen] Using cached data after API error');
         setBackendUserData(profileCache.get(emailToFetch).data);
       } else {
         setError('Network error while fetching profile data');
@@ -852,7 +874,7 @@ const ProfileScreen: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [sellerEmail, user?.email, isRefreshing, isViewingSeller]);
+  }, [sellerEmail, user?.email, isRefreshing, isViewingSeller, refreshCountRef]);
   
   // Load both user profile and products data
   useFocusEffect(
@@ -900,6 +922,10 @@ const ProfileScreen: React.FC = () => {
 
   // Pull-to-refresh handler
   const handleRefresh = useCallback(() => {
+    // Increment the refresh counter
+    refreshCountRef.current += 1;
+    console.log(`[ProfileScreen] Refresh triggered (count: ${refreshCountRef.current})`);
+    
     setIsRefreshing(true);
     
     // Refresh backend user data and products
@@ -908,6 +934,14 @@ const ProfileScreen: React.FC = () => {
       fetchUserProductData()
     ]).finally(() => {
       setIsRefreshing(false);
+      
+      // Reset the refresh counter after a timeout (5 seconds)
+      setTimeout(() => {
+        if (refreshCountRef.current > 0) {
+          console.log('[ProfileScreen] Resetting refresh counter');
+          refreshCountRef.current = 0;
+        }
+      }, 5000);
     });
   }, [fetchUserData, fetchUserProductData]);
 
