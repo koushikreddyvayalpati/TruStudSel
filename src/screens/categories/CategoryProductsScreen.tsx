@@ -1230,9 +1230,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#e5e5e5',
-    borderRadius: 8,
+    borderRadius: 20,
     backgroundColor: '#f2f2f2',
-    height: 40,
+    height: 44,
     overflow: 'hidden',
   },
   searchIcon: {

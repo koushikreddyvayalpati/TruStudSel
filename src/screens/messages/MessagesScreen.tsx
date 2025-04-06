@@ -727,7 +727,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   headerContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: '#f7b305',
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
     shadowColor: 'rgba(0, 0, 0, 0.08)',
@@ -746,12 +746,15 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
     marginRight: 4,
+    paddingLeft:0,
   },
   header: {
     flex: 1,
     fontSize: 22,
     fontWeight: '700',
     color: '#333',
+    textAlign:'center',
+
   },
   headerActions: {
     flexDirection: 'row',
@@ -999,7 +1002,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#ffb300',
+    backgroundColor: '#f7b305',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: 'rgba(0, 0, 0, 0.2)',
