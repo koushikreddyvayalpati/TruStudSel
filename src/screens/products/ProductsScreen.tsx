@@ -23,7 +23,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { ProductInfoScreenRouteProp, ProductInfoScreenNavigationProp } from '../../types/navigation.types';
-import { getProductById } from '../../api/products'; // Import the new API function
+import { getProductById, getProductsByCategory } from '../../api/products'; // Import the category API function
 
 const { width, height } = Dimensions.get('window');
 
@@ -46,6 +46,8 @@ interface ExtendedProduct {
   };
   sellerName?: string;
   email?: string;
+  category?: string;
+  sellingtype?: string; // Note the lowercase in the API response
 }
 
 // Base product type from params
@@ -60,6 +62,7 @@ interface BaseProduct {
   images?: string[];
   sellerName?: string;
   email?: string;
+  sellingtype?: string; // Add sellingtype property
 }
 
 // Sample product data (fallback if route params are missing)
@@ -92,14 +95,6 @@ const sellerReviews = [
   { id: 1, name: 'Alice', rating: 5, text: 'Excellent communication and fast shipping!' },
   { id: 2, name: 'Bob', rating: 4, text: 'Great seller, item as described, would buy again.' },
   { id: 3, name: 'Charlie', rating: 5, text: 'Super friendly and helpful, highly recommend!' },
-];
-
-// Sample similar products
-const similarProducts = [
-  { id: 101, name: 'Similar Item 1', price: '$22.99', image: 'https://via.placeholder.com/150/0000FF' },
-  { id: 102, name: 'Similar Item 2', price: '$19.99', image: 'https://via.placeholder.com/150/FF00FF' },
-  { id: 103, name: 'Similar Item 3', price: '$27.50', image: 'https://via.placeholder.com/150/00FFFF' },
-  { id: 104, name: 'Similar Item 4', price: '$18.25', image: 'https://via.placeholder.com/150/FFFF00' },
 ];
 
 // Product Image Gallery Component
@@ -228,7 +223,30 @@ const SimilarProducts: React.FC<{
       />
       <View style={styles.similarProductInfo}>
         <Text style={styles.similarProductName} numberOfLines={1}>{item.name}</Text>
-        <Text style={styles.similarProductPrice}>{item.price}</Text>
+        
+        {/* Property status tags (condition and selling type) */}
+        <View style={styles.similarTagsRow}>
+          {/* Show condition if available */}
+          {item.condition && (
+            <View style={styles.similarProductCondition}>
+              <Text style={styles.similarConditionText}>{item.condition}</Text>
+            </View>
+          )}
+          
+          {/* Show selling type if available */}
+          {item.sellingtype && (
+            <View style={styles.similarSellingTypeTag}>
+              <Text style={styles.similarConditionText}>
+                {item.sellingtype.toLowerCase().includes('rent') ? 'Rent' : 'Sale'}
+              </Text>
+            </View>
+          )}
+        </View>
+        
+        {/* Price tag */}
+        <View style={styles.similarProductPriceContainer}>
+          <Text style={styles.similarProductPrice}>{item.price}</Text>
+        </View>
       </View>
     </TouchableOpacity>
   ), [onProductPress]);
@@ -287,6 +305,8 @@ const ProductsScreen = () => {
   const [expandDescription, setExpandDescription] = useState(false);
   const [_isInWishlist, _setIsInWishlist] = useState(false);
   const [productData, setProductData] = useState<ExtendedProduct | null>(null);
+  const [similarProductsData, setSimilarProductsData] = useState<BaseProduct[]>([]);
+  const [loadingSimilarProducts, setLoadingSimilarProducts] = useState(false);
   
   // Extract product and productId from route params
   const routeParams = route.params || {};
@@ -508,6 +528,104 @@ const ProductsScreen = () => {
     return null;
   }, []);
 
+  // Fetch similar products based on the current product category
+  useEffect(() => {
+    const fetchSimilarProducts = async () => {
+      // Only fetch if we have a valid product with category
+      if (!product) return;
+      
+      // Try to get category from the product
+      const category = product.category || product.type;
+      
+      if (!category) {
+        console.log('[ProductsScreen] No category found for similar products');
+        return;
+      }
+      
+      try {
+        setLoadingSimilarProducts(true);
+        
+        // Convert category to lowercase for consistency with API
+        const normalizedCategory = category.toLowerCase();
+        console.log(`[ProductsScreen] Fetching similar products for category: ${normalizedCategory}`);
+        
+        // Fetch products by category
+        const result = await getProductsByCategory(normalizedCategory, {
+          // Limit results to 10 similar products
+          size: 10
+        });
+        
+        // Filter out the current product from results
+        let similarItems = Array.isArray(result.products) 
+          ? result.products 
+          : [];
+        
+        // Remove the current product from similar items
+        similarItems = similarItems.filter(item => item.id !== product.id);
+        
+        // Limit to 5 similar products max
+        similarItems = similarItems.slice(0, 5);
+        
+        console.log(`[ProductsScreen] Found ${similarItems.length} similar products`);
+        
+        // Convert API Product type to BaseProduct type for state
+        const convertedSimilarItems: BaseProduct[] = similarItems.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: item.price || '0.00',
+          image: item.image || item.primaryImage || 'https://via.placeholder.com/150',
+          description: item.description,
+          condition: item.condition || 'Used',
+          type: item.type,
+          sellerName: item.sellerName || (item.seller?.name || ''),
+          email: item.email || '',
+          images: item.images || item.imageUrls || [],
+          sellingtype: item.sellingtype || ''
+        }));
+        
+        // Update state with similar products
+        setSimilarProductsData(convertedSimilarItems);
+      } catch (error) {
+        console.error('[ProductsScreen] Error fetching similar products:', error);
+        // Keep the array empty on error
+        setSimilarProductsData([]);
+      } finally {
+        setLoadingSimilarProducts(false);
+      }
+    };
+    
+    fetchSimilarProducts();
+  }, [product]);
+
+  // Similar Products rendering section with loading state
+  const renderSimilarProductsSection = useMemo(() => {
+    // If loading, show loading indicator
+    if (loadingSimilarProducts) {
+      return (
+        <View style={styles.similarProductsContainer}>
+          <Text style={styles.sectionTitle}>Similar Products</Text>
+          <View style={styles.loadingSimilarContainer}>
+            <ActivityIndicator size="small" color="#f7b305" />
+            <Text style={styles.loadingSimilarText}>Finding similar items...</Text>
+          </View>
+        </View>
+      );
+    }
+    
+    // If no similar products found and not loading, don't show the section
+    if (similarProductsData.length === 0) {
+      return null;
+    }
+    
+    // Otherwise show the similar products list
+    return (
+      <SimilarProducts 
+        products={similarProductsData}
+        onProductPress={handleSimilarProductPress}
+      />
+    );
+  }, [similarProductsData, loadingSimilarProducts, handleSimilarProductPress]);
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -572,9 +690,12 @@ const ProductsScreen = () => {
                   <Text style={styles.tagText}>{product.condition}</Text>
                 </View>
               )}
-              {product.type && (
-                <View style={styles.tagItem}>
-                  <Text style={styles.tagText}>{product.type}</Text>
+              {/* Show selling type (sale/rent) if available */}
+              {product.sellingtype && (
+                <View style={[styles.tagItem, styles.sellingTypeTag]}>
+                  <Text style={styles.tagText}>
+                    {product.sellingtype.toLowerCase().includes('rent') ? 'For Rent' : 'For Sale'}
+                  </Text>
                 </View>
               )}
             </View>
@@ -591,55 +712,61 @@ const ProductsScreen = () => {
             <Text style={styles.sectionTitle}>Seller Information</Text>
             
             <View style={styles.sellerProfileContainer}>
+              {/* Top row with profile and details */}
               <View style={styles.sellerInfoContainer}>
-                <TouchableOpacity 
-                  style={styles.profileCircle}
-                  onPress={handleViewSellerProfile}
-                >
-                  <Text style={styles.profileText}>
-                    {(() => {
-                      // Get the display name prioritizing sellerName, then seller.name
-                      const displayName = product.sellerName || product.seller?.name || '';
-                      return displayName ? displayName.charAt(0).toUpperCase() : 'S';
-                    })()}
-                  </Text>
-                </TouchableOpacity>
+                <View style={styles.profileImageWrapper}>
+                  <TouchableOpacity 
+                    style={styles.profileCircle}
+                    onPress={handleViewSellerProfile}
+                  >
+                    <Text style={styles.profileText}>
+                      {(() => {
+                        // Get the display name prioritizing sellerName, then seller.name
+                        const displayName = product.sellerName || product.seller?.name || '';
+                        return displayName ? displayName.charAt(0).toUpperCase() : 'S';
+                      })()}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
                 
                 <View style={styles.sellerDetails}>
                   <Text style={styles.sellerName}>
                     {product.sellerName || product.seller?.name || 'Unknown Seller'}
                   </Text>
-                  {product.seller?.rating && <RatingStars rating={product.seller.rating} />}
+                  <View style={styles.sellerMetaInfo}>
+                    {product.seller?.rating && (
+                      <View style={styles.sellerRatingContainer}>
+                        <RatingStars rating={product.seller.rating} />
+                        <Text style={styles.ratingText}>{product.seller.rating.toFixed(1)}</Text>
+                      </View>
+                    )}
+                    <View style={styles.sellerBadgeContainer}>
+                      <View style={styles.verifiedBadge}>
+                        <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
+                        <Text style={styles.verifiedText}>Verified</Text>
+                      </View>
+                    </View>
+                  </View>
                 </View>
+                
+                <TouchableOpacity 
+                  style={styles.viewProfileButton}
+                  onPress={handleViewSellerProfile}
+                >
+                  <Text style={styles.viewProfileText}>View Profile</Text>
+                  <Ionicons name="chevron-forward" size={16} color="#f7b305" />
+                </TouchableOpacity>
               </View>
               
+              {/* Contact button with gradient-like effect */}
               <TouchableOpacity 
-                style={[styles.sellerActionButton, styles.messageButton]}
+                style={styles.contactSellerButton}
                 onPress={() => handleContactSeller('message')}
               >
                 <Ionicons name="chatbubble-outline" size={18} color="#FFF" />
-                <Text style={styles.buttonText}>Message Seller</Text>
+                <Text style={styles.contactButtonText}>Message Seller</Text>
               </TouchableOpacity>
             </View>
-          </View>
-          
-          {/* Actions Row */}
-          <View style={styles.actionsRow}>
-            <TouchableOpacity 
-              style={[styles.inlineActionButton, styles.messageButton]}
-              onPress={() => handleContactSeller('message')}
-            >
-              <Ionicons name="chatbubble-outline" size={18} color="#FFF" />
-              <Text style={styles.inlineButtonText}>Message</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.inlineActionButton, styles.offerButton]}
-              onPress={() => Alert.alert('Make Offer', 'This feature is coming soon!')}
-            >
-              <Ionicons name="pricetag-outline" size={18} color="#FFF" />
-              <Text style={styles.inlineButtonText}>Make Offer</Text>
-            </TouchableOpacity>
           </View>
           
           {/* Seller Reviews */}
@@ -662,11 +789,8 @@ const ProductsScreen = () => {
             ))}
           </View>
           
-          {/* Similar Products */}
-          <SimilarProducts 
-            products={similarProducts}
-            onProductPress={handleSimilarProductPress}
-          />
+          {/* Similar Products - Showing dynamic content */}
+          {renderSimilarProductsSection}
         </View>
       </ScrollView>
       
@@ -750,6 +874,7 @@ const styles = StyleSheet.create({
   imageGalleryContainer: {
     height: width * 0.65,
     backgroundColor: 'white',
+    position: 'relative',
   },
   imageContainer: {
     width: width,
@@ -775,35 +900,38 @@ const styles = StyleSheet.create({
   },
   paginationContainer: {
     position: 'absolute',
-    bottom: 0,
+    bottom: 20,
     width: '100%',
     alignItems: 'center',
+    zIndex: 10,
+    pointerEvents: 'box-none',
   },
   paginationDots: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 10,
   },
   paginationDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    marginHorizontal: 4,
+    marginHorizontal: 6,
   },
   productInfoContainer: {
     paddingHorizontal: 20,
-    paddingTop: 16,
+    
     backgroundColor: 'white',
   },
   titleContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 12,
+    paddingTop: 0,
     paddingBottom: 5,
   },
   shareButton: {
@@ -845,6 +973,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     borderWidth: 1,
     borderColor: '#eeeeee',
+  },
+  sellingTypeTag: {
+    backgroundColor: '#e8f4fd',
+    borderColor: '#c5e0f5',
   },
   tagText: {
     fontSize: 13,
@@ -958,20 +1090,20 @@ const styles = StyleSheet.create({
     borderBottomColor: '#eeeeee',
   },
   sellerProfileContainer: {
-    backgroundColor: '#fafafa',
-    borderRadius: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
     padding: 20,
     borderWidth: 1,
     borderColor: '#eeeeee',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 3,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 2,
+        elevation: 4,
       },
     }),
   },
@@ -979,77 +1111,119 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
+    position: 'relative',
   },
-  profileCircle: {
-    width: 55,
-    height: 55,
-    borderRadius: 28,
-    backgroundColor: 'black',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
+  profileImageWrapper: {
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
       },
       android: {
-        elevation: 3,
+        elevation: 5,
       },
     }),
   },
+  profileCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'black',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'white',
+  },
   profileText: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
     color: 'white',
   },
   sellerDetails: {
     marginLeft: 16,
+    flex: 1,
   },
   sellerName: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#222',
-    marginBottom: 4,
+    marginBottom: 6,
   },
-  ratingContainer: {
+  sellerMetaInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sellerRatingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  ratingText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  sellerBadgeContainer: {
     flexDirection: 'row',
   },
-  sellerActions: {
+  verifiedBadge: {
     flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
   },
-  sellerActionButton: {
+  verifiedText: {
+    fontSize: 12,
+    color: '#4CAF50',
+    fontWeight: '600',
+    marginLeft: 2,
+  },
+  viewProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
+  viewProfileText: {
+    fontSize: 13,
+    color: '#f7b305',
+    fontWeight: '600',
+  },
+  contactSellerButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 18,
-    borderRadius: 12,
-    marginRight: 8,
+    borderRadius: 16,
     backgroundColor: '#f7b305',
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowColor: 'rgba(247, 179, 5, 0.5)',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
       },
       android: {
-        elevation: 3,
+        elevation: 4,
       },
     }),
   },
-  messageButton: {
-    backgroundColor: '#f7b305',
-  },
-  buttonText: {
+  contactButtonText: {
     color: 'white',
     fontWeight: 'bold',
     marginLeft: 8,
     fontSize: 16,
+    letterSpacing: 0.5,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
   },
   reviewItem: {
     backgroundColor: '#fafafa',
@@ -1122,10 +1296,44 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     fontWeight: '500',
   },
+  similarTagsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  similarProductCondition: {
+    backgroundColor: '#f8f8f8',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginRight: 5,
+    borderWidth: 1,
+    borderColor: '#eeeeee',
+  },
+  similarSellingTypeTag: {
+    backgroundColor: '#e8f4fd',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#c5e0f5',
+  },
+  similarConditionText: {
+    fontSize: 10,
+    color: '#555',
+    fontWeight: '600',
+  },
+  similarProductPriceContainer: {
+    backgroundColor: 'black',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
   similarProductPrice: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: 'bold',
-    color: '#e67e22',
+    color: 'white',
   },
   bottomBar: {
     position: 'absolute',
@@ -1222,6 +1430,17 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 8,
     fontSize: 15,
+  },
+  loadingSimilarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  loadingSimilarText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#666',
   },
 });
 
