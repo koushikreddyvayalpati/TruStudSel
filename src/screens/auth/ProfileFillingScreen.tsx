@@ -10,7 +10,6 @@ import {
   ScrollView,
   BackHandler,
   DevSettings,
-  FlatList,
   Image,
   ActivityIndicator,
   Modal,
@@ -23,6 +22,8 @@ import { Auth } from 'aws-amplify';
 import { CommonActions } from '@react-navigation/native';
 import { createUserProfile, UserProfileData, uploadFile } from '../../api/users';
 import { launchImageLibrary } from 'react-native-image-picker';
+import LinearGradient from 'react-native-linear-gradient';
+import Entypo from 'react-native-vector-icons/Entypo';
 
 // Define a simple TextInput component to replace the missing import
 interface CustomTextInputProps {
@@ -53,22 +54,28 @@ const TextInput: React.FC<CustomTextInputProps> = ({
           {label}
         </Text>
       )}
-      <RNTextInput
-        style={[
-          textInputStyles.input,
-          { 
-            color: theme.colors.text,
-            borderColor: theme.colors.border,
-            backgroundColor: editable ? theme.colors.background : '#f0f0f0'
-          }
-        ]}
-        value={value}
-        onChangeText={onChangeText || (() => {})}
-        placeholder={placeholder || ''}
-        placeholderTextColor={theme.colors.placeholder || '#999'}
-        editable={editable}
-        keyboardType={keyboardType}
-      />
+      <View style={[
+        textInputStyles.inputWrapper, 
+        { 
+          borderColor: theme.colors.border,
+          backgroundColor: editable ? theme.colors.background : 'rgba(240,240,240,0.3)'
+        }
+      ]}>
+        <RNTextInput
+          style={[
+            textInputStyles.input,
+            { 
+              color: theme.colors.text,
+            }
+          ]}
+          value={value}
+          onChangeText={onChangeText || (() => {})}
+          placeholder={placeholder || ''}
+          placeholderTextColor={theme.colors.placeholder || '#999'}
+          editable={editable}
+          keyboardType={keyboardType}
+        />
+      </View>
     </View>
   );
 };
@@ -76,20 +83,31 @@ const TextInput: React.FC<CustomTextInputProps> = ({
 // Define styles for the TextInput component
 const textInputStyles = StyleSheet.create({
   inputContainer: {
-    marginBottom: 16,
+    marginBottom: 10,
     width: '100%',
   },
   inputLabel: {
-    fontSize: 14,
-    marginBottom: 8,
+    fontSize: 13,
+    marginBottom: 4,
     fontWeight: '500',
   },
-  input: {
-    height: 48,
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 42,
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 16,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  input: {
+    flex: 1,
+    height: '100%',
+    paddingHorizontal: 14,
+    fontSize: 14,
   },
 });
 
@@ -146,14 +164,13 @@ const LoadingOverlay: React.FC<{
 
 // Predefined product categories
 const PRODUCT_CATEGORIES = [
-  { id: '1', name: 'Electronics' },
-  { id: '2', name: 'Clothing' },
-  { id: '3', name: 'Books & Education' },
-  { id: '4', name: 'Home & Furniture' },
-  { id: '5', name: 'Sports & Outdoors' },
-  { id: '6', name: 'Beauty & Personal Care' },
-  { id: '7', name: 'Food & Beverages' },
-  { id: '8', name: 'Toys & Games' }
+  { id: '1', name: 'Electronics', icon: 'electronics' },
+  { id: '2', name: 'Furniture', icon: 'furniture' },
+  { id: '3', name: 'Auto', icon: 'auto' },
+  { id: '4', name: 'Fashion', icon: 'fashion' },
+  { id: '5', name: 'Sports', icon: 'sports' },
+  { id: '6', name: 'Stationery', icon: 'stationery' },
+  { id: '7', name: 'EventPass', icon: 'eventpass' }
 ];
 
 const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navigation }) => {
@@ -161,18 +178,60 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
   const { refreshSession, updateUserInfo, isAuthenticated } = useAuth();
   const { email, username, phoneNumber, isAuthenticated: wasAuthenticated } = route.params;
   
-  const [fullName, _setFullName] = useState(username || '');
-  const [university, setUniversity] = useState('');
-  const [city, setCity] = useState('');
-  const [zipcode, setZipcode] = useState('');
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [navigating, setNavigating] = useState(false);
-  const [loadingStep, setLoadingStep] = useState(0);
+  // State for form data
+  const [fullName, _setFullName] = useState<string>(username || '');
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  const [_selectedImageFile, _setSelectedImageFile] = useState<any>(null);
+  const [uploadingImage, setUploadingImage] = useState<boolean>(false);
   const [_imageFileName, setImageFileName] = useState<string | null>(null);
+  const [university, setUniversity] = useState<string>('');
+  const [city, setCity] = useState<string>('');
+  const [zipcode, setZipcode] = useState<string>('');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [navigating, setNavigating] = useState<boolean>(false);
+  const [loadingStep, setLoadingStep] = useState<number>(0);
   
+  // Constants for progress tracking and UI
+  const minCategoriesRequired = 3;
+  const progressGradient = [theme.colors.primary, theme.colors.secondary || '#4a90e2'];
+  
+  // State to track field completions
+  const [_completionFlags, setCompletionFlags] = useState({
+    university: false,
+    city: false,
+    zipcode: false,
+    categories: false,
+  });
+
+  // Update completion flags when fields change
+  useEffect(() => {
+    setCompletionFlags({
+      university: !!university.trim(),
+      city: !!city.trim(),
+      zipcode: !!zipcode.trim(),
+      categories: selectedCategories.length > 0
+    });
+  }, [university, city, zipcode, selectedCategories]);
+
+  // Function to calculate completion percentage
+  const calculateCompletionPercentage = () => {
+    let progress = 0;
+    
+    // Profile image adds 20%
+    if (profileImage) progress += 20;
+    
+    // Location fields add 30% total
+    if (university) progress += 10;
+    if (city) progress += 10;
+    if (zipcode) progress += 10;
+    
+    // Categories add up to 50%
+    progress += Math.min(selectedCategories.length, minCategoriesRequired) / minCategoriesRequired * 50;
+    
+    return Math.min(progress, 100);
+  };
+
   // Define loading steps
   const loadingSteps = useMemo(() => [
     { id: 'updating', message: 'Updating your profile...' },
@@ -268,7 +327,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
         university: university.trim(),
         city: city.trim(),
         zipcode: zipcode.trim(),
-        ProductsCategoriesIntrested: selectedCategories,
+        productsCategoriesIntrested: selectedCategories,
         state: '', // Can be filled in later
         productsListed: "0",
         productssold: "0",
@@ -435,18 +494,94 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
       <TouchableOpacity
         style={[
           styles.categoryItem,
-          isSelected && { backgroundColor: theme.colors.primary }
+          {
+            borderColor: isSelected ? theme.colors.primary : theme.colors.border,
+            backgroundColor: isSelected ? `${theme.colors.primary}10` : theme.colors.background,
+            transform: [{ scale: isSelected ? 1.02 : 1 }],
+          },
         ]}
         onPress={() => toggleCategorySelection(item.id)}
+        activeOpacity={0.7}
       >
+        <View 
+          style={styles.categoryIconContainer}
+        >
+          <View 
+            style={[
+              styles.categoryIconCircle,
+              { backgroundColor: isSelected ? theme.colors.primary : '#f0f0f0' }
+            ]}
+          >
+            <Entypo 
+              name={getCategoryIcon(item.icon)} 
+              size={16} 
+              color={isSelected ? '#fff' : theme.colors.secondary} 
+            />
+          </View>
+        </View>
+        
         <Text 
           style={[
             styles.categoryText, 
-            isSelected && { color: theme.colors.buttonText }
+            { color: isSelected ? theme.colors.primary : theme.colors.text }
           ]}
+          numberOfLines={2}
         >
           {item.name}
         </Text>
+        
+        {isSelected && (
+          <View style={styles.selectedIndicator}>
+            <Entypo name="check" size={14} color={theme.colors.primary} />
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  const getCategoryIcon = (iconName: string): string => {    
+    switch (iconName) {
+      case 'electronics':
+        return 'modern-mic';
+      case 'furniture':
+        return 'home';
+      case 'auto':
+        return 'drive';
+      case 'fashion':
+        return 'shopping-bag';
+      case 'sports':
+        return 'creative-commons-attribution';
+      case 'stationery':
+        return 'pencil';
+      case 'eventpass':
+        return 'ticket';
+      default:
+        return 'book';
+    }
+  };
+
+  const renderGradientButton = (text: string, onPress: () => void, disabled: boolean = false) => {
+    return (
+      <TouchableOpacity 
+        style={styles.buttonWrapper}
+        onPress={onPress}
+        disabled={disabled}
+        activeOpacity={0.8}
+      >
+        <LinearGradient
+          colors={
+            disabled 
+              ? ['rgba(150,150,150,0.5)', 'rgba(120,120,120,0.8)'] 
+              : [theme.colors.primary, theme.colors.primaryDark || '#0055b3']
+          }
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.button}
+        >
+          <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
+            {text}
+          </Text>
+        </LinearGradient>
       </TouchableOpacity>
     );
   };
@@ -467,118 +602,165 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
       
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.contentContainer}>
-          <Text style={[styles.title, { color: theme.colors.primary }]}>You're Almost Done</Text>
-          <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-            Please fill in the following details
-          </Text>
+          <View style={styles.headerContainer}>
+            <Text style={[styles.title, { color: theme.colors.primary }]}>Welcome, {fullName}!</Text>
+            <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+              Complete your profile to personalize your experience
+            </Text>
+          </View>
           
           <View style={styles.profilePicContainer}>
-            {profileImage ? (
-              <Image 
-                source={{ uri: profileImage }} 
-                style={styles.profileImage} 
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={[styles.profilePicPlaceholder, { backgroundColor: theme.colors.surface }]}>
-                <Text style={[styles.profilePicText, { color: theme.colors.textSecondary }]}>
-                  {fullName ? fullName.charAt(0).toUpperCase() : 'U'}
-                </Text>
-              </View>
-            )}
+            <View style={styles.profileImageWrapper}>
+              {profileImage ? (
+                <Image 
+                  source={{ uri: profileImage }} 
+                  style={styles.profileImage} 
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={[styles.profilePicPlaceholder, { backgroundColor: theme.colors.primary + '20' }]}>
+                  <Text style={[styles.profilePicText, { color: theme.colors.primary }]}>
+                    {fullName ? fullName.charAt(0).toUpperCase() : 'U'}
+                  </Text>
+                </View>
+              )}
+              
+              <TouchableOpacity 
+                style={styles.cameraIconContainer}
+                onPress={handleUploadProfilePicture}
+                disabled={uploadingImage}
+              >
+                <View style={styles.cameraIcon}>
+                  <Entypo name="camera" size={16} color="#FFF" />
+                </View>
+              </TouchableOpacity>
+            </View>
             
             <TouchableOpacity 
-              style={[styles.uploadButton, { backgroundColor: theme.colors.secondary }]}
+              style={[styles.uploadButton, { backgroundColor: theme.colors.primaryDark || '#0055b3' }]}
               onPress={handleUploadProfilePicture}
               disabled={uploadingImage}
             >
               <Text style={[styles.uploadButtonText, { color: theme.colors.buttonText }]}>
-                {uploadingImage ? 'Uploading...' : 'Upload Profile Picture'}
+                {uploadingImage ? 'Uploading...' : 'Add Profile Picture'}
               </Text>
             </TouchableOpacity>
+            
+            <View style={styles.userInfoContainer}>
+              <View style={styles.userInfoItem}>
+                <Entypo name="mail" size={16} color={theme.colors.secondary} style={styles.userInfoIcon} />
+                <Text style={styles.userInfoText}>{email}</Text>
+              </View>
+              <View style={styles.userInfoItem}>
+                <Entypo name="phone" size={16} color={theme.colors.secondary} style={styles.userInfoIcon} />
+                <Text style={styles.userInfoText}>{phoneNumber}</Text>
+              </View>
+            </View>
           </View>
           
-          <TextInput
-            label="Full Name"
-            value={fullName}
-            placeholder="Your full name"
-            editable={false}
-            containerStyle={styles.inputContainer}
-          />
-          
-          <TextInput
-            label="Email"
-            value={email}
-            placeholder="Your email"
-            editable={false}
-            containerStyle={styles.inputContainer}
-          />
-          
-          <TextInput
-            label="Phone Number"
-            value={phoneNumber}
-            placeholder="Your phone number"
-            editable={false}
-            containerStyle={styles.inputContainer}
-          />
-          
-          <TextInput
-            label="University"
-            value={university}
-            onChangeText={setUniversity}
-            placeholder="Enter your university"
-            containerStyle={styles.inputContainer}
-          />
-          
-          <TextInput
-            label="City"
-            value={city}
-            onChangeText={setCity}
-            placeholder="Enter your city"
-            containerStyle={styles.inputContainer}
-          />
-          
-          <TextInput
-            label="Zipcode"
-            value={zipcode}
-            onChangeText={setZipcode}
-            placeholder="Enter your zipcode"
-            keyboardType="numeric"
-            containerStyle={styles.inputContainer}
-          />
-          
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-            Interested Product Categories
-          </Text>
-          <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>
-            Select all that interest you
-          </Text>
-          
-          <View style={styles.categoriesContainer}>
-            <FlatList
-              data={PRODUCT_CATEGORIES}
-              renderItem={renderCategoryItem}
-              keyExtractor={item => item.id}
-              numColumns={2}
-              scrollEnabled={false}
-              contentContainerStyle={styles.categoriesList}
-            />
+          <View style={styles.formSection}>
+            <Text style={styles.formSectionTitle}>Location Information</Text>
+            
+            <View style={styles.inputRow}>
+              <View style={styles.inputIconContainer}>
+                <View style={[styles.inputIcon, { backgroundColor: university ? theme.colors.primary : 'rgba(0,0,0,0.05)' }]}>
+                  <Entypo name="graduation-cap" size={20} color={university ? '#fff' : theme.colors.secondary} />
+                </View>
+              </View>
+              <View style={styles.inputContent}>
+                <TextInput
+                  label="University"
+                  value={university}
+                  onChangeText={setUniversity}
+                  placeholder="Enter your university"
+                  containerStyle={styles.inputContainer}
+                />
+              </View>
+            </View>
+            
+            <View style={styles.inputRow}>
+              <View style={styles.inputIconContainer}>
+                <View style={[styles.inputIcon, { backgroundColor: city ? theme.colors.primary : 'rgba(0,0,0,0.05)' }]}>
+                  <Entypo name="location" size={20} color={city ? '#fff' : theme.colors.secondary} />
+                </View>
+              </View>
+              <View style={styles.inputContent}>
+                <TextInput
+                  label="City"
+                  value={city}
+                  onChangeText={setCity}
+                  placeholder="Enter your city"
+                  containerStyle={styles.inputContainer}
+                />
+              </View>
+            </View>
+            
+            <View style={styles.inputRow}>
+              <View style={styles.inputIconContainer}>
+                <View style={[styles.inputIcon, { backgroundColor: zipcode ? theme.colors.primary : 'rgba(0,0,0,0.05)' }]}>
+                  <Entypo name="location-pin" size={20} color={zipcode ? '#fff' : theme.colors.secondary} />
+                </View>
+              </View>
+              <View style={styles.inputContent}>
+                <TextInput
+                  label="Zipcode"
+                  value={zipcode}
+                  onChangeText={setZipcode}
+                  placeholder="Enter your zipcode"
+                  keyboardType="numeric"
+                  containerStyle={styles.inputContainer}
+                />
+              </View>
+            </View>
           </View>
           
-          <TouchableOpacity 
-            style={[
-              styles.button, 
-              { backgroundColor: loading || navigating ? 'rgba(150,150,150,0.5)' : theme.colors.primary }
-            ]}
-            onPress={handleSubmit}
-            disabled={loading || navigating}
-          >
-            <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
-              {loading ? 'Processing...' : 'Complete Profile'}
+          <View style={styles.formSection}>
+            <Text style={styles.formSectionTitle}>Your Interests</Text>
+            <Text style={styles.helperText}>
+              Select categories that interest you to personalize your experience
             </Text>
-          </TouchableOpacity>
+            
+            <View style={styles.categoriesContainer}>
+              <View style={styles.categoriesGrid}>
+                {PRODUCT_CATEGORIES.map((item) => (
+                  <View key={item.id} style={styles.categoryItemWrapper}>
+                    {renderCategoryItem({item})}
+                  </View>
+                ))}
+              </View>
+            </View>
+            
+            <View style={styles.progressContainer}>
+              <View style={styles.progressTrack}>
+                <LinearGradient
+                  colors={progressGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[
+                    styles.progressBar,
+                    { width: `${calculateCompletionPercentage()}%` }
+                  ]}
+                />
+              </View>
+              <Text style={styles.helperText}>
+                {selectedCategories.length < minCategoriesRequired 
+                  ? `Select at least ${minCategoriesRequired} categories to continue` 
+                  : `${selectedCategories.length} categories selected`}
+              </Text>
+            </View>
+          </View>
+          
+          {renderGradientButton(
+            loading ? 'Processing...' : 'Complete Profile', 
+            handleSubmit, 
+            loading || navigating
+          )}
         </View>
       </ScrollView>
+      
+      {/* Premium corner decorative elements */}
+      <View style={[styles.cornerDecoration, styles.topLeftCorner]} />
+      <View style={[styles.cornerDecoration, styles.bottomRightCorner]} />
     </KeyboardAvoidingView>
   );
 };
@@ -586,25 +768,57 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    position: 'relative',
   },
   contentContainer: {
     padding: 20,
     flex: 1,
     minHeight: '100%',
   },
+  headerContainer: {
+    marginTop: 40,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 10,
-    marginTop: 60,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    marginBottom: 30,
+    marginBottom: 10,
+    textAlign: 'center',
+    maxWidth: '80%',
+  },
+  formSection: {
+    marginBottom: 16,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(240,240,240,0.8)',
+  },
+  formSectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+    color: '#333',
+    textAlign: 'center',
   },
   profilePicContainer: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
+  },
+  profileImageWrapper: {
+    position: 'relative',
+    marginBottom: 8,
   },
   profilePicPlaceholder: {
     width: 100,
@@ -612,23 +826,46 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   profilePicText: {
-    fontSize: 40,
+    fontSize: 36,
     fontWeight: 'bold',
   },
+  cameraIconContainer: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+  },
+  cameraIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
   uploadButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    marginTop: 4,
   },
   uploadButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
   },
   inputContainer: {
-    marginBottom: 16,
+    marginBottom: 10,
   },
   sectionTitle: {
     fontSize: 18,
@@ -638,38 +875,85 @@ const styles = StyleSheet.create({
   },
   sectionSubtitle: {
     fontSize: 14,
-    marginBottom: 10,
+    marginBottom: 16,
   },
   categoriesContainer: {
-    marginBottom: 20,
+    marginVertical: 6,
   },
-  categoriesList: {
-    flexGrow: 1,
+  categoriesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  categoryItemWrapper: {
+    width: '48%',
+    marginBottom: 8,
   },
   categoryItem: {
     flex: 1,
-    margin: 5,
-    padding: 12,
-    borderRadius: 8,
+    margin: 4,
+    padding: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    minHeight: 68,
+    justifyContent: 'flex-start',
     alignItems: 'center',
+    flexDirection: 'row',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+    position: 'relative',
+  },
+  categoryIconContainer: {
+    marginRight: 8,
+  },
+  categoryIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 1,
+    elevation: 1,
   },
   categoryText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
+    flex: 1,
+  },
+  selectedIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+  },
+  buttonWrapper: {
+    width: '100%',
+    borderRadius: 14,
+    overflow: 'hidden',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    marginTop: 8,
+    marginBottom: 24,
   },
   button: {
-    height: 50,
-    borderRadius: 8,
+    width: '100%',
+    height: 56,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24,
   },
   buttonText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
   profileImage: {
     width: 100,
@@ -688,41 +972,121 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   loadingModalContainer: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
     padding: 24,
-    backgroundColor: 'white',
-    borderRadius: 12,
     alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 3
-    },
-    shadowOpacity: 0.27,
-    shadowRadius: 4.65,
-    elevation: 6,
-    minWidth: 250,
-    minHeight: 150,
-    maxWidth: '80%',
+    width: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   loadingModalText: {
-    marginTop: 16,
     fontSize: 16,
     fontWeight: '500',
+    marginTop: 16,
     textAlign: 'center',
-    lineHeight: 22,
   },
   progressDotsContainer: {
     flexDirection: 'row',
-    marginTop: 20,
-    alignItems: 'center',
+    marginTop: 16,
   },
   progressDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 10,
-    marginHorizontal: 6,
-    backgroundColor: '#ccc',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginHorizontal: 4,
+  },
+  cornerDecoration: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    opacity: 0.08,
+    backgroundColor: '#FFB347',
+  },
+  topLeftCorner: {
+    top: -50,
+    left: -50,
+  },
+  bottomRightCorner: {
+    bottom: -50,
+    right: -50,
+  },
+  userInfoContainer: {
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  userInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  userInfoIcon: {
+    marginRight: 8,
+  },
+  userInfoText: {
+    fontSize: 14,
+  },
+  progressContainer: {
+    marginBottom: 16,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    borderRadius: 16,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  progressTrack: {
+    height: 14,
+    backgroundColor: 'rgba(200,200,200,0.5)',
+    borderRadius: 7,
+    marginBottom: 8,
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 7,
+  },
+  progressLabelsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  progressLabel: {
+    fontSize: 14,
+  },
+  helperText: {
+    fontSize: 11,
+    color: '#888',
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  inputIconContainer: {
+    marginRight: 12,
+    marginTop: 25,
+  },
+  inputIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  inputContent: {
+    flex: 1,
   },
 });
 

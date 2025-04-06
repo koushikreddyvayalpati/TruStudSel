@@ -43,7 +43,7 @@ export interface UserProfileData {
   zipcode?: string;
   mobile?: string;
   userphoto?: string;
-  ProductsCategoriesIntrested?: string[] | null;
+  productsCategoriesIntrested?: string[] | null;
   productsListed?: string;
   productssold?: string;
   productswishlist?: string[];
