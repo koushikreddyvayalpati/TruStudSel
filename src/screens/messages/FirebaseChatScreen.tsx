@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  StyleSheet,
   View,
   Text,
   TextInput,
   TouchableOpacity,
   FlatList,
-  StyleSheet,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -14,16 +14,17 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { MainStackParamList } from '../../types/navigation.types';
-import Ionicons from 'react-native-vector-icons/Ionicons';
 import {
-  getCurrentUser,
-  getOrCreateConversation,
   getMessages,
+  subscribeToMessages,
   sendMessage,
-  subscribeToMessages
+  getOrCreateConversation,
+  getCurrentUser
 } from '../../services/firebaseChatService';
-import { Message } from '../../types/chat.types';
+import { Message, ReceiptStatus } from '../../types/chat.types';
+import { formatMessageTime, formatMessageDate, isSameDay } from '../../utils/timestamp';
 
 // Define route params type
 type FirebaseChatScreenRouteProp = RouteProp<MainStackParamList, 'FirebaseChatScreen'>;
@@ -76,7 +77,7 @@ const FirebaseChatScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
-  const [currentUserName, setCurrentUserName] = useState<string>('');
+  const [_currentUserName, setCurrentUserName] = useState<string>('');
   const [otherUserName, setOtherUserName] = useState<string>('');
   
   // Refs
@@ -207,150 +208,43 @@ const FirebaseChatScreen = () => {
     }
   }, [inputText, conversationId]);
   
-  // Format message time
-  const formatMessageTime = (dateString: string) => {
-    try {
-      // Parse the date from string
-      const date = new Date(dateString);
-      const now = new Date();
-      
-      // Check if valid date
-      if (isNaN(date.getTime())) {
-        console.warn('[FirebaseChatScreen] Invalid date:', dateString);
-        return now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
-      }
-
-      // Correct date if it's in the future (in this case, looks like 2025)
-      // This could be due to time zone issues in Firebase or client-side
-      if (date > now) {
-        console.warn('[FirebaseChatScreen] Future date corrected:', dateString);
-        // Calculate how many hours ago (based on current time)
-        const hoursInMilliseconds = 7 * 60 * 60 * 1000; // 7 hours in ms
-        const correctedDate = new Date(now.getTime() - hoursInMilliseconds);
-        
-        // Return the corrected time
-        return correctedDate.toLocaleTimeString([], {
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true
-        });
-      }
-      
-      // If date is valid and not in the future, return formatted time
-      return date.toLocaleTimeString([], {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      });
-    } catch (error) {
-      console.error('[FirebaseChatScreen] Error formatting message time:', error, dateString);
-      return '';
-    }
-  };
-  
-  // Message item renderer
-  const renderMessage = ({ item, index }: { item: Message, index: number }) => {
+  // Render a message bubble
+  const renderMessage = ({ item }: { item: Message }) => {
     const isCurrentUser = item.senderId === currentUserEmail;
-    
-    // Check if we need to show a date header
-    const showDateHeader = index === 0 || 
-      !isSameDay(new Date(item.createdAt), new Date(messages[index - 1].createdAt));
-    
-    // Create a unique key for this message that includes the timestamp
-    const messageKey = `${item.id}_${item.createdAt}_${index}`;
-    
-    // Debug log the message timestamp for troubleshooting
-    console.log(`[FirebaseChatScreen] Rendering message ${index}:`, {
-      id: item.id,
-      content: item.content?.substring(0, 20),
-      createdAt: item.createdAt,
-      parsedDate: new Date(item.createdAt).toString()
-    });
+    const messageTime = formatMessageTime(item.createdAt);
     
     return (
-      <View key={messageKey}>
-        {showDateHeader && (
-          <View style={styles.dateHeaderContainer}>
-            <Text style={styles.dateHeaderText}>
-              {formatMessageDate(item.createdAt)}
-            </Text>
-          </View>
-        )}
-        <View style={[
-          styles.messageBubble,
-          isCurrentUser ? styles.userBubble : styles.otherBubble
-        ]}>
-          <Text style={styles.senderName}>
-            {isCurrentUser ? currentUserName || 'You' : otherUserName || item.senderName || 'User'}
-          </Text>
+      <View
+        style={[
+          styles.messageBubbleContainer,
+          isCurrentUser ? styles.sentMessageContainer : styles.receivedMessageContainer,
+        ]}
+      >
+        <View
+          style={[
+            styles.messageBubble,
+            isCurrentUser ? styles.sentMessage : styles.receivedMessage,
+          ]}
+        >
           <Text style={styles.messageText}>{item.content}</Text>
-          <Text style={styles.timeText}>{formatMessageTime(item.createdAt)}</Text>
+          <View style={styles.messageFooter}>
+            <Text style={styles.messageTime}>{messageTime}</Text>
+            
+            {isCurrentUser && (
+              <View style={styles.receiptStatus}>
+                {item.receiptStatus === ReceiptStatus.READ ? (
+                  <Icon name="checkmark-done" size={15} color="#4CAF50" />
+                ) : item.receiptStatus === ReceiptStatus.DELIVERED ? (
+                  <Icon name="checkmark-done" size={15} color="#888" />
+                ) : (
+                  <Icon name="checkmark" size={15} color="#888" />
+                )}
+              </View>
+            )}
+          </View>
         </View>
       </View>
     );
-  };
-  
-  // Helper to check if two dates are the same day
-  const isSameDay = (date1: Date, date2: Date) => {
-    return date1.getDate() === date2.getDate() &&
-           date1.getMonth() === date2.getMonth() &&
-           date1.getFullYear() === date2.getFullYear();
-  };
-  
-  // Format just the date part for the header
-  const formatMessageDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      const now = new Date();
-      
-      // Debug info
-      console.log('[FirebaseChatScreen] Formatting date:', {
-        dateString,
-        dateObject: date.toString(), 
-        timestamp: date.getTime()
-      });
-      
-      // Check if valid date
-      if (isNaN(date.getTime())) {
-        console.warn('[FirebaseChatScreen] Invalid date in header:', dateString);
-        return 'Today'; // Default to today
-      }
-      
-      // Correct date if it's in the future
-      let correctedDate = new Date(date);
-      if (date > now) {
-        console.warn('[FirebaseChatScreen] Future date corrected in header:', dateString);
-        // Calculate how many hours ago (based on current time)
-        const hoursInMilliseconds = 7 * 60 * 60 * 1000; // 7 hours in ms
-        correctedDate = new Date(now.getTime() - hoursInMilliseconds);
-      }
-      
-      // Check if it's today
-      const isToday = isSameDay(correctedDate, now);
-      
-      // Check if it's yesterday
-      const yesterday = new Date(now);
-      yesterday.setDate(now.getDate() - 1);
-      const isYesterday = isSameDay(correctedDate, yesterday);
-      
-      // Return appropriate format based on when the message was sent
-      if (isToday) {
-        return 'Today';
-      } else if (isYesterday) {
-        return 'Yesterday';
-      } else {
-        // Format date as Month Day, Year
-        return correctedDate.toLocaleDateString([], {
-          weekday: 'long',
-          month: 'long',
-          day: 'numeric',
-          year: 'numeric'
-        });
-      }
-    } catch (error) {
-      console.error('[FirebaseChatScreen] Error formatting message date:', error, dateString);
-      return 'Today'; // Default to today
-    }
   };
   
   if (isLoading) {
@@ -366,7 +260,7 @@ const FirebaseChatScreen = () => {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
+          <Icon name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{otherUserName || displayName}</Text>
         <TouchableOpacity 
@@ -382,7 +276,7 @@ const FirebaseChatScreen = () => {
             }
           }}
         >
-          <Ionicons name="person" size={20} color="#000" />
+          <Icon name="person" size={20} color="#000" />
         </TouchableOpacity>
       </View>
       
@@ -421,7 +315,7 @@ const FirebaseChatScreen = () => {
             onPress={handleSendMessage}
             disabled={!inputText.trim()}
           >
-            <Ionicons name="send" size={24} color={inputText.trim() ? "#ffb300" : "#ccc"} />
+            <Icon name="send" size={24} color={inputText.trim() ? "#ffb300" : "#ccc"} />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -474,43 +368,53 @@ const styles = StyleSheet.create({
     padding: 15,
     paddingBottom: 30,
   },
-  messageBubble: {
+  messageBubbleContainer: {
     maxWidth: '80%',
     padding: 12,
-    borderRadius: 20,
-    marginBottom: 10,
-    elevation: 1,
+    marginVertical: 5,
+    marginHorizontal: 10,
+    borderRadius: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
+    elevation: 3,
   },
-  userBubble: {
-    backgroundColor: '#ffb300',
+  messageBubble: {
+    padding: 8,
+    borderRadius: 15,
+  },
+  sentMessageContainer: {
     alignSelf: 'flex-end',
+  },
+  receivedMessageContainer: {
+    alignSelf: 'flex-start',
+  },
+  sentMessage: {
+    backgroundColor: '#ffb300',
     borderBottomRightRadius: 5,
   },
-  otherBubble: {
+  receivedMessage: {
     backgroundColor: '#fff',
-    alignSelf: 'flex-start',
     borderBottomLeftRadius: 5,
-  },
-  senderName: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginBottom: 3,
-    color: '#333',
   },
   messageText: {
     fontSize: 16,
     color: '#000',
   },
-  timeText: {
-    fontSize: 11,
-    color: '#666',
-    alignSelf: 'flex-end',
+  messageFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
     marginTop: 4,
-    fontStyle: 'italic',
+  },
+  messageTime: {
+    fontSize: 11,
+    color: '#888',
+    marginRight: 4,
+  },
+  receiptStatus: {
+    marginLeft: 2,
   },
   inputContainer: {
     flexDirection: 'row',

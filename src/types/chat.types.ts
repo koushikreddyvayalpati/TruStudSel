@@ -4,6 +4,14 @@ export enum MessageStatus {
   READ = 'READ'
 }
 
+// Message receipt status
+export enum ReceiptStatus {
+  NONE = 'NONE',        // No receipt info
+  SENT = 'SENT',        // Message was sent to the server
+  DELIVERED = 'DELIVERED', // Message was delivered to recipient's device
+  READ = 'READ'         // Message was read by recipient
+}
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -11,6 +19,8 @@ export interface Message {
   senderName: string;
   content: string;
   status?: MessageStatus;
+  receiptStatus?: ReceiptStatus; // Status of message receipt
+  readAt?: string;              // Timestamp when message was read
   createdAt: string;
   updatedAt?: string;
 }
@@ -26,6 +36,9 @@ export interface Conversation {
   createdAt: string;
   updatedAt?: string;
   owner?: string;
+  unreadCount?: number;     // Number of unread messages
+  lastReadMessageId?: string; // ID of the last message read by current user
+  // Add dynamic index signature for user-specific name mappings
   [key: string]: any;
 }
 

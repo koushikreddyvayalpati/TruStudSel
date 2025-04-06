@@ -343,6 +343,9 @@ const MessagesScreen = () => {
     const hue = nameHash % 360;
     const avatarColor = `hsl(${hue}, 60%, 60%)`;
     
+    // Check if this conversation has unread messages
+    const hasUnreadMessages = !!(item.unreadCount && item.unreadCount > 0);
+    
     return (
       <TouchableOpacity
         style={styles.conversationItem}
@@ -351,26 +354,38 @@ const MessagesScreen = () => {
       >
         <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
           <Text style={styles.avatarText}>{initials}</Text>
+          {hasUnreadMessages && (
+            <View style={styles.avatarBadge}>
+              <Text style={styles.avatarBadgeText}>
+                {item.unreadCount! > 9 ? '9+' : item.unreadCount}
+              </Text>
+            </View>
+          )}
         </View>
         
         <View style={styles.conversationContent}>
-          <View style={styles.topRow}>
-            <Text style={styles.conversationName} numberOfLines={1}>
+          <View style={styles.conversationHeader}>
+            <Text style={[styles.conversationName, hasUnreadMessages && styles.unreadText]}>
               {displayName}
             </Text>
-            <Text style={styles.timeText}>
-              {timeDisplay}
-            </Text>
+            <Text style={styles.conversationTime}>{timeDisplay}</Text>
           </View>
-          
-          <View style={styles.bottomRow}>
-            <Text style={styles.messagePreview} numberOfLines={1}>
+          <View style={styles.conversationPreview}>
+            <Text 
+              style={[
+                styles.conversationMessage, 
+                hasUnreadMessages && styles.unreadText
+              ]} 
+              numberOfLines={2}
+            >
               {truncatedMessage}
             </Text>
-            
-            {/* Optional dot for unread messages */}
-            {false && (
-              <View style={styles.unreadDot} />
+            {hasUnreadMessages && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>
+                  {item.unreadCount}
+                </Text>
+              </View>
             )}
           </View>
         </View>
@@ -671,7 +686,7 @@ const styles = StyleSheet.create({
   conversationContent: {
     flex: 1,
   },
-  topRow: {
+  conversationHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -684,27 +699,39 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 12,
   },
-  timeText: {
+  conversationTime: {
     fontSize: 12,
     color: '#888',
   },
-  bottomRow: {
+  conversationPreview: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  messagePreview: {
+  conversationMessage: {
     fontSize: 14,
     color: '#666',
     flex: 1,
     marginRight: 8,
   },
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#ffb300',
+  unreadText: {
+    fontWeight: 'bold',
+    color: '#000',
+  },
+  unreadBadge: {
+    backgroundColor: '#ff6b6b',
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginLeft: 8,
+    paddingHorizontal: 4,
+  },
+  unreadBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   separator: {
     height: 0,
@@ -813,7 +840,26 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.8,
     shadowRadius: 5,
     elevation: 5,
-  }
+  },
+  avatarBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#ff3b30',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+    borderWidth: 1.5,
+    borderColor: '#fff',
+  },
+  avatarBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
 });
 
 export default MessagesScreen;

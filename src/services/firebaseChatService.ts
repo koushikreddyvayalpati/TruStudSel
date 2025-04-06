@@ -9,11 +9,12 @@ import {
   updateDoc,
   onSnapshot,
   serverTimestamp,
-  setDoc
+  setDoc,
+  increment
 } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from './firebaseService';
-import { Conversation, Message, MessageStatus } from '../types/chat.types';
+import { Conversation, Message, MessageStatus, ReceiptStatus } from '../types/chat.types';
 import { Auth } from 'aws-amplify';
 
 /**
@@ -124,7 +125,7 @@ const safeTimestampToISOString = (timestamp: any): string => {
 };
 
 /**
- * Get all conversations for the current user
+ * Get all conversations for the current user with unread counts
  */
 export const getConversations = async (): Promise<Conversation[]> => {
   try {
@@ -146,6 +147,11 @@ export const getConversations = async (): Promise<Conversation[]> => {
     const conversations: Conversation[] = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
+      
+      // Get user-specific unread count
+      const unreadCountKey = `unreadCount_${user.email.replace(/[.@]/g, '_')}`;
+      const unreadCount = data[unreadCountKey] || 0;
+      
       conversations.push({
         id: doc.id,
         name: data.name,
@@ -154,7 +160,10 @@ export const getConversations = async (): Promise<Conversation[]> => {
         lastMessageTime: safeTimestampToISOString(data.lastMessageTime),
         createdAt: safeTimestampToISOString(data.createdAt),
         updatedAt: safeTimestampToISOString(data.updatedAt),
-        owner: data.owner
+        owner: data.owner,
+        lastSenderId: data.lastSenderId,
+        unreadCount: unreadCount,
+        lastReadMessageId: data[`lastReadMessageId_${user.email.replace(/[.@]/g, '_')}`]
       });
     });
     
@@ -333,6 +342,8 @@ export const getMessages = async (conversationId: string): Promise<Message[]> =>
         senderName: data.senderName || '',
         content: data.content || '',
         status: data.status || MessageStatus.SENT,
+        receiptStatus: data.receiptStatus || ReceiptStatus.NONE,
+        readAt: data.readAt ? safeTimestampToISOString(data.readAt) : undefined,
         createdAt: validCreatedAt,
         updatedAt: safeTimestampToISOString(data.updatedAt)
       });
@@ -378,6 +389,14 @@ export const sendMessage = async (conversationId: string, content: string): Prom
       minutes: now.getMinutes()
     });
     
+    // Get the conversation to find the other participant
+    const conversation = await getConversation(conversationId);
+    if (!conversation) throw new Error('Conversation not found');
+    
+    // Find the other participant (receiver)
+    const otherParticipant = conversation.participants.find(p => p !== user.email);
+    if (!otherParticipant) throw new Error('Recipient not found in conversation');
+    
     // Create message data with explicit timestamp values
     const messageData = {
       id: messageId,
@@ -386,6 +405,7 @@ export const sendMessage = async (conversationId: string, content: string): Prom
       senderName: senderName,
       content,
       status: MessageStatus.SENT,
+      receiptStatus: ReceiptStatus.SENT,
       // Use explicit date strings instead of serverTimestamp()
       createdAt: nowISO,
       updatedAt: nowISO
@@ -394,11 +414,16 @@ export const sendMessage = async (conversationId: string, content: string): Prom
     // Add message to conversation's messages subcollection
     await setDoc(doc(db, 'conversations', conversationId, 'messages', messageId), messageData);
     
-    // Update conversation with last message details (also using explicit timestamp)
+    // Increment unread count for the recipient
+    const recipientUnreadCountKey = `unreadCount_${otherParticipant.replace(/[.@]/g, '_')}`;
+    
+    // Update conversation with last message details and increment unread count
     await updateDoc(doc(db, 'conversations', conversationId), {
       lastMessageContent: content,
       lastMessageTime: nowISO,
-      updatedAt: nowISO
+      updatedAt: nowISO,
+      lastSenderId: user.email,
+      [recipientUnreadCountKey]: increment(1)  // Import increment from firebase/firestore
     });
     
     return;
@@ -463,6 +488,8 @@ export const subscribeToMessages = (
               senderName: data.senderName || '',
               content: data.content || '',
               status: data.status || MessageStatus.SENT,
+              receiptStatus: data.receiptStatus || ReceiptStatus.NONE,
+              readAt: data.readAt ? safeTimestampToISOString(data.readAt) : undefined,
               createdAt: validCreatedAt,
               updatedAt: safeTimestampToISOString(data.updatedAt)
             });
@@ -512,13 +539,40 @@ const markMessagesAsRead = async (
     
     // Find messages from other users that are not marked as READ
     const messagesToUpdate = messages.filter(
-      msg => msg.senderId !== currentUserEmail && msg.status !== MessageStatus.READ
+      msg => msg.senderId !== currentUserEmail && 
+             (msg.status !== MessageStatus.READ || msg.receiptStatus !== ReceiptStatus.READ)
     );
     
+    if (messagesToUpdate.length === 0) return;
+    
+    console.log('[firebaseChatService] Marking messages as read:', messagesToUpdate.length);
+    
+    // Get the conversation reference to update unread counts later
+    const conversationRef = doc(db, 'conversations', conversationId);
+    
     // Update each message status
-    for (const message of messagesToUpdate) {
-      await updateMessageStatus(conversationId, message.id, MessageStatus.READ);
-    }
+    const now = new Date().toISOString();
+    const updatePromises = messagesToUpdate.map(async (message) => {
+      const messageRef = doc(db, 'conversations', conversationId, 'messages', message.id);
+      return updateDoc(messageRef, {
+        status: MessageStatus.READ,
+        receiptStatus: ReceiptStatus.READ,
+        readAt: now,
+        updatedAt: now
+      });
+    });
+    
+    await Promise.all(updatePromises);
+    
+    // Reset unread count for this conversation for the current user
+    const unreadCountKey = `unreadCount_${currentUserEmail.replace(/[.@]/g, '_')}`;
+    await updateDoc(conversationRef, {
+      [unreadCountKey]: 0,
+      updatedAt: now
+    });
+    
+    console.log('[firebaseChatService] Successfully marked messages as read');
+    
   } catch (error) {
     console.error('[firebaseChatService] Error marking messages as read:', error);
   }
