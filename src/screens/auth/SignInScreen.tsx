@@ -1,11 +1,17 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   Alert,
   Pressable,
-  Image
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  TouchableWithoutFeedback,
+  Keyboard,
+  SafeAreaView
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SignInScreenNavigationProp } from '../../types/navigation.types';
@@ -21,6 +27,24 @@ const SignInScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const { signIn } = useAuth();
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  // Keyboard listeners
+  useEffect(() => {
+    const keyboardWillShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const keyboardWillHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+
+    return () => {
+      keyboardWillShowListener.remove();
+      keyboardWillHideListener.remove();
+    };
+  }, []);
 
   // Define loading steps
   const loadingSteps = useMemo(() => [
@@ -142,78 +166,108 @@ const SignInScreen: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Loading overlay */}
-      <LoadingOverlay
-        visible={loading}
-        steps={loadingSteps}
-        currentStep={loadingStep}
-        showProgressDots={true}
-      />
-      
-      <View style={styles.logoContainer}>
-        <Text style={styles.logoText}>TruStudSel</Text>
-        <Image 
-          source={require('../../../assets/Group.jpg')} 
-          style={styles.logoImage}
-          resizeMode="contain"
-        />
-      </View>
-      
-      <View style={styles.formContainer}>
-      <TextInput
-          label="Email"
-          value={username}
-          onChangeText={setUsername}
-          placeholder="Enter your email"
-          leftIcon={<FontAwesome name="user" size={22} color="grey" />}
-          containerStyle={styles.inputContainer}
-        />
-        
-        <TextInput
-          label="Password"
-          value={password}
-          onChangeText={setPassword}
-          placeholder="Enter your password"
-          secureTextEntry
-          isPassword
-          leftIcon={<MaterialIcons name="lock" size={22} color="grey" />}
-          containerStyle={styles.inputContainer}
-        />
-        
-        <Text 
-          style={styles.forgotPassword}
-          onPress={() => navigation.navigate('ForgotPassword')}
-        >
-          Forgot Password?
-        </Text>
-        
-        <Pressable
-          onPress={handleLogin}
-          style={({ pressed }) => [
-            styles.loginButton,
-            pressed && styles.buttonPressed,
-            loading && styles.buttonDisabled
-          ]}
-          android_ripple={{ color: 'rgba(255, 255, 255, 0.3)' }}
-          disabled={loading}
-        >
-          <Text style={styles.buttonText}>Login</Text>
-        </Pressable>
-        
-        <Pressable
-          onPress={() => navigation.navigate('EmailVerification', { email: '' })}
-          style={({ pressed }) => [
-            styles.createAccountButton,
-            pressed && styles.buttonPressed
-          ]}
-          android_ripple={{ color: 'rgba(255, 255, 255, 0.3)' }}
-          disabled={loading}
-        >
-          <Text style={styles.buttonText}>Create Account</Text>
-        </Pressable>
-      </View>
-    </View>
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView 
+            contentContainerStyle={styles.scrollContainer}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            {/* Loading overlay */}
+            <LoadingOverlay
+              visible={loading}
+              steps={loadingSteps}
+              currentStep={loadingStep}
+              showProgressDots={true}
+            />
+            
+            <View style={[styles.logoContainer, keyboardVisible && styles.logoContainerCompressed]}>
+              <Text style={styles.logoText}>TruStudSel</Text>
+              <Text style={styles.tagline}>The Trusted Student Marketplace</Text>
+              
+              {!keyboardVisible && (
+                <Image 
+                  source={require('../../../assets/Group.jpg')} 
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                />
+              )}
+            </View>
+            
+            <View style={styles.formContainer}>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  label="University Email"
+                  value={username}
+                  onChangeText={setUsername}
+                  placeholder="Enter your .edu email"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  leftIcon={<FontAwesome name="envelope" size={20} color="#888" />}
+                  placeholderTextColor="#999"
+                />
+              </View>
+              
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  label="Password"
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Enter your password"
+                  secureTextEntry
+                  isPassword
+                  leftIcon={<MaterialIcons name="lock" size={22} color="#888" />}
+                  placeholderTextColor="#999"
+                />
+              </View>
+              
+              <Text 
+                style={styles.forgotPassword}
+                onPress={() => navigation.navigate('ForgotPassword')}
+              >
+                Forgot Password?
+              </Text>
+              
+              <Pressable
+                onPress={handleLogin}
+                style={({ pressed }) => [
+                  styles.loginButton,
+                  pressed && styles.buttonPressed,
+                  loading && styles.buttonDisabled
+                ]}
+                android_ripple={{ color: 'rgba(255, 255, 255, 0.3)' }}
+                disabled={loading}
+              >
+                <Text style={styles.buttonText}>Sign In</Text>
+              </Pressable>
+              
+              <View style={styles.dividerContainer}>
+                <View style={styles.divider} />
+                <Text style={styles.dividerText}>OR</Text>
+                <View style={styles.divider} />
+              </View>
+              
+              <Pressable
+                onPress={() => navigation.navigate('EmailVerification', { email: '' })}
+                style={({ pressed }) => [
+                  styles.createAccountButton,
+                  pressed && styles.buttonPressed
+                ]}
+                android_ripple={{ color: 'rgba(255, 255, 255, 0.3)' }}
+                disabled={loading}
+              >
+                <Text style={styles.buttonText}>Create Account</Text>
+              </Pressable>
+            </View>
+          </ScrollView>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
@@ -222,102 +276,88 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'white',
   },
+  scrollContainer: {
+    flexGrow: 1,
+    paddingBottom: 30,
+  },
   logoContainer: {
     alignItems: 'center',
-    paddingTop: 60,
+    paddingTop: 10,
+    paddingBottom: 0,
+  },
+  logoContainerCompressed: {
+    paddingTop: 30,
     paddingBottom: 0,
   },
   logoText: {
     fontSize: 32,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#f7b305',
-    marginTop: 30,
+    marginTop: 20,
     letterSpacing: 0,
-    fontFamily:'Montserrat'
+    fontFamily: 'Montserrat',
+  },
+  tagline: {
+    fontSize: 18,
+    color: '#333',
+    marginTop: 0,
+    fontFamily: 'Montserrat',
+    letterSpacing: 0.3,
+    textAlign: 'center',
   },
   logoImage: {
-    width: 220,
-    height: 220,
-    marginLeft: 10,
+    width: 200,
+    height: 200,
     marginTop: 10,
-  },
-  userIcon: {
-    textAlign: 'center',
   },
   formContainer: {
     paddingHorizontal: 30,
     marginTop: 0,
-    paddingTop: 10,
+    paddingTop: 0,
     flex: 1,
   },
   inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    marginBottom: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    height: 52,
-    shadowColor: 'rgba(0,0,0,0.03)',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
+    marginBottom: 4,
   },
-  inputIcon: {
-    marginRight: 12,
-    width: 22,
-    height: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    opacity: 0.5,
-    color: '#888',
-  },
-  inputContainer: {
-    marginBottom: 16,
-    backgroundColor: 'f3f3f3',
-  },
-  input: {
-    fontSize: 16,
-    fontWeight: '400',
+  inputLabel: {
+    fontSize: 14,
     color: '#333',
-    letterSpacing: 0.2,
+    fontWeight: '600',
+    marginBottom: 5,
+    marginLeft: 4,
+    letterSpacing: 0.3,
   },
   forgotPassword: {
     color: '#4A90E2',
     textAlign: 'right',
-    marginBottom: 10,
-    marginTop: 5,
+    marginBottom: 5,
+    marginTop: -2,
     fontSize: 14,
     fontWeight: '500',
-    textDecorationLine: 'underline',
   },
   loginButton: {
     backgroundColor: '#f7b305',
-    borderRadius: 10,
-    padding: 16,
-    marginVertical: 10,
-    shadowColor: 'rgba(0,0,0,0.1)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    borderRadius: 12,
+    padding: 18,
+    marginTop: 10,
+    shadowColor: 'rgba(247,179,5,0.4)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
   createAccountButton: {
-    backgroundColor: '#f7b305',
-    borderRadius: 10,
-    padding: 16,
-    marginTop: 15,
-    shadowColor: 'rgba(0,0,0,0.1)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: 'black',
+    borderRadius: 12,
+    padding: 18,
+    marginTop: 5,
+    shadowColor: 'rgba(0,0,0,0.2)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -331,11 +371,27 @@ const styles = StyleSheet.create({
   buttonPressed: {
     opacity: 0.9,
     transform: [{ scale: 0.985 }],
-    backgroundColor: '#e6a700',
   },
   buttonDisabled: {
     backgroundColor: '#d0d0d0',
     opacity: 0.7,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E0E0E0',
+  },
+  dividerText: {
+    marginHorizontal: 10,
+    color: '#888',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
 

@@ -110,25 +110,35 @@ const TextInput: React.FC<TextInputProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   label: {
     fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 6,
+    fontWeight: '600',
+    marginBottom: 8,
     color: colors.textPrimary,
+    letterSpacing: 0.3,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    backgroundColor: colors.white,
-    height: 48,
+    borderColor: '#e0e0e0',
+    borderRadius: 12,
+    backgroundColor: '#f8f8f8',
+    height: 58,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   focusedInputContainer: {
     borderColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   errorInputContainer: {
     borderColor: colors.error,
@@ -136,26 +146,20 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     height: '100%',
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     fontSize: 16,
     color: colors.textPrimary,
   },
-  inputWithLeftIcon: {
-    paddingLeft: 8,
-  },
-  inputWithRightIcon: {
-    paddingRight: 8,
-  },
   leftIcon: {
-    paddingLeft: 12,
+    paddingLeft: 16,
   },
   rightIcon: {
-    paddingRight: 12,
+    paddingRight: 16,
   },
   errorText: {
     fontSize: 12,
     color: colors.error,
-    marginTop: 4,
+    marginTop: 6,
   },
   togglePasswordText: {
     color: colors.primary,

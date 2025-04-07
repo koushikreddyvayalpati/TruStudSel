@@ -317,7 +317,7 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
                 placeholder="Enter your full name"
                 autoCapitalize="words"
                 containerStyle={styles.inputContainer}
-                leftIcon={<Entypo name="user" size={20} color={theme.colors.secondary} />}
+                leftIcon={<Entypo name="user" size={20} color={"#888"} />}
               />
               
               <TextInput
@@ -328,7 +328,7 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
                 keyboardType="email-address"
                 autoCapitalize="none"
                 containerStyle={styles.inputContainer}
-                leftIcon={<Entypo name="mail" size={20} color={theme.colors.secondary} />}
+                leftIcon={<Entypo name="mail" size={20} color={"#888"} />}
               />
               
               <TextInput
@@ -338,7 +338,7 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
                 placeholder="Enter with country code (e.g., +1...)"
                 keyboardType="phone-pad"
                 containerStyle={styles.inputContainer}
-                leftIcon={<Entypo name="phone" size={20} color={theme.colors.secondary} />}
+                leftIcon={<Entypo name="phone" size={20} color={"#888"} />}
               />
             </View>
             
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     width: '100%',
-    marginBottom: 10,
+    marginBottom: 0,
   },
   inputContainer: {
     marginBottom: 20,
