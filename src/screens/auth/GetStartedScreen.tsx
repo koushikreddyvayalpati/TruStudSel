@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -8,6 +8,7 @@ import {
   Dimensions, 
   ImageBackground
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GetStartedScreenNavigationProp } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
 
@@ -19,6 +20,24 @@ interface GetStartedScreenProps {
 
 const GetStartedScreen: React.FC<GetStartedScreenProps> = ({ navigation }) => {
   const { theme } = useTheme();
+  
+  // Mark that user has seen get started screen when they view it
+  useEffect(() => {
+    const markAsSeen = async () => {
+      try {
+        await AsyncStorage.setItem('@has_seen_get_started', 'true');
+      } catch (error) {
+        console.error('Error saving onboarding status:', error);
+      }
+    };
+    
+    markAsSeen();
+  }, []);
+  
+  const handleGetStarted = async () => {
+    // Navigate to the next screen
+    navigation.navigate('Onboarding');
+  };
   
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -39,7 +58,7 @@ const GetStartedScreen: React.FC<GetStartedScreenProps> = ({ navigation }) => {
         <Text style={styles.trustText}>Sell</Text>
         <TouchableOpacity 
           style={[styles.getStartedButton, { backgroundColor: theme.colors.secondaryDark }]}
-          onPress={() => navigation.navigate('Onboarding')}
+          onPress={handleGetStarted}
         >
           <Text style={[styles.getStartedText, { color: theme.colors.buttonText }]}>Get Started</Text>
         </TouchableOpacity>

@@ -59,10 +59,74 @@ const SignInScreen: React.FC = () => {
         setLoading(false);
       }, 800);
       
-    } catch (error) {
-      console.error('Login error:', error);
+    } catch (err) {
       setLoading(false);
-      Alert.alert('Login Error', (error as Error).message || 'Failed to sign in');
+      
+      // Capture error details
+      let errorName = '';
+      let errorMessage = '';
+      
+      if (err && typeof err === 'object') {
+        errorName = (err as any).name || '';
+        errorMessage = (err as any).message || '';
+        
+        if (!errorMessage && (err as any).toString) {
+          const errString = (err as any).toString();
+          if (errString !== '[object Object]') {
+            errorMessage = errString;
+          }
+        }
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      }
+      
+      // Handle UserNotFoundException specifically - No console.error needed here as it's handled by the alert
+      if (errorName === 'UserNotFoundException' || 
+          errorMessage.includes('User does not exist') || 
+          errorMessage.includes('user does not exist')) {
+        
+        // Log specifically for debugging if needed, but not as an error
+        console.log('Handled UserNotFoundException - showing alert.');
+        
+        Alert.alert(
+          'Account Not Found', 
+          'We couldn\'t find an account with this email. Please check your email or create a new account.',
+          [
+            { 
+              text: 'Sign Up', 
+              onPress: () => {
+                console.log('Navigating to email verification...');
+                navigation.navigate('EmailVerification', { email: username });
+              }
+            },
+            { text: 'Try Again', style: 'cancel' }
+          ],
+          { cancelable: true }
+        );
+        return; // Important: Exit after handling this specific error
+      }
+      
+      // Log other errors before showing a generic alert
+      console.error('Login error (unhandled type):', err);
+      
+      // Handle other common auth errors
+      if (errorName === 'NotAuthorizedException' || 
+          errorMessage.includes('Incorrect username or password')) {
+        Alert.alert(
+          'Login Error', 
+          'Incorrect password. Please try again.',
+          [{ text: 'OK', style: 'cancel' }],
+          { cancelable: true }
+        );
+      } else {
+        // Generic error alert for anything else
+        Alert.alert(
+          'Login Error', 
+          errorMessage || 'Failed to sign in',
+          [{ text: 'OK', style: 'cancel' }],
+          { cancelable: true }
+        );
+      }
     }
   };
 

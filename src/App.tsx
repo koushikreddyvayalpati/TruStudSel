@@ -55,7 +55,7 @@ const App: React.FC = () => {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <AuthProvider>
+        <AuthProvider key="auth-provider-latest">
           <ProductsProvider>
             <WishlistProvider>
               <CartProvider>

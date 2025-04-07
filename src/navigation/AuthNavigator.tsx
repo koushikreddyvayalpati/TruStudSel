@@ -3,7 +3,6 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { AuthStackParamList } from '../types/navigation.types';
 
 // Import auth screens
-// Import migrated screens from new structure
 import { 
   SignInScreen, 
   GetStartedScreen, 
@@ -13,9 +12,6 @@ import {
   ProfileFillingScreen,
   ForgotPasswordScreen
 } from '../screens/auth';
-
-// These imports will need to be updated once we migrate the existing screens
-// No more imports from the old structure - all screens have been migrated!
 
 const Stack = createStackNavigator<AuthStackParamList>();
 
@@ -34,27 +30,27 @@ const AuthNavigator: React.FC = () => {
       />
       <Stack.Screen 
         name="Onboarding"
-        component={OnboardingScreen} 
+        component={OnboardingScreen}
       />
       <Stack.Screen 
         name="SignIn"
-        component={SignInScreen} 
+        component={SignInScreen}
       />
       <Stack.Screen 
         name="EmailVerification"
-        component={EmailVerificationScreen} 
+        component={EmailVerificationScreen}
       />
       <Stack.Screen 
         name="OtpInput"
-        component={OtpInputScreen} 
+        component={OtpInputScreen}
       />
       <Stack.Screen 
         name="ProfileFillingPage"
-        component={ProfileFillingScreen} 
+        component={ProfileFillingScreen}
       />
       <Stack.Screen 
         name="ForgotPassword"
-        component={ForgotPasswordScreen} 
+        component={ForgotPasswordScreen}
       />
     </Stack.Navigator>
   );

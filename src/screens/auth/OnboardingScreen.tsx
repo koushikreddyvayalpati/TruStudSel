@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -8,6 +8,7 @@ import {
   Dimensions,
   SafeAreaView
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OnboardingScreenNavigationProp } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
 
@@ -20,11 +21,33 @@ interface OnboardingScreenProps {
 const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }) => {
   const { theme } = useTheme();
   
+  // Mark that user has seen onboarding
+  useEffect(() => {
+    const markAsSeen = async () => {
+      try {
+        await AsyncStorage.setItem('@has_seen_get_started', 'true');
+        await AsyncStorage.setItem('@has_seen_onboarding', 'true');
+      } catch (error) {
+        console.error('Error saving onboarding status:', error);
+      }
+    };
+    
+    markAsSeen();
+  }, []);
+  
+  const handleSkip = async () => {
+    navigation.navigate('SignIn');
+  };
+  
+  const handleNext = async () => {
+    navigation.navigate('SignIn');
+  };
+  
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.header}>
         <Text style={styles.pageIndicator}>1/3</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('SignIn')}>
+        <TouchableOpacity onPress={handleSkip}>
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
       </View>
@@ -54,7 +77,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }) => {
         
         <TouchableOpacity 
           style={[styles.nextButton]}
-          onPress={() => navigation.navigate('SignIn')}
+          onPress={handleNext}
         >
           <Text style={styles.nextButtonText}>Next</Text>
         </TouchableOpacity>
