@@ -30,10 +30,21 @@ const SignInScreen: React.FC = () => {
   ], []);
 
   const handleLogin = async () => {
+    // 1. Check if fields are empty
     if (!username || !password) {
-      Alert.alert('Error', 'Please enter both username and password');
+      Alert.alert('Error', 'Please enter both your .edu email and password');
       return;
     }
+    
+    // 2. Validate email format (.edu)
+    if (!username.includes('@') || !username.toLowerCase().endsWith('.edu')) {
+      Alert.alert(
+        'Invalid Email', 
+        'Please use your university email address ending with .edu to sign in.'
+      );
+      return;
+    }
+    
     setLoading(true);
     setLoadingStep(0);
     
