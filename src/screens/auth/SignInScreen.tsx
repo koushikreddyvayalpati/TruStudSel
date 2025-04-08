@@ -228,7 +228,10 @@ const SignInScreen: React.FC = () => {
               
               <Text 
                 style={styles.forgotPassword}
-                onPress={() => navigation.navigate('ForgotPassword')}
+                onPress={() => {
+                  console.log('Navigating to ForgotPassword screen');
+                  navigation.navigate('ForgotPassword');
+                }}
               >
                 Forgot Password?
               </Text>
@@ -309,6 +312,7 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     marginTop: 10,
+   
   },
   formContainer: {
     paddingHorizontal: 30,

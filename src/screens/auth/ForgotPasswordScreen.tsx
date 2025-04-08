@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -7,19 +7,26 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  ScrollView
+  ScrollView,
+  SafeAreaView,
+  Image,
+  Animated,
+  Keyboard
 } from 'react-native';
 import { Auth } from 'aws-amplify';
+import { useNavigation } from '@react-navigation/native';
 import { ForgotPasswordScreenNavigationProp } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
 import { TextInput, LoadingOverlay } from '../../components/common';
 import * as validation from '../../utils/validation';
+import Entypo from 'react-native-vector-icons/Entypo';
+import LinearGradient from 'react-native-linear-gradient';
 
-interface ForgotPasswordScreenProps {
-  navigation: ForgotPasswordScreenNavigationProp;
-}
+// For consistent logging in development
+const SCREEN_NAME = 'ForgotPassword';
 
-const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation }) => {
+const ForgotPasswordScreen: React.FC = () => {
+  const navigation = useNavigation<ForgotPasswordScreenNavigationProp>();
   const { theme } = useTheme();
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -31,7 +38,45 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  // Animated values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
   
+  // Keyboard listeners
+  useEffect(() => {
+    const keyboardWillShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const keyboardWillHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+
+    // Animate elements when the screen loads
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true,
+      })
+    ]).start();
+
+    return () => {
+      keyboardWillShowListener.remove();
+      keyboardWillHideListener.remove();
+      fadeAnim.setValue(0);
+      slideAnim.setValue(50);
+    };
+  }, [fadeAnim, slideAnim]);
+
   // Define loading steps for each process
   const sendCodeLoadingSteps = useMemo(() => [
     { id: 'sending', message: 'Sending verification code...' },
@@ -43,15 +88,29 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
     { id: 'success', message: 'Password reset successful!' }
   ], []);
 
+  // Function to log important actions for easier debugging
+  const logDebug = (message: string, data?: any) => {
+    if (data) {
+      console.log(`[${SCREEN_NAME}] ${message}`, data);
+    } else {
+      console.log(`[${SCREEN_NAME}] ${message}`);
+    }
+  };
+
+  // Log navigation for debugging
+  useEffect(() => {
+    console.log('ForgotPassword screen navigation:', navigation);
+  }, [navigation]);
+
   const validateEmail = (): boolean => {
     if (!email) {
       setEmailError('Email is required');
       return false;
     }
     
-    const emailValidationError = validation.getEmailValidationError(email);
-    if (emailValidationError) {
-      setEmailError(emailValidationError);
+    // Check for .edu email
+    if (!email.includes('@') || !email.toLowerCase().endsWith('.edu')) {
+      setEmailError('Please use your university email address ending with .edu');
       return false;
     }
     
@@ -88,6 +147,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
   };
 
   const handleSendCode = async () => {
+    logDebug('Attempting to send verification code');
     if (!validateEmail()) {
       return;
     }
@@ -97,6 +157,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
     
     try {
       await Auth.forgotPassword(email);
+      logDebug('Verification code sent successfully');
       
       // Show success message briefly
       setLoadingStep(1);
@@ -106,13 +167,14 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
       }, 1000);
       
     } catch (error: any) {
-      console.error('Error:', error);
+      logDebug('Error sending verification code', error);
       setLoading(false);
       Alert.alert('Error', error.message || 'Failed to send verification code');
     }
   };
 
   const handleResetPassword = async () => {
+    logDebug('Attempting to reset password');
     if (!validatePasswordReset()) {
       return;
     }
@@ -122,6 +184,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
     
     try {
       await Auth.forgotPasswordSubmit(email, code, newPassword);
+      logDebug('Password reset successfully');
       
       // Show success message briefly
       setLoadingStep(1);
@@ -133,207 +196,306 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
       }, 1000);
       
     } catch (error: any) {
-      console.error('Error:', error);
+      logDebug('Error resetting password', error);
       setLoading(false);
       Alert.alert('Error', error.message || 'Failed to reset password');
     }
   };
 
-  const handleBackPress = () => {
-    if (step === 1) {
-      navigation.goBack();
-    } else {
-      setStep(1);
-      setCode('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setPasswordError('');
-      setConfirmPasswordError('');
-    }
-  };
-
   return (
-    <KeyboardAvoidingView 
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
-    >
-      {/* Loading overlay for sending code */}
-      <LoadingOverlay
-        visible={loading && step === 1}
-        steps={sendCodeLoadingSteps}
-        currentStep={loadingStep}
-        showProgressDots={true}
-      />
-      
-      {/* Loading overlay for resetting password */}
-      <LoadingOverlay
-        visible={loading && step === 2}
-        steps={resetPasswordLoadingSteps}
-        currentStep={loadingStep}
-        showProgressDots={true}
-      />
-      
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.contentContainer}>
-          <Text style={[styles.title, { color: theme.colors.primary }]}>Reset Password</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidingView}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Loading overlays */}
+          <LoadingOverlay
+            visible={loading && step === 1}
+            steps={sendCodeLoadingSteps}
+            currentStep={loadingStep}
+            showProgressDots={true}
+          />
           
-          {step === 1 ? (
-            <>
-              <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-                Enter your email to receive a verification code
-              </Text>
-              
-              <TextInput
-                label="Email"
-                value={email}
-                onChangeText={(text) => {
-                  setEmail(text);
-                  if (emailError) setEmailError('');
-                }}
-                placeholder="Enter your email"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                error={emailError}
-                containerStyle={styles.inputContainer}
-              />
-              
-              <TouchableOpacity 
-                style={[
-                  styles.button, 
-                  { backgroundColor: loading ? 'rgba(150,150,150,0.5)' : theme.colors.primary }
-                ]}
-                onPress={handleSendCode}
-                disabled={loading}
-              >
-                <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
-                  Send Code
-                </Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-                Enter the verification code and your new password
-              </Text>
-              
-              <TextInput
-                label="Verification Code"
-                value={code}
-                onChangeText={setCode}
-                placeholder="Enter verification code"
-                keyboardType="number-pad"
-                containerStyle={styles.inputContainer}
-              />
-              
-              <TextInput
-                label="New Password"
-                value={newPassword}
-                onChangeText={(text) => {
-                  setNewPassword(text);
-                  if (passwordError) setPasswordError('');
-                  if (confirmPasswordError && text === confirmPassword) {
-                    setConfirmPasswordError('');
-                  }
-                }}
-                placeholder="Enter new password"
-                secureTextEntry
-                isPassword
-                error={passwordError}
-                containerStyle={styles.inputContainer}
-              />
-              
-              <TextInput
-                label="Confirm Password"
-                value={confirmPassword}
-                onChangeText={(text) => {
-                  setConfirmPassword(text);
-                  if (confirmPasswordError && text === newPassword) {
-                    setConfirmPasswordError('');
-                  }
-                }}
-                placeholder="Confirm new password"
-                secureTextEntry
-                isPassword
-                error={confirmPasswordError}
-                containerStyle={styles.inputContainer}
-              />
-              
-              <TouchableOpacity 
-                style={[
-                  styles.button, 
-                  { backgroundColor: loading ? 'rgba(150,150,150,0.5)' : theme.colors.primary }
-                ]}
-                onPress={handleResetPassword}
-                disabled={loading}
-              >
-                <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
-                  Reset Password
-                </Text>
-              </TouchableOpacity>
-            </>
-          )}
+          <LoadingOverlay
+            visible={loading && step === 2}
+            steps={resetPasswordLoadingSteps}
+            currentStep={loadingStep}
+            showProgressDots={true}
+          />
           
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={handleBackPress}
-            disabled={loading}
+          {/* Back button header */}
+          <View style={styles.header}>
+            <TouchableOpacity 
+              onPress={() => {
+                logDebug('Back button pressed');
+                if (step !== 1) {
+                  // If on step 2, go back to step 1
+                  logDebug('Returning to step 1');
+                  setStep(1);
+                  setCode('');
+                  setNewPassword('');
+                  setConfirmPassword('');
+                  setPasswordError('');
+                  setConfirmPasswordError('');
+                } else {
+                  // If on step 1, go back to SignIn
+                  logDebug('Navigating to SignIn');
+                  navigation.navigate('SignIn');
+                }
+              }}
+              style={[styles.backButton, { zIndex: 999 }]}
+              activeOpacity={0.5}
+              hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+            >
+              <Entypo name="chevron-left" size={28} color={theme.colors.secondary} />
+            </TouchableOpacity>
+          </View>
+          
+          <Animated.View 
+            style={[
+              styles.contentContainer,
+              { 
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }]
+              }
+            ]}
           >
-            <Text style={[
-              styles.backButtonText, 
-              { color: loading ? 'rgba(150,150,150,0.5)' : theme.colors.primary }
-            ]}>
-              {step === 1 ? 'Back to Login' : 'Back'}
+            <Text style={[styles.title, { color: theme.colors.secondary }]}>
+              {step === 1 ? 'Reset' : 'Create New'}
             </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+            <Text style={[styles.title, { color: theme.colors.secondary }]}>
+              {step === 1 ? 'Password' : 'Password'}
+            </Text>
+            
+            {!keyboardVisible && (
+              <View style={styles.imageContainer}>
+                <Image 
+                  source={require('../../../assets/password.png')} 
+                  style={styles.image}
+                  resizeMode="contain"
+                />
+              </View>
+            )}
+            
+            {step === 1 ? (
+              <>
+                <View style={styles.formContainer}>
+                  <TextInput
+                    label="University Email (.edu)"
+                    value={email}
+                    onChangeText={(text) => {
+                      setEmail(text);
+                      if (emailError) setEmailError('');
+                    }}
+                    placeholder="Enter your .edu email"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    error={emailError}
+                    touched={!!emailError}
+                    leftIcon={<Entypo name="mail" size={20} color={theme.colors.secondary} />}
+                  />
+                  
+                  <View style={styles.buttonContainer}>
+                    <TouchableOpacity
+                      onPress={handleSendCode}
+                      disabled={loading}
+                      activeOpacity={0.7}
+                      style={styles.continueButtonWrapper}
+                    >
+                      <LinearGradient
+                        colors={['#f7b305', '#f7d305']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[styles.continueButton, loading && { opacity: 0.7 }]}
+                      >
+                        <Text style={styles.buttonText}>Send Reset Code</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={styles.formContainer}>
+                  <TextInput
+                    label="Verification Code"
+                    value={code}
+                    onChangeText={setCode}
+                    placeholder="Enter the 6-digit code"
+                    keyboardType="number-pad"
+                    leftIcon={<Entypo name="key" size={20} color={theme.colors.secondary} />}
+                  />
+                  
+                  <TextInput
+                    label="New Password"
+                    value={newPassword}
+                    onChangeText={(text) => {
+                      setNewPassword(text);
+                      if (passwordError) setPasswordError('');
+                      if (confirmPasswordError && text === confirmPassword) {
+                        setConfirmPasswordError('');
+                      }
+                    }}
+                    placeholder="Create a strong password"
+                    secureTextEntry
+                    isPassword
+                    error={passwordError}
+                    touched={!!passwordError}
+                    leftIcon={<Entypo name="lock" size={20} color={theme.colors.secondary} />}
+                  />
+                  
+                  <TextInput
+                    label="Confirm Password"
+                    value={confirmPassword}
+                    onChangeText={(text) => {
+                      setConfirmPassword(text);
+                      if (confirmPasswordError && text === newPassword) {
+                        setConfirmPasswordError('');
+                      }
+                    }}
+                    placeholder="Confirm your password"
+                    secureTextEntry
+                    isPassword
+                    error={confirmPasswordError}
+                    touched={!!confirmPasswordError}
+                    leftIcon={<Entypo name="lock" size={20} color={theme.colors.secondary} />}
+                  />
+                  
+                  <View style={styles.buttonContainer}>
+                    <TouchableOpacity
+                      onPress={handleResetPassword}
+                      disabled={loading}
+                      activeOpacity={0.7}
+                      style={styles.continueButtonWrapper}
+                    >
+                      <LinearGradient
+                        colors={['#f7b305', '#f7d305']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[styles.continueButton, loading && { opacity: 0.7 }]}
+                      >
+                        <Text style={styles.buttonText}>Reset Password</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </>
+            )}
+          </Animated.View>
+          
+          {/* Corner decorations for visual appeal */}
+          <View style={[styles.cornerDecoration, styles.topLeftCorner]} />
+          <View style={[styles.cornerDecoration, styles.bottomRightCorner]} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    position: 'relative',
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  scrollContainer: {
+    flexGrow: 1,
+  },
+  header: {
+    height: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    marginTop: 10,
+    zIndex: 10,
+  },
+  backButton: {
+    padding: 10,
+    paddingLeft: 5,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   contentContainer: {
     padding: 20,
+    paddingTop: 0,
     flex: 1,
-    justifyContent: 'center',
-    minHeight: '100%',
   },
   title: {
-    fontSize: 24,
+    fontSize: 36,
     fontWeight: 'bold',
-    marginBottom: 10,
-    marginTop: 60,
+    marginBottom: 0,
+    fontFamily: 'Montserrat',
+    letterSpacing: 0.5,
   },
   subtitle: {
     fontSize: 16,
-    marginBottom: 30,
+    marginTop: 10,
+    marginBottom: 20,
+    letterSpacing: 0.3,
+    color: '#666',
   },
-  inputContainer: {
-    marginBottom: 16,
-  },
-  button: {
-    height: 50,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 24,
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  backButton: {
+  imageContainer: {
     marginTop: 20,
     alignItems: 'center',
-    padding: 10,
   },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
+  image: {
+    width: 180,
+    height: 180,
+  },
+  formContainer: {
+    width: '100%',
+    marginBottom: 10,
+  },
+  buttonContainer: {
+    width: '100%',
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  continueButtonWrapper: {
+    width: '100%',
+    borderRadius: 14,
+    overflow: 'hidden',
+    elevation: 5,
+    shadowColor: '#f7b305',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+  },
+  continueButton: {
+    width: '100%',
+    height: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 14,
+  },
+  buttonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    letterSpacing: 0.5,
+  },
+  cornerDecoration: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    opacity: 0.08,
+    backgroundColor: '#FFB347',
+  },
+  topLeftCorner: {
+    top: -50,
+    left: -50,
+  },
+  bottomRightCorner: {
+    bottom: -50,
+    right: -50,
   },
 });
 
