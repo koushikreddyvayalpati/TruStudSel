@@ -115,7 +115,9 @@ const SignInScreen: React.FC = () => {
         errorMessage = err;
       }
       
-      // Handle UserNotFoundException specifically - No console.error needed here as it's handled by the alert
+      console.log('Login error details:', { errorName, errorMessage });
+      
+      // Handle UserNotFoundException specifically
       if (errorName === 'UserNotFoundException' || 
           errorMessage.includes('User does not exist') || 
           errorMessage.includes('user does not exist')) {
@@ -141,27 +143,40 @@ const SignInScreen: React.FC = () => {
         return; // Important: Exit after handling this specific error
       }
       
-      // Log other errors before showing a generic alert
-      console.error('Login error (unhandled type):', err);
-      
-      // Handle other common auth errors
+      // Handle NotAuthorizedException (incorrect password)
       if (errorName === 'NotAuthorizedException' || 
           errorMessage.includes('Incorrect username or password')) {
+        
+        console.log('Handled NotAuthorizedException - showing alert.');
+        
         Alert.alert(
-          'Login Error', 
-          'Incorrect password. Please try again.',
-          [{ text: 'OK', style: 'cancel' }],
+          'Incorrect Password', 
+          'The password you entered is incorrect. Please try again or reset your password.',
+          [
+            { 
+              text: 'Forgot Password', 
+              onPress: () => {
+                console.log('Navigating to ForgotPassword...');
+                navigation.navigate('ForgotPassword');
+              }
+            },
+            { text: 'Try Again', style: 'cancel' }
+          ],
           { cancelable: true }
         );
-      } else {
-        // Generic error alert for anything else
-        Alert.alert(
-          'Login Error', 
-          errorMessage || 'Failed to sign in',
-          [{ text: 'OK', style: 'cancel' }],
-          { cancelable: true }
-        );
+        return; // Exit after handling this specific error
       }
+      
+      // Only log unhandled errors with console.error
+      console.error('Login error (unhandled type):', err);
+      
+      // Generic error alert for anything else
+      Alert.alert(
+        'Login Error', 
+        errorMessage || 'Failed to sign in',
+        [{ text: 'OK', style: 'cancel' }],
+        { cancelable: true }
+      );
     }
   };
 
