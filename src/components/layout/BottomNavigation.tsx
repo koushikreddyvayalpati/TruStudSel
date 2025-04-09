@@ -8,10 +8,10 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import Antdesign from 'react-native-vector-icons/AntDesign';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { MainStackParamList } from '../../types/navigation.types';
 import { StackNavigationProp } from '@react-navigation/stack';
 
-type NavigationProp = StackNavigationProp<MainStackParamList>;
+// Update navigation type to be more general
+type NavigationProp = StackNavigationProp<any>;
 
 // Define navigation item type for better structure
 type BottomNavItem = {
@@ -94,12 +94,18 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({ userUniversity, use
       isCenter: true,
     },
     {
-      key: 'search',
-      label: 'Search',
-      icon: <Ionicons name="search" size={24} color="black" />,
+      key: 'profile',
+      label: 'Profile',
+      icon: <Antdesign name="user" size={24} color="black" />,
       onPress: () => {
-        // To be implemented - search functionality
-        console.log('Search pressed');
+        try {
+          // Navigate to the Profile screen - use direct navigation
+          // This will now work with the drawer navigator
+          navigation.navigate('Profile');
+          console.log('Profile pressed');
+        } catch (error) {
+          console.error('Navigation error:', error);
+        }
       },
     },
     {

@@ -919,6 +919,12 @@ const ProductsScreen = () => {
     }
   }, [product, isInWishlist, user?.email, addProductToWishlist, removeProductFromWishlist]);
 
+  // Check if the current user is the seller of this product
+  const isCurrentUserSeller = useMemo(() => {
+    if (!user?.email || !product?.email) return false;
+    return user.email.toLowerCase() === product.email.toLowerCase();
+  }, [user?.email, product?.email]);
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -1012,87 +1018,99 @@ const ProductsScreen = () => {
           {/* Description Section */}
           {renderDescriptionSection}
 
-          {/* Seller Profile */}
-          <View style={styles.sellerSection}>
-            <Text style={styles.sectionTitle}>Seller Information</Text>
-            
-            <View style={styles.sellerProfileContainer}>
-              {/* Top row with profile and details */}
-              <View style={styles.sellerInfoContainer}>
-                <View style={styles.profileImageWrapper}>
+          {/* Seller Profile - Only show if the current user is not the seller */}
+          {!isCurrentUserSeller && (
+            <>
+              <View style={styles.sellerSection}>
+                <Text style={styles.sectionTitle}>Seller Information</Text>
+                
+                <View style={styles.sellerProfileContainer}>
+                  {/* Top row with profile and details */}
+                  <View style={styles.sellerInfoContainer}>
+                    <View style={styles.profileImageWrapper}>
+                      <TouchableOpacity 
+                        style={styles.profileCircle}
+                        onPress={handleViewSellerProfile}
+                      >
+                        <Text style={styles.profileText}>
+                          {(() => {
+                            // Get the display name prioritizing sellerName, then seller.name
+                            const displayName = product.sellerName || product.seller?.name || '';
+                            return displayName ? displayName.charAt(0).toUpperCase() : 'S';
+                          })()}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    
+                    <View style={styles.sellerDetails}>
+                      <Text style={styles.sellerName}>
+                        {product.sellerName || product.seller?.name || 'Unknown Seller'}
+                      </Text>
+                      <View style={styles.sellerMetaInfo}>
+                        {product.seller?.rating && (
+                          <View style={styles.sellerRatingContainer}>
+                            <RatingStars rating={product.seller.rating} />
+                            <Text style={styles.ratingText}>{product.seller.rating.toFixed(1)}</Text>
+                          </View>
+                        )}
+                        <View style={styles.sellerBadgeContainer}>
+                          <View style={styles.verifiedBadge}>
+                            <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
+                            <Text style={styles.verifiedText}>Verified</Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                    
+                    <TouchableOpacity 
+                      style={styles.viewProfileButton}
+                      onPress={handleViewSellerProfile}
+                    >
+                      <Text style={styles.viewProfileText}>View Profile</Text>
+                      <Ionicons name="chevron-forward" size={16} color="#f7b305" />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  {/* Contact button with gradient-like effect */}
                   <TouchableOpacity 
-                    style={styles.profileCircle}
-                    onPress={handleViewSellerProfile}
+                    style={styles.contactSellerButton}
+                    onPress={() => handleContactSeller('message')}
                   >
-                    <Text style={styles.profileText}>
-                      {(() => {
-                        // Get the display name prioritizing sellerName, then seller.name
-                        const displayName = product.sellerName || product.seller?.name || '';
-                        return displayName ? displayName.charAt(0).toUpperCase() : 'S';
-                      })()}
-                    </Text>
+                    <Ionicons name="chatbubble-outline" size={18} color="#FFF" />
+                    <Text style={styles.contactButtonText}>Message Seller</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              
+              {/* Seller Reviews - Also only show if current user is not the seller */}
+              <View style={styles.sectionContainer}>
+                <View style={styles.sectionTitleRow}>
+                  <Text style={styles.sectionTitle}>Reviews</Text>
+                  <TouchableOpacity>
+                    <Text style={styles.seeAllText}>See all</Text>
                   </TouchableOpacity>
                 </View>
                 
-                <View style={styles.sellerDetails}>
-                  <Text style={styles.sellerName}>
-                    {product.sellerName || product.seller?.name || 'Unknown Seller'}
-                  </Text>
-                  <View style={styles.sellerMetaInfo}>
-                    {product.seller?.rating && (
-                      <View style={styles.sellerRatingContainer}>
-                        <RatingStars rating={product.seller.rating} />
-                        <Text style={styles.ratingText}>{product.seller.rating.toFixed(1)}</Text>
-                      </View>
-                    )}
-                    <View style={styles.sellerBadgeContainer}>
-                      <View style={styles.verifiedBadge}>
-                        <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
-                        <Text style={styles.verifiedText}>Verified</Text>
-                      </View>
+                {sellerReviews.map(review => (
+                  <View key={review.id} style={styles.reviewItem}>
+                    <View style={styles.reviewHeader}>
+                      <Text style={styles.reviewName}>{review.name}</Text>
+                      <RatingStars rating={review.rating} />
                     </View>
+                    <Text style={styles.reviewText}>{review.text}</Text>
                   </View>
-                </View>
-                
-                <TouchableOpacity 
-                  style={styles.viewProfileButton}
-                  onPress={handleViewSellerProfile}
-                >
-                  <Text style={styles.viewProfileText}>View Profile</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#f7b305" />
-                </TouchableOpacity>
+                ))}
               </View>
-              
-              {/* Contact button with gradient-like effect */}
-              <TouchableOpacity 
-                style={styles.contactSellerButton}
-                onPress={() => handleContactSeller('message')}
-              >
-                <Ionicons name="chatbubble-outline" size={18} color="#FFF" />
-                <Text style={styles.contactButtonText}>Message Seller</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+            </>
+          )}
           
-          {/* Seller Reviews */}
-          <View style={styles.sectionContainer}>
-            <View style={styles.sectionTitleRow}>
-              <Text style={styles.sectionTitle}>Reviews</Text>
-              <TouchableOpacity>
-                <Text style={styles.seeAllText}>See all</Text>
-              </TouchableOpacity>
+          {/* Your own product indicator - show when the current user is the seller */}
+          {isCurrentUserSeller && (
+            <View style={styles.ownProductContainer}>
+              <Ionicons name="checkmark-circle" size={22} color="#4CAF50" />
+              <Text style={styles.ownProductText}>This is your product listing</Text>
             </View>
-            
-            {sellerReviews.map(review => (
-              <View key={review.id} style={styles.reviewItem}>
-                <View style={styles.reviewHeader}>
-                  <Text style={styles.reviewName}>{review.name}</Text>
-                  <RatingStars rating={review.rating} />
-                </View>
-                <Text style={styles.reviewText}>{review.text}</Text>
-              </View>
-            ))}
-          </View>
+          )}
           
           {/* Similar Products - Showing dynamic content */}
           {renderSimilarProductsSection}
@@ -1750,6 +1768,22 @@ const styles = StyleSheet.create({
   wishlistButton: {
     padding: 8,
     marginLeft: 6,
+  },
+  ownProductContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f9f5',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e0f2e0',
+  },
+  ownProductText: {
+    marginLeft: 10,
+    fontSize: 16,
+    color: '#2e7d32',
+    fontWeight: '500',
   },
 });
 
