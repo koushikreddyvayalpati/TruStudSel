@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "843890925431",
+    "project_id": "trustudsel",
+    "storage_bucket": "trustudsel.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:843890925431:android:3d6ba2357aba748d09cb72",
+        "android_client_info": {
+          "package_name": "com.trustudsel"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBm16xbUoAugdx2vlm6N2Cr5TJfxXipf_0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
