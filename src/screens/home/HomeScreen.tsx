@@ -144,7 +144,8 @@ const ProductItem: React.FC<{
   wishlist: string[];
   onToggleWishlist: (id: string) => void;
   onPress: (product: Product) => void;
-}> = ({ item, wishlist, onToggleWishlist, onPress }) => {
+  onMessageSeller: (product: Product) => void;
+}> = ({ item, onPress, onMessageSeller, wishlist: _wishlist, onToggleWishlist: _onToggleWishlist }) => {
   // Get the appropriate image URL - primaryImage, first image from images array, or placeholder
   const imageUrl = item.primaryImage || 
                   (item.images && item.images.length > 0 ? item.images[0] : 
@@ -172,13 +173,13 @@ const ProductItem: React.FC<{
           </Text>
         )}
         <TouchableOpacity 
-          style={styles.wishlistButton} 
-          onPress={() => onToggleWishlist(item.id)}
+          style={styles.messageButton} 
+          onPress={() => onMessageSeller(item)}
         >
           <FontAwesome 
-            name={wishlist.includes(item.id) ? "heart" : "heart-o"}
-            size={20} 
-            color="red" 
+            name="comment" 
+            size={18} 
+            color="#f7b305" 
           />
         </TouchableOpacity>
       </View>
@@ -193,6 +194,7 @@ const ProductSection: React.FC<{
   wishlist: string[];
   onToggleWishlist: (id: string) => void;
   onProductPress: (product: Product) => void;
+  onMessageSeller: (product: Product) => void;
   onSeeAll?: () => void;
   isLoading?: boolean;
 }> = ({ 
@@ -201,6 +203,7 @@ const ProductSection: React.FC<{
   wishlist, 
   onToggleWishlist, 
   onProductPress,
+  onMessageSeller,
   onSeeAll,
   isLoading = false
 }) => (
@@ -223,6 +226,7 @@ const ProductSection: React.FC<{
             wishlist={wishlist} 
             onToggleWishlist={onToggleWishlist} 
             onPress={onProductPress}
+            onMessageSeller={onMessageSeller}
           />
         )}
         keyExtractor={item => item.id}
@@ -1923,6 +1927,26 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     fetchUserProfile();
   }, [fetchUserProfile]);
 
+  // Add the message seller handler function
+  const handleMessageSeller = useCallback((product: Product) => {
+    // Get seller information from the product
+    const sellerName = product.sellerName || (product.seller && product.seller.name) || 'Seller';
+    const sellerEmail = product.email || (product.seller && (product.seller as any).email);
+    
+    if (!sellerEmail) {
+      Alert.alert('Error', 'Seller contact information is not available');
+      return;
+    }
+    
+    console.log(`[HomeScreen] Messaging seller: ${sellerName} (${sellerEmail})`);
+    
+    // Navigate to the Firebase Chat screen
+    nav.navigate('FirebaseChatScreen', { 
+      recipientEmail: sellerEmail,
+      recipientName: sellerName
+    });
+  }, [nav]);
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: 'white' }]}>
       <View style={styles.container}>
@@ -2121,6 +2145,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                       wishlist={wishlist}
                       onToggleWishlist={toggleWishlist}
                       onPress={handleProductPress}
+                      onMessageSeller={handleMessageSeller}
                     />
                   )}
                   keyExtractor={item => item.id.toString()}
@@ -2178,6 +2203,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                 wishlist={wishlist}
                 onToggleWishlist={toggleWishlist}
                 onProductPress={handleProductPress}
+                onMessageSeller={handleMessageSeller}
                 onSeeAll={() => handleSeeAll('newArrivals')}
                 isLoading={loadingNewArrivals}
               />
@@ -2193,6 +2219,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                   wishlist={wishlist}
                   onToggleWishlist={toggleWishlist}
                   onProductPress={handleProductPress}
+                  onMessageSeller={handleMessageSeller}
                   onSeeAll={() => handleSeeAll('university')}
                   isLoading={loadingUniversity}
                 />
@@ -2209,6 +2236,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                   wishlist={wishlist}
                   onToggleWishlist={toggleWishlist}
                   onProductPress={handleProductPress}
+                  onMessageSeller={handleMessageSeller}
                   onSeeAll={() => handleSeeAll('city')}
                   isLoading={loadingCity}
                 />
@@ -2221,6 +2249,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                 wishlist={wishlist}
                 onToggleWishlist={toggleWishlist}
                 onProductPress={handleProductPress}
+                onMessageSeller={handleMessageSeller}
                 onSeeAll={() => handleSeeAll('featured')}
                 isLoading={loadingFeatured}
               />
@@ -2655,6 +2684,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginRight: 4,
     fontWeight: '500',
+  },
+  messageButton: {
+    position: 'absolute',
+    top: 33,
+    right: 10,
+    backgroundColor: 'white',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
   },
 });
 

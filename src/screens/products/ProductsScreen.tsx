@@ -24,8 +24,14 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { ProductInfoScreenRouteProp, ProductInfoScreenNavigationProp } from '../../types/navigation.types';
 import { getProductById, getProductsByCategory } from '../../api/products'; // Import the category API function
+import { useAuth } from '../../contexts'; // Add this to get user email
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
+
+// Add a base URL constant for API calls
+const API_BASE_URL = 'http://localhost:8080';
 
 // Extended Product type that includes seller information
 interface ExtendedProduct {
@@ -303,11 +309,15 @@ const ProductsScreen = () => {
   const [zoomVisible, setZoomVisible] = useState(false);
   const [selectedImage, setSelectedImage] = useState('');
   const [expandDescription, setExpandDescription] = useState(false);
-  const [_isInWishlist, _setIsInWishlist] = useState(false);
+  const [isInWishlist, setIsInWishlist] = useState(false);
   const [productData, setProductData] = useState<ExtendedProduct | null>(null);
   const [similarProductsData, setSimilarProductsData] = useState<BaseProduct[]>([]);
   const [loadingSimilarProducts, setLoadingSimilarProducts] = useState(false);
+  const [_lastCacheRefresh, setLastCacheRefresh] = useState<number>(0);
   
+  // Get wishlist functions and state
+  const { user } = useAuth();
+
   // Extract product and productId from route params
   const routeParams = route.params || {};
   const productFromRoute = routeParams.product;
@@ -626,6 +636,289 @@ const ProductsScreen = () => {
     );
   }, [similarProductsData, loadingSimilarProducts, handleSimilarProductPress]);
 
+  // Add API functions for wishlist operations as useCallback hooks
+  const checkProductInWishlist = useCallback(async (productId: string) => {
+    try {
+      if (!user?.email) {
+        console.error('[ProductsScreen] No user email found for wishlist check');
+        return false;
+      }
+      
+      // Wrap fetch in a try/catch and use a simple response check instead of json parsing
+      try {
+        const apiUrl = `${API_BASE_URL}/api/wishlist/${user.email}/check/${productId}`;
+        console.log(`[ProductsScreen] Checking wishlist status: ${apiUrl}`);
+        
+        const response = await fetch(apiUrl);
+        
+        if (!response.ok) {
+          console.error(`[ProductsScreen] API error: ${response.status}`);
+          return false;
+        }
+        
+        // Safely parse response to avoid issues
+        try {
+          const text = await response.text();
+          const data = text ? JSON.parse(text) : {};
+          return !!data.inWishlist;
+        } catch (parseError) {
+          console.error('[ProductsScreen] Error parsing response:', parseError);
+          return false;
+        }
+      } catch (fetchError) {
+        // Handle network errors
+        console.error('[ProductsScreen] Fetch error:', fetchError);
+        return false;
+      }
+    } catch (error) {
+      // Global error handler
+      console.error('[ProductsScreen] Error in checkProductInWishlist:', error);
+      return false;
+    }
+  }, [user?.email]);
+
+  const addProductToWishlist = useCallback(async (productId: string) => {
+    try {
+      if (!user?.email) {
+        console.error('[ProductsScreen] No user email found for wishlist add');
+        return false;
+      }
+      
+      console.log(`[ProductsScreen] Adding product ${productId} to wishlist for user ${user.email}`);
+      const apiUrl = `${API_BASE_URL}/api/wishlist/${user.email}?productId=${productId}`;
+      console.log(`[ProductsScreen] API URL: ${apiUrl}`);
+      
+      try {
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        // Simple status check instead of complex error handling
+        if (response.status >= 200 && response.status < 300) {
+          console.log('[ProductsScreen] Successfully added product to wishlist');
+          return true;
+        } else {
+          console.error(`[ProductsScreen] Failed API response: ${response.status}`);
+          return false;
+        }
+      } catch (fetchError) {
+        console.error('[ProductsScreen] Fetch error:', fetchError);
+        return false;
+      }
+    } catch (error) {
+      console.error('[ProductsScreen] Error in addProductToWishlist:', error);
+      return false;
+    }
+  }, [user?.email]);
+
+  const removeProductFromWishlist = useCallback(async (productId: string) => {
+    try {
+      if (!user?.email) {
+        console.error('[ProductsScreen] No user email found for wishlist remove');
+        return false;
+      }
+      
+      try {
+        const apiUrl = `${API_BASE_URL}/api/wishlist/${user.email}/${productId}`;
+        console.log(`[ProductsScreen] Removing product from wishlist: ${apiUrl}`);
+        
+        const response = await fetch(apiUrl, {
+          method: 'DELETE',
+        });
+        
+        // Simple status check
+        if (response.status >= 200 && response.status < 300) {
+          console.log('[ProductsScreen] Successfully removed product from wishlist');
+          return true;
+        } else {
+          console.error(`[ProductsScreen] Failed API response: ${response.status}`);
+          return false;
+        }
+      } catch (fetchError) {
+        console.error('[ProductsScreen] Fetch error:', fetchError);
+        return false;
+      }
+    } catch (error) {
+      console.error('[ProductsScreen] Error in removeProductFromWishlist:', error);
+      return false;
+    }
+  }, [user?.email]);
+
+  // Function to check and refresh cache if needed
+  const refreshWishlistCache = useCallback(async () => {
+    if (!user?.email || !product?.id) return;
+    
+    try {
+      const productId = product.id.toString();
+      const cacheKey = `wishlist_${user.email}_${productId}`;
+      const cacheTimeKey = `${cacheKey}_timestamp`;
+      
+      // Check when the cache was last refreshed
+      const lastRefreshStr = await AsyncStorage.getItem(cacheTimeKey);
+      const lastRefresh = lastRefreshStr ? parseInt(lastRefreshStr, 10) : 0;
+      const now = Date.now();
+      
+      // If cache is older than 1 hour (3600000 ms), refresh it
+      if (now - lastRefresh > 3600000) {
+        console.log('[ProductsScreen] Cache is stale, refreshing from API');
+        
+        // Use safer API call
+        try {
+          const inWishlist = await checkProductInWishlist(productId);
+          
+          // Only update cache if API call succeeded
+          await AsyncStorage.setItem(cacheKey, inWishlist.toString());
+          await AsyncStorage.setItem(cacheTimeKey, now.toString());
+          setLastCacheRefresh(now);
+          setIsInWishlist(inWishlist);
+        } catch (apiError) {
+          console.error('[ProductsScreen] Error refreshing from API:', apiError);
+          // On error, extend cache lifetime but don't change status
+          await AsyncStorage.setItem(cacheTimeKey, now.toString());
+          setLastCacheRefresh(now);
+        }
+      } else {
+        setLastCacheRefresh(lastRefresh);
+      }
+    } catch (error) {
+      console.error('[ProductsScreen] Error refreshing wishlist cache:', error);
+    }
+  }, [user?.email, product?.id, checkProductInWishlist]);
+
+  // Add this useEffect to refresh cache when component mounts
+  useEffect(() => {
+    refreshWishlistCache();
+  }, [refreshWishlistCache]);
+
+  // Modify the checkWishlistStatus function inside the existing useEffect
+  useEffect(() => {
+    const checkWishlistStatus = async () => {
+      if (!product || !product.id || !user?.email) return;
+      
+      const productId = product.id.toString();
+      const cacheKey = `wishlist_${user.email}_${productId}`;
+      const cacheTimeKey = `${cacheKey}_timestamp`;
+      
+      try {
+        // Try to get cached wishlist status first
+        let cachedStatus = null;
+        try {
+          cachedStatus = await AsyncStorage.getItem(cacheKey);
+        } catch (cacheError) {
+          console.warn('[ProductsScreen] Error reading from cache:', cacheError);
+        }
+        
+        if (cachedStatus !== null) {
+          console.log('[ProductsScreen] Using cached wishlist status');
+          setIsInWishlist(cachedStatus === 'true');
+          
+          // Check when the cache was last refreshed
+          try {
+            const lastRefreshStr = await AsyncStorage.getItem(cacheTimeKey);
+            const lastRefresh = lastRefreshStr ? parseInt(lastRefreshStr, 10) : 0;
+            setLastCacheRefresh(lastRefresh);
+            
+            // If not refreshed recently, schedule a background refresh
+            const now = Date.now();
+            if (now - lastRefresh > 3600000) {
+              refreshWishlistCache();
+            }
+          } catch (timeError) {
+            console.warn('[ProductsScreen] Error reading timestamp:', timeError);
+          }
+          
+          return;
+        }
+        
+        // If no cache or cache read failed, check with API
+        console.log('[ProductsScreen] No cached status, checking with API');
+        const inWishlist = await checkProductInWishlist(productId);
+        setIsInWishlist(inWishlist);
+        
+        // Cache the result with timestamp
+        try {
+          const now = Date.now();
+          await AsyncStorage.setItem(cacheKey, inWishlist.toString());
+          await AsyncStorage.setItem(cacheTimeKey, now.toString());
+          setLastCacheRefresh(now);
+        } catch (saveError) {
+          console.warn('[ProductsScreen] Error saving to cache:', saveError);
+        }
+      } catch (error) {
+        console.error('[ProductsScreen] Error checking wishlist status:', error);
+        // Default to not in wishlist on error
+        setIsInWishlist(false);
+      }
+    };
+    
+    checkWishlistStatus();
+  }, [product, user?.email, checkProductInWishlist, refreshWishlistCache]);
+
+  // Update handleToggleWishlist to use safer error handling
+  const handleToggleWishlist = useCallback(async () => {
+    if (!product || !user?.email) {
+      Alert.alert('Error', 'You must be logged in to manage your wishlist');
+      return;
+    }
+    
+    const productId = product.id.toString();
+    const cacheKey = `wishlist_${user.email}_${productId}`;
+    const cacheTimeKey = `${cacheKey}_timestamp`;
+    
+    try {
+      let success = false;
+      
+      // Determine the action based on current state
+      const action = isInWishlist ? 'remove' : 'add';
+      console.log(`[ProductsScreen] Toggling wishlist - ${action} for product ${productId}`);
+      
+      if (isInWishlist) {
+        // Remove from wishlist
+        success = await removeProductFromWishlist(productId);
+      } else {
+        // Add to wishlist
+        success = await addProductToWishlist(productId);
+      }
+      
+      if (success) {
+        // Update the UI state
+        setIsInWishlist(!isInWishlist);
+        
+        // Try to update the cache
+        try {
+          const now = Date.now();
+          await AsyncStorage.setItem(cacheKey, (!isInWishlist).toString());
+          await AsyncStorage.setItem(cacheTimeKey, now.toString());
+          setLastCacheRefresh(now);
+        } catch (cacheError) {
+          console.warn('[ProductsScreen] Error updating cache:', cacheError);
+          // Continue even if cache update fails - UI is already updated
+        }
+      } else {
+        // Show a simple error without extra details
+        const actionVerb = isInWishlist ? 'removing from' : 'adding to';
+        Alert.alert(
+          'Wishlist Error',
+          `There was a problem ${actionVerb} your wishlist. Please try again.`,
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('[ProductsScreen] Error in handleToggleWishlist:', error);
+      
+      // Show a simple error without exposing internal details
+      const actionVerb = isInWishlist ? 'removing from' : 'adding to';
+      Alert.alert(
+        'Wishlist Error',
+        `There was a problem ${actionVerb} your wishlist. Please try again.`,
+        [{ text: 'OK' }]
+      );
+    }
+  }, [product, isInWishlist, user?.email, addProductToWishlist, removeProductFromWishlist]);
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -681,7 +974,7 @@ const ProductsScreen = () => {
             </TouchableOpacity>
           </View>
           
-          {/* Price and tags in one row - with price on the left */}
+          {/* Price and tags in one row - with price on the left and wishlist on the right */}
           <View style={styles.priceAndTagsRow}>
             <Text style={styles.productPrice}>${product.price}</Text>
             <View style={styles.tagsContainer}>
@@ -699,6 +992,18 @@ const ProductsScreen = () => {
                 </View>
               )}
             </View>
+            
+            {/* Wishlist heart button */}
+            <TouchableOpacity 
+              style={styles.wishlistButton}
+              onPress={handleToggleWishlist}
+            >
+              <FontAwesome 
+                name={isInWishlist ? "heart" : "heart-o"}
+                size={22} 
+                color={isInWishlist ? "#e74c3c" : "#666"} 
+              />
+            </TouchableOpacity>
           </View>
           
           {/* Debug Section - Only visible in development */}
@@ -1441,6 +1746,10 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     fontSize: 14,
     color: '#666',
+  },
+  wishlistButton: {
+    padding: 8,
+    marginLeft: 6,
   },
 });
 
