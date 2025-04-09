@@ -35,6 +35,9 @@ const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
 const ITEM_HEIGHT = 230; // Estimated post item height for better FlatList performance
 const { width } = Dimensions.get('window'); // Get screen width for tab slider
 
+// Add the API base URL constant
+const API_BASE_URL = 'http://localhost:8080';
+
 // Convert API product to Post interface
 const convertProductToPost = (product: Product): Post => ({
   id: parseInt(product.id) || Math.floor(Math.random() * 1000),
@@ -270,8 +273,18 @@ const ProfileHeader = React.memo(({
   );
 });
 
-// Post item component extracted for better performance
-const PostItem = React.memo(({ item, originalData }: { item: Post, originalData?: Product }) => {
+// Update PostItem component to include delete functionality
+const PostItem = React.memo(({ 
+  item, 
+  originalData,
+  isViewingSeller,
+  onDeleteProduct 
+}: { 
+  item: Post, 
+  originalData?: Product, 
+  isViewingSeller: boolean,
+  onDeleteProduct?: (productId: string) => void 
+}) => {
   const navigation = useNavigation<ProfileScreenNavigationProp>();
   
   const handleProductPress = useCallback(() => {
@@ -298,6 +311,29 @@ const PostItem = React.memo(({ item, originalData }: { item: Post, originalData?
       });
     }
   }, [item, originalData, navigation]);
+
+  // Handle delete confirmation and action
+  const handleDeletePress = useCallback(() => {
+    Alert.alert(
+      'Delete Product',
+      'Are you sure you want to delete this product? This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            if (onDeleteProduct) {
+              onDeleteProduct(item.id.toString());
+            }
+          }
+        }
+      ]
+    );
+  }, [item.id, onDeleteProduct]);
   
   return (
     <TouchableOpacity 
@@ -323,6 +359,17 @@ const PostItem = React.memo(({ item, originalData }: { item: Post, originalData?
       <View style={styles.postInfo}>
         <Text style={styles.postCaption} numberOfLines={1}>{item.caption}</Text>
         <Text style={styles.postCondition}>{item.condition}</Text>
+        
+        {/* Delete button - only show for own products - moved here */}
+        {!isViewingSeller && onDeleteProduct && (
+          <TouchableOpacity 
+            style={styles.deleteButton}
+            onPress={handleDeletePress}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <MaterialCommunityIcons name="trash-can-outline" size={16} color="#666" />
+          </TouchableOpacity>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -1002,15 +1049,71 @@ const ProfileScreen: React.FC = () => {
     { useNativeDriver: true }
   ), [scrollY]);
 
-  // Render post grid item with proper spacing
+  // Function to delete a product
+  const deleteProduct = useCallback(async (productId: string) => {
+    if (!user?.email) return;
+    
+    try {
+      console.log(`[ProfileScreen] Deleting product ${productId}`);
+      const apiUrl = `${API_BASE_URL}/api/products/${productId}`;
+      
+      const response = await fetch(apiUrl, {
+        method: 'DELETE',
+      });
+      
+      if (response.status >= 200 && response.status < 300) {
+        console.log('[ProfileScreen] Successfully deleted product');
+        
+        // Update the products state by removing the deleted product
+        setProducts(prevProducts => prevProducts.filter(product => product.id.toString() !== productId));
+        
+        // Also update the productsMap
+        const newProductsMap = new Map(productsMap);
+        newProductsMap.delete(parseInt(productId));
+        setProductsMap(newProductsMap);
+        
+        // Clear cache to force refresh on next load
+        const emailToUse = user?.email;
+        if (emailToUse) {
+          const cacheKey = `${USER_PRODUCTS_CACHE_KEY}${emailToUse}`;
+          productsCache.delete(emailToUse);
+          try {
+            await AsyncStorage.removeItem(cacheKey);
+          } catch (cacheError) {
+            console.warn('[ProfileScreen] Error clearing product cache:', cacheError);
+          }
+        }
+        
+        // Show success message
+        Alert.alert('Success', 'Product has been deleted successfully');
+        
+        return true;
+      } else {
+        console.error(`[ProfileScreen] Failed to delete product: ${response.status}`);
+        Alert.alert('Error', 'Failed to delete product. Please try again.');
+        return false;
+      }
+    } catch (error) {
+      console.error('[ProfileScreen] Error deleting product:', error);
+      Alert.alert('Error', 'Failed to delete product. Please try again.');
+      return false;
+    }
+  }, [user?.email, productsMap]);
+
+  // Update the renderItem function
   const renderItem = useCallback(({ item, index }: { item: Post, index: number }) => {
     const isEven = index % 2 === 0;
     return (
       <View style={[styles.postGridItem, isEven ? { paddingRight: 4 } : { paddingLeft: 4 }]}>
-        <PostItem item={item} originalData={productsMap.get(item.id)} />
+        <PostItem 
+          item={item} 
+          originalData={productsMap.get(item.id)} 
+          isViewingSeller={isViewingSeller}
+          onDeleteProduct={!isViewingSeller ? deleteProduct : undefined}
+        />
       </View>
     );
-  }, [productsMap]);
+  }, [productsMap, isViewingSeller, deleteProduct]);
 
   // Keyextractor for FlatList optimization
   const keyExtractor = useCallback((item: Post) => item.id.toString(), []);
@@ -1849,6 +1952,37 @@ const styles = StyleSheet.create({
   locationItem: {
     borderLeftColor: '#f7b305', 
     width: '100%',
+  },
+  deleteButton: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 1,
+      },
+      android: {
+        elevation: 1,
+      }
+    }),
+    zIndex: 10,
+  },
+  deleteText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#666',
+    marginLeft: 4,
   },
 });
 
