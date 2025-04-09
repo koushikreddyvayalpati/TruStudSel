@@ -14,9 +14,6 @@
     "categories": {
       "auth": {
         "TruStudSel": {}
-      },
-      "api": {
-        "trustudsel": {}
       }
     }
   },
