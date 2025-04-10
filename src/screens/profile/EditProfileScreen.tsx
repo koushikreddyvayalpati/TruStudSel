@@ -35,7 +35,7 @@ const EditProfileScreen = () => {
   console.log('Received userphoto from route params:', routeParams.userphoto);
   
   const [name, setName] = useState(routeParams.name || user?.name || '');
-  const [university, setUniversity] = useState(routeParams.university || user?.university || '');
+  const [university, _setUniversity] = useState(routeParams.university || user?.university || '');
   const [city, setCity] = useState(routeParams.city || '');
   const [zipcode, setZipcode] = useState(routeParams.zipcode || '');
   const [mobile] = useState(routeParams.mobile || ''); // mobile is non-editable
@@ -62,7 +62,6 @@ const EditProfileScreen = () => {
     // Function to check if current values differ from initial values
     const checkForChanges = () => {
       const initialName = routeParams.name || user?.name || '';
-      const initialUniversity = routeParams.university || user?.university || '';
       const initialCity = routeParams.city || '';
       const initialZipcode = routeParams.zipcode || '';
       const initialPhoto = routeParams.userphoto || user?.profileImage || null;
@@ -70,7 +69,6 @@ const EditProfileScreen = () => {
       // Check if any values have changed
       const hasChanged = 
         name !== initialName ||
-        university !== initialUniversity ||
         city !== initialCity ||
         zipcode !== initialZipcode ||
         profilePicture !== initialPhoto;
@@ -79,7 +77,7 @@ const EditProfileScreen = () => {
     };
     
     checkForChanges();
-  }, [name, university, city, zipcode, profilePicture, routeParams, user]);
+  }, [name, city, zipcode, profilePicture, routeParams, user]);
   
   // Add a ref to store the selected image for upload on save
   const selectedImageRef = React.useRef<any>(null);
@@ -163,7 +161,6 @@ const EditProfileScreen = () => {
       // Now prepare the data with the new image URL if we have one
       const updateData = {
         name: name.trim(),
-        university: university.trim(),
         city: city.trim(),
         zipcode: zipcode.trim(),
         userphoto: imageUrl
@@ -342,13 +339,13 @@ const EditProfileScreen = () => {
 
               <View style={styles.fieldGroup}>
                 <Text style={styles.fieldLabel}>UNIVERSITY</Text>
-                <TextInput
-                  value={university}
-                  onChangeText={setUniversity}
-                  placeholder="Enter your university"
-                  containerStyle={styles.inputContainer}
-                  leftIcon={<MaterialIcons name="school-outline" size={22} color="#222" />}
-                />
+                <View style={styles.disabledField}>
+                  <MaterialIcons name="school-outline" size={22} color="#222" style={styles.disabledFieldIcon} />
+                  <Text style={styles.disabledFieldText}>{university || 'No university available'}</Text>
+                  <View style={styles.lockIconContainer}>
+                    <Icon name="lock" size={12} color="#999" />
+                  </View>
+                </View>
               </View>
               
               <View style={styles.divider} />

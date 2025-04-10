@@ -13,7 +13,7 @@ import {
   Image,
   ActivityIndicator,
   Modal,
-  TextInput as RNTextInput
+  TextInput as RNTextInput,
 } from 'react-native';
 import { ProfileFillingScreenProps } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
@@ -24,6 +24,7 @@ import { createUserProfile, UserProfileData, uploadFile } from '../../api/users'
 import { launchImageLibrary } from 'react-native-image-picker';
 import LinearGradient from 'react-native-linear-gradient';
 import Entypo from 'react-native-vector-icons/Entypo';
+import collegeData from '../../../college_names.json';
 
 // Define a simple TextInput component to replace the missing import
 interface CustomTextInputProps {
@@ -200,6 +201,10 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
   const [navigating, setNavigating] = useState<boolean>(false);
   const [loadingStep, setLoadingStep] = useState<number>(0);
   
+  // New state for university dropdown - changed to use modal approach
+  const [showUniversityModal, setShowUniversityModal] = useState<boolean>(false);
+  const [filteredUniversities, setFilteredUniversities] = useState<string[]>([]);
+  
   // Constants for progress tracking and UI
   const minCategoriesRequired = 3;
   
@@ -210,6 +215,26 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
     zipcode: false,
     categories: false,
   });
+
+  // Update university selection handling
+  // Modify the filter universities effect
+  useEffect(() => {
+    if (university.trim().length > 0) {
+      const filtered = collegeData.college_names.filter(name => 
+        name.toLowerCase().includes(university.toLowerCase())
+      ).slice(0, 10); // Limit to 10 results for performance
+      
+      // Add "Other" option if it's not already in the filtered list
+      if (filtered.length === 0 || !filtered.includes("Other")) {
+        setFilteredUniversities([...filtered, "Other"]);
+      } else {
+        setFilteredUniversities(filtered);
+      }
+    } else {
+      // Show some popular/suggested universities when input is empty
+      setFilteredUniversities([...collegeData.college_names.slice(0, 9), "Other"]);
+    }
+  }, [university]);
 
   // Update completion flags when fields change
   useEffect(() => {
@@ -239,6 +264,19 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
     return Math.min(progress, 100);
   };
 
+  // Handle university input change
+  const handleUniversityChange = (text: string) => {
+    setUniversity(text);
+    // Always show the dropdown
+    setShowUniversityModal(true);
+  };
+
+  // Handle selecting a university from the dropdown
+  const selectUniversity = (name: string) => {
+    setUniversity(name);
+    setShowUniversityModal(false);
+  };
+
   // Define loading steps
   const loadingSteps = useMemo(() => [
     { id: 'updating', message: 'Updating your profile...' },
@@ -251,8 +289,8 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
   const progressGradientColors = useMemo(() => 
     Platform.OS === 'android' 
       ? ['#f7b305', '#f7b305'] // Use solid color on Android
-      : [theme.colors.primary, theme.colors.secondary || '#4a90e2'], // Use gradient on iOS
-  [theme.colors.primary, theme.colors.secondary]);
+      : ['#f7b305', '#f59000'], // Use consistent branding gradient on iOS
+  []);
   
   // Log initial state for debugging
   useEffect(() => {
@@ -618,7 +656,10 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
         showProgressDots={true}
       />
       
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.contentContainer}>
           <View style={styles.headerContainer}>
             <Text style={[styles.title, { color: theme.colors.primary }]}>Welcome, {fullName}!</Text>
@@ -663,25 +704,34 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
             </View>
             
             <TouchableOpacity 
-              style={styles.uploadButton}
+              style={[styles.uploadButton, {
+                backgroundColor: '#f7b305',
+                paddingVertical: 6,
+                paddingHorizontal: 16,
+                borderRadius: 16,
+                alignItems: 'center',
+                ...Platform.select({
+                  ios: {
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 3 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 4,
+                  },
+                  android: {
+                    elevation: 3,
+                  }
+                })
+              }]}
               onPress={handleUploadProfilePicture}
               disabled={uploadingImage}
             >
-              <LinearGradient
-                colors={['#f7b305', '#f59000']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={{
-                  paddingVertical: 6,
-                  paddingHorizontal: 14,
-                  borderRadius: 16,
-                  alignItems: 'center',
-                }}
-              >
-                <Text style={[styles.uploadButtonText, { color: '#fff' }]}>
-                  {uploadingImage ? 'Uploading...' : 'Add Profile Picture'}
-                </Text>
-              </LinearGradient>
+              <Text style={[styles.uploadButtonText, { 
+                color: '#fff',
+                fontWeight: '700',
+                fontSize: 12
+              }]}>
+                {uploadingImage ? 'Uploading...' : 'Add Profile Picture'}
+              </Text>
             </TouchableOpacity>
             
             <View style={styles.userInfoContainer}>
@@ -706,13 +756,68 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
                 </View>
               </View>
               <View style={styles.inputContent}>
-                <TextInput
-                  label="University"
-                  value={university}
-                  onChangeText={setUniversity}
-                  placeholder="Enter your university"
-                  containerStyle={styles.inputContainer}
-                />
+                <Text style={[textInputStyles.inputLabel, { color: theme.colors.text }]}>
+                  University
+                </Text>
+                <View style={styles.universityContainer}>
+                  <View style={styles.universityInputWrapper}>
+                    <RNTextInput
+                      style={[styles.input, { color: theme.colors.text }]}
+                      value={university}
+                      onChangeText={handleUniversityChange}
+                      placeholder="Search for your university"
+                      placeholderTextColor={theme.colors.placeholder || '#999'}
+                      editable={false} // Make input non-editable
+                      onTouchStart={() => setShowUniversityModal(true)} // Show dropdown on touch
+                    />
+                    <TouchableOpacity 
+                      style={styles.universityDropdownButton}
+                      onPress={() => setShowUniversityModal(true)}
+                    >
+                      <Entypo name="chevron-down" size={18} color={theme.colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  {/* Simple dropdown list that appears beneath the input */}
+                  {showUniversityModal && (
+                    <View style={[styles.simpleSuggestionsList, { backgroundColor: theme.colors.background }]}>
+                      <View style={styles.searchInputContainer}>
+                        <RNTextInput
+                          style={[styles.searchInput, { color: theme.colors.text }]}
+                          placeholder="Type to search universities..."
+                          placeholderTextColor={theme.colors.placeholder || '#999'}
+                          onChangeText={handleUniversityChange}
+                          value={university}
+                          autoFocus={true}
+                        />
+                      </View>
+                      
+                      {filteredUniversities.length > 0 ? (
+                        <ScrollView 
+                          nestedScrollEnabled={true}
+                          style={{maxHeight: 250}}
+                          keyboardShouldPersistTaps="handled"
+                        >
+                          {filteredUniversities.map((item) => (
+                            <TouchableOpacity
+                              key={item}
+                              style={styles.suggestionItem}
+                              onPress={() => selectUniversity(item)}
+                            >
+                              <Text style={[styles.suggestionText, { color: theme.colors.text }]} numberOfLines={1}>
+                                {item}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      ) : (
+                        <Text style={[styles.emptyMessage, { color: theme.colors.textSecondary }]}>
+                          No universities found. Please select "Other".
+                        </Text>
+                      )}
+                    </View>
+                  )}
+                </View>
               </View>
             </View>
             
@@ -930,12 +1035,24 @@ const styles = StyleSheet.create({
     }),
   },
   uploadButton: {
-    marginTop: 4,
+    marginTop: 8,
+    marginBottom: 10,
     borderRadius: 16,
     overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   uploadButtonText: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '500',
   },
   inputContainer: {
@@ -1233,6 +1350,93 @@ const styles = StyleSheet.create({
   },
   inputContent: {
     flex: 1,
+  },
+  universityContainer: {
+    position: 'relative',
+  },
+  universityInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 42,
+    borderWidth: Platform.OS === 'ios' ? 1 : 0.5,
+    borderRadius: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 1,
+      },
+      android: {
+        elevation: 0,
+        backgroundColor: '#fff',
+        borderColor: 'rgba(224, 224, 224, 0.5)',
+      },
+    }),
+  },
+  input: {
+    flex: 1,
+    height: '100%',
+    paddingHorizontal: 14,
+    fontSize: 14,
+  },
+  simpleSuggestionsList: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    maxHeight: 200,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+    borderRadius: 8,
+    padding: 8,
+    zIndex: 1000,
+    backgroundColor: 'white',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  suggestionItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  suggestionText: {
+    fontSize: 14,
+  },
+  universityDropdownButton: {
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchInputContainer: {
+    padding: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+    marginBottom: 8,
+  },
+  searchInput: {
+    height: 36,
+    paddingHorizontal: 8,
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+    borderRadius: 8,
+    paddingLeft: 10,
+  },
+  emptyMessage: {
+    padding: 20,
+    textAlign: 'center',
+    fontSize: 14,
   },
 });
 

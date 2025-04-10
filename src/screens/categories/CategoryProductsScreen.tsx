@@ -145,17 +145,6 @@ const ProductItem = React.memo<{
             {item.productage.replace(/-/g, ' ')}
           </Text>
         )}
-        <TouchableOpacity 
-          style={styles.wishlistButton} 
-          onPress={handleWishlistToggle}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <FontAwesome 
-            name={isInWishlist ? "heart" : "heart-o"}
-            size={20} 
-            color="red" 
-          />
-        </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
