@@ -14,7 +14,8 @@ import {
   Animated,
   StatusBar,
   Dimensions,
-  Keyboard
+  Keyboard,
+  RefreshControl
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -224,7 +225,7 @@ const FirebaseChatScreen = () => {
     };
   }, [fadeAnim, scrollButtonAnim]);
 
-  // Load cached messages
+  // Load cached messages with improved cache invalidation
   const loadCachedMessages = useCallback(async (conversationId: string): Promise<Message[] | null> => {
     try {
       const storageKey = `${MESSAGES_STORAGE_KEY_PREFIX}${conversationId}`;
@@ -237,11 +238,13 @@ const FirebaseChatScreen = () => {
         
         console.log(`[AsyncStorage] Found cached messages (${messages.length}) from ${cacheAgeMinutes.toFixed(1)} minutes ago`);
         
-        // Only use cache if it's less than 30 minutes old
-        if (cacheAgeMinutes < 30) {
+        // Only use cache if it's less than 15 minutes old (reduced from 30)
+        if (cacheAgeMinutes < 15) {
           return messages;
         } else {
           console.log('[AsyncStorage] Cache too old, will fetch fresh data');
+          // Clear outdated cache
+          await AsyncStorage.removeItem(storageKey);
           return null;
         }
       }
@@ -287,25 +290,41 @@ const FirebaseChatScreen = () => {
     }
   }, [processMessagesForCache]);
 
-  // Subscribe to new messages
+  // Subscribe to new messages with improved handling
   const subscribeToNewMessages = useCallback((conversationId: string) => {
     const subscription = subscribeToMessages(conversationId, (updatedMessages) => {
       console.log('[FirebaseChatScreen] Received updated messages:', updatedMessages.length);
       
-      // Ensure we're not setting empty messages
+      // Compare with current messages to see if there are actually new messages
       if (updatedMessages && updatedMessages.length > 0) {
-        setMessages(updatedMessages);
+        // Check if we have new messages
+        const hasNewMessages = updatedMessages.length > messages.length;
         
-        // Cache updated messages
-        cacheMessages(conversationId, updatedMessages);
+        // Or if any message content has changed
+        const hasChangedMessages = updatedMessages.some((newMsg) => {
+          const existingMsg = messages.find(msg => msg.id === newMsg.id);
+          return existingMsg && 
+                 (existingMsg.content !== newMsg.content || 
+                  existingMsg.status !== newMsg.status);
+        });
         
-        // Scroll to bottom on new messages if user is already at bottom
-        if (updatedMessages.length > messages.length) {
-          setTimeout(() => {
-            if (flatListRef.current) {
-              flatListRef.current.scrollToEnd({ animated: true });
-            }
-          }, 100);
+        if (hasNewMessages || hasChangedMessages) {
+          console.log('[FirebaseChatScreen] Updating messages: new or changed messages detected');
+          setMessages(updatedMessages);
+          
+          // Update cache with fresh messages
+          cacheMessages(conversationId, updatedMessages);
+          
+          // Scroll to bottom on new messages if user is already at bottom
+          if (hasNewMessages) {
+            setTimeout(() => {
+              if (flatListRef.current) {
+                flatListRef.current.scrollToEnd({ animated: true });
+              }
+            }, 100);
+          }
+        } else {
+          console.log('[FirebaseChatScreen] No new or changed messages, skipping update');
         }
       } else {
         console.warn('[FirebaseChatScreen] Received empty messages from subscription');
@@ -313,7 +332,7 @@ const FirebaseChatScreen = () => {
     });
     
     messageSubscriptionRef.current = subscription;
-  }, [messages.length, cacheMessages]);
+  }, [messages, cacheMessages]);
 
   // Cache conversation data
   const cacheConversation = useCallback(async (conversation: any) => {
@@ -662,6 +681,30 @@ const FirebaseChatScreen = () => {
     []
   );
   
+  // Add pull-to-refresh functionality
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    if (!conversationId) return;
+    
+    setRefreshing(true);
+    try {
+      console.log('[FirebaseChatScreen] Manually refreshing messages');
+      // Force fetch new messages from Firebase
+      const freshMessages = await getMessages(conversationId);
+      
+      if (freshMessages.length > 0) {
+        setMessages(freshMessages);
+        // Update cache with latest messages
+        cacheMessages(conversationId, freshMessages);
+      }
+    } catch (error) {
+      console.error('[FirebaseChatScreen] Error refreshing messages:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [conversationId, cacheMessages]);
+  
   // Modify the renderContent function to avoid animation issues
   const renderContent = () => {
     // Only show loading on initial load
@@ -711,6 +754,14 @@ const FirebaseChatScreen = () => {
                   Start the conversation by sending a message
                 </Text>
               </View>
+            }
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                tintColor="#f7b305"
+                colors={['#f7b305']}
+              />
             }
           />
           
