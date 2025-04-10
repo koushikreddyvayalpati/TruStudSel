@@ -7,7 +7,6 @@ import {
   Image, 
   Dimensions, 
   ImageBackground,
-  SafeAreaView,
   StatusBar,
   Platform
 } from 'react-native';
@@ -43,13 +42,13 @@ const GetStartedScreen: React.FC<GetStartedScreenProps> = ({ navigation }) => {
   };
   
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar
         barStyle="dark-content"
         backgroundColor="transparent"
         translucent={true}
       />
-      <View style={styles.container}>
+      <View style={styles.contentContainer}>
         <Text style={[styles.title, { color: theme.colors.primary }]}>TruStudSel</Text>
         <Text style={[styles.subtitle, { color: theme.colors.text }]}>Welcome's You</Text>
         <Image 
@@ -73,19 +72,19 @@ const GetStartedScreen: React.FC<GetStartedScreenProps> = ({ navigation }) => {
           </TouchableOpacity>
         </ImageBackground>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
   },
-  container: {
+  contentContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 20 : 10,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 20 : 60,
   },
   image: {
     width: width * 1,
