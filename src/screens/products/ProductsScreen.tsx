@@ -1224,7 +1224,9 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
       },
       android: {
-        elevation: 4,
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+        elevation: 0,
       },
     }),
   },
@@ -1358,7 +1360,7 @@ const styles = StyleSheet.create({
         shadowRadius: 2,
       },
       android: {
-        elevation: 1,
+        elevation: 0,
       },
     }),
   },
@@ -1433,7 +1435,7 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
       },
       android: {
-        elevation: 4,
+        elevation: 0,
       },
     }),
   },
@@ -1452,7 +1454,7 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
       },
       android: {
-        elevation: 5,
+        elevation: 0,
       },
     }),
   },
@@ -1541,7 +1543,7 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
       },
       android: {
-        elevation: 4,
+        elevation: 0,
       },
     }),
   },
@@ -1570,7 +1572,7 @@ const styles = StyleSheet.create({
         shadowRadius: 2,
       },
       android: {
-        elevation: 1,
+        elevation: 0,
       },
     }),
   },
@@ -1609,7 +1611,7 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
       },
       android: {
-        elevation: 3,
+        elevation: 0,
       },
     }),
   },
@@ -1684,7 +1686,7 @@ const styles = StyleSheet.create({
         shadowRadius: 3,
       },
       android: {
-        elevation: 8,
+        elevation: 2,
       },
     }),
   },

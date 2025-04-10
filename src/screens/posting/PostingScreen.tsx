@@ -15,7 +15,8 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
-  Dimensions
+  Dimensions,
+  SafeAreaView
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -813,11 +814,19 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
           height: 55,
           justifyContent: 'center',
           alignItems: 'center',
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.2,
-          shadowRadius: 4,
-          elevation: 5,
+          ...Platform.select({
+            ios: {
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.2,
+              shadowRadius: 4,
+            },
+            android: {
+              elevation: 0,
+              borderWidth: 1,
+              borderColor: '#e0e0e0',
+            },
+          }),
         }
       ]}>
         {item.iconType === 'material' && <MaterialIcons name={item.icon} size={24} color="black" />}
@@ -935,226 +944,229 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
-      <ScrollView 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.contentContainer}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity 
-              style={styles.backButton} 
-              onPress={() => navigation.goBack()}
-              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-            >
-              <Icon name="chevron-left" size={20} color={theme.colors.text} />
-            </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Upload Item</Text>
-            <View style={styles.headerSpacer} />
-          </View>
-          
-          {/* Photo Upload Section */}
-          <View style={styles.sectionWrapper}>
-            <View style={styles.sectionHeaderRow}>
-              <View>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                  Photos {errors.images && <Text style={styles.errorText}>({errors.images})</Text>}
-                </Text>
-                <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>
-                  Add up to 5 photos to showcase your item
-                </Text>
-              </View>
-              <View style={styles.photoCountContainer}>
-                <Text style={styles.photoCount}>
-                  {images.length}/5
-                </Text>
-              </View>
-            </View>
-            
-            {renderPhotoGallery()}
-          </View>
-          
-          {/* Sell/Rent Toggle Section */}
-          <View style={styles.sectionWrapper}>
-            {renderSectionHeader('Listing Type')}
-            <View style={styles.toggleWrapper}>
-              <View style={styles.toggleContainer}>
-                <TouchableOpacity 
-                  style={[
-                    styles.toggleButton, 
-                    { backgroundColor: isSell ? '#f7b305' : 'transparent' }
-                  ]} 
-                  onPress={() => setIsSell(true)}
-                >
-                  <Text style={[
-                    styles.toggleText, 
-                    { color: isSell ? '#FFFFFF' : theme.colors.text }
-                  ]}>
-                    Sell
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[
-                    styles.toggleButton, 
-                    { backgroundColor: !isSell ? '#f7b305' : 'transparent' }
-                  ]} 
-                  onPress={() => setIsSell(false)}
-                >
-                  <Text style={[
-                    styles.toggleText, 
-                    { color: !isSell ? '#FFFFFF' : theme.colors.text }
-                  ]}>
-                    Rent
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-          
-          {/* Item Details Section */}
-          <View style={styles.sectionWrapper}>
-            {renderSectionHeader('Item Details')}
-            
-            <TextInput
-              label="Title"
-              value={title}
-              onChangeText={(text) => {
-                setTitle(text);
-                if (errors.title) {
-                  setErrors(prev => ({...prev, title: undefined}));
-                }
-              }}
-              placeholder="Enter item title"
-              containerStyle={styles.inputContainer}
-              error={errors.title}
-              maxLength={100}
-            />
-            
-            {/* Type Dropdown */}
-            <View style={styles.inputContainer}>
-              <Text style={[styles.label, { color: theme.colors.text }]}>
-                Type {errors.type && <Text style={styles.errorText}>({errors.type})</Text>}
-              </Text>
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.contentContainer}>
+            {/* Header */}
+            <View style={styles.header}>
               <TouchableOpacity 
-                style={[
-                  styles.dropdown, 
-                  { 
-                    borderColor: errors.type ? '#e74c3c' : theme.colors.border, 
-                    backgroundColor: theme.colors.surface 
-                  }
-                ]} 
-                onPress={() => setTypeModalVisible(true)}
+                style={styles.backButton} 
+                onPress={() => navigation.goBack()}
+                hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
               >
-                <Text style={[styles.dropdownText, { 
-                  color: displayType ? theme.colors.text : theme.colors.textSecondary 
-                }]}>
-                  {displayType || "Select item type"}
-                </Text>
-                <Icon name="chevron-down" size={16} color={theme.colors.textSecondary} />
+                <Icon name="chevron-left" size={20} color={theme.colors.text} />
               </TouchableOpacity>
+              <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Upload Item</Text>
+              <View style={styles.headerSpacer} />
             </View>
             
-            {/* Subcategory Dropdown - Only shown if selected type has subcategories */}
-            {hasSubcategories && selectedType && (
+            {/* Photo Upload Section */}
+            <View style={styles.sectionWrapper}>
+              <View style={styles.sectionHeaderRow}>
+                <View>
+                  <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                    Photos {errors.images && <Text style={styles.errorText}>({errors.images})</Text>}
+                  </Text>
+                  <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>
+                    Add up to 5 photos to showcase your item
+                  </Text>
+                </View>
+                <View style={styles.photoCountContainer}>
+                  <Text style={styles.photoCount}>
+                    {images.length}/5
+                  </Text>
+                </View>
+              </View>
+              
+              {renderPhotoGallery()}
+            </View>
+            
+            {/* Sell/Rent Toggle Section */}
+            <View style={styles.sectionWrapper}>
+              {renderSectionHeader('Listing Type')}
+              <View style={styles.toggleWrapper}>
+                <View style={styles.toggleContainer}>
+                  <TouchableOpacity 
+                    style={[
+                      styles.toggleButton, 
+                      { backgroundColor: isSell ? '#f7b305' : 'transparent' }
+                    ]} 
+                    onPress={() => setIsSell(true)}
+                  >
+                    <Text style={[
+                      styles.toggleText, 
+                      { color: isSell ? '#FFFFFF' : theme.colors.text }
+                    ]}>
+                      Sell
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[
+                      styles.toggleButton, 
+                      { backgroundColor: !isSell ? '#f7b305' : 'transparent' }
+                    ]} 
+                    onPress={() => setIsSell(false)}
+                  >
+                    <Text style={[
+                      styles.toggleText, 
+                      { color: !isSell ? '#FFFFFF' : theme.colors.text }
+                    ]}>
+                      Rent
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+            
+            {/* Item Details Section */}
+            <View style={styles.sectionWrapper}>
+              {renderSectionHeader('Item Details')}
+              
+              <TextInput
+                label="Title"
+                value={title}
+                onChangeText={(text) => {
+                  setTitle(text);
+                  if (errors.title) {
+                    setErrors(prev => ({...prev, title: undefined}));
+                  }
+                }}
+                placeholder="Enter item title"
+                containerStyle={styles.inputContainer}
+                error={errors.title}
+                maxLength={100}
+              />
+              
+              {/* Type Dropdown */}
               <View style={styles.inputContainer}>
-                <Text style={[styles.label, { color: theme.colors.text }]}>Subcategory</Text>
+                <Text style={[styles.label, { color: theme.colors.text }]}>
+                  Type {errors.type && <Text style={styles.errorText}>({errors.type})</Text>}
+                </Text>
                 <TouchableOpacity 
-                  style={[styles.dropdown, { borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]} 
-                  onPress={() => setSubcategoryModalVisible(true)}
+                  style={[
+                    styles.dropdown, 
+                    { 
+                      borderColor: errors.type ? '#e74c3c' : theme.colors.border, 
+                      backgroundColor: theme.colors.surface 
+                    }
+                  ]} 
+                  onPress={() => setTypeModalVisible(true)}
                 >
                   <Text style={[styles.dropdownText, { 
-                    color: displaySubcategory ? theme.colors.text : theme.colors.textSecondary 
+                    color: displayType ? theme.colors.text : theme.colors.textSecondary 
                   }]}>
-                    {displaySubcategory || `Select ${selectedType.name.toLowerCase()} subcategory`}
+                    {displayType || "Select item type"}
                   </Text>
                   <Icon name="chevron-down" size={16} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
               </View>
-            )}
-            
-            <TextInput
-              label="Description"
-              value={description}
-              onChangeText={(text) => {
-                setDescription(text);
-                if (errors.description) {
-                  setErrors(prev => ({...prev, description: undefined}));
-                }
-              }}
-              placeholder="Describe your item (condition, features, etc.)"
-              multiline
-              textAlignVertical="top"
-              containerStyle={styles.textAreaContainer}
-              inputStyle={styles.textArea}
-              error={errors.description}
-              maxLength={1000}
-            />
-          </View>
-          
-          {/* Pricing & Condition Section */}
-          <View style={styles.sectionWrapper}>
-            {renderSectionHeader('Pricing & Condition')}
-            
-            <TextInput
-              label={`Price${isSell ? '' : ' (per day)'}`}
-              value={price}
-              onChangeText={(text) => {
-                // Allow only numbers and a single decimal point
-                const cleanedText = text.replace(/[^0-9.]/g, '');
-                const decimalSplit = cleanedText.split('.');
-                
-                // If more than one decimal point, keep only the first one
-                const formattedText = decimalSplit.length > 2 
-                  ? `${decimalSplit[0]}.${decimalSplit.slice(1).join('')}`
-                  : cleanedText;
-                  
-                setPrice(formattedText);
-                if (errors.price) {
-                  setErrors(prev => ({...prev, price: undefined}));
-                }
-              }}
-              placeholder={`Enter price in $${isSell ? '' : ' per day'}`}
-              keyboardType="numeric"
-              containerStyle={styles.inputContainer}
-              error={errors.price}
-              maxLength={12}
-            />
-            
-            {/* Condition Dropdown */}
-            <View style={styles.inputContainer}>
-              <Text style={[styles.label, { color: theme.colors.text }]}>
-                Condition {errors.condition && <Text style={styles.errorText}>({errors.condition})</Text>}
-              </Text>
-              <TouchableOpacity 
-                style={[
-                  styles.dropdown, 
-                  { 
-                    borderColor: errors.condition ? '#e74c3c' : theme.colors.border, 
-                    backgroundColor: theme.colors.surface 
-                  }
-                ]} 
-                onPress={() => setConditionModalVisible(true)}
-              >
-                <Text style={[styles.dropdownText, { 
-                  color: displayCondition ? theme.colors.text : theme.colors.textSecondary 
-                }]}>
-                  {displayCondition || "Select item condition"}
-                </Text>
-                <Icon name="chevron-down" size={16} color={theme.colors.textSecondary} />
-              </TouchableOpacity>
-              {selectedCondition && (
-                <Text style={[styles.conditionDescription, { color: theme.colors.textSecondary }]}>
-                  {selectedCondition.description}
-                </Text>
+              
+              {/* Subcategory Dropdown - Only shown if selected type has subcategories */}
+              {hasSubcategories && selectedType && (
+                <View style={styles.inputContainer}>
+                  <Text style={[styles.label, { color: theme.colors.text }]}>Subcategory</Text>
+                  <TouchableOpacity 
+                    style={[styles.dropdown, { borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]} 
+                    onPress={() => setSubcategoryModalVisible(true)}
+                  >
+                    <Text style={[styles.dropdownText, { 
+                      color: displaySubcategory ? theme.colors.text : theme.colors.textSecondary 
+                    }]}>
+                      {displaySubcategory || `Select ${selectedType.name.toLowerCase()} subcategory`}
+                    </Text>
+                    <Icon name="chevron-down" size={16} color={theme.colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
               )}
+              
+              <TextInput
+                label="Description"
+                value={description}
+                onChangeText={(text) => {
+                  setDescription(text);
+                  if (errors.description) {
+                    setErrors(prev => ({...prev, description: undefined}));
+                  }
+                }}
+                placeholder="Describe your item (condition, features, etc.)"
+                multiline
+                textAlignVertical="top"
+                containerStyle={styles.textAreaContainer}
+                inputStyle={styles.textArea}
+                error={errors.description}
+                maxLength={1000}
+              />
             </View>
+            
+            {/* Pricing & Condition Section */}
+            <View style={styles.sectionWrapper}>
+              {renderSectionHeader('Pricing & Condition')}
+              
+              <TextInput
+                label={`Price${isSell ? '' : ' (per day)'}`}
+                value={price}
+                onChangeText={(text) => {
+                  // Allow only numbers and a single decimal point
+                  const cleanedText = text.replace(/[^0-9.]/g, '');
+                  const decimalSplit = cleanedText.split('.');
+                  
+                  // If more than one decimal point, keep only the first one
+                  const formattedText = decimalSplit.length > 2 
+                    ? `${decimalSplit[0]}.${decimalSplit.slice(1).join('')}`
+                    : cleanedText;
+                    
+                  setPrice(formattedText);
+                  if (errors.price) {
+                    setErrors(prev => ({...prev, price: undefined}));
+                  }
+                }}
+                placeholder={`Enter price in $${isSell ? '' : ' per day'}`}
+                keyboardType="numeric"
+                containerStyle={styles.inputContainer}
+                inputStyle={Platform.OS === 'android' ? {backgroundColor: 'white', borderColor: 'rgba(0,0,0,0.15)'} : {}}
+                error={errors.price}
+                maxLength={12}
+              />
+              
+              {/* Condition Dropdown */}
+              <View style={styles.inputContainer}>
+                <Text style={[styles.label, { color: theme.colors.text }]}>
+                  Condition {errors.condition && <Text style={styles.errorText}>({errors.condition})</Text>}
+                </Text>
+                <TouchableOpacity 
+                  style={[
+                    styles.dropdown, 
+                    { 
+                      borderColor: errors.condition ? '#e74c3c' : theme.colors.border, 
+                      backgroundColor: theme.colors.surface 
+                    }
+                  ]} 
+                  onPress={() => setConditionModalVisible(true)}
+                >
+                  <Text style={[styles.dropdownText, { 
+                    color: displayCondition ? theme.colors.text : theme.colors.textSecondary 
+                  }]}>
+                    {displayCondition || "Select item condition"}
+                  </Text>
+                  <Icon name="chevron-down" size={16} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+                {selectedCondition && (
+                  <Text style={[styles.conditionDescription, { color: theme.colors.textSecondary }]}>
+                    {selectedCondition.description}
+                  </Text>
+                )}
+              </View>
+            </View>
+            
+            {/* Post Button */}
+            <PostButton />
           </View>
-          
-          {/* Post Button */}
-          <PostButton />
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </SafeAreaView>
 
       {/* Type Selection Modal */}
       <Modal
@@ -1290,6 +1302,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  safeArea: {
+    flex: 1,
+  },
   scrollContent: {
     flexGrow: 1,
     paddingBottom: Platform.OS === 'ios' ? 40 : 24,
@@ -1309,17 +1324,20 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 10,
-    backgroundColor: '',
     borderRadius: 10,
     ...Platform.select({
       ios: {
+        backgroundColor: '',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
         shadowRadius: 2,
       },
       android: {
-        elevation: 1,
+        marginTop: 10,
+        backgroundColor: '',
+        elevation: 0,
+        borderWidth: 0,
       },
     }),
   },
@@ -1344,7 +1362,9 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
       },
       android: {
-        elevation: 2,
+        elevation: 0,
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
       },
     }),
   },
@@ -1407,7 +1427,9 @@ const styles = StyleSheet.create({
         shadowRadius: 10,
       },
       android: {
-        elevation: 3,
+        elevation: 0,
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
       },
     }),
   },
@@ -1428,7 +1450,9 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
       },
       android: {
-        elevation: 4,
+        elevation: 0,
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
       },
     }),
   },
@@ -1457,7 +1481,7 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
       },
       android: {
-        elevation: 4,
+        elevation: 0,
       },
     }),
   },
@@ -1495,7 +1519,9 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
       },
       android: {
-        elevation: 5,
+        elevation: 0,
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
       },
     }),
   },
@@ -1523,7 +1549,7 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
       },
       android: {
-        elevation: 3,
+        elevation: 0,
       },
     }),
   },
@@ -1543,7 +1569,7 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
       },
       android: {
-        elevation: 3,
+        elevation: 0,
       },
     }),
   },
@@ -1573,7 +1599,7 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
       },
       android: {
-        elevation: 3,
+        elevation: 0,
       },
     }),
   },
@@ -1649,9 +1675,21 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     marginBottom: 16,
+    ...Platform.select({
+      android: {
+        shadowColor: 'transparent',
+        elevation: 0,
+      },
+    }),
   },
   textAreaContainer: {
     marginBottom: 16,
+    ...Platform.select({
+      android: {
+        shadowColor: 'transparent',
+        elevation: 0,
+      },
+    }),
   },
   textArea: {
     height: 120,
@@ -1675,7 +1713,7 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
       },
       android: {
-        elevation: 3,
+        elevation: 0,
       },
     }),
   },
@@ -1706,6 +1744,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    ...Platform.select({
+      ios: {},
+      android: {
+        borderColor: 'rgba(0,0,0,0.15)',
+        elevation: 0,
+        backgroundColor: 'white',
+        shadowColor: 'transparent',
+      },
+    }),
   },
   dropdownText: {
     fontSize: 15,
@@ -1717,6 +1764,14 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     paddingHorizontal: 3,
     opacity: 0.7,
+    ...Platform.select({
+      android: {
+        paddingHorizontal: 5,
+        paddingVertical: 3,
+        backgroundColor: 'rgba(247, 179, 5, 0.05)',
+        borderRadius: 4,
+      },
+    }),
   },
   modalOverlay: {
     flex: 1,
@@ -1737,7 +1792,7 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
       },
       android: {
-        elevation: 6,
+        elevation: 0,
       },
     }),
   },
