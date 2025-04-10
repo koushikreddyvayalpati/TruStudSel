@@ -730,11 +730,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#f7b305',
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
-    shadowColor: 'rgba(0, 0, 0, 0.08)',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.8,
-    shadowRadius: 2,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(0, 0, 0, 0.08)',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.8,
+        shadowRadius: 2,
+      },
+      android: {
+        marginTop: 0,
+        paddingTop: 15,
+        borderBottomWidth: 0,
+        elevation: 4,
+      },
+    }),
     zIndex: 10,
   },
   normalHeader: {
@@ -746,15 +755,27 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
     marginRight: 4,
-    paddingLeft:0,
+    paddingLeft: 0,
+    ...Platform.select({
+      android: {
+        backgroundColor: '',
+        borderRadius: 20,
+        padding: 8,
+        marginLeft: 5,
+      },
+    }),
   },
   header: {
     flex: 1,
     fontSize: 22,
     fontWeight: '700',
     color: '#333',
-    textAlign:'center',
-
+    textAlign: 'center',
+    ...Platform.select({
+      android: {
+        marginRight: 40, // Balance the header text when back button is visible
+      },
+    }),
   },
   headerActions: {
     flexDirection: 'row',
