@@ -188,7 +188,10 @@ const SignInScreen: React.FC = () => {
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <ScrollView 
-            contentContainerStyle={styles.scrollContainer}
+            contentContainerStyle={[
+              styles.scrollContainer,
+              Platform.OS === 'android' && { paddingTop: 15 }
+            ]}
             showsVerticalScrollIndicator={false}
             bounces={false}
           >
@@ -300,18 +303,18 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    paddingTop: 10,
+    paddingTop: Platform.OS === 'android' ? 40 : 10,
     paddingBottom: 0,
   },
   logoContainerCompressed: {
-    paddingTop: 30,
+    paddingTop: Platform.OS === 'android' ? 40 : 30,
     paddingBottom: 0,
   },
   logoText: {
     fontSize: 32,
     fontWeight: '700',
     color: '#f7b305',
-    marginTop: 20,
+    marginTop: Platform.OS === 'android' ? 10 : 20,
     letterSpacing: 0,
     fontFamily: 'Montserrat',
   },

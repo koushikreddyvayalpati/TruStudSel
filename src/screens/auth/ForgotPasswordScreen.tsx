@@ -11,7 +11,8 @@ import {
   SafeAreaView,
   Image,
   Animated,
-  Keyboard
+  Keyboard,
+  StatusBar
 } from 'react-native';
 import { Auth } from 'aws-amplify';
 import { useNavigation } from '@react-navigation/native';
@@ -209,7 +210,10 @@ const ForgotPasswordScreen: React.FC = () => {
         style={styles.keyboardAvoidingView}
       >
         <ScrollView 
-          contentContainerStyle={styles.scrollContainer}
+          contentContainerStyle={[
+            styles.scrollContainer,
+            Platform.OS === 'android' && { paddingTop: StatusBar.currentHeight || 0 }
+          ]}
           showsVerticalScrollIndicator={false}
         >
           {/* Loading overlays */}
@@ -251,7 +255,8 @@ const ForgotPasswordScreen: React.FC = () => {
               activeOpacity={0.5}
               hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
             >
-              <Entypo name="chevron-left" size={28} color={theme.colors.secondary} />
+                <Entypo name="chevron-left" size={28} color={theme.colors.secondary} />
+             
             </TouchableOpacity>
           </View>
           
@@ -414,6 +419,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     marginTop: 10,
     zIndex: 10,
+    ...Platform.select({
+      android: {
+        paddingTop: 16,
+        height: 75,
+      }
+    }),
   },
   backButton: {
     padding: 10,
@@ -421,6 +432,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
+    ...Platform.select({
+      android: {
+        padding: 8,
+        marginLeft: 0,
+        marginTop: 0,
+      }
+    }),
   },
   contentContainer: {
     padding: 20,

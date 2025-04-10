@@ -6,7 +6,10 @@ import {
   TouchableOpacity, 
   Image, 
   Dimensions, 
-  ImageBackground
+  ImageBackground,
+  SafeAreaView,
+  StatusBar,
+  Platform
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GetStartedScreenNavigationProp } from '../../types/navigation.types';
@@ -40,40 +43,49 @@ const GetStartedScreen: React.FC<GetStartedScreenProps> = ({ navigation }) => {
   };
   
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Text style={[styles.title, { color: theme.colors.primary }]}>TruStudSel</Text>
-      <Text style={[styles.subtitle, { color: theme.colors.text }]}>Welcome's You</Text>
-      <Image 
-        source={require('../../../assets/intro.jpg')} // Update with your image path
-        style={styles.image}
-        resizeMode="cover"
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="transparent"
+        translucent={true}
       />
-      <ImageBackground 
-        //source={require('../../../assets/Yellow.png')}
-        style={styles.trustContainer}
-        resizeMode="cover"
-      >
-        <Text style={styles.trustText}>True</Text>
-        <Text style={styles.trustText}>Student</Text>
-        <Text style={styles.trustText}>Sell</Text>
-        <TouchableOpacity 
-          style={[styles.getStartedButton, { backgroundColor: theme.colors.secondaryDark }]}
-          onPress={handleGetStarted}
+      <View style={styles.container}>
+        <Text style={[styles.title, { color: theme.colors.primary }]}>TruStudSel</Text>
+        <Text style={[styles.subtitle, { color: theme.colors.text }]}>Welcome's You</Text>
+        <Image 
+          source={require('../../../assets/intro.jpg')} // Update with your image path
+          style={styles.image}
+          resizeMode="cover"
+        />
+        <ImageBackground 
+          //source={require('../../../assets/Yellow.png')}
+          style={styles.trustContainer}
+          resizeMode="cover"
         >
-          <Text style={[styles.getStartedText, { color: theme.colors.buttonText }]}>Get Started</Text>
-        </TouchableOpacity>
-      </ImageBackground>
-    </View>
+          <Text style={styles.trustText}>True</Text>
+          <Text style={styles.trustText}>Student</Text>
+          <Text style={styles.trustText}>Sell</Text>
+          <TouchableOpacity 
+            style={[styles.getStartedButton, { backgroundColor: theme.colors.secondaryDark }]}
+            onPress={handleGetStarted}
+          >
+            <Text style={[styles.getStartedText, { color: theme.colors.buttonText }]}>Get Started</Text>
+          </TouchableOpacity>
+        </ImageBackground>
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingTop: 50,
-    marginTop: 20,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 20 : 10,
   },
   image: {
     width: width * 1,
