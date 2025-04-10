@@ -2394,11 +2394,19 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.5,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 1.5,
+      },
+      android: {
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+        backgroundColor: 'white',
+      }
+    }),
   },
   sortButton: {
   },
@@ -2428,13 +2436,21 @@ const styles = StyleSheet.create({
     width: 55,
     height: 55,
     borderRadius: 30,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
     justifyContent: 'center',
     alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+        elevation: 0,
+      }
+    }),
   },
   categoryText: {
     fontSize: 12,
@@ -2465,12 +2481,20 @@ const styles = StyleSheet.create({
     width: 150,
     marginRight: 15,
     borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
     overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+        elevation: 0,
+      }
+    }),
   },
   productImagePlaceholder: {
     width: 150,
@@ -2516,17 +2540,31 @@ const styles = StyleSheet.create({
     top: 45,
     right: 0,
     zIndex: 1000,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.27,
-    shadowRadius: 4.65,
-    elevation: 6,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.27,
+        shadowRadius: 4.65,
+      },
+      android: {
+        elevation: 3,
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+      }
+    }),
   },
   enhancedDropdown: {
     width: Math.min(260, width * 0.6),
     backgroundColor: 'white',
     borderRadius: 10,
     overflow: 'hidden',
+    ...Platform.select({
+      android: {
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+      }
+    }),
   },
   enhancedDropdownHeader: {
     padding: 12,
@@ -2708,13 +2746,19 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
     borderWidth: 1,
     borderColor: '#f0f0f0',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 0,
+      }
+    }),
   },
 });
 
