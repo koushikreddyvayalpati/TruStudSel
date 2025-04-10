@@ -781,8 +781,8 @@ const FirebaseChatScreen = () => {
             >
               <Icon 
                 name="send" 
-                size={24} 
-                color={inputText.trim() ? "#ffb300" : "#ccc"} 
+                size={Platform.OS === 'android' ? 22 : 24} 
+                color={inputText.trim() ? (Platform.OS === 'android' ? "#fff" : "#ffb300") : "#ccc"} 
               />
             </TouchableOpacity>
           </View>
@@ -793,7 +793,10 @@ const FirebaseChatScreen = () => {
   
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar 
+        barStyle={Platform.OS === 'android' ? "dark-content" : "dark-content"} 
+        backgroundColor={Platform.OS === 'android' ? "#f7b305" : "#fff"} 
+      />
       
       {/* Enhanced Header */}
       <View style={styles.header}>
@@ -803,7 +806,7 @@ const FirebaseChatScreen = () => {
             style={styles.backButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Icon name="arrow-back" size={24} color="#000" />
+            <Icon name="arrow-back" size={24} color={Platform.OS === 'android' ? "#333" : "#000"} />
           </TouchableOpacity>
         </View>
         
@@ -886,11 +889,21 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
     backgroundColor: '#fff',
-    elevation: 3,
-    shadowColor: 'rgba(0,0,0,0.15)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 3,
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(0,0,0,0.15)',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 4, 
+        paddingTop: 40,
+        paddingBottom: 15,
+        backgroundColor: '#f7b305',
+        borderBottomWidth: 0,
+      },
+    }),
   },
   headerLeft: {
     width: 40,
@@ -910,6 +923,14 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 5,
+    ...Platform.select({
+      android: {
+        backgroundColor: '',
+        padding: 8,
+        borderRadius: 20,
+        marginLeft: 5,
+      },
+    }),
   },
   headerAvatar: {
     width: 36,
@@ -919,6 +940,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
+    ...Platform.select({
+      android: {
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        borderWidth: 1.5,
+        borderColor: 'rgba(255,255,255,0.5)',
+      },
+    }),
   },
   headerAvatarText: {
     fontSize: 16,
@@ -933,11 +963,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#000',
     marginRight: 5,
+    ...Platform.select({
+      android: {
+        color: '#333',
+        fontSize: 18,
+        fontWeight: '700',
+      },
+    }),
   },
   typingIndicator: {
     fontSize: 13,
     color: '#666',
     fontStyle: 'italic',
+    ...Platform.select({
+      android: {
+        color: '#333',
+      },
+    }),
   },
   profileButton: {
     padding: 5,
@@ -946,11 +988,24 @@ const styles = StyleSheet.create({
   messagesContainer: {
     flex: 1,
     position: 'relative',
+    ...Platform.select({
+      android: {
+        backgroundColor: '#f9f9f9',
+      }
+    }),
   },
   messageList: {
     padding: 10,
     paddingBottom: 30,
-    backgroundColor: '#fff',
+    ...Platform.select({
+      ios: {
+        backgroundColor: '#fff',
+      },
+      android: {
+        backgroundColor: '#f9f9f9',
+        paddingHorizontal: 12,
+      },
+    }),
   },
   // Enhanced message bubbles
   messageBubbleContainer: {
@@ -975,6 +1030,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
+    ...Platform.select({
+      android: {
+        elevation: 2,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)',
+      },
+    }),
   },
   avatarText: {
     fontSize: 12,
@@ -990,17 +1052,30 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffb300',
     borderBottomRightRadius: 4,
     marginLeft: 'auto',
+    ...Platform.select({
+      android: {
+        elevation: 1,
+      },
+    }),
   },
   receivedMessage: {
     backgroundColor: '#f8f8f8',
     borderBottomLeftRadius: 4,
-    shadowColor: 'rgba(0,0,0,0.06)',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 1,
-    shadowRadius: 2,
-    elevation: 1,
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(0,0,0,0.06)',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 1,
+        shadowRadius: 2,
+        borderWidth: 1,
+        borderColor: '#f0f0f0',
+      },
+      android: {
+        backgroundColor: '#fff',
+        elevation: 1,
+        borderWidth: 0,
+      }
+    }),
   },
   messageText: {
     fontSize: 16,
@@ -1037,6 +1112,14 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     overflow: 'hidden',
+    ...Platform.select({
+      android: {
+        backgroundColor: 'rgba(0,0,0,0.06)',
+        color: '#333',
+        elevation: 1,
+        paddingVertical: 5,
+      },
+    }),
   },
   // Enhanced input area
   keyboardAvoidingView: {
@@ -1046,8 +1129,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 10,
     backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    ...Platform.select({
+      ios: {
+        borderTopWidth: 1,
+        borderTopColor: '#e0e0e0',
+      },
+      android: {
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        paddingBottom: 16,
+        borderTopWidth: 0,
+        elevation: 4,
+        shadowColor: 'transparent',
+        alignItems: 'center',
+      }
+    }),
     alignItems: 'flex-end',
   },
   input: {
@@ -1062,6 +1158,18 @@ const styles = StyleSheet.create({
     color: '#000',
     borderWidth: 1,
     borderColor: '#f0f0f0',
+    ...Platform.select({
+      android: {
+        paddingTop: 8,
+        paddingBottom: 8,
+        backgroundColor: '#fff',
+        elevation: 0,
+        borderColor: '#e0e0e0',
+        borderRadius: 25,
+        height: 48,
+        paddingHorizontal: 18,
+      }
+    }),
   },
   sendButton: {
     justifyContent: 'center',
@@ -1073,10 +1181,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f9f9',
     borderWidth: 1,
     borderColor: '#e0e0e0',
+    ...Platform.select({
+      android: {
+        backgroundColor: '#ffb300',
+        borderWidth: 0,
+        elevation: 0,
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        marginLeft: 8,
+        shadowColor: 'transparent',
+      }
+    }),
   },
   sendButtonDisabled: {
     opacity: 0.7,
     backgroundColor: '#f5f5f5',
+    ...Platform.select({
+      android: {
+        backgroundColor: 'rgba(247, 179, 5, 0.5)',
+        opacity: 0.8,
+        elevation: 0,
+      }
+    }),
   },
   // Empty state
   emptyContainer: {
@@ -1084,7 +1211,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 100,
     paddingHorizontal: 20,
-    backgroundColor: '#fff',
+    ...Platform.select({
+      ios: {
+        backgroundColor: '#fff',
+      },
+      android: {
+        backgroundColor: '#f9f9f9',
+      },
+    }),
   },
   emptyText: {
     fontSize: 18,
@@ -1111,11 +1245,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffb300',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: 'rgba(0,0,0,0.3)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.8,
-    shadowRadius: 3,
-    elevation: 5,
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(0,0,0,0.3)',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.8,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 6,
+        shadowColor: 'transparent',
+      },
+    }),
     zIndex: 10,
   },
   scrollToBottomTouchable: {
