@@ -1210,7 +1210,11 @@ const ProfileScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+      <StatusBar 
+        translucent={true}
+        backgroundColor="transparent"
+        barStyle="light-content" 
+      />
       
       {/* Animated Header */}
       <Animated.View 
@@ -1360,9 +1364,14 @@ const styles = StyleSheet.create({
     height: HEADER_MAX_HEIGHT,
     backgroundColor: '#f7b305',
     zIndex: 100,
-    paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 10,
-    paddingBottom: 8,
-    marginTop: StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 50,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 10),
+    paddingBottom: Platform.OS === 'android' ? 12 : 8,
+    marginTop: Platform.OS === 'android' ? 0 : (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 50),
+    ...Platform.select({
+      android: {
+        elevation: 0,
+      }
+    }),
   },
   headerContent: {
     flex: 1,
@@ -1370,7 +1379,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    marginTop: 0,
+    marginTop: Platform.OS === 'android' ? 8 : 0,
   },
   backButtonHeader: {
     padding: 8,
@@ -1380,6 +1389,11 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    ...Platform.select({
+      android: {
+        backgroundColor: 'transparent',
+      }
+    }),
   },
   headerTitle: {
     fontSize: 20,
@@ -1395,34 +1409,28 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    ...Platform.select({
+      android: {
+        backgroundColor: 'transparent',
+      }
+    }),
   },
   bannerContainer: {
     height: PROFILE_BANNER_HEIGHT,
     width: '100%',
     backgroundColor: '#f7b305', // Yellow background
+    ...Platform.select({
+      android: {
+        elevation: 0,
+      }
+    }),
   },
   bannerContent: {
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
     padding: 16,
-    paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 16,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(247, 179, 5, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  signOutButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(247, 179, 5, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingTop: Platform.OS === 'android' ? 16 : StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 16,
   },
   profileContainer: {
     backgroundColor: '#fff',
@@ -1439,7 +1447,9 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
       },
       android: {
-        elevation: 6,
+        elevation: 0,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(0,0,0,0.1)',
       }
     }),
   },
@@ -1448,6 +1458,9 @@ const styles = StyleSheet.create({
     marginTop: -PROFILE_IMAGE_SIZE / 2,
     marginBottom: 8,
     position: 'relative',
+    width: PROFILE_IMAGE_SIZE + 8, // Add some extra space for border
+    height: PROFILE_IMAGE_SIZE + 8, // Add some extra space for border
+    borderRadius: (PROFILE_IMAGE_SIZE + 8) / 2,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -1456,7 +1469,10 @@ const styles = StyleSheet.create({
         shadowRadius: 5,
       },
       android: {
-        elevation: 8,
+        elevation: 0,
+        borderWidth: 4,
+        borderColor: '#fff',
+        backgroundColor: '#fff',
       }
     }),
   },
@@ -1464,8 +1480,15 @@ const styles = StyleSheet.create({
     width: PROFILE_IMAGE_SIZE,
     height: PROFILE_IMAGE_SIZE,
     borderRadius: PROFILE_IMAGE_SIZE / 2,
-    borderWidth: 4,
-    borderColor: '#fff',
+    ...Platform.select({
+      ios: {
+        borderWidth: 4,
+        borderColor: '#fff',
+      },
+      android: {
+        borderWidth: 0,
+      }
+    }),
   },
   profileImagePlaceholder: {
     width: PROFILE_IMAGE_SIZE,
@@ -1474,8 +1497,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 4,
-    borderColor: '#fff',
+    ...Platform.select({
+      ios: {
+        borderWidth: 4,
+        borderColor: '#fff',
+      },
+      android: {
+        borderWidth: 0,
+      }
+    }),
   },
   profileInitial: {
     fontSize: 34,
@@ -1505,7 +1535,8 @@ const styles = StyleSheet.create({
         shadowRadius: 2,
       },
       android: {
-        elevation: 2,
+        elevation: 0,
+        borderWidth: 3,
       }
     }),
   },
@@ -1545,7 +1576,10 @@ const styles = StyleSheet.create({
         shadowRadius: 3,
       },
       android: {
-        elevation: 2,
+        elevation: 0,
+        backgroundColor: 'rgba(247, 179, 5, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(27, 116, 228, 0.3)',
       }
     }),
   },
@@ -1581,7 +1615,8 @@ const styles = StyleSheet.create({
         shadowRadius: 2,
       },
       android: {
-        elevation: 1,
+        elevation: 0,
+        borderColor: '#e5e5e5',
       }
     }),
   },
@@ -1630,7 +1665,9 @@ const styles = StyleSheet.create({
         shadowRadius: 3,
       },
       android: {
-        elevation: 1,
+        elevation: 0,
+        borderBottomWidth: 1,
+        borderTopWidth: 1,
       }
     }),
   },
@@ -1701,7 +1738,9 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
       },
       android: {
-        elevation: 3,
+        elevation: 0,
+        borderWidth: 1,
+        borderColor: 'rgba(233, 166, 0, 0.5)',
       }
     }),
   },
@@ -1743,7 +1782,9 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
       },
       android: {
-        elevation: 3,
+        elevation: 0,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.08)',
       }
     }),
   },
@@ -1779,7 +1820,9 @@ const styles = StyleSheet.create({
         shadowRadius: 3,
       },
       android: {
-        elevation: 3,
+        elevation: 0,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.2)',
       }
     }),
   },
@@ -1818,6 +1861,11 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#fff',
     overflow: 'hidden',
+    ...Platform.select({
+      android: {
+        elevation: 0,
+      }
+    }),
   },
   emptyState: {
     flex: 1,
@@ -1862,7 +1910,9 @@ const styles = StyleSheet.create({
         shadowRadius: 5,
       },
       android: {
-        elevation: 4,
+        elevation: 0,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.1)',
       }
     }),
   },
@@ -1899,6 +1949,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
+    ...Platform.select({
+      android: {
+        elevation: 0,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.05)',
+      }
+    }),
   },
   retryButtonText: {
     color: '#fff',
@@ -1927,6 +1984,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
+    ...Platform.select({
+      android: {
+        elevation: 0,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.05)',
+      }
+    }),
   },
   emptyListButtonText: {
     color: '#fff',
@@ -1973,7 +2037,8 @@ const styles = StyleSheet.create({
         shadowRadius: 1,
       },
       android: {
-        elevation: 1,
+        elevation: 0,
+        backgroundColor: '#f0f0f0',
       }
     }),
     zIndex: 10,
