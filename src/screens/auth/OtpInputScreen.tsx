@@ -597,8 +597,8 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
       </View>
       
       <View style={styles.passwordFormContainer}>
+        <Text style={[styles.inputLabel, { color: theme.colors.text }]}>New Password</Text>
         <TextInput
-          label="New Password"
           value={password}
           onChangeText={(text) => {
             setPassword(text);
@@ -608,15 +608,16 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
           secureTextEntry
           isPassword
           containerStyle={styles.passwordInputContainer}
+          inputStyle={Platform.OS === 'android' ? styles.androidInputStyle : {}}
           error={passwordError}
           touched={!!passwordError}
-          leftIcon={<Entypo name="lock" size={20} color={theme.colors.secondary} />}
+          leftIcon={<Entypo name="lock" size={20} color={'#888'} />}
         />
         
         {renderPasswordStrengthBar()}
         
+        <Text style={[styles.inputLabel, { color: theme.colors.text }]}>Confirm Password</Text>
         <TextInput
-          label="Confirm Password"
           value={confirmPassword}
           onChangeText={(text) => {
             setConfirmPassword(text);
@@ -626,7 +627,8 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
           secureTextEntry
           isPassword
           containerStyle={styles.passwordInputContainer}
-          leftIcon={<Entypo name="lock-open" size={20} color={theme.colors.secondary} />}
+          inputStyle={Platform.OS === 'android' ? styles.androidInputStyle : {}}
+          leftIcon={<Entypo name="lock" size={20} color={'#888'} />}
         />
       </View>
       
@@ -757,10 +759,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 15,
+    ...Platform.select({
+      android: {
+        marginTop: 15,
+        paddingTop: 15,
+      }
+    }),
   },
   backButton: {
     padding: 10,
     paddingLeft: 0,
+    ...Platform.select({
+      android: {
+        marginTop: 0,
+        paddingBottom: 0,
+      }
+    }),
   },
   contentContainer: {
     paddingTop: 0,
@@ -778,22 +792,30 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     alignItems: 'center',
-    marginVertical: 20,
+    marginVertical: Platform.OS === 'android' ? 15 : 20,
   },
   image: {
     width: 180,
-    height: 180,
+    height:  180,
   },
   cardContainer: {
     backgroundColor: 'rgba(245,245,245,0.5)',
     borderRadius: 15,
     padding: 15,
     marginBottom: 25,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 0,
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+      },
+    }),
   },
   subtitle: {
     fontSize: 16,
@@ -828,11 +850,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 0,
+        backgroundColor: '#fff',
+      },
+    }),
     marginHorizontal: 3,
   },
   otpDigitText: {
@@ -863,11 +892,21 @@ const styles = StyleSheet.create({
   passwordInputContainer: {
     marginBottom: 16,
     borderRadius: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 0,
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+        shadowColor: 'transparent',
+      },
+    }),
   },
   strengthContainer: {
     marginBottom: 20,
@@ -912,11 +951,18 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 14,
     overflow: 'hidden',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 0,
+        backgroundColor: '#fff',
+      },
+    }),
   },
   verifyButton: {
     width: '100%',
@@ -961,6 +1007,14 @@ const styles = StyleSheet.create({
   progressBar: {
     height: '100%',
     borderRadius: 3,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  androidInputStyle: {
+    padding: 10,
   },
 });
 
