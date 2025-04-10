@@ -1311,7 +1311,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 16,
-    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingTop: Platform.OS === 'ios' ? 5 : 30,
   },
   header: {
     flexDirection: 'row',
