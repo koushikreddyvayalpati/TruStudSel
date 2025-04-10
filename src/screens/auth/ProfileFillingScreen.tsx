@@ -95,13 +95,21 @@ const textInputStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     height: 42,
-    borderWidth: 1,
+    borderWidth: Platform.OS === 'ios' ? 1 : 0.5,
     borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 1,
-    elevation: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 1,
+      },
+      android: {
+        elevation: 0,
+        backgroundColor: '#fff',
+        borderColor: 'rgba(224, 224, 224, 0.5)',
+      },
+    }),
   },
   input: {
     flex: 1,
@@ -194,7 +202,6 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
   
   // Constants for progress tracking and UI
   const minCategoriesRequired = 3;
-  const progressGradient = [theme.colors.primary, theme.colors.secondary || '#4a90e2'];
   
   // State to track field completions
   const [_completionFlags, setCompletionFlags] = useState({
@@ -239,6 +246,13 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
     { id: 'preparing', message: 'Preparing your account...' },
     { id: 'navigating', message: 'Taking you to home screen...' }
   ], []);
+  
+  // Define gradient colors for progress bar
+  const progressGradientColors = useMemo(() => 
+    Platform.OS === 'android' 
+      ? ['#f7b305', '#f7b305'] // Use solid color on Android
+      : [theme.colors.primary, theme.colors.secondary || '#4a90e2'], // Use gradient on iOS
+  [theme.colors.primary, theme.colors.secondary]);
   
   // Log initial state for debugging
   useEffect(() => {
@@ -495,9 +509,13 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
         style={[
           styles.categoryItem,
           {
-            borderColor: isSelected ? theme.colors.primary : theme.colors.border,
-            backgroundColor: isSelected ? `${theme.colors.primary}10` : theme.colors.background,
-            transform: [{ scale: isSelected ? 1.02 : 1 }],
+            borderColor: isSelected ? 
+              Platform.OS === 'ios' ? theme.colors.primary : 'rgba(247, 179, 5, 0.3)' 
+              : Platform.OS === 'ios' ? theme.colors.border : 'rgba(220, 220, 220, 0.5)',
+            backgroundColor: isSelected ? 
+              Platform.OS === 'ios' ? `${theme.colors.primary}10` : 'rgba(247, 179, 5, 0.05)'
+              : theme.colors.background,
+            transform: [{ scale: isSelected ? (Platform.OS === 'ios' ? 1.02 : 1.0) : 1 }],
           },
         ]}
         onPress={() => toggleCategorySelection(item.id)}
@@ -618,11 +636,19 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
                   resizeMode="cover"
                 />
               ) : (
-                <View style={[styles.profilePicPlaceholder, { backgroundColor: theme.colors.primary + '20' }]}>
-                  <Text style={[styles.profilePicText, { color: theme.colors.primary }]}>
-                    {fullName ? fullName.charAt(0).toUpperCase() : 'U'}
-                  </Text>
-                </View>
+                Platform.OS === 'android' ? (
+                  <View style={styles.profilePicPlaceholder}>
+                    <Text style={[styles.profilePicText, { color: '#f7b305' }]}>
+                      {fullName ? fullName.charAt(0).toUpperCase() : 'K'}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={[styles.profilePicPlaceholder, { backgroundColor: theme.colors.primary + '20' }]}>
+                    <Text style={[styles.profilePicText, { color: theme.colors.primary }]}>
+                      {fullName ? fullName.charAt(0).toUpperCase() : 'K'}
+                    </Text>
+                  </View>
+                )
               )}
               
               <TouchableOpacity 
@@ -637,13 +663,25 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
             </View>
             
             <TouchableOpacity 
-              style={[styles.uploadButton, { backgroundColor: theme.colors.primaryDark || '#0055b3' }]}
+              style={styles.uploadButton}
               onPress={handleUploadProfilePicture}
               disabled={uploadingImage}
             >
-              <Text style={[styles.uploadButtonText, { color: theme.colors.buttonText }]}>
-                {uploadingImage ? 'Uploading...' : 'Add Profile Picture'}
-              </Text>
+              <LinearGradient
+                colors={['#f7b305', '#f59000']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={{
+                  paddingVertical: 6,
+                  paddingHorizontal: 14,
+                  borderRadius: 16,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={[styles.uploadButtonText, { color: '#fff' }]}>
+                  {uploadingImage ? 'Uploading...' : 'Add Profile Picture'}
+                </Text>
+              </LinearGradient>
             </TouchableOpacity>
             
             <View style={styles.userInfoContainer}>
@@ -733,7 +771,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
             <View style={styles.progressContainer}>
               <View style={styles.progressTrack}>
                 <LinearGradient
-                  colors={progressGradient}
+                  colors={progressGradientColors}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={[
@@ -797,13 +835,22 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.7)',
     borderRadius: 16,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: 'rgba(240,240,240,0.8)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+        borderWidth: 1,
+        borderColor: 'rgba(240,240,240,0.8)',
+      },
+      android: {
+        elevation: 1,
+        backgroundColor: 'rgba(255,255,255,0.95)',
+        borderWidth: 0.2,
+        borderColor: 'rgba(230,230,230,0.5)',
+      },
+    }),
   },
   formSectionTitle: {
     fontSize: 18,
@@ -819,6 +866,11 @@ const styles = StyleSheet.create({
   profileImageWrapper: {
     position: 'relative',
     marginBottom: 8,
+    ...Platform.select({
+      android: {
+        padding: 2,
+      },
+    }),
   },
   profilePicPlaceholder: {
     width: 100,
@@ -826,11 +878,20 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 0,
+        backgroundColor: 'rgba(247, 179, 5, 0.08)',
+        borderWidth: 0.2,
+        borderColor: 'rgba(247, 179, 5, 0.2)',
+      },
+    }),
   },
   profilePicText: {
     fontSize: 36,
@@ -840,6 +901,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: 0,
+    ...Platform.select({
+      android: {
+        bottom: 2,
+        right: 2,
+      },
+    }),
   },
   cameraIcon: {
     width: 30,
@@ -848,17 +915,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 0,
+        backgroundColor: '#007AFF',
+        borderWidth: 0,
+      },
+    }),
   },
   uploadButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 16,
     marginTop: 4,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
   uploadButtonText: {
     fontSize: 13,
@@ -888,22 +962,38 @@ const styles = StyleSheet.create({
   categoryItemWrapper: {
     width: '48%',
     marginBottom: 8,
+    ...Platform.select({
+      android: {
+        marginBottom: 6,
+        marginHorizontal: 1,
+      },
+    }),
   },
   categoryItem: {
     flex: 1,
     margin: 4,
     padding: 10,
     borderRadius: 12,
-    borderWidth: 1,
     minHeight: 68,
     justifyContent: 'flex-start',
     alignItems: 'center',
     flexDirection: 'row',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    ...Platform.select({
+      ios: {
+        borderWidth: 1,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 1,
+        shadowColor: 'transparent',
+        backgroundColor: '#fff',
+        borderWidth: 0.2,
+        borderColor: 'rgba(220, 220, 220, 0.5)',
+      },
+    }),
     position: 'relative',
   },
   categoryIconContainer: {
@@ -915,11 +1005,20 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 1,
-    elevation: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.15,
+        shadowRadius: 1,
+      },
+      android: {
+        elevation: 0,
+        backgroundColor: '#fff',
+        borderWidth: 0.2,
+        borderColor: 'rgba(220, 220, 220, 0.5)',
+      },
+    }),
   },
   categoryText: {
     fontSize: 13,
@@ -935,11 +1034,18 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 14,
     overflow: 'hidden',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 2,
+        backgroundColor: '#fff',
+      },
+    }),
     marginTop: 8,
     marginBottom: 24,
   },
@@ -959,6 +1065,11 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
+    ...Platform.select({
+      android: {
+        borderWidth: 0,
+      },
+    }),
   },
   loadingOverlay: {
     position: 'absolute',
@@ -977,11 +1088,17 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: 'center',
     width: '80%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   loadingModalText: {
     fontSize: 16,
@@ -1035,21 +1152,42 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.5)',
     borderRadius: 16,
     padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 0,
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+        backgroundColor: 'rgba(255,255,255,0.8)',
+        padding: 10,
+      },
+    }),
   },
   progressTrack: {
     height: 14,
     backgroundColor: 'rgba(200,200,200,0.5)',
     borderRadius: 7,
     marginBottom: 8,
+    ...Platform.select({
+      android: {
+        backgroundColor: 'rgba(230,230,230,0.8)',
+        height: 12,
+      },
+    }),
   },
   progressBar: {
     height: '100%',
     borderRadius: 7,
+    ...Platform.select({
+      android: {
+        elevation: 0,
+      },
+    }),
   },
   progressLabelsContainer: {
     flexDirection: 'row',
@@ -1079,11 +1217,19 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 1,
-    elevation: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.15,
+        shadowRadius: 1,
+      },
+      android: {
+        elevation: 0,
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+      },
+    }),
   },
   inputContent: {
     flex: 1,
