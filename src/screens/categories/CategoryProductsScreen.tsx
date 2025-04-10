@@ -585,16 +585,31 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
   }, []);
 
   const handleProductPress = useCallback((product: Product) => {
+    // Create a simplified clean object for navigation to avoid serialization issues
+    // This is especially important on Android
+    const simplifiedProduct = {
+      id: product.id.toString(), // Ensure ID is a string
+      name: product.name || '',
+      price: product.price || '0',
+      image: product.image || product.primaryImage || '',
+      description: product.description || '',
+      condition: product.condition || '',
+      type: product.type || '',
+      images: Array.isArray(product.images) ? [...product.images] : 
+             (product.image ? [product.image] : []),
+      sellerName: product.sellerName || product.seller?.name || 'Unknown Seller',
+      email: product.email || '',
+      sellingtype: product.sellingtype || '',
+      category: product.category || '',
+      // Create a simple seller object
+      seller: {
+        id: (product.seller?.id || product.email || 'unknown').toString(),
+        name: product.sellerName || product.seller?.name || 'Unknown Seller'
+      }
+    };
+
     navigation.navigate('ProductInfoPage', { 
-      product: {
-        ...product,
-        id: product.id,
-        sellerName: product.sellerName || product.seller?.name,
-        seller: product.seller || {
-          id: product.email || 'unknown',
-          name: product.sellerName || 'Unknown Seller'
-        }
-      },
+      product: simplifiedProduct,
       productId: product.id.toString()
     });
   }, [navigation]);

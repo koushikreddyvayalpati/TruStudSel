@@ -31,7 +31,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const { width, height } = Dimensions.get('window');
 
 // Add a base URL constant for API calls
-const API_BASE_URL = 'http://localhost:8080';
+const API_BASE_URL = Platform.OS === 'android' 
+  ? 'http://10.0.2.2:8080' 
+  : 'http://localhost:8080';
 
 // Extended Product type that includes seller information
 interface ExtendedProduct {
@@ -161,7 +163,7 @@ const ImageGallery: React.FC<{
         source={{ uri: typeof item === 'string' && item.trim() !== '' ? item : 'https://via.placeholder.com/300' }} 
         style={styles.productImage}
         resizeMode="cover"
-        defaultSource={{ uri: 'https://via.placeholder.com/300' }}
+        {...(Platform.OS === 'ios' ? { defaultSource: { uri: 'https://via.placeholder.com/300' } } : {})}
       />
     </Pressable>
   ), [onImagePress]);
@@ -225,7 +227,7 @@ const SimilarProducts: React.FC<{
         source={{ uri: item.image && item.image.trim() !== '' ? item.image : 'https://via.placeholder.com/150' }} 
         style={styles.similarProductImage}
         resizeMode="cover"
-        defaultSource={{ uri: 'https://via.placeholder.com/150' }}
+        {...(Platform.OS === 'ios' ? { defaultSource: { uri: 'https://via.placeholder.com/150' } } : {})}
       />
       <View style={styles.similarProductInfo}>
         <Text style={styles.similarProductName} numberOfLines={1}>{item.name}</Text>
@@ -295,7 +297,7 @@ const ImageZoomModal: React.FC<{
           source={{ uri: imageUri && imageUri.trim() !== '' ? imageUri : 'https://via.placeholder.com/300' }}
           style={styles.zoomedImage}
           resizeMode="contain"
-          defaultSource={{ uri: 'https://via.placeholder.com/300' }}
+          {...(Platform.OS === 'ios' ? { defaultSource: { uri: 'https://via.placeholder.com/300' } } : {})}
         />
       </View>
     </Modal>
@@ -936,22 +938,31 @@ const ProductsScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar backgroundColor="white" barStyle="dark-content" />
       
-      {/* Enhanced Header with even-width buttons */}
+      {/* Header with back button */}
       <View style={styles.header}>
         <TouchableOpacity 
-          style={styles.headerButton}
+          style={styles.backButton}
           onPress={() => navigation.goBack()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="chevron-back" size={24} color="#333" />
+          <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         
-        <Text style={styles.headerTitle} numberOfLines={1}>Product Details</Text>
+        <Text style={styles.headerTitle}>Product Details</Text>
         
         <TouchableOpacity 
-          style={styles.headerButton}
-          onPress={() => Alert.alert('Report Item', 'Do you want to report this item?')}
+          style={styles.headerRight}
+          onPress={() => Alert.alert(
+            'Report Item', 
+            'Do you want to report this item?',
+            [
+              {text: 'Cancel', style: 'cancel'},
+              {text: 'Report', style: 'destructive'}
+            ]
+          )}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <MaterialIcons name="report-problem" size={22} color="#e74c3c" />
         </TouchableOpacity>
@@ -1130,7 +1141,8 @@ const ProductsScreen = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: 'white',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   loadingContainer: {
     flex: 1,
@@ -1146,50 +1158,45 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 12,
+    justifyContent: 'space-between',
+    paddingVertical: Platform.OS === 'android' ? 12 : 10,
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#eeeeee',
     ...Platform.select({
+      android: {
+        elevation: 3,
+      },
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 3,
+        shadowRadius: 1,
       },
     }),
   },
-  headerButton: {
+  backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
+    marginLeft: Platform.OS === 'android' ? 8 : 10,
   },
   headerTitle: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: 'bold',
     color: '#333',
-    textAlign: 'center',
     flex: 1,
+    textAlign: 'center',
     marginHorizontal: 10,
+  },
+  headerRight: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Platform.OS === 'android' ? 8 : 10,
   },
   scrollView: {
     flex: 1,

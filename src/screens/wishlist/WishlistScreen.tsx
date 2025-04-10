@@ -25,7 +25,9 @@ import { MainStackParamList } from '../../types/navigation.types';
 import { StackNavigationProp } from '@react-navigation/stack';
 
 // Add API base URL
-const API_BASE_URL = 'http://localhost:8080';
+const API_BASE_URL = Platform.OS === 'android' 
+  ? 'http://10.0.2.2:8080' 
+  : 'http://localhost:8080';
 
 // Define Product type
 interface Product {
@@ -258,7 +260,7 @@ const WishlistScreen: React.FC = () => {
             price: item.price,
             image: Array.isArray(item.images) && item.images.length > 0 
               ? item.images[0] 
-              : (item.image || ''),
+              : (item.image || 'https://via.placeholder.com/150'),
             description: item.description || '',
             condition: item.condition || '',
             type: item.type || '',
@@ -285,8 +287,8 @@ const WishlistScreen: React.FC = () => {
               : (item.image || 'https://via.placeholder.com/150')
           }} 
           style={styles.productImage}
-          defaultSource={{ uri: 'https://via.placeholder.com/150' }}
           resizeMode="cover"
+          {...(Platform.OS === 'ios' ? { defaultSource: { uri: 'https://via.placeholder.com/150' } } : {})}
         />
         <View style={styles.wishlistBadge}>
           <FontAwesome name="heart" size={14} color="#fff" />

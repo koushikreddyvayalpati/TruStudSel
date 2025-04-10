@@ -1247,19 +1247,32 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   }, []);
 
   const handleProductPress = useCallback((product: Product) => {
-    // Ensure the product has the right type structure for the navigation
-    // and pass the product ID as a separate parameter for easier access
+    // Create a simplified clean object for navigation to avoid serialization issues
+    // This is especially important on Android
+    const simplifiedProduct = {
+      id: product.id.toString(), // Ensure ID is a string
+      name: product.name || '',
+      price: product.price || '0',
+      image: product.image || product.primaryImage || '',
+      description: product.description || '',
+      condition: product.condition || '',
+      type: product.type || '',
+      images: Array.isArray(product.images) ? [...product.images] : 
+             (product.image ? [product.image] : []),
+      sellerName: product.sellerName || product.seller?.name || 'Unknown Seller',
+      email: product.email || '',
+      sellingtype: product.sellingtype || '',
+      category: product.category || '',
+      // Create a simple seller object
+      seller: {
+        id: (product.seller?.id || product.email || 'unknown').toString(),
+        name: product.sellerName || product.seller?.name || 'Unknown Seller'
+      }
+    };
+
+    // Pass the simplified product and ID
     nav.navigate('ProductInfoPage', { 
-      product: {
-        ...product,
-        id: product.id, // Ensure id is treated as expected by the screen
-        // Make sure seller information is included
-        sellerName: product.sellerName || product.seller?.name,
-        seller: product.seller || {
-          id: product.email || 'unknown',
-          name: product.sellerName || 'Unknown Seller'
-        }
-      },
+      product: simplifiedProduct,
       productId: product.id.toString() // Explicitly pass the product ID as string for API lookup
     });
   }, [nav]);
