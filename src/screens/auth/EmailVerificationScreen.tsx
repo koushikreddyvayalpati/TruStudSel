@@ -548,11 +548,21 @@ const styles = StyleSheet.create({
   },
   cornerDecoration: {
     position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    opacity: 0.08,
-    backgroundColor: '#FFB347',
+    width: 150,
+    height: 150,
+    borderRadius: 30,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.15,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 10,
+        backgroundColor: '#FFFFFF',
+      },
+    }),
   },
   topLeftCorner: {
     top: -50,

@@ -657,19 +657,19 @@ export const fetchUserProducts = async (email: string): Promise<Product[]> => {
 
 // Define interface for search parameters
 export interface SearchProductsParams {
-  query?: string;
-  university?: string;
-  category?: string;
-  city?: string;
-  minPrice?: number | string;
-  maxPrice?: number | string;
-  condition?: string | string[];
-  sellingType?: string | string[];
-  sortBy?: string;
-  sortDirection?: string;
-  page?: number;
-  size?: number;
-  paginationToken?: string;
+  keyword: string;              // The search term (renamed from query to keyword)
+  university?: string;          // Location context (university)
+  city?: string;                // Location context (city)
+  category?: string;            // Optional category filter
+  condition?: string | string[]; // Optional condition filters
+  sellingType?: string | string[]; // Optional selling type filters
+  minPrice?: number | string;   // Min price filter
+  maxPrice?: number | string;   // Max price filter
+  sortBy?: string;              // Sort field
+  sortDirection?: string;       // Sort direction
+  page?: number;                // Page number (0-based, defaults to 0)
+  size?: number;                // Results per page (defaults to 20, max 50)
+  paginationToken?: string;     // Token for pagination (if supported)
 }
 
 // Define interface for search results
@@ -683,329 +683,149 @@ export interface SearchProductsResponse {
 }
 
 /**
- * Search products with multiple parameters and filters
- * 
- * @param {SearchProductsParams} searchParams Search parameters and filters
- * @returns {Promise<SearchProductsResponse>} Search results with pagination
+ * Search for products using the new high-performance search API
  */
-export const searchProducts = async (searchParams: SearchProductsParams = {}): Promise<SearchProductsResponse> => {
+export const searchProducts = async (searchParams: SearchProductsParams): Promise<SearchProductsResponse> => {
   console.log(`[API:products] Searching products with params:`, JSON.stringify(searchParams));
   
   try {
+    // Validate keyword - must be at least 3 characters
+    if (!searchParams.keyword || searchParams.keyword.length < 3) {
+      throw new Error('Search keyword must be at least 3 characters');
+    }
+    
+    // Validate location context - must have either university or city
+    if (!searchParams.university && !searchParams.city) {
+      throw new Error('Either university or city parameter must be provided');
+    }
+    
     // Build query parameters
     const queryParams = new URLSearchParams();
     
-    // Add all search parameters
-    if (searchParams.query) queryParams.append('query', searchParams.query);
-    if (searchParams.university) queryParams.append('university', searchParams.university);
-    if (searchParams.category) queryParams.append('category', searchParams.category);
-    if (searchParams.city) queryParams.append('city', searchParams.city);
-    if (searchParams.minPrice) queryParams.append('minPrice', searchParams.minPrice.toString());
-    if (searchParams.maxPrice) queryParams.append('maxPrice', searchParams.maxPrice.toString());
+    // Add required search parameters
+    queryParams.append('keyword', searchParams.keyword);
     
-    // Handle condition and sellingType which can be arrays safely
+    // Location parameters (university takes precedence if both are provided)
+    if (searchParams.university) {
+      queryParams.append('university', searchParams.university);
+    } else if (searchParams.city) {
+      queryParams.append('city', searchParams.city);
+    }
+    
+    // Add optional filters
+    if (searchParams.category) queryParams.append('category', searchParams.category);
+    
+    // Pagination (0-based page number)
+    if (searchParams.page !== undefined) queryParams.append('page', searchParams.page.toString());
+    const size = searchParams.size || 20;
+    queryParams.append('size', Math.min(size, 50).toString()); // Enforce max size of 50
+    
+    // Handle condition filters (can be array)
     if (searchParams.condition) {
       if (Array.isArray(searchParams.condition)) {
+        // Handle array of conditions
         searchParams.condition.forEach(cond => {
           if (cond) queryParams.append('condition', cond);
         });
-      } else if (typeof searchParams.condition === 'string') {
+      } else {
+        // Handle single condition as string
         queryParams.append('condition', searchParams.condition);
       }
     }
     
+    // Handle selling type filters (can be array)
     if (searchParams.sellingType) {
       if (Array.isArray(searchParams.sellingType)) {
+        // Handle array of selling types
         searchParams.sellingType.forEach(type => {
           if (type) queryParams.append('sellingType', type);
         });
-      } else if (typeof searchParams.sellingType === 'string') {
+      } else {
+        // Handle single selling type as string
         queryParams.append('sellingType', searchParams.sellingType);
       }
     }
     
-    // Sorting
+    // Add price filters
+    if (searchParams.minPrice !== undefined) queryParams.append('minPrice', searchParams.minPrice.toString());
+    if (searchParams.maxPrice !== undefined) queryParams.append('maxPrice', searchParams.maxPrice.toString());
+    
+    // Add sorting parameters
     if (searchParams.sortBy) queryParams.append('sortBy', searchParams.sortBy);
     if (searchParams.sortDirection) queryParams.append('sortDirection', searchParams.sortDirection);
     
-    // Pagination
-    if (searchParams.page) queryParams.append('page', searchParams.page.toString());
-    if (searchParams.size) queryParams.append('size', searchParams.size.toString());
-    if (searchParams.paginationToken) queryParams.append('paginationToken', searchParams.paginationToken);
-    
+    // Use the new search API endpoint
     const searchUrl = `${API_URL}/api/products/search?${queryParams}`;
-    console.log(`[API:products] Attempting search API at: ${searchUrl}`);
+    console.log(`[API:products] Making search request to: ${searchUrl}`);
     
-    // Try with the search endpoint first
+    // Adjust fetch call to use AbortController instead of timeout parameter
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+
     try {
-      const response = await fetchWithTimeout(searchUrl, { method: 'GET' });
+      const response = await fetchWithTimeout(searchUrl, { 
+        method: 'GET',
+        signal: controller.signal // Use AbortController signal instead of timeout
+      });
+      
+      clearTimeout(timeoutId); // Clear the timeout once request completes
+      
       console.log(`[API:products] Search API response status: ${response.status}`);
       
-      if (response.ok) {
-        // If search API works, use it
-        const result = await handleResponse<SearchProductsResponse>(response);
-        console.log(`[API:products] Search API returned ${result.products?.length || 0} products`);
-        
-        // Ensure products is an array and process images
-        if (result.products && Array.isArray(result.products)) {
-          result.products = result.products.map(product => processProductImages(product));
-          return result;
-        }
-      } else {
-        // Log detailed error information
-        console.error(`[API:products] Search API error: ${response.status} ${response.statusText}`);
-        
-        try {
-          // Clone response to inspect body without consuming the original
-          const responseClone = response.clone();
-          const errorText = await responseClone.text();
-          console.error('[API:products] Error response details:', errorText.substring(0, 200));
-          
-          // Try to parse as JSON if possible
-          try {
-            const errorJson = JSON.parse(errorText);
-            console.error('[API:products] Error JSON:', JSON.stringify(errorJson));
-          } catch (jsonError) {
-            console.log('[API:products] Error response is not valid JSON');
-          }
-        } catch (readError) {
-          console.error('[API:products] Failed to read error response:', readError);
-        }
+      if (!response.ok) {
+        throw new Error(`Search API returned status: ${response.status}`);
       }
       
-      // If we get here, the search API failed but didn't throw an error
-      // Fall back to university or category endpoint
-      throw new Error(`Search API failed with status: ${response.status}`);
+      const result = await handleResponse<SearchProductsResponse>(response);
       
-    } catch (searchError) {
-      // Search API failed, fall back to university or category endpoints
-      console.warn(`[API:products] Search API unavailable or failed: ${searchError}`);
-      console.log('[API:products] Falling back to alternative API endpoints');
+      // Process images in search results
+      if (result.products && Array.isArray(result.products)) {
+        result.products = result.products.map(product => processProductImages(product));
+      } else {
+        // Ensure products is always an array
+        result.products = [];
+      }
       
-      // Determine which fallback endpoint to use
-      return await handleSearchFallback(searchParams);
-    }
-  } catch (error) {
-    console.error('[API:products] Error in searchProducts function:', error);
-    
-    // Try fallback as last resort
-    try {
-      return await handleSearchFallback(searchParams);
-    } catch (fallbackError) {
-      console.error('[API:products] Even fallback search failed:', fallbackError);
+      // Ensure correct response format with pagination info
+      return {
+        products: result.products || [],
+        totalItems: result.totalItems || 0,
+        currentPage: result.currentPage || 0,
+        totalPages: result.totalPages || 1,
+        hasMorePages: result.currentPage < result.totalPages - 1,
+        nextPageToken: result.nextPageToken || null
+      };
+    } catch (error) {
+      console.error('[API:products] Error in searchProducts:', error);
       
-      // Return a safe empty result when all methods fail
+      // Return empty results on error
       return {
         products: [],
         totalItems: 0,
-        currentPage: 1,
+        currentPage: 0,
         totalPages: 1,
         hasMorePages: false,
         nextPageToken: null
       };
     }
-  }
-};
-
-/**
- * Handle search fallback when the primary search API fails
- * Uses existing backend endpoints instead of client-side filtering
- */
-const handleSearchFallback = async (searchParams: SearchProductsParams): Promise<SearchProductsResponse> => {
-  console.log('[API:products] Using backend fallback for search');
-  
-  try {
-    let fallbackResult: ProductListResponse | null = null;
+  } catch (error) {
+    console.error('[API:products] Error in searchProducts:', error);
     
-    // First priority: Use university endpoint if university is specified
-    if (searchParams.university) {
-      console.log(`[API:products] Fallback: Using university endpoint with "${searchParams.university}"`);
-      
-      // Build filter object for university search
-      const uniFilters: ProductFilters = {};
-      
-      // Apply available filters to university request
-      if (searchParams.sortBy) uniFilters.sortBy = searchParams.sortBy;
-      if (searchParams.condition) uniFilters.condition = searchParams.condition;
-      if (searchParams.sellingType) uniFilters.sellingType = searchParams.sellingType;
-      if (searchParams.minPrice) uniFilters.minPrice = searchParams.minPrice;
-      if (searchParams.maxPrice) uniFilters.maxPrice = searchParams.maxPrice;
-      
-      try {
-        fallbackResult = await getProductsByUniversity(searchParams.university, uniFilters);
-        
-        // Text filtering on the query parameter must be done client-side for now
-        // But this is a fallback mechanism only when search API is down
-        if (searchParams.query && fallbackResult.products) {
-          const query = searchParams.query.toLowerCase();
-          console.log(`[API:products] Fallback: Filtering university results by query "${query}" (${fallbackResult.products.length} before filtering)`);
-          
-          fallbackResult.products = fallbackResult.products.filter(product => 
-            product.name.toLowerCase().includes(query) || 
-            (product.description && product.description.toLowerCase().includes(query))
-          );
-          
-          // Update total count
-          fallbackResult.totalItems = fallbackResult.products.length;
-          fallbackResult.totalPages = Math.ceil(fallbackResult.totalItems / (searchParams.size || 20));
-          
-          console.log(`[API:products] Fallback: Found ${fallbackResult.products.length} matching university products after filtering`);
-        }
-      } catch (uniError) {
-        console.error(`[API:products] University fallback failed:`, uniError);
-      }
-    }
-    
-    // Second priority: Use category endpoint if category is specified and university failed
-    if (!fallbackResult && searchParams.category) {
-      console.log(`[API:products] Fallback: Using category endpoint with "${searchParams.category}"`);
-      
-      // Build filter object for category search
-      const categoryFilters: ProductFilters = {};
-      
-      // Apply available filters to category request
-      if (searchParams.sortBy) categoryFilters.sortBy = searchParams.sortBy;
-      if (searchParams.condition) categoryFilters.condition = searchParams.condition;
-      if (searchParams.sellingType) categoryFilters.sellingType = searchParams.sellingType;
-      if (searchParams.minPrice) categoryFilters.minPrice = searchParams.minPrice;
-      if (searchParams.maxPrice) categoryFilters.maxPrice = searchParams.maxPrice;
-      
-      try {
-        fallbackResult = await getProductsByCategory(searchParams.category, categoryFilters);
-        
-        // Text filtering on the query parameter must be done client-side for now
-        // But this is a fallback mechanism only when search API is down
-        if (searchParams.query && fallbackResult.products) {
-          const query = searchParams.query.toLowerCase();
-          console.log(`[API:products] Fallback: Filtering category results by query "${query}" (${fallbackResult.products.length} before filtering)`);
-          
-          fallbackResult.products = fallbackResult.products.filter(product => 
-            product.name.toLowerCase().includes(query) || 
-            (product.description && product.description.toLowerCase().includes(query))
-          );
-          
-          // Update total count
-          fallbackResult.totalItems = fallbackResult.products.length;
-          fallbackResult.totalPages = Math.ceil(fallbackResult.totalItems / (searchParams.size || 20));
-          
-          console.log(`[API:products] Fallback: Found ${fallbackResult.products.length} matching category products after filtering`);
-        }
-      } catch (categoryError) {
-        console.error(`[API:products] Category fallback failed:`, categoryError);
-      }
-    }
-    
-    // Third priority: Use city endpoint if city is specified and other methods failed
-    if (!fallbackResult && searchParams.city) {
-      console.log(`[API:products] Fallback: Using city endpoint with "${searchParams.city}"`);
-      
-      // Build filter object for city search
-      const cityFilters: ProductFilters = {};
-      
-      // Apply available filters to city request
-      if (searchParams.sortBy) cityFilters.sortBy = searchParams.sortBy;
-      if (searchParams.condition) cityFilters.condition = searchParams.condition;
-      if (searchParams.sellingType) cityFilters.sellingType = searchParams.sellingType;
-      if (searchParams.minPrice) cityFilters.minPrice = searchParams.minPrice;
-      if (searchParams.maxPrice) cityFilters.maxPrice = searchParams.maxPrice;
-      
-      try {
-        fallbackResult = await getProductsByCity(searchParams.city, cityFilters);
-        
-        // Text filtering on the query parameter must be done client-side for now
-        // But this is a fallback mechanism only when search API is down
-        if (searchParams.query && fallbackResult.products) {
-          const query = searchParams.query.toLowerCase();
-          console.log(`[API:products] Fallback: Filtering city results by query "${query}" (${fallbackResult.products.length} before filtering)`);
-          
-          fallbackResult.products = fallbackResult.products.filter(product => 
-            product.name.toLowerCase().includes(query) || 
-            (product.description && product.description.toLowerCase().includes(query))
-          );
-          
-          // Update total count
-          fallbackResult.totalItems = fallbackResult.products.length;
-          fallbackResult.totalPages = Math.ceil(fallbackResult.totalItems / (searchParams.size || 20));
-          
-          console.log(`[API:products] Fallback: Found ${fallbackResult.products.length} matching city products after filtering`);
-        }
-      } catch (cityError) {
-        console.error(`[API:products] City fallback failed:`, cityError);
-      }
-    }
-    
-    // Last resort: Use general products endpoint if everything else failed
-    if (!fallbackResult) {
-      console.log(`[API:products] Fallback: Using general products endpoint as last resort`);
-      
-      // Build filter object for general search
-      const generalFilters: ProductFilters = {};
-      
-      // Apply all possible filters
-      if (searchParams.sortBy) generalFilters.sortBy = searchParams.sortBy;
-      if (searchParams.condition) generalFilters.condition = searchParams.condition;
-      if (searchParams.sellingType) generalFilters.sellingType = searchParams.sellingType;
-      if (searchParams.minPrice) generalFilters.minPrice = searchParams.minPrice;
-      if (searchParams.maxPrice) generalFilters.maxPrice = searchParams.maxPrice;
-      if (searchParams.university) generalFilters.university = searchParams.university as string;
-      if (searchParams.city) generalFilters.city = searchParams.city;
-      if (searchParams.category) generalFilters.category = searchParams.category;
-      
-      try {
-        fallbackResult = await getProducts(generalFilters);
-        
-        // Text filtering on the query parameter must be done client-side for now
-        // But this is a fallback mechanism only when search API is down
-        if (searchParams.query && fallbackResult.products) {
-          const query = searchParams.query.toLowerCase();
-          console.log(`[API:products] Fallback: Filtering general results by query "${query}" (${fallbackResult.products.length} before filtering)`);
-          
-          fallbackResult.products = fallbackResult.products.filter(product => 
-            product.name.toLowerCase().includes(query) || 
-            (product.description && product.description.toLowerCase().includes(query))
-          );
-          
-          // Update total count
-          fallbackResult.totalItems = fallbackResult.products.length;
-          fallbackResult.totalPages = Math.ceil(fallbackResult.totalItems / (searchParams.size || 20));
-          
-          console.log(`[API:products] Fallback: Found ${fallbackResult.products.length} matching products after filtering`);
-        }
-      } catch (generalError) {
-        console.error(`[API:products] General products fallback failed:`, generalError);
-        throw new Error('All search fallback methods failed');
-      }
-    }
-    
-    if (!fallbackResult) {
-      throw new Error('No search fallback method returned results');
-    }
-    
-    // Convert result to expected SearchProductsResponse format
-    const response: SearchProductsResponse = {
-      products: fallbackResult.products || [],
-      totalItems: fallbackResult.totalItems || fallbackResult.products?.length || 0,
-      currentPage: searchParams.page || 1,
-      totalPages: fallbackResult.totalPages || Math.ceil((fallbackResult.totalItems || fallbackResult.products?.length || 0) / (searchParams.size || 20)),
+    // Return empty results on error
+    return {
+      products: [],
+      totalItems: 0,
+      currentPage: 0,
+      totalPages: 1,
       hasMorePages: false,
       nextPageToken: null
     };
-    
-    // Calculate pagination information
-    const currentPage = searchParams.page || 1;
-    response.hasMorePages = currentPage < response.totalPages;
-    
-    if (response.hasMorePages) {
-      response.nextPageToken = `page_${currentPage + 1}`;
-    }
-    
-    console.log(`[API:products] Fallback search complete. Returning ${response.products.length} products. Page ${currentPage}/${response.totalPages}`);
-    
-    return response;
-  } catch (error) {
-    console.error('[API:products] All fallback methods failed:', error);
-    throw error;
   }
+};
+
+// Add helpful base64 encode function (since btoa isn't available in React Native)
+const btoa = (input: string): string => {
+  return Buffer.from(input, 'binary').toString('base64');
 };
 
 export default {
