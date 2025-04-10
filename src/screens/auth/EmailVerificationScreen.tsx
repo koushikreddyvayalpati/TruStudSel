@@ -272,7 +272,10 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
         style={styles.keyboardAvoidingView}
       >
         <ScrollView 
-          contentContainerStyle={styles.scrollContainer}
+          contentContainerStyle={[
+            styles.scrollContainer,
+            Platform.OS === 'android' ? { paddingTop: 15 } : {}
+          ]}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
@@ -403,18 +406,35 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flexGrow: 1,
+    ...Platform.select({
+      android: {
+        paddingBottom: 20,
+      }
+    }),
   },
   header: {
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 15,
+    ...Platform.select({
+      android: {
+        marginTop: 20,
+        paddingTop: 0,
+      }
+    }),
   },
   backButton: {
     padding: 10,
     paddingLeft: 0,
     marginTop: 5,
     marginRight: 10,
+    ...Platform.select({
+      android: {
+        marginTop: 0,
+        paddingBottom: 0,
+      }
+    }),
   },
   contentContainer: {
     padding: 20,
@@ -438,32 +458,46 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: Platform.OS === 'android' ? 12 : 20,
     borderRadius: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 0,
+        backgroundColor: '#fff',
+      },
+    }),
   },
   buttonContainer: {
     width: '100%',
-    marginTop: 20,
+    marginTop: Platform.OS === 'android' ? 12 : 20,
     alignItems: 'center',
   },
   continueButtonWrapper: {
     width: '100%',
     borderRadius: 14,
     overflow: 'hidden',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 0,
+        backgroundColor: '#fff',
+      },
+    }),
   },
   continueButton: {
     width: '100%',
-    height: 56,
+    height:  56,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 14,
@@ -474,15 +508,15 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   imageContainer: {
-    marginTop: 20,
+    marginTop: Platform.OS === 'android' ? 0 : 20,
     alignItems: 'center',
   },
   image: {
     width: 200,
-    height: 200,
+    height: Platform.OS === 'android' ? 190 : 200,
   },
   progressContainer: {
-    marginTop: 30,
+    marginTop: Platform.OS === 'android' ? 15 : 30,
     paddingHorizontal: 5,
     width: '100%',
   },
@@ -497,9 +531,10 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   legalTextContainer: {
-    marginTop: 24,
+    marginTop: Platform.OS === 'android' ? 10 : 24,
     alignItems: 'center',
     paddingHorizontal: 20,
+    marginBottom: Platform.OS === 'android' ? 15 : 0,
   },
   legalText: {
     fontSize: 12,
