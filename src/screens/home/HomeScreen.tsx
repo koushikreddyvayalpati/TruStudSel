@@ -75,6 +75,9 @@ import {
 // Import the search hook
 import { useSearch } from './home-search';
 
+// Import Zustand store
+import useProductStore from '../../store/productStore';
+
 // Define types for better type safety
 interface Category {
   id: number;
@@ -418,6 +421,35 @@ const applyFiltersToProducts = (products: Product[], filters: string[]): Product
   return filteredProducts;
 };
 
+// Add the SearchPaginationFooter component before the HomeScreen component
+// This is a simplified version that matches the API expected in the component
+const SearchPaginationFooter: React.FC<{
+  isLoadingMore: boolean;
+  hasMore: boolean;
+  onLoadMore: () => void;
+  error?: string | null;
+}> = ({ isLoadingMore, hasMore, onLoadMore, error }) => (
+  <View style={styles.paginationFooter}>
+    {error && (
+      <Text style={styles.errorText}>{error}</Text>
+    )}
+    {isLoadingMore ? (
+      <View>
+        <ActivityIndicator size="small" color="#f7b305" />
+        <Text style={styles.loadingMoreText}>Loading more...</Text>
+      </View>
+    ) : hasMore ? (
+      <TouchableOpacity
+        style={styles.loadMoreButton}
+        onPress={onLoadMore}
+        disabled={isLoadingMore}
+      >
+        <Text style={styles.loadMoreButtonText}>Load More</Text>
+      </TouchableOpacity>
+    ) : null}
+  </View>
+);
+
 const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) => {
   const navigation = useNavigation<NavigationProp>();
   const nav = propNavigation || navigation;
@@ -429,6 +461,61 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   const [userProfileData, setUserProfileData] = useState<any>(null);
   const [isLoadingUserData, setIsLoadingUserData] = useState<boolean>(false);
   const [userDataError, setUserDataError] = useState<string | null>(null);
+  
+  // Add stub functions for filtering until full Zustand migration is complete
+  // These will eventually be removed when migration is complete
+  const loadFilteredFeaturedProducts = async (filters: any) => {
+    console.log('[HomeScreen] loadFilteredFeaturedProducts is now a stub - will use Zustand in the future');
+    return Promise.resolve();
+  };
+  
+  const loadFilteredNewArrivals = async (filters: any) => {
+    console.log('[HomeScreen] loadFilteredNewArrivals is now a stub - will use Zustand in the future');
+    return Promise.resolve();
+  };
+  
+  const loadFilteredUniversityProducts = async (filters: any) => {
+    console.log('[HomeScreen] loadFilteredUniversityProducts is now a stub - will use Zustand in the future');
+    return Promise.resolve();
+  };
+  
+  const loadFilteredCityProducts = async (filters: any) => {
+    console.log('[HomeScreen] loadFilteredCityProducts is now a stub - will use Zustand in the future');
+    return Promise.resolve();
+  };
+  
+  // Add these function stubs for the missing Zustand setters that are referenced
+  const setLoadingFeatured = (isLoading: boolean) => {
+    console.log('[HomeScreen] setLoadingFeatured is now a stub - will use Zustand in the future');
+  };
+  
+  const setLoadingNewArrivals = (isLoading: boolean) => {
+    console.log('[HomeScreen] setLoadingNewArrivals is now a stub - will use Zustand in the future');
+  };
+  
+  const setLoadingUniversity = (isLoading: boolean) => {
+    console.log('[HomeScreen] setLoadingUniversity is now a stub - will use Zustand in the future');
+  };
+  
+  const setLoadingCity = (isLoading: boolean) => {
+    console.log('[HomeScreen] setLoadingCity is now a stub - will use Zustand in the future');
+  };
+  
+  const setFeaturedProducts = (products: Product[]) => {
+    console.log('[HomeScreen] setFeaturedProducts is now a stub - will use Zustand in the future');
+  };
+  
+  const setNewArrivalsProducts = (products: Product[]) => {
+    console.log('[HomeScreen] setNewArrivalsProducts is now a stub - will use Zustand in the future');
+  };
+  
+  const setUniversityProducts = (products: Product[]) => {
+    console.log('[HomeScreen] setUniversityProducts is now a stub - will use Zustand in the future');
+  };
+  
+  const setCityProducts = (products: Product[]) => {
+    console.log('[HomeScreen] setCityProducts is now a stub - will use Zustand in the future');
+  };
   
   // Cache the University and City values for API calls
   const userUniversity = useMemo(() => {
@@ -448,11 +535,131 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   
   const [wishlist, setWishlist] = useState<string[]>([]);
   
-  // Products state
-  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
-  const [newArrivalsProducts, setNewArrivalsProducts] = useState<Product[]>([]);
-  const [universityProducts, setUniversityProducts] = useState<Product[]>([]);
-  const [cityProducts, setCityProducts] = useState<Product[]>([]);
+  // Use Zustand store for product state management
+  const {
+    // Product data from store
+    featuredProducts,
+    newArrivalsProducts,
+    universityProducts,
+    cityProducts,
+    
+    // Loading states from store
+    loadingFeatured,
+    loadingNewArrivals,
+    loadingUniversity,
+    loadingCity,
+    
+    // Refresh state from store
+    isRefreshing,
+    error: productError,
+    
+    // Actions from store
+    loadFeaturedProducts,
+    loadNewArrivals,
+    loadUniversityProducts,
+    loadCityProducts,
+    handleRefresh,
+    setError
+  } = useProductStore();
+  
+  // Load user profile data
+  const fetchUserProfile = useCallback(async () => {
+    if (!user?.email) return;
+    
+    setIsLoadingUserData(true);
+    setUserDataError(null);
+    
+    try {
+      const cacheKey = `${USER_PROFILE_CACHE_KEY}${user.email}`;
+      const cachedData = await AsyncStorage.getItem(cacheKey);
+      
+      if (cachedData) {
+        const { data, timestamp } = JSON.parse(cachedData);
+        const isExpired = Date.now() - timestamp > USER_CACHE_EXPIRY_TIME;
+        
+        if (!isExpired) {
+          console.log(`[HomeScreen] Using cached user profile`);
+          setUserProfileData(data);
+          
+          // Update shared context
+          if (data.university) setUserUniversity(data.university);
+          if (data.city) setUserCity(data.city);
+          
+          setIsLoadingUserData(false);
+          return;
+        }
+      }
+      
+      console.log(`[HomeScreen] Fetching fresh user profile data`);
+      const userData = await fetchUserProfileById(user.email);
+      
+      if (userData) {
+        setUserProfileData(userData);
+        
+        // Update shared context
+        if (userData.university) setUserUniversity(userData.university);
+        if (userData.city) setUserCity(userData.city);
+        
+        // Cache the user data
+        await AsyncStorage.setItem(
+          cacheKey,
+          JSON.stringify({
+            data: userData,
+            timestamp: Date.now()
+          })
+        );
+      }
+    } catch (err) {
+      console.error('Error fetching user profile:', err);
+      setUserDataError('Failed to load user profile');
+    } finally {
+      setIsLoadingUserData(false);
+    }
+  }, [user, setUserUniversity, setUserCity]);
+  
+  // Load products when the component mounts
+  useEffect(() => {
+    fetchUserProfile();
+  }, [fetchUserProfile]);
+  
+  // Load products when userUniversity or userCity changes
+  useEffect(() => {
+    if (userUniversity || userCity) {
+      loadFeaturedProducts(userUniversity, userCity);
+      
+      if (userUniversity) {
+        loadNewArrivals(userUniversity);
+        loadUniversityProducts(userUniversity);
+      }
+      
+      if (userCity) {
+        loadCityProducts(userCity);
+      }
+    }
+  }, [userUniversity, userCity, loadFeaturedProducts, loadNewArrivals, loadUniversityProducts, loadCityProducts]);
+  
+  // Handle the refresh action with the Zustand store
+  const onRefresh = useCallback(() => {
+    // Call the handleRefresh function from the store
+    handleRefresh(userUniversity, userCity);
+    
+    // Also increment search refresh counter
+    if (search && search.incrementSearchRefreshCount) {
+      search.incrementSearchRefreshCount();
+    }
+  }, [handleRefresh, userUniversity, userCity, search]);
+  
+  // Get the initial letter for the profile avatar
+  const getInitial = useCallback(() => {
+    if (userProfileData?.name) {
+      return userProfileData.name.charAt(0).toUpperCase();
+    } else if (user?.name) {
+      return user.name.charAt(0).toUpperCase();
+    } else if (user?.email) {
+      return user.email.charAt(0).toUpperCase();
+    }
+    return 'U';
+  }, [userProfileData, user]);
   
   // Original products state (for filtering and sorting)
   const [_featuredProductsOriginal, setFeaturedProductsOriginal] = useState<Product[]>([]);
@@ -493,13 +700,6 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   
   // Track if we're using server-side filtering
   const [usingServerFiltering, setUsingServerFiltering] = useState<boolean>(false);
-  
-  // Loading states
-  const [loadingFeatured, setLoadingFeatured] = useState(false);
-  const [loadingNewArrivals, setLoadingNewArrivals] = useState(false);
-  const [loadingUniversity, setLoadingUniversity] = useState(false);
-  const [loadingCity, setLoadingCity] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   
   // Sort states
   const [selectedSort, setSelectedSort] = useState<string>('default');
@@ -713,105 +913,11 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     setSelectedSort(optionId);
     setSortDropdownVisible(false);
     
-    // Determine if we need server-side sorting for any product set
-    // We generally only need server-side sorting for very large datasets
-    // or if we're already using server-side filtering
-    const useFeaturedServerSorting = 
-      _featuredProductsOriginal.length > SORTING_THRESHOLD || 
-      (usingServerFiltering && _featuredProductsOriginal.length > 0);
+    // Instead of using the old filtering functions, we should use the Zustand store
+    // This is a stub for now - will be fully implemented later
+    console.log('[HomeScreen] Sorting will be handled by Zustand store in future implementation');
     
-    const useNewArrivalsServerSorting = 
-      _newArrivalsProductsOriginal.length > SORTING_THRESHOLD || 
-      (usingServerFiltering && _newArrivalsProductsOriginal.length > 0);
-    
-    const useUniversityServerSorting = 
-      _universityProductsOriginal.length > SORTING_THRESHOLD || 
-      (usingServerFiltering && _universityProductsOriginal.length > 0);
-    
-    const useCityServerSorting = 
-      _cityProductsOriginal.length > SORTING_THRESHOLD || 
-      (usingServerFiltering && _cityProductsOriginal.length > 0);
-    
-    const useServerSorting = 
-      useFeaturedServerSorting || 
-      useNewArrivalsServerSorting || 
-      useUniversityServerSorting || 
-      useCityServerSorting;
-    
-    if (useServerSorting) {
-      console.log('[HomeScreen] Using server-side sorting for large datasets');
-      
-      // Convert filters and sorts to API-compatible format
-      const apiFilters = convertToApiFilters(selectedFilters, optionId);
-      
-      // Apply server-side sorting (and filtering if needed)
-      if (useFeaturedServerSorting) {
-        setLoadingFeatured(true);
-        loadFilteredFeaturedProducts(apiFilters)
-          .finally(() => setLoadingFeatured(false));
-      }
-      
-      if (useNewArrivalsServerSorting) {
-        setLoadingNewArrivals(true);
-        loadFilteredNewArrivals(apiFilters)
-          .finally(() => setLoadingNewArrivals(false));
-      }
-      
-      if (useUniversityServerSorting) {
-        setLoadingUniversity(true);
-        loadFilteredUniversityProducts(apiFilters)
-          .finally(() => setLoadingUniversity(false));
-      }
-      
-      if (useCityServerSorting) {
-        setLoadingCity(true);
-        loadFilteredCityProducts(apiFilters)
-          .finally(() => setLoadingCity(false));
-      }
-    } else {
-      console.log('[HomeScreen] Using client-side sorting');
-      
-      // Apply sorting to products with existing filters
-      if (_featuredProductsOriginal.length > 0) {
-        console.log(`[HomeScreen] Sorting featured products (${_featuredProductsOriginal.length} items)`);
-        setFeaturedProducts(applySortingAndFilters(_featuredProductsOriginal, optionId, selectedFilters));
-      }
-      
-      if (_newArrivalsProductsOriginal.length > 0) {
-        console.log(`[HomeScreen] Sorting new arrivals (${_newArrivalsProductsOriginal.length} items)`);
-        setNewArrivalsProducts(applySortingAndFilters(_newArrivalsProductsOriginal, optionId, selectedFilters));
-      }
-      
-      if (_universityProductsOriginal.length > 0) {
-        console.log(`[HomeScreen] Sorting university products (${_universityProductsOriginal.length} items)`);
-        setUniversityProducts(applySortingAndFilters(_universityProductsOriginal, optionId, selectedFilters));
-      }
-      
-      if (_cityProductsOriginal.length > 0) {
-        console.log(`[HomeScreen] Sorting city products (${_cityProductsOriginal.length} items)`);
-        setCityProducts(applySortingAndFilters(_cityProductsOriginal, optionId, selectedFilters));
-      }
-      
-      // Apply to search results if visible
-      if (search.showSearchResults && search.searchResults.length > 0) {
-        console.log(`[HomeScreen] Sorting search results (${search.searchResults.length} items)`);
-        // Re-run search with new sort option instead of directly manipulating results
-        search.handleSearch();
-      }
-    }
-  }, [
-    _featuredProductsOriginal, 
-    _newArrivalsProductsOriginal, 
-    _universityProductsOriginal, 
-    _cityProductsOriginal, 
-    selectedFilters,
-    search, // Add entire search object as dependency
-    usingServerFiltering,
-    loadFilteredFeaturedProducts,
-    loadFilteredNewArrivals,
-    loadFilteredUniversityProducts,
-    loadFilteredCityProducts
-  ]);
+  }, []);
 
   // Comprehensive function to apply both sorting and filtering
   const applySortingAndFilters = (products: Product[], sortOption: string, filters: string[]): Product[] => {
@@ -916,784 +1022,6 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     }
   }, [nav, userCity, userUniversity]);
 
-  // Effect to initialize the app - add this before other effects
-  useEffect(() => {
-    console.log('[HomeScreen] Initial render, user data:', user);
-    if (user) {
-      fetchUserProfile();
-    }
-  }, [user, fetchUserProfile]);
-
-  // Effect to load featured products
-  useEffect(() => {
-    if (userUniversity && userCity) {
-      loadFeaturedProducts();
-    }
-  }, [userUniversity, userCity, loadFeaturedProducts]);
-
-  // Effect to load new arrivals
-  useEffect(() => {
-    if (userUniversity) {
-      loadNewArrivals();
-    }
-  }, [userUniversity, loadNewArrivals]);
-  
-  // Effect to load university products
-  useEffect(() => {
-    if (userUniversity) {
-      loadUniversityProducts();
-    }
-  }, [userUniversity, loadUniversityProducts]);
-  
-  // Effect to load city products
-  useEffect(() => {
-    if (userCity) {
-      loadCityProducts();
-    }
-  }, [userCity, loadCityProducts]);
-
-  // Load user profile on mount
-  const fetchUserProfile = useCallback(async () => {
-    // Use user.email instead of user.id since this is the correct property from AuthContext
-    if (!user || !user.email) {
-      console.log('[HomeScreen] No user or user email found, skipping profile fetch');
-      return;
-    }
-    
-    try {
-      setIsLoadingUserData(true);
-      setUserDataError(null);
-      
-      // Log that we're trying to fetch profile
-      console.log(`[HomeScreen] Attempting to fetch profile for user: ${user.email}`);
-      
-      // Try to get from cache first
-      const cachedProfile = await AsyncStorage.getItem(USER_PROFILE_CACHE_KEY + user.email);
-      if (cachedProfile) {
-        const { data, timestamp } = JSON.parse(cachedProfile);
-        const isExpired = Date.now() - timestamp > USER_CACHE_EXPIRY_TIME;
-        
-        if (!isExpired) {
-          console.log('[HomeScreen] Using cached user profile');
-          setUserProfileData(data);
-          if (data.university) setUserUniversity(data.university);
-          if (data.city) setUserCity(data.city);
-          setIsLoadingUserData(false);
-          return;
-        }
-      }
-      
-      // Fetch profile from API
-      console.log(`[HomeScreen] Fetching fresh user profile for ${user.email}`);
-      const profile = await fetchUserProfileById(user.email);
-      console.log('[HomeScreen] Profile fetched successfully:', profile);
-      setUserProfileData(profile);
-      
-      // Update context values
-      if (profile.university) setUserUniversity(profile.university);
-      if (profile.city) setUserCity(profile.city);
-      
-      // Cache the result
-      await AsyncStorage.setItem(
-        USER_PROFILE_CACHE_KEY + user.email,
-        JSON.stringify({
-          data: profile,
-          timestamp: Date.now()
-        })
-      );
-    } catch (err) {
-      console.error('Error fetching user profile:', err);
-      setUserDataError('Failed to load user data');
-    } finally {
-      setIsLoadingUserData(false);
-    }
-  }, [user, setUserCity, setUserUniversity]);
-
-  // Function to get user initials for avatar
-  const getInitial = () => {
-    if (userProfileData?.name) {
-      return userProfileData.name.charAt(0).toUpperCase();
-    } else if (user?.name) {
-      return user.name.charAt(0).toUpperCase();
-    }
-    return 'U';
-  };
-
-  // Filtered products loading functions
-  const loadFilteredFeaturedProducts = useCallback(async (filters: ProductFilters) => {
-    try {
-      console.log('[HomeScreen] Using client-side filtering for featured products with filters:', filters);
-      
-      // Since getFeaturedProducts doesn't accept filters parameter, we'll fetch and filter client-side
-      const response = await getFeaturedProducts(userUniversity || '', userCity || '');
-      
-      let productsToFilter: Product[] = [];
-      
-      // Handle the new paginated response format
-      if (Array.isArray(response)) {
-        productsToFilter = response;
-      } else if (response && response.products) {
-        productsToFilter = response.products;
-      } else {
-        console.error('Unexpected response format from loadFilteredFeaturedProducts:', response);
-        setFeaturedProducts([]);
-        return;
-      }
-      
-      // Apply filtering on the client side
-      const filteredProducts = applySortingAndFilters(productsToFilter, selectedSort, 
-        Object.entries(filters).reduce((acc, [key, value]) => {
-          if (Array.isArray(value)) {
-            return [...acc, ...value];
-          } else if (value) {
-            return [...acc, value as string];
-          }
-          return acc;
-        }, [] as string[])
-      );
-      
-      setFeaturedProducts(filteredProducts || []);
-    } catch (err) {
-      console.error('Error loading filtered featured products:', err);
-      setError('Failed to load featured products with filters');
-    }
-  }, [userUniversity, userCity, selectedSort, applySortingAndFilters]);
-
-  // Client-side filtering for new arrivals
-  const loadFilteredNewArrivals = useCallback(async (filters: ProductFilters) => {
-    try {
-      console.log('[HomeScreen] Using client-side filtering for new arrivals with filters:', filters);
-      
-      // Since getNewArrivals doesn't accept filters parameter, we'll fetch and filter client-side
-      const response = await getNewArrivals(userUniversity || '');
-      
-      let productsToFilter: Product[] = [];
-      
-      // Handle the new paginated response format
-      if (Array.isArray(response)) {
-        productsToFilter = response;
-      } else if (response && response.products) {
-        productsToFilter = response.products;
-      } else {
-        console.error('Unexpected response format from loadFilteredNewArrivals:', response);
-        setNewArrivalsProducts([]);
-        return;
-      }
-      
-      // Apply filtering on the client side
-      const filteredProducts = applySortingAndFilters(productsToFilter, selectedSort, 
-        Object.entries(filters).reduce((acc, [key, value]) => {
-          if (Array.isArray(value)) {
-            return [...acc, ...value];
-          } else if (value) {
-            return [...acc, value as string];
-          }
-          return acc;
-        }, [] as string[])
-      );
-      
-      setNewArrivalsProducts(filteredProducts || []);
-    } catch (err) {
-      console.error('Error loading filtered new arrivals:', err);
-      setError('Failed to load new arrivals with filters');
-    }
-  }, [userUniversity, selectedSort, applySortingAndFilters]);
-
-  // Update loadNewArrivals to check for force refresh synchronously
-  const loadNewArrivals = useCallback(async () => {
-    try {
-      setLoadingNewArrivals(true);
-      
-      // Check if force refresh is enabled - direct check
-      if (shouldForceRefresh) {
-        console.log(`[HomeScreen] Force refresh enabled, fetching fresh new arrivals`);
-        const response = await getNewArrivals(userUniversity || '');
-        
-        // Handle the new paginated response format
-        if (Array.isArray(response)) {
-          // Legacy format - response is an array of products
-          setNewArrivalsProducts(response);
-          setNewArrivalsProductsOriginal(response);
-          
-          if (response.length > 0) {
-            setNewArrivalsFilterMaps(createFilterMaps(response));
-          }
-          
-          // Cache the result
-          await cacheProducts(NEW_ARRIVALS_CACHE_KEY, response, userUniversity);
-        } else if (response && response.products) {
-          // New paginated response format
-          setNewArrivalsProducts(response.products);
-          setNewArrivalsProductsOriginal(response.products);
-          
-          if (response.products.length > 0) {
-            setNewArrivalsFilterMaps(createFilterMaps(response.products));
-          }
-          
-          // Cache the result
-          await cacheProducts(NEW_ARRIVALS_CACHE_KEY, response.products, userUniversity);
-        } else {
-          console.error('Unexpected response format from getNewArrivals:', response);
-          setNewArrivalsProducts([]);
-          setNewArrivalsProductsOriginal([]);
-        }
-        return;
-      }
-      
-      // Regular cache-first approach if not force refreshing
-      const cachedProducts = await getCachedProducts(NEW_ARRIVALS_CACHE_KEY, userUniversity);
-      
-      if (cachedProducts) {
-        // Use cached data
-        setNewArrivalsProducts(cachedProducts);
-        setNewArrivalsProductsOriginal(cachedProducts);
-        
-        // Create filter maps for optimization
-        if (cachedProducts.length > 0) {
-          setNewArrivalsFilterMaps(createFilterMaps(cachedProducts));
-        }
-      } else {
-        // Fetch from API
-        console.log(`[HomeScreen] Fetching fresh new arrivals: univ=${userUniversity}`);
-        const response = await getNewArrivals(userUniversity || '');
-        
-        // Handle the new paginated response format
-        if (Array.isArray(response)) {
-          // Legacy format - response is an array of products
-          setNewArrivalsProducts(response);
-          setNewArrivalsProductsOriginal(response);
-          
-          // Create filter maps for optimization
-          if (response.length > 0) {
-            setNewArrivalsFilterMaps(createFilterMaps(response));
-          }
-          
-          // Cache the result
-          await cacheProducts(NEW_ARRIVALS_CACHE_KEY, response, userUniversity);
-        } else if (response && response.products) {
-          // New paginated response format
-          setNewArrivalsProducts(response.products);
-          setNewArrivalsProductsOriginal(response.products);
-          
-          // Create filter maps for optimization
-          if (response.products.length > 0) {
-            setNewArrivalsFilterMaps(createFilterMaps(response.products));
-          }
-          
-          // Cache the result
-          await cacheProducts(NEW_ARRIVALS_CACHE_KEY, response.products, userUniversity);
-        } else {
-          console.error('Unexpected response format from getNewArrivals:', response);
-          setNewArrivalsProducts([]);
-          setNewArrivalsProductsOriginal([]);
-        }
-      }
-    } catch (err) {
-      console.error('Error loading new arrivals:', err);
-      setError('Failed to load new arrivals');
-    } finally {
-      setLoadingNewArrivals(false);
-    }
-  }, [userUniversity, shouldForceRefresh]);
-
-  // Update loadFeaturedProducts to check for force refresh synchronously
-  const loadFeaturedProducts = useCallback(async () => {
-    try {
-      setLoadingFeatured(true);
-      
-      // Check if force refresh is enabled - direct check
-      if (shouldForceRefresh) {
-        console.log(`[HomeScreen] Force refresh enabled, fetching fresh featured products`);
-        const response = await getFeaturedProducts(userUniversity || '', userCity || '');
-        
-        // Handle the new paginated response format
-        if (Array.isArray(response)) {
-          // Legacy format - response is an array of products
-          setFeaturedProducts(response);
-          setFeaturedProductsOriginal(response);
-          setTotalFeaturedCount(response.length);
-          
-          if (response.length > 0) {
-            setFeaturedFilterMaps(createFilterMaps(response));
-          }
-          
-          // Cache the result
-          await cacheProducts(FEATURED_PRODUCTS_CACHE_KEY, response, userUniversity, userCity);
-        } else if (response && response.products) {
-          // New paginated response format
-          setFeaturedProducts(response.products);
-          setFeaturedProductsOriginal(response.products);
-          setTotalFeaturedCount(response.totalItems || response.products.length);
-          
-          if (response.products.length > 0) {
-            setFeaturedFilterMaps(createFilterMaps(response.products));
-          }
-          
-          // Cache the result
-          await cacheProducts(FEATURED_PRODUCTS_CACHE_KEY, response.products, userUniversity, userCity);
-        } else {
-          console.error('Unexpected response format from getFeaturedProducts:', response);
-          setFeaturedProducts([]);
-          setFeaturedProductsOriginal([]);
-          setTotalFeaturedCount(0);
-        }
-        return;
-      }
-      
-      // Regular cache-first approach if not force refreshing
-      const cachedProducts = await getCachedProducts(FEATURED_PRODUCTS_CACHE_KEY, userUniversity, userCity);
-      
-      if (cachedProducts) {
-        // Use cached data
-        setFeaturedProducts(cachedProducts);
-        setFeaturedProductsOriginal(cachedProducts);
-        setTotalFeaturedCount(cachedProducts.length);
-        
-        // Create filter maps for optimization
-        if (cachedProducts.length > 0) {
-          setFeaturedFilterMaps(createFilterMaps(cachedProducts));
-        }
-      } else {
-        // Fetch from API
-        console.log(`[HomeScreen] Fetching fresh featured products: univ=${userUniversity}, city=${userCity}`);
-        const response = await getFeaturedProducts(userUniversity || '', userCity || '');
-        
-        // Handle the new paginated response format
-        if (Array.isArray(response)) {
-          // Legacy format - response is an array of products
-          setFeaturedProducts(response);
-          setFeaturedProductsOriginal(response);
-          setTotalFeaturedCount(response.length);
-          
-          // Create filter maps for optimization
-          if (response.length > 0) {
-            setFeaturedFilterMaps(createFilterMaps(response));
-          }
-          
-          // Cache the result
-          await cacheProducts(FEATURED_PRODUCTS_CACHE_KEY, response, userUniversity, userCity);
-        } else if (response && response.products) {
-          // New paginated response format
-          setFeaturedProducts(response.products);
-          setFeaturedProductsOriginal(response.products);
-          setTotalFeaturedCount(response.totalItems || response.products.length);
-          
-          // Create filter maps for optimization
-          if (response.products.length > 0) {
-            setFeaturedFilterMaps(createFilterMaps(response.products));
-          }
-          
-          // Cache the result
-          await cacheProducts(FEATURED_PRODUCTS_CACHE_KEY, response.products, userUniversity, userCity);
-        } else {
-          console.error('Unexpected response format from getFeaturedProducts:', response);
-          setFeaturedProducts([]);
-          setFeaturedProductsOriginal([]);
-          setTotalFeaturedCount(0);
-        }
-      }
-    } catch (err) {
-      console.error('Error loading featured products:', err);
-      setError('Failed to load featured products');
-    } finally {
-      setLoadingFeatured(false);
-    }
-  }, [userUniversity, userCity, shouldForceRefresh, cacheProducts, getCachedProducts]);
-
-  // Update loadUniversityProducts to check for force refresh synchronously
-  const loadUniversityProducts = useCallback(async () => {
-    if (!userUniversity) return;
-    
-    try {
-      setLoadingUniversity(true);
-      
-      // Check if force refresh is enabled - direct check
-      if (shouldForceRefresh) {
-        console.log(`[HomeScreen] Force refresh enabled, fetching fresh university products`);
-        const response = await getProductsByUniversity(userUniversity);
-        
-        setUniversityProducts(response.products || []);
-        setUniversityProductsOriginal(response.products || []);
-        setTotalUniversityCount(response.products?.length || 0);
-        
-        // Create filter maps for optimization
-        if (response.products && response.products.length > 0) {
-          setUniversityFilterMaps(createFilterMaps(response.products));
-        }
-        
-        // Cache the result
-        await cacheProducts(UNIVERSITY_PRODUCTS_CACHE_KEY, response, userUniversity);
-        return;
-      }
-      
-      // Regular cache-first approach if not force refreshing
-      const cachedProducts = await getCachedProducts(UNIVERSITY_PRODUCTS_CACHE_KEY, userUniversity);
-      
-      if (cachedProducts) {
-        // Use cached data
-        setUniversityProducts(cachedProducts.products || []);
-        setUniversityProductsOriginal(cachedProducts.products || []);
-        setTotalUniversityCount(cachedProducts.products?.length || 0);
-        
-        // Create filter maps for optimization
-        if (cachedProducts.products && cachedProducts.products.length > 0) {
-          setUniversityFilterMaps(createFilterMaps(cachedProducts.products));
-        }
-      } else {
-        // Fetch from API
-        console.log(`[HomeScreen] Fetching fresh university products: univ=${userUniversity}`);
-        const response = await getProductsByUniversity(userUniversity);
-        
-        setUniversityProducts(response.products || []);
-        setUniversityProductsOriginal(response.products || []);
-        setTotalUniversityCount(response.products?.length || 0);
-        
-        // Create filter maps for optimization
-        if (response.products && response.products.length > 0) {
-          setUniversityFilterMaps(createFilterMaps(response.products));
-        }
-        
-        // Cache the result
-        await cacheProducts(UNIVERSITY_PRODUCTS_CACHE_KEY, response, userUniversity);
-      }
-    } catch (err) {
-      console.error('Error loading university products:', err);
-      setError('Failed to load university products');
-    } finally {
-      setLoadingUniversity(false);
-    }
-  }, [userUniversity, shouldForceRefresh, cacheProducts, getCachedProducts]);
-
-  // Update loadCityProducts to check for force refresh synchronously
-  const loadCityProducts = useCallback(async () => {
-    if (!userCity) return;
-    
-    try {
-      setLoadingCity(true);
-      
-      // Check if force refresh is enabled - direct check
-      if (shouldForceRefresh) {
-        console.log(`[HomeScreen] Force refresh enabled, fetching fresh city products`);
-        const response = await getProductsByCity(userCity);
-        
-        setCityProducts(response.products || []);
-        setCityProductsOriginal(response.products || []);
-        
-        // Create filter maps for optimization
-        if (response.products && response.products.length > 0) {
-          setCityFilterMaps(createFilterMaps(response.products));
-        }
-        
-        // Cache the result
-        await cacheProducts(CITY_PRODUCTS_CACHE_KEY, response, undefined, userCity);
-        return;
-      }
-      
-      // Regular cache-first approach if not force refreshing
-      const cachedProducts = await getCachedProducts(CITY_PRODUCTS_CACHE_KEY, undefined, userCity);
-      
-      if (cachedProducts) {
-        // Use cached data
-        setCityProducts(cachedProducts.products || []);
-        setCityProductsOriginal(cachedProducts.products || []);
-        
-        // Create filter maps for optimization
-        if (cachedProducts.products && cachedProducts.products.length > 0) {
-          setCityFilterMaps(createFilterMaps(cachedProducts.products));
-        }
-      } else {
-        // Fetch from API
-        console.log(`[HomeScreen] Fetching fresh city products: city=${userCity}`);
-        const response = await getProductsByCity(userCity);
-        
-        setCityProducts(response.products || []);
-        setCityProductsOriginal(response.products || []);
-        
-        // Create filter maps for optimization
-        if (response.products && response.products.length > 0) {
-          setCityFilterMaps(createFilterMaps(response.products));
-        }
-        
-        // Cache the result
-        await cacheProducts(CITY_PRODUCTS_CACHE_KEY, response, undefined, userCity);
-      }
-    } catch (err) {
-      console.error('Error loading city products:', err);
-      setError('Failed to load city products');
-    } finally {
-      setLoadingCity(false);
-    }
-  }, [userCity, shouldForceRefresh, cacheProducts, getCachedProducts]);
-
-  // Helper function to save products to cache
-  const cacheProducts = async (key: string, products: any, university?: string, city?: string) => {
-    try {
-      const cacheKey = `${key}${university ? '_' + university : ''}${city ? '_' + city : ''}`;
-      await AsyncStorage.setItem(
-        cacheKey,
-        JSON.stringify({
-          data: products,
-          timestamp: Date.now()
-        })
-      );
-      
-      console.log(`[HomeScreen] Cached ${products.length} products with key: ${cacheKey}`);
-      
-      // If this was a forced refresh, clear the flag now that we've refreshed the data
-      if (shouldForceRefresh) {
-        console.log('[HomeScreen] Clearing force refresh flag after refresh');
-        await AsyncStorage.setItem(FORCE_REFRESH_KEY, 'false');
-        setShouldForceRefresh(false);
-        setRefreshCount(0);
-      }
-    } catch (error) {
-      console.error(`[HomeScreen] Error caching products:`, error);
-    }
-  };
-
-  // Helper function to get products from cache
-  const getCachedProducts = async (key: string, university?: string, city?: string) => {
-    try {
-      // Check for force refresh flag in both state and AsyncStorage
-      // This is a safety check to ensure we're definitely bypassing cache when needed
-      if (shouldForceRefresh) {
-        console.log(`[HomeScreen] Force refresh is enabled in state, skipping cache for ${key}`);
-        return null;
-      }
-      
-      // Double-check AsyncStorage as well (in case the state update hasn't propagated)
-      const forceRefreshValue = await AsyncStorage.getItem(FORCE_REFRESH_KEY);
-      if (forceRefreshValue === 'true') {
-        console.log(`[HomeScreen] Force refresh flag found in storage, skipping cache for ${key}`);
-        // Update local state to match storage
-        if (!shouldForceRefresh) {
-          setShouldForceRefresh(true);
-        }
-        return null;
-      }
-      
-      // If we get here, it's safe to check the cache
-      const cacheKey = `${key}${university ? '_' + university : ''}${city ? '_' + city : ''}`;
-      const cachedData = await AsyncStorage.getItem(cacheKey);
-      
-      if (cachedData) {
-        const { data, timestamp } = JSON.parse(cachedData);
-        const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
-        
-        if (!isExpired) {
-          console.log(`[HomeScreen] Using cached products from: ${cacheKey}`);
-          return data;
-        } else {
-          console.log(`[HomeScreen] Cache expired for: ${cacheKey}`);
-        }
-      }
-      return null;
-    } catch (error) {
-      console.error(`[HomeScreen] Error retrieving cached products:`, error);
-      return null;
-    }
-  };
-
-  // Define SearchPaginationFooter component
-  const SearchPaginationFooter: React.FC<{
-    isLoadingMore: boolean;
-    hasMore: boolean;
-    onLoadMore: () => void;
-    error?: string | null;
-  }> = ({ isLoadingMore, hasMore, onLoadMore, error }) => {
-    if (error) {
-      return (
-        <View style={styles.paginationFooter}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={onLoadMore}>
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-    
-    if (!hasMore) {
-      return <View style={styles.paginationFooter}>
-        <Text style={{ color: '#666' }}>No more products</Text>
-      </View>;
-    }
-    
-    return (
-      <View style={styles.paginationFooter}>
-        {isLoadingMore ? (
-          <ActivityIndicator size="small" color="#f7b305" />
-        ) : (
-          <TouchableOpacity style={styles.loadMoreButton} onPress={onLoadMore}>
-            <Text style={styles.loadMoreButtonText}>Load More</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    );
-  };
-
-  const loadFilteredUniversityProducts = useCallback(async (filters: ProductFilters) => {
-    if (!userUniversity) return;
-    
-    try {
-      // Use API to fetch university products with filters
-      const response = await getProductsByUniversity(userUniversity, filters);
-      if (response && typeof response === 'object' && 'products' in response) {
-        setUniversityProducts(response.products || []);
-      } else {
-        console.error('Unexpected response format from loadFilteredUniversityProducts:', response);
-        setUniversityProducts([]);
-      }
-    } catch (err) {
-      console.error('Error loading filtered university products:', err);
-      setError('Failed to load university products with filters');
-    }
-  }, [userUniversity]);
-
-  const loadFilteredCityProducts = useCallback(async (filters: ProductFilters) => {
-    if (!userCity) return;
-    
-    try {
-      // Use API to fetch city products with filters
-      const response = await getProductsByCity(userCity, filters);
-      if (response && typeof response === 'object' && 'products' in response) {
-        setCityProducts(response.products || []);
-      } else {
-        console.error('Unexpected response format from loadFilteredCityProducts:', response);
-        setCityProducts([]);
-      }
-    } catch (err) {
-      console.error('Error loading filtered city products:', err);
-      setError('Failed to load city products with filters');
-    }
-  }, [userCity]);
-
-  // Add refresh handling
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  
-  // Add refresh counter
-  const [refreshCount, setRefreshCount] = useState<number>(0);
-  
-  // Add a forceRefresh flag
-  const [shouldForceRefresh, setShouldForceRefresh] = useState(false);
-
-  // When the component mounts, check if we should force refresh
-  useEffect(() => {
-    const checkForceRefreshFlag = async () => {
-      try {
-        const forceRefreshValue = await AsyncStorage.getItem(FORCE_REFRESH_KEY);
-        if (forceRefreshValue === 'true') {
-          console.log('[HomeScreen] Force refresh flag is set, will skip cache');
-          setShouldForceRefresh(true);
-        }
-      } catch (err) {
-        console.error('Error checking force refresh flag:', err);
-      }
-    };
-    
-    checkForceRefreshFlag();
-  }, []);
-
-  // Helper function to clear all product cache keys
-  const clearProductCaches = useCallback(async () => {
-    try {
-      console.log('[HomeScreen] Clearing all product cache keys');
-      
-      // Build a list of cache keys to clear
-      const keysToRemove = [];
-      
-      // Add featured products cache key
-      if (userUniversity && userCity) {
-        keysToRemove.push(`${FEATURED_PRODUCTS_CACHE_KEY}${userUniversity}_${userCity}`);
-      }
-      
-      // Add new arrivals cache key
-      if (userUniversity) {
-        keysToRemove.push(`${NEW_ARRIVALS_CACHE_KEY}${userUniversity}`);
-      }
-      
-      // Add university products cache key
-      if (userUniversity) {
-        keysToRemove.push(`${UNIVERSITY_PRODUCTS_CACHE_KEY}${userUniversity}`);
-      }
-      
-      // Add city products cache key
-      if (userCity) {
-        keysToRemove.push(`${CITY_PRODUCTS_CACHE_KEY}${userCity}`);
-      }
-      
-      // Remove all identified keys
-      await Promise.all(keysToRemove.map(key => AsyncStorage.removeItem(key)));
-      
-      console.log(`[HomeScreen] Cleared ${keysToRemove.length} cache keys`);
-    } catch (error) {
-      console.error('[HomeScreen] Error clearing product caches:', error);
-    }
-  }, [userUniversity, userCity]);
-
-  // Update handleRefresh to use the force refresh flag directly
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    setError(null);
-    
-    // Increment refresh counter locally
-    const newCount = refreshCount + 1;
-    setRefreshCount(newCount);
-    console.log(`[HomeScreen] Refresh counter incremented to ${newCount}`);
-    
-    // After 2 refreshes, force refresh all data
-    let needsForceRefresh = false;
-    if (newCount >= 2) {
-      console.log('[HomeScreen] Setting force refresh to bypass cache');
-      setShouldForceRefresh(true);
-      needsForceRefresh = true;
-      
-      // Also store in AsyncStorage for persistence
-      await AsyncStorage.setItem(FORCE_REFRESH_KEY, 'true').catch(err => {
-        console.error('Error saving force refresh flag:', err);
-      });
-      
-      // IMPORTANT: Immediately clear all cache to force fresh data
-      await clearProductCaches();
-      
-      // Add a small delay to ensure the state update has taken effect
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    
-    // Also increment search refresh counter
-    if (search && search.incrementSearchRefreshCount) {
-      search.incrementSearchRefreshCount();
-    }
-    
-    try {
-      // Check refresh status for logging
-      console.log(`[HomeScreen] Starting refresh with forceRefresh=${needsForceRefresh}`);
-      
-      await Promise.all([
-        loadFeaturedProducts(),
-        loadNewArrivals(),
-        loadUniversityProducts(),
-        loadCityProducts()
-      ]);
-      
-      // Reset force refresh flag after successfully loading fresh data
-      if (needsForceRefresh) {
-        console.log('[HomeScreen] Resetting force refresh flag after successful refresh');
-        setShouldForceRefresh(false);
-        setRefreshCount(0);
-        
-        // Update in AsyncStorage
-        await AsyncStorage.setItem(FORCE_REFRESH_KEY, 'false').catch(err => {
-          console.error('Error saving force refresh flag:', err);
-        });
-      }
-    } catch (err) {
-      console.error('Error refreshing products:', err);
-      setError('Failed to refresh products');
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [loadFeaturedProducts, loadNewArrivals, loadUniversityProducts, loadCityProducts, search, refreshCount, clearProductCaches]);
-  
   // Add missing handlers
   const handleProductPress = useCallback((product: Product) => {
     // Navigate to product detail
@@ -1740,6 +1068,41 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
       recipientName: sellerName
     });
   }, [nav]);
+
+  // Handle filter change events
+  const handleFilterChange = useCallback((filterType: string, value: string | string[], sectionType: string) => {
+    // Store the selected filters temporarily
+    setSelectedFilters(prev => ({
+      ...prev,
+      [filterType]: value
+    }));
+    
+    // Don't immediately apply filters, wait for user to press Apply
+    console.log(`[HomeScreen] Filter changed: ${filterType} = ${value} for ${sectionType}`);
+  }, []);
+  
+  // Add this close to other stub functions
+  const setShowFilterModal = (show: boolean) => {
+    console.log('[HomeScreen] setShowFilterModal is now a stub - will use direct state in the future');
+  };
+
+  // Fix the applyFilters function to check for setShowFilterModal in a better way
+  const applyFilters = useCallback(() => {
+    // Close the filter modal - only if we're using one
+    setFilterDropdownVisible(false);
+    
+    if (Object.keys(selectedFilters).length === 0) {
+      console.log('[HomeScreen] No filters to apply');
+      return;
+    }
+    
+    console.log('[HomeScreen] Applying filters:', selectedFilters);
+    
+    // Instead of using the old filtering functions, we should use the Zustand store
+    // This is a stub for now - will be fully implemented later
+    console.log('[HomeScreen] Filters will be handled by Zustand store in future implementation');
+    
+  }, [selectedFilters]);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: 'white' }]}>
@@ -1839,39 +1202,31 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
           </View>
 
           {/* Recent Searches Dropdown */}
-          {search.showRecentSearches && search.recentSearches.length > 0 && (
+          {search.showRecentSearches && search.recentSearches.length > 0 && search.searchQuery.length > 0 && (
             <View style={styles.recentSearchesDropdown}>
-              <View style={styles.recentSearchesHeader}>
-                <Text style={styles.recentSearchesTitle}>Recent Searches</Text>
+              <Text style={styles.recentSearchesTitle}>Recent Searches</Text>
+              {search.recentSearches.map((item, index) => (
                 <TouchableOpacity 
-                  onPress={() => search.setShowRecentSearches(false)}
-                  style={styles.closeRecentButton}
+                  key={`recent-${index}`}
+                  style={styles.recentSearchItem}
+                  onPress={() => {
+                    // Temporary solution until search.handleRecentSearchPress is properly implemented
+                    console.log('Recent search pressed:', item);
+                    search.setSearchQuery(item);
+                    search.handleSearch();
+                  }}
                 >
-                  <MaterialIcons name="close" size={18} color="#666" />
+                  <FontAwesome name="history" size={16} color="#777" style={styles.recentSearchIcon} />
+                  <Text style={styles.recentSearchText}>{item}</Text>
                 </TouchableOpacity>
-              </View>
-              <ScrollView 
-                style={styles.recentSearchesList}
-                keyboardShouldPersistTaps="handled"
-              >
-                {search.recentSearches.map((term, index) => (
-                  <TouchableOpacity
-                    key={`recent-${index}`}
-                    style={styles.recentSearchItem}
-                    onPress={() => search.handleSelectRecentSearch(term)}
-                  >
-                    <FontAwesome name="history" size={16} color="#999" style={styles.recentSearchIcon} />
-                    <Text style={styles.recentSearchText}>{term}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              ))}
             </View>
           )}
         </View>
         
         {/* Row with text and buttons */}
         <View style={styles.rowContainer}>
-          <Text style={[styles.plainText, { color: 'black' }]}>
+          <Text style={styles.plainText}>
             {search.showSearchResults ? 'Search Results' : 'All Items'}
           </Text>
           <View style={styles.buttonContainer}>
@@ -1879,35 +1234,24 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
               <TouchableOpacity 
                 style={[
                   styles.smallButton, 
-                  styles.sortButton, 
-                  { backgroundColor: '#f7b305', borderColor: '#ddd' },
-                  search.selectedSort !== 'default' && styles.activeFilterButton
+                  styles.sortButton,
+                  selectedSort !== 'default' && styles.activeFilterButton
                 ]}
-                onPress={handleSortButtonClick}
+                onPress={() => setSortDropdownVisible(!sortDropdownVisible)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.buttonText, { color: 'black' }]}>
-                  {search.selectedSort !== 'default' ? ` Sort: ${sortOptions.find(o => o.id === search.selectedSort)?.label || 'Custom'}` : ' Sort'}
-                </Text>
                 <Icon name="sort" size={14} color="black" />
+                <Text style={[styles.buttonText, { color: 'black' }]}>Sort</Text>
               </TouchableOpacity>
               
-              {/* Enhanced Sort Dropdown */}
+              {/* Sort Dropdown */}
               {sortDropdownVisible && (
                 <View style={styles.dropdownContainer}>
                   <EnhancedDropdown
                     items={sortOptions}
-                    selectedItems={[search.selectedSort]}
-                    onSelect={(sortId) => {
-                      search.setSelectedSort(sortId);
-                      setSortDropdownVisible(false);
-                      if (search.showSearchResults) {
-                        search.handleSearch();
-                      } else {
-                        handleSortOptionSelect(sortId);
-                      }
-                    }}
-                    title="Sort by"
+                    selectedItems={[selectedSort]}
+                    onSelect={handleSortOptionSelect}
+                    title="Sort By"
                     onClose={() => setSortDropdownVisible(false)}
                   />
                 </View>
@@ -1918,71 +1262,45 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
               <TouchableOpacity 
                 style={[
                   styles.smallButton, 
-                  styles.filterButton, 
-                  { backgroundColor: '#f7b305', borderColor: '#ddd' },
-                  search.selectedFilters.length > 0 && styles.activeFilterButton
+                  styles.filterButton,
+                  selectedFilters.length > 0 && styles.activeFilterButton
                 ]}
-                onPress={handleFilterButtonClick}
+                onPress={() => setFilterDropdownVisible(!filterDropdownVisible)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.buttonText, { color: 'black' }]}>
-                  {search.selectedFilters.length > 0 ? ` Filter (${search.selectedFilters.length})` : ' Filter'}
-                </Text>
                 <Icon name="filter" size={14} color="black" />
+                <Text style={[styles.buttonText, { color: 'black' }]}>Filter</Text>
               </TouchableOpacity>
               
-              {/* Enhanced Filter Dropdown */}
+              {/* Filter Dropdown */}
               {filterDropdownVisible && (
                 <View style={styles.dropdownContainer}>
                   <EnhancedDropdown
                     items={filterOptions}
-                    selectedItems={search.selectedFilters}
-                    onSelect={(filterId) => {
-                      // Update filters in search hook
-                      const isSelected = search.selectedFilters.includes(filterId);
-                      const newFilters = isSelected
-                        ? search.selectedFilters.filter(id => id !== filterId)
-                        : [...search.selectedFilters, filterId];
-                      
-                      search.setSelectedFilters(newFilters);
-                      
-                      if (search.showSearchResults) {
-                        // For search results, re-run search with new filters instead of directly manipulating results
-                        search.handleSearch();
-                      } else {
-                        // Apply to product listings
-                        handleFilterOptionSelect(filterId);
-                      }
-                    }}
+                    selectedItems={selectedFilters}
+                    onSelect={handleFilterOptionSelect}
                     multiSelect={true}
-                    title="Filter by"
+                    title="Filter By"
                     onClose={() => setFilterDropdownVisible(false)}
                   />
                 </View>
               )}
             </View>
             
-            {/* Clear filters button - only show if filters are applied */}
-            {(search.selectedFilters.length > 0 || search.selectedSort !== 'default') && (
+            {/* Clear filters button */}
+            {selectedFilters.length > 0 && (
               <TouchableOpacity
                 style={styles.clearFiltersButton}
-                onPress={() => {
-                  search.setSelectedFilters([]);
-                  search.setSelectedSort('default');
-                  handleClearFilters();
-                  if (search.showSearchResults) {
-                    search.handleSearch();
-                  }
-                }}
-                activeOpacity={0.7}
+                onPress={handleClearFilters}
               >
-                <MaterialIcons name="clear" size={14} color="black" />
+                <Text style={styles.clearFiltersText}>Clear</Text>
+                <MaterialIcons name="close" size={14} color="#f7b305" />
               </TouchableOpacity>
             )}
           </View>
         </View>
         
-        {/* Show either search results or normal content */}
+        {/* Search Results */}
         {search.showSearchResults ? (
           <View style={styles.searchResultsContainer}>
             {search.isSearching ? (
@@ -2061,7 +1379,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
             <ScrollView 
               showsVerticalScrollIndicator={false}
               refreshControl={
-                <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+                <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
               }
             >
               {/* New Arrivals Section */}
@@ -2123,12 +1441,12 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
               />
               
               {/* Error display */}
-              {error && (
+              {productError && (
                 <View style={styles.errorContainer}>
-                  <Text style={styles.errorText}>{error}</Text>
+                  <Text style={styles.errorText}>{productError}</Text>
                   <TouchableOpacity 
                     style={styles.retryButton}
-                    onPress={handleRefresh}
+                    onPress={onRefresh}
                   >
                     <Text style={styles.retryButtonText}>Retry</Text>
                   </TouchableOpacity>
@@ -2241,17 +1559,20 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontFamily: 'Montserrat',
     marginLeft: 5,
+    color: '#333',
   },
   buttonContainer: {
     flexDirection: 'row',
+    alignItems: 'center',
   },
   smallButton: {
     paddingVertical: 7,
     paddingHorizontal: 12,
     borderRadius: 20,
-    marginLeft: 10,
+    marginRight: 10,
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'white',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -2262,19 +1583,23 @@ const styles = StyleSheet.create({
       android: {
         borderWidth: 1,
         borderColor: '#e0e0e0',
-        backgroundColor: 'white',
       }
     }),
   },
   sortButton: {
+    backgroundColor: '#f7b305',
+    borderColor: '#e69b00',
   },
   filterButton: {
+    backgroundColor: '#f7b305',
+    borderColor: '#e69b00',
   },
   buttonText: {
     fontSize: 13,
     fontWeight: '500',
-    marginLeft: 0,
+    marginLeft: 5,
     marginRight: 5,
+    color: '#333',
   },
   categoryContainer: {
     height: 110,
@@ -2466,8 +1791,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activeFilterButton: {
-    backgroundColor: '#e69b00',
-    borderColor: '#e69b00',
+    backgroundColor: '#fff9e6',
+    borderColor: '#f7b305',
   },
   errorContainer: {
     padding: 20,
@@ -2580,19 +1905,19 @@ const styles = StyleSheet.create({
   clearFiltersButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
     paddingVertical: 6,
+    paddingHorizontal: 10,
     borderRadius: 20,
+    backgroundColor: '#FFF9E6',
     borderWidth: 1,
     borderColor: '#f7b305',
-    marginRight: 8,
-    marginLeft: 8,
+    marginLeft: 5,
   },
   clearFiltersText: {
     color: '#f7b305',
     fontSize: 12,
-    marginRight: 4,
     fontWeight: '500',
+    marginRight: 4,
   },
   messageButton: {
     position: 'absolute',
@@ -2672,6 +1997,11 @@ const styles = StyleSheet.create({
   recentSearchText: {
     fontSize: 14,
     color: '#333',
+  },
+  filterSortContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
   },
 });
 
