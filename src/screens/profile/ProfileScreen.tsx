@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-  SafeAreaView,
   StatusBar,
   ActivityIndicator,
   RefreshControl,
@@ -14,6 +13,7 @@ import {
   Alert,
   Dimensions
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect, useRoute, RouteProp } from '@react-navigation/native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
@@ -653,9 +653,9 @@ const ProfileScreen: React.FC = () => {
     if (!isRefreshing) setIsLoadingProducts(true);
     
     // If this is the second or more refresh, log it and force refresh from API
-    const shouldForceRefresh = isRefreshing && refreshCountRef.current >= 1;
+    const shouldForceRefresh = refreshCountRef.current >= 2;
     if (shouldForceRefresh) {
-      console.log(`[ProfileScreen] Force refreshing user products from API (refresh count: ${refreshCountRef.current + 1})`);
+      console.log(`[ProfileScreen] Force refreshing user products from API (refresh count: ${refreshCountRef.current})`);
     }
     
     try {
@@ -855,9 +855,9 @@ const ProfileScreen: React.FC = () => {
     if (!isRefreshing) setIsLoading(true);
     
     // If this is the second or more refresh, log it and force refresh from API
-    const shouldForceRefresh = isRefreshing && refreshCountRef.current >= 1;
+    const shouldForceRefresh = refreshCountRef.current >= 2;
     if (shouldForceRefresh) {
-      console.log(`[ProfileScreen] Force refreshing user profile from API (refresh count: ${refreshCountRef.current + 1})`);
+      console.log(`[ProfileScreen] Force refreshing user profile from API (refresh count: ${refreshCountRef.current})`);
     }
     
     try {
@@ -1209,7 +1209,7 @@ const ProfileScreen: React.FC = () => {
   }, [user?.email]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safeAreaContainer} edges={['top']}>
       <StatusBar 
         translucent={true}
         backgroundColor="transparent"
@@ -1257,90 +1257,92 @@ const ProfileScreen: React.FC = () => {
         </View>
       </Animated.View>
       
-      {/* Handle loading and error states for profile data */}
-      {isLoading && (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#f7b305" />
-          <Text style={styles.loadingText}>Loading profile...</Text>
-        </View>
-      )}
-      
-      {error && (
-        <View style={styles.errorContainer}>
-          <MaterialIcons name="error-outline" size={64} color="#e74c3c" />
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity 
-            style={styles.retryButton}
-            onPress={handleRefresh}
-          >
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-      
-      {/* Using FlatList instead of ScrollView for better performance with large lists */}
-      {!isLoading && !error && (
-        <Animated.FlatList
-          data={filteredPosts}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
-          numColumns={2}
-          showsVerticalScrollIndicator={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          contentContainerStyle={styles.scrollContent}
-          ListHeaderComponent={() => (
-            <>
-              {/* Profile Banner with background color #f7b305 */}
-              <View style={styles.bannerContainer}>
-                <View style={styles.bannerContent}>
-                  {/* Banner content without buttons */}
+      <SafeAreaView style={styles.contentContainer} edges={['bottom', 'left', 'right']}>
+        {/* Handle loading and error states for profile data */}
+        {isLoading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#f7b305" />
+            <Text style={styles.loadingText}>Loading profile...</Text>
+          </View>
+        )}
+        
+        {error && (
+          <View style={styles.errorContainer}>
+            <MaterialIcons name="error-outline" size={64} color="#e74c3c" />
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity 
+              style={styles.retryButton}
+              onPress={handleRefresh}
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        
+        {/* Using FlatList instead of ScrollView for better performance with large lists */}
+        {!isLoading && !error && (
+          <Animated.FlatList
+            data={filteredPosts}
+            renderItem={renderItem}
+            keyExtractor={keyExtractor}
+            numColumns={2}
+            showsVerticalScrollIndicator={false}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            contentContainerStyle={styles.scrollContent}
+            ListHeaderComponent={() => (
+              <>
+                {/* Profile Banner with background color #f7b305 */}
+                <View style={styles.bannerContainer}>
+                  <View style={styles.bannerContent}>
+                    {/* Banner content without buttons */}
+                  </View>
                 </View>
-              </View>
-              
-              <ProfileHeader 
-                userData={userData}
-                backendUserData={backendUserData}
-                filteredPosts={filteredPosts}
-                activeTab={activeTab}
-                onTabChange={handleTabChange}
-                onEditProfile={handleEditProfile}
-                isLoadingProducts={isLoadingProducts}
-                isViewingSeller={isViewingSeller}
+                
+                <ProfileHeader 
+                  userData={userData}
+                  backendUserData={backendUserData}
+                  filteredPosts={filteredPosts}
+                  activeTab={activeTab}
+                  onTabChange={handleTabChange}
+                  onEditProfile={handleEditProfile}
+                  isLoadingProducts={isLoadingProducts}
+                  isViewingSeller={isViewingSeller}
+                />
+              </>
+            )}
+            ListEmptyComponent={ListEmptyComponent}
+            ListFooterComponent={ListFooterComponent}
+            columnWrapperStyle={styles.columnWrapper}
+            getItemLayout={getItemLayout}
+            initialNumToRender={6}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            removeClippedSubviews={true}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                colors={['#ffffff']}
+                tintColor="#ffffff"
+                progressBackgroundColor="#f7b305"
               />
-            </>
-          )}
-          ListEmptyComponent={ListEmptyComponent}
-          ListFooterComponent={ListFooterComponent}
-          columnWrapperStyle={styles.columnWrapper}
-          getItemLayout={getItemLayout}
-          initialNumToRender={6}
-          maxToRenderPerBatch={10}
-          windowSize={5}
-          removeClippedSubviews={true}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={handleRefresh}
-              colors={['#ffffff']}
-              tintColor="#ffffff"
-              progressBackgroundColor="#f7b305"
-            />
-          }
-        />
-      )}
-      
-      {/* Floating Add Button - only show when viewing own profile */}
-      {!isViewingSeller && (
-        <TouchableOpacity 
-          style={styles.floatingButton}
-          activeOpacity={0.9}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          onPress={handleAddListing}
-        >
-          <Ionicons name="add" size={30} color="#FFF" />
-        </TouchableOpacity>
-      )}
+            }
+          />
+        )}
+        
+        {/* Floating Add Button - only show when viewing own profile */}
+        {!isViewingSeller && (
+          <TouchableOpacity 
+            style={styles.floatingButton}
+            activeOpacity={0.9}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            onPress={handleAddListing}
+          >
+            <Ionicons name="add" size={30} color="#FFF" />
+          </TouchableOpacity>
+        )}
+      </SafeAreaView>
     </SafeAreaView>
   );
 };
@@ -1349,6 +1351,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
+  },
+  safeAreaContainer: {
+    flex: 1,
+    backgroundColor: '#f7b305', // Set top background color to match header
+  },
+  contentContainer: {
+    flex: 1,
+    backgroundColor: '#f8f9fa', // Content background color
   },
   scrollContent: {
     paddingBottom: 20,
@@ -1937,12 +1947,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
     padding: 20,
   },
-  errorMessage: {
-    marginTop: 15,
+  errorText: {
+    marginTop: 10,
     fontSize: 18,
-    color: '#555',
-    textAlign: 'center',
-    marginBottom: 20,
+    color: '#e74c3c',
   },
   retryButton: {
     backgroundColor: '#f7b305',
@@ -1999,11 +2007,6 @@ const styles = StyleSheet.create({
   },
   listFooter: {
     height: 30,
-  },
-  errorText: {
-    marginTop: 10,
-    fontSize: 18,
-    color: '#e74c3c',
   },
   universityItem: {
     borderLeftColor: '#f7b305',
