@@ -16,30 +16,19 @@ import {
   ActivityIndicator
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import FontAwesome from 'react-native-vector-icons/FontAwesome';
+import Icon from 'react-native-vector-icons/FontAwesome';
 
 // Import types
 import { CategoryProductsScreenProps } from '../../types/navigation.types';
 
 // Import API methods
-import { 
-  getProductsByCategory,
-  getProductsByUniversity,
-  getProductsByCity,
-  getFeaturedProducts,
-  getNewArrivals,
-  Product,
-  ProductFilters
-} from '../../api/products';
+import { Product } from '../../api/products';
 
 // Import context
 import { useAuth } from '../../contexts';
-import Icon from 'react-native-vector-icons/FontAwesome';
 
-// Cache constants
-const PRODUCTS_CACHE_KEY = 'products_cache_';
-const PRODUCTS_CACHE_EXPIRY_TIME = 5 * 60 * 1000; // 5 minutes
+// Import our new Zustand store
+import useCategoryStore from '../../store/categoryStore';
 
 // Get device dimensions for responsive layouts
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -47,6 +36,7 @@ const COLUMN_GAP = 10;
 const NUM_COLUMNS = 2;
 const PRODUCT_CARD_WIDTH = (SCREEN_WIDTH - (COLUMN_GAP * (NUM_COLUMNS + 1))) / NUM_COLUMNS;
 
+// Define types for sort and filter options
 interface SortOption {
   id: string;
   label: string;
@@ -332,34 +322,6 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
   // FlatList ref for scrolling to top
   const flatListRef = useRef<FlatList<Product>>(null);
   
-  // State variables
-  const [products, setProducts] = useState<Product[]>([]);
-  const [productsOriginal, setProductsOriginal] = useState<Product[]>([]); // Original products for filtering/sorting
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [wishlist, setWishlist] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [totalCount, setTotalCount] = useState(0);
-  const [showBackToTop, setShowBackToTop] = useState(false);
-  
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(0); // Start from page 0 (zero-based)
-  const [hasMoreData, setHasMoreData] = useState(true);
-  const [loadingMoreData, setLoadingMoreData] = useState(false);
-  const [totalPages, setTotalPages] = useState(1);
-  
-  // Sort and filter states
-  const [isSortDropdownVisible, setIsSortDropdownVisible] = useState(false);
-  const [selectedSortOption, setSelectedSortOption] = useState<string>('default');
-  const [isFilterDropdownVisible, setIsFilterDropdownVisible] = useState(false);
-  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
-
-  // Extract user location data - prioritize route params over user context
-  const userUniversity = routeUniversity || user?.university || '';
-  const userCity = routeCity || user?.city || '';
-  const userZipcode = user?.zipcode || '';
-
   // Memoize sort options to prevent recreation on each render
   const sortOptions = useMemo<SortOption[]>(() => [
     { id: 'default', label: 'Default' },
@@ -381,348 +343,160 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     { id: 'sell', label: 'For Sale' },
     { id: 'free', label: 'Free Items' },
   ], []);
-
-  // Create a simple hash function for cache keys
-  const simpleHash = useCallback((str: string): string => {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32bit integer
-    }
-    return hash.toString();
-  }, []);
-
+  
+  // Use Zustand store instead of local state
+  const {
+    // Product data
+    products,
+    
+    // Loading states
+    loading,
+    loadingMoreData,
+    error,
+    refreshing,
+    
+    // Pagination state
+    totalCount,
+    hasMoreData,
+    
+    // Search, sort and filter states
+    searchQuery,
+    selectedSortOption,
+    selectedFilters,
+    
+    // UI states
+    isSortDropdownVisible,
+    isFilterDropdownVisible,
+    
+    // Actions
+    setSearchQuery,
+    setSortDropdownVisible,
+    setFilterDropdownVisible,
+    setSelectedSortOption,
+    setSelectedFilters,
+    
+    // API functions
+    loadCategoryProducts,
+    searchProducts,
+    handleRefresh: refreshProducts,
+    applyFilters,
+    clearFilters,
+    loadMore
+  } = useCategoryStore();
+  
+  // Local state for UI elements that don't need to be in the store
+  const [wishlist, setWishlist] = useState<string[]>([]);
+  const [showBackToTop, setShowBackToTop] = useState(false);
+  
+  // Extract user location data - prioritize route params over user context
+  const userUniversity = routeUniversity || user?.university || '';
+  const userCity = routeCity || user?.city || '';
+  
   // At the top of the CategoryProductsScreen component
   // Add a new initialLoad ref to track the first load
   const isInitialLoadRef = useRef(true);
 
-  // Load category products based on the specific type
-  const loadCategoryProducts = useCallback(async (page = 0, shouldAppend = false) => {
-    // Don't set loading true if we're loading more data (pagination)
-    if (!shouldAppend) {
-      console.log(`[CategoryProducts] Loading initial products for ${categoryName}`);
-      setLoading(true);
-    } else {
-      console.log(`[CategoryProducts] Loading more products for ${categoryName}, page ${page}`);
-      setLoadingMoreData(true);
-    }
-    
-    setError(null);
-    isInitialLoadRef.current = false;
-    
-    try {
-      // Create a cache key that includes all filter parameters and page number
-      const filterString = JSON.stringify({
-        // Only include query and location filters for API calls
-        query: searchQuery.trim() || undefined,
-        university: userUniversity || undefined,
-        city: userCity || undefined,
-        zipcode: userZipcode || undefined,
-        isFeatured,
-        isNewArrivals,
-        isUniversity,
-        isCity,
-        page // Include page in cache key
-      });
-      const cacheKey = `${PRODUCTS_CACHE_KEY}${categoryName}_${simpleHash(filterString)}`;
-      
-      // Only check cache for first page
-      const cachedData = page === 0 ? await AsyncStorage.getItem(cacheKey) : null;
-      
-      if (cachedData && !shouldAppend) {
-        try {
-          const { data, timestamp, totalPages: cachedTotalPages, totalCount: cachedTotalCount } = JSON.parse(cachedData);
-          const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
-          
-          // If cache is not expired, use cached data
-          if (!isExpired && Array.isArray(data) && data.length > 0) {
-            console.log(`[CategoryProducts] Using cached data (${data?.length || 0} products)`);
-            setProductsOriginal(data); // Save original data
-            setProducts(data);
-            setTotalCount(cachedTotalCount || data.length);
-            setTotalPages(cachedTotalPages || 1);
-            setHasMoreData(page < (cachedTotalPages - 1 || 0));
-            setCurrentPage(page);
-            setLoading(false);
-            setLoadingMoreData(false);
-            return;
-          } else {
-            console.log('[CategoryProducts] Cache expired or empty, fetching new data');
-          }
-        } catch (cacheError) {
-          console.warn(`[CategoryProducts] Error parsing cache:`, cacheError);
-          // Continue with API call
-        }
-      } else {
-        console.log(`[CategoryProducts] No cache found or loading page ${page}, fetching from API`);
-      }
-      
-      // Create API filters including pagination
-      const apiSearchFilters: ProductFilters = {
-        page: page,
-        size: 10 // Number of items per page
-      };
-      
-      let result;
-      // Determine which API to call based on the type
-      if (isFeatured) {
-        // Now use pagination for featured products
-        console.log(`[CategoryProducts] Fetching featured products with pagination, page ${page}`);
-        result = await getFeaturedProducts(userUniversity, userCity, page, 10);
-      } else if (isNewArrivals) {
-        // Now use pagination for new arrivals
-        console.log(`[CategoryProducts] Fetching new arrivals with pagination, page ${page}`);
-        if (!userUniversity) {
-          throw new Error('University is required for new arrivals');
-        }
-        result = await getNewArrivals(userUniversity, page, 10);
-      } else if (isUniversity && userUniversity) {
-        // University products already support pagination
-        console.log(`[CategoryProducts] Fetching university products with pagination, page ${page}`);
-        result = await getProductsByUniversity(userUniversity, apiSearchFilters);
-      } else if (isCity && userCity) {
-        // City products already support pagination
-        console.log(`[CategoryProducts] Fetching city products with pagination, page ${page}`);
-        result = await getProductsByCity(userCity, apiSearchFilters);
-      } else {
-        // Category products already support pagination
-        console.log(`[CategoryProducts] Fetching category products with pagination, page ${page}`);
-        result = await getProductsByCategory(categoryName.toLowerCase(), apiSearchFilters);
-      }
-      
-      // Handle different response formats from different APIs
-      let productsList: Product[] = [];
-      let totalItems = 0;
-      let pagesTotal = 1;
-      
-      if (Array.isArray(result)) {
-        // Legacy API response (array of products)
-        productsList = result;
-        totalItems = result.length;
-        pagesTotal = 1; // If it's just an array, assume single page
-      } else if (result && result.products) {
-        // New paginated response format
-        productsList = result.products;
-        totalItems = result.totalItems || result.products.length;
-        pagesTotal = result.totalPages || 1;
-      }
-      
-      console.log(`[CategoryProducts] Loaded ${productsList.length} products, page ${page}/${pagesTotal-1}`);
-      
-      // Update pagination state
-      setTotalCount(totalItems);
-      setTotalPages(pagesTotal);
-      setCurrentPage(page);
-      setHasMoreData(page < pagesTotal - 1);
-      
-      if (shouldAppend) {
-        // Append new products to existing list for pagination
-        setProducts(prev => [...prev, ...productsList]);
-        // Also update original products for filtering
-        setProductsOriginal(prev => [...prev, ...productsList]);
-      } else {
-        // Replace products for initial load or refresh
-        setProducts(productsList);
-        setProductsOriginal(productsList);
-      }
-      
-      // Save to cache (only first page)
-      if (page === 0) {
-        await AsyncStorage.setItem(cacheKey, JSON.stringify({
-          data: productsList,
-          timestamp: Date.now(),
-          totalPages: pagesTotal,
-          totalCount: totalItems
-        }));
-      }
-    } catch (err: any) {
-      console.error('[CategoryProducts] Error loading products:', err);
-      setError(err?.message || 'Failed to load products');
-      
-      if (!shouldAppend) {
-        // Only clear products on initial load error
-        setProducts([]);
-        setProductsOriginal([]);
-        setTotalCount(0);
-      }
-      
-      setHasMoreData(false);
-    } finally {
-      console.log('[CategoryProducts] FINISHED loading products');
-      setLoading(false);
-      setLoadingMoreData(false);
-    }
-  }, [
-    categoryName, 
-    simpleHash, 
-    userUniversity, 
-    userCity,
-    userZipcode,
-    searchQuery,
-    isFeatured,
-    isNewArrivals,
-    isUniversity,
-    isCity
-  ]);
+  // Additional store functions for category context
+  const setCurrentCategory = useCategoryStore(state => state.setCurrentCategory);
 
-  // Handle search submission
-  const handleSearchSubmit = useCallback(() => {
-    console.log('[CategoryProducts] Search submitted with query:', searchQuery);
-    // Force reload of products with current search query
-    loadCategoryProducts(0, false);
-  }, [loadCategoryProducts, searchQuery]);
-
-  // Handle search text change
-  const handleSearchChange = useCallback((text: string) => {
-    console.log('[CategoryProducts] Search query changed:', text);
-    setSearchQuery(text);
-    
-    // If the user clears the search, reload with empty query
-    if (text === '' && searchQuery !== '') {
-      console.log('[CategoryProducts] Search cleared, reloading products');
-      loadCategoryProducts(0, false);
-    }
-  }, [loadCategoryProducts, searchQuery]);
-
-  // Handle when user clears all filters
-  const handleClearFilters = useCallback(() => {
-    console.log('[CategoryProducts] Clearing all filters');
-    setSelectedSortOption('default');
-    setSelectedFilters([]);
-    setSearchQuery('');
-    
-    // Reset to original products instead of forcing a complete refresh
-    if (productsOriginal.length > 0) {
-      console.log('[CategoryProducts] Resetting to original products');
-      setProducts([...productsOriginal]);
-    } else {
-      // Fall back to refresh if no original products are available
-      loadCategoryProducts(0, false);
-    }
-  }, [loadCategoryProducts, productsOriginal]);
-
-  const handleRefresh = useCallback(() => {
-    setRefreshing(true);
-    // Reset pagination when refreshing
-    setCurrentPage(0);
-    setHasMoreData(true);
-    
-    loadCategoryProducts(0, false).finally(() => {
-      setRefreshing(false);
-    });
-  }, [loadCategoryProducts]);
-
-  const toggleWishlist = useCallback((id: string) => {
-    setWishlist(prevWishlist => 
-      prevWishlist.includes(id) 
-        ? prevWishlist.filter(itemId => itemId !== id)
-        : [...prevWishlist, id]
-    );
-  }, []);
-
-  const handleProductPress = useCallback((product: Product) => {
-    // Create a simplified clean object for navigation to avoid serialization issues
-    // This is especially important on Android
-    const simplifiedProduct = {
-      id: product.id.toString(), // Ensure ID is a string
-      name: product.name || '',
-      price: product.price || '0',
-      image: product.image || product.primaryImage || '',
-      description: product.description || '',
-      condition: product.condition || '',
-      type: product.type || '',
-      images: Array.isArray(product.images) ? [...product.images] : 
-             (product.image ? [product.image] : []),
-      sellerName: product.sellerName || product.seller?.name || 'Unknown Seller',
-      email: product.email || '',
-      sellingtype: product.sellingtype || '',
-      category: product.category || '',
-      // Create a simple seller object
-      seller: {
-        id: (product.seller?.id || product.email || 'unknown').toString(),
-        name: product.sellerName || product.seller?.name || 'Unknown Seller'
-      }
-    };
-
-    navigation.navigate('ProductInfoPage', { 
-      product: simplifiedProduct,
-      productId: product.id.toString()
-    });
-  }, [navigation]);
-
-  // Sort and filter handlers
-  const handleSortOptionSelect = useCallback((optionId: string) => {
-    console.log(`[CategoryProducts] Sort option selected: ${optionId}`);
-    setSelectedSortOption(optionId);
-    setIsSortDropdownVisible(false);
-    
-    // Apply sorting locally instead of re-fetching
-    const applySorting = (products: Product[]): Product[] => {
-      const productsCopy = [...products];
-      
-      switch (optionId) {
-        case 'price_low_high':
-          return productsCopy.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
-        case 'price_high_low':
-          return productsCopy.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
-        case 'newest':
-          return productsCopy.sort((a, b) => {
-            const dateA = a.postingdate ? new Date(a.postingdate).getTime() : 0;
-            const dateB = b.postingdate ? new Date(b.postingdate).getTime() : 0;
-            return dateB - dateA;
-          });
-        case 'popularity':
-          // Sort by ID as a proxy for popularity (assuming newer IDs are more popular)
-          return productsCopy.sort((a, b) => parseInt(b.id) - parseInt(a.id));
-        case 'default':
-        default:
-          // Return original order
-          return [...productsOriginal];
-      }
-    };
-    
-    // Apply sorting to the products
-    setProducts(applySorting(productsOriginal));
-  }, [productsOriginal]);
-
-  // Handle filter option selection
-  const handleFilterOptionSelect = useCallback((optionId: string) => {
-    console.log(`[CategoryProducts] Filter option toggled: ${optionId}`);
-    
-    // Toggle the filter on/off
-    setSelectedFilters(prevFilters => {
-      const newFilters = prevFilters.includes(optionId)
-        ? prevFilters.filter(id => id !== optionId)
-        : [...prevFilters, optionId];
-      
-      return newFilters;
-    });
-    // Filtering will be handled by the useEffect
-  }, []);
-
-  const handleSortButtonClick = useCallback(() => {
-    setIsSortDropdownVisible(prevState => !prevState);
-    if (isFilterDropdownVisible) setIsFilterDropdownVisible(false);
-  }, [isFilterDropdownVisible]);
-
-  const handleFilterButtonClick = useCallback(() => {
-    setIsFilterDropdownVisible(prevState => !prevState);
-    if (isSortDropdownVisible) setIsSortDropdownVisible(false);
-  }, [isSortDropdownVisible]);
-
+  // Handler for back button press
   const handleBackPress = useCallback(() => {
     navigation.goBack();
   }, [navigation]);
 
-  // Update the useEffect to ensure products are loaded on mount
+  // Helper function to toggle wishlist
+  const toggleWishlist = useCallback((id: string) => {
+    setWishlist(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(itemId => itemId !== id);
+      } else {
+        return [...prev, id];
+      }
+    });
+  }, []);
+
+  // Handler for product press
+  const handleProductPress = useCallback((product: Product) => {
+    navigation.navigate('ProductInfoPage', { product });
+  }, [navigation]);
+
+  // Handler for search input change
+  const handleSearchChange = useCallback((text: string) => {
+    setSearchQuery(text);
+  }, [setSearchQuery]);
+
+  // Handler for search submission
+  const handleSearchSubmit = useCallback(() => {
+    if (searchQuery.trim().length > 0) {
+      // Call the store's searchProducts function
+      searchProducts(searchQuery);
+    }
+  }, [searchQuery, searchProducts]);
+
+  // Handler for refresh
+  const handleRefresh = useCallback(() => {
+    // Wrap refreshProducts to pass the correct parameters
+    refreshProducts();
+  }, [refreshProducts]);
+
+  // Handler for sort button click
+  const handleSortButtonClick = useCallback(() => {
+    setSortDropdownVisible(!isSortDropdownVisible);
+    if (isFilterDropdownVisible) {
+      setFilterDropdownVisible(false);
+    }
+  }, [isSortDropdownVisible, isFilterDropdownVisible, setSortDropdownVisible, setFilterDropdownVisible]);
+
+  // Handler for filter button click
+  const handleFilterButtonClick = useCallback(() => {
+    setFilterDropdownVisible(!isFilterDropdownVisible);
+    if (isSortDropdownVisible) {
+      setSortDropdownVisible(false);
+    }
+  }, [isFilterDropdownVisible, isSortDropdownVisible, setFilterDropdownVisible, setSortDropdownVisible]);
+
+  // Handler for sort option selection
+  const handleSortOptionSelect = useCallback((option: string) => {
+    setSelectedSortOption(option);
+    setSortDropdownVisible(false);
+    
+    // Apply filters with the new sort option
+    setTimeout(() => {
+      applyFilters();
+    }, 100);
+  }, [setSelectedSortOption, setSortDropdownVisible, applyFilters]);
+
+  // Handler for filter option selection
+  const handleFilterOptionSelect = useCallback((option: string) => {
+    // Get current filters first
+    const currentFilters = [...selectedFilters];
+    const newFilters = currentFilters.includes(option)
+      ? currentFilters.filter(id => id !== option)
+      : [...currentFilters, option];
+    
+    // Set the new filters array
+    setSelectedFilters(newFilters);
+    
+    // Don't close the dropdown so the user can continue selecting options
+  }, [selectedFilters, setSelectedFilters]);
+
+  // Handler for clearing all filters
+  const handleClearFilters = useCallback(() => {
+    clearFilters();
+  }, [clearFilters]);
+
+  // Initial data load on mount
   useEffect(() => {
     console.log(`[CategoryProducts] Initial useEffect mount - triggering load`);
     // Force immediate load on mount
     const loadInitialData = async () => {
       try {
-        setLoading(true);
-        await loadCategoryProducts();
+        // Set the current category context first
+        setCurrentCategory(categoryName, categoryId, userUniversity, userCity);
+        
+        // Then load the products
+        await loadCategoryProducts(categoryName, categoryId, userUniversity, userCity, 0, false);
+        isInitialLoadRef.current = false;
       } catch (error) {
         console.error('[CategoryProducts] Error in initial load:', error);
       }
@@ -759,14 +533,16 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     />
   ), [refreshing, handleRefresh]);
 
-  // Handler for loading more products when reaching end of list
-  const handleLoadMore = useCallback(() => {
-    if (loadingMoreData || !hasMoreData || loading || refreshing) return;
-    
-    const nextPage = currentPage + 1;
-    console.log(`[CategoryProducts] Loading more products, page ${nextPage}`);
-    loadCategoryProducts(nextPage, true);
-  }, [currentPage, hasMoreData, loading, loadingMoreData, refreshing, loadCategoryProducts]);
+  // Handle scroll events to show/hide back to top button
+  const handleScroll = useCallback((event: any) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    setShowBackToTop(offsetY > 300); // Show button when scrolled down 300px
+  }, []);
+  
+  // Scroll to top function
+  const scrollToTop = useCallback(() => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []);
 
   // List footer component with loading indicator for pagination
   const ListFooterComponent = useCallback(() => (
@@ -789,124 +565,28 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
       )}
     </View>
   ), [products.length, totalCount, loadingMoreData, hasMoreData]);
+
+  // Move the handleLoadMore to use the store's loadMore function
+  const handleLoadMore = useCallback(() => {
+    // We need to ensure the current context is passed to loadMore
+    loadMore();
+    // The store's loadMore function needs to pass the right parameters to loadCategoryProducts
+    // so we could enhance it if needed
+  }, [loadMore]);
   
-  // Use an effect to apply filters whenever selectedFilters changes
+  // Apply filters whenever selectedFilters changes
   useEffect(() => {
-    // Skip if we're loading or if there are no original products
-    if (loading || productsOriginal.length === 0) return;
+    if (selectedFilters.length === 0 && selectedSortOption === 'default') return;
     
-    console.log(`[CategoryProducts] Filter effect triggered, filters:`, selectedFilters);
+    console.log(`[CategoryProducts] Filter/sort effect triggered`);
     
-    // When no filters are active, restore original products with current sort
-    if (selectedFilters.length === 0) {
-      console.log(`[CategoryProducts] No filters active, restoring original products`);
-      // Re-apply current sort option to original products
-      handleSortOptionSelect(selectedSortOption);
-      return;
-    }
-    
-    console.log(`[CategoryProducts] Applying filters:`, selectedFilters);
-    
-    // Apply filtering to products
-    const applyFilters = (originalProducts: Product[]): Product[] => {
-      // If no filters active, return all products
-      if (selectedFilters.length === 0) {
-        return originalProducts;
-      }
-      
-      // Create sets of condition and selling type filters for easier checking
-      const conditionFilters = selectedFilters.filter(filter => 
-        ['brand-new', 'like-new', 'very-good', 'good', 'acceptable', 'for-parts'].includes(filter)
-      );
-      
-      const sellingTypeFilters = selectedFilters.filter(filter => 
-        ['rent', 'sell', 'free'].includes(filter)
-      );
-      
-      return originalProducts.filter(product => {
-        // Check if we need to filter by condition
-        if (conditionFilters.length > 0) {
-          // If this product doesn't match any of our selected condition filters, filter it out
-          const productCondition = product.productage || '';
-          const passesConditionFilter = conditionFilters.includes(productCondition);
-          
-          if (!passesConditionFilter) {
-            return false;
-          }
-        }
-        
-        // Check if we need to filter by selling type
-        if (sellingTypeFilters.length > 0) {
-          const productSellingType = product.sellingtype || '';
-          const isFree = parseFloat(product.price) === 0;
-          
-          // Special case for free items
-          if (sellingTypeFilters.includes('free') && isFree) {
-            return true; // Keep free items when "free" filter is active
-          }
-          
-          // Check for rent/sell filters
-          if (sellingTypeFilters.includes('rent') && productSellingType === 'rent') {
-            return true;
-          }
-          
-          if (sellingTypeFilters.includes('sell') && productSellingType === 'sell') {
-            return true;
-          }
-          
-          // If we have selling type filters but this product doesn't match any, filter it out
-          if (!sellingTypeFilters.includes('free') || !isFree) {
-            return false;
-          }
-        }
-        
-        // If we get here, the product passed all active filters
-        return true;
-      });
-    };
-    
-    // Apply filters with a small delay to allow for state updates
-    const filtersTimeoutId = setTimeout(() => {
-      // Apply filters to original products
-      const filteredProducts = applyFilters(productsOriginal);
-      
-      // Log the filtered results
-      console.log(`[CategoryProducts] Filtered products count: ${filteredProducts.length}`);
-      
-      // Update the displayed products
-      setProducts(filteredProducts);
-      
-      // Then apply current sort option to filtered products
-      if (selectedSortOption !== 'default') {
-        handleSortOptionSelect(selectedSortOption);
-      }
+    // Small timeout to debounce multiple filter selections
+    const timeoutId = setTimeout(() => {
+      applyFilters();
     }, 100);
     
-    // Cleanup function to clear the timeout if the component unmounts
-    return () => clearTimeout(filtersTimeoutId);
-  }, [selectedFilters, productsOriginal, selectedSortOption, handleSortOptionSelect, loading]);
-
-  // Handle scroll events to show/hide back to top button
-  const handleScroll = useCallback((event: any) => {
-    const offsetY = event.nativeEvent.contentOffset.y;
-    setShowBackToTop(offsetY > 300); // Show button when scrolled down 300px
-  }, []);
-  
-  // Scroll to top function
-  const scrollToTop = useCallback(() => {
-    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
-  }, []);
-
-  // Force a complete refresh of products (ignoring loading state)
-  const forceRefreshProducts = useCallback(() => {
-    console.log('[CategoryProducts] Forcing complete refresh of products');
-    // Reset loading state and force a new load
-    isInitialLoadRef.current = true;
-    setLoading(false);
-    setTimeout(() => {
-      loadCategoryProducts(0, false);
-    }, 100);
-  }, [loadCategoryProducts]);
+    return () => clearTimeout(timeoutId);
+  }, [selectedFilters, selectedSortOption, applyFilters]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -969,6 +649,19 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
               <Icon name="sort" size={14} color="black" />
             </TouchableOpacity>
             
+            {/* Sort dropdown */}
+            {isSortDropdownVisible && (
+              <View style={styles.dropdownContainer}>
+                <EnhancedDropdown
+                  items={sortOptions}
+                  selectedItems={[selectedSortOption]}
+                  onSelect={handleSortOptionSelect}
+                  title="Sort By"
+                  onClose={() => setSortDropdownVisible(false)}
+                />
+              </View>
+            )}
+            
             <TouchableOpacity
               style={[
                 styles.filterButton, 
@@ -983,78 +676,64 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
               </Text>
               <Icon name="filter" size={14} color="black" />
             </TouchableOpacity>
+            
+            {/* Filter dropdown */}
+            {isFilterDropdownVisible && (
+              <View style={styles.dropdownContainer}>
+                <EnhancedDropdown
+                  items={filterOptions}
+                  selectedItems={selectedFilters}
+                  onSelect={handleFilterOptionSelect}
+                  multiSelect={true}
+                  title="Filter By"
+                  onClose={() => setFilterDropdownVisible(false)}
+                />
+              </View>
+            )}
           </View>
         </View>
-        
-        {/* Enhanced Dropdowns for sort and filter */}
-        {isSortDropdownVisible && (
-          <View style={styles.dropdownContainer}>
-            <EnhancedDropdown
-              items={sortOptions}
-              selectedItems={[selectedSortOption]}
-              onSelect={handleSortOptionSelect}
-              multiSelect={false}
-              title="Sort By"
-              onClose={() => setIsSortDropdownVisible(false)}
-            />
-          </View>
-        )}
-        
-        {isFilterDropdownVisible && (
-          <View style={styles.dropdownContainer}>
-            <EnhancedDropdown
-              items={filterOptions}
-              selectedItems={selectedFilters}
-              onSelect={handleFilterOptionSelect}
-              multiSelect={true}
-              title="Filter By"
-              onClose={() => setIsFilterDropdownVisible(false)}
-            />
-          </View>
-        )}
 
-        {/* Show appropriate content based on state */}
-        {loading && products.length === 0 ? (
+        {/* Main content - Product list or loading/empty state */}
+        {loading && !refreshing ? (
           <ProductsGridSkeleton />
         ) : error ? (
-          <ErrorState 
-            error={error} 
-            onRetry={handleRefresh} 
+          <EmptyState 
+            message="Error loading products" 
+            subMessage={error} 
           />
         ) : products.length === 0 ? (
           <EmptyState 
-            message={`No ${categoryName} products found`} 
-            subMessage="Try changing your filters or check back later" 
+            message="No products found" 
+            subMessage={searchQuery ? "Try a different search term or filter" : "Try a different category"} 
           />
         ) : (
-          /* Product Grid */
           <FlatList
             ref={flatListRef}
-            data={products}
+            data={products as any[]}
             renderItem={renderItem}
             keyExtractor={keyExtractor}
-            numColumns={NUM_COLUMNS}
+            numColumns={2}
+            showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.productList}
             columnWrapperStyle={styles.columnWrapper}
-            showsVerticalScrollIndicator={false}
-            ListFooterComponent={ListFooterComponent}
-            initialNumToRender={6}
-            maxToRenderPerBatch={10}
-            windowSize={10}
-            removeClippedSubviews={Platform.OS === 'android'}
             refreshControl={refreshControl}
-            onEndReachedThreshold={0.5}
-            onEndReached={handleLoadMore}
             onScroll={handleScroll}
-            scrollEventThrottle={400}
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.3}
+            ListFooterComponent={ListFooterComponent}
           />
         )}
         
-        {/* BackToTop button */}
-        <BackToTopButton 
-          visible={showBackToTop}
-          onPress={scrollToTop}
-        />
+        {/* Back to top button */}
+        {showBackToTop && (
+          <TouchableOpacity 
+            style={styles.backToTopButton} 
+            onPress={scrollToTop}
+            activeOpacity={0.8}
+          >
+            <MaterialIcons name="keyboard-arrow-up" size={24} color="white" />
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );
