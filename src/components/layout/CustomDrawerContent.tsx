@@ -3,7 +3,10 @@ import {
   View,
   Text,
   StyleSheet,
+  Platform,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { 
   DrawerContentScrollView, 
@@ -11,6 +14,9 @@ import {
   DrawerContentComponentProps 
 } from '@react-navigation/drawer';
 import { useAuth } from '../../hooks';
+
+// Get the status bar height for precise positioning
+const STATUSBAR_HEIGHT = StatusBar.currentHeight || 0;
 
 // Define navigation item type for better scalability
 type DrawerNavigationItem = {
@@ -128,48 +134,75 @@ const CustomDrawerContent = (props: DrawerContentComponentProps) => {
   // }, [user]);
 
   return (
-    <DrawerContentScrollView 
-      {...props} 
-      contentContainerStyle={styles.drawerContent}
-    >
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Menu</Text>
-      </View>
-      
-      {/* Main navigation items */}
-      {navigationItems.map(renderNavigationItem)}
-      
-      <View style={styles.separator} />
-      
-      {/* Additional items like sign out */}
-      {additionalItems.map(renderNavigationItem)}
-    </DrawerContentScrollView>
+    <SafeAreaView style={styles.safeArea} edges={['right', 'bottom']}>
+      <View style={styles.statusBarFill} />
+      <DrawerContentScrollView 
+        {...props} 
+        contentContainerStyle={styles.drawerContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Menu</Text>
+        </View>
+        
+        {/* Main navigation items */}
+        <View style={styles.navigationSection}>
+          {navigationItems.map(renderNavigationItem)}
+        </View>
+        
+        <View style={styles.separator} />
+        
+        {/* Additional items like sign out */}
+        <View style={styles.additionalSection}>
+          {additionalItems.map(renderNavigationItem)}
+        </View>
+      </DrawerContentScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  drawerContent: {
+  safeArea: {
     flex: 1,
-    paddingTop: 20,
+    backgroundColor: '#ffffff',
+  },
+  statusBarFill: {
+    height: Platform.OS === 'android' ? STATUSBAR_HEIGHT : 0,
+    backgroundColor: '#ffffff',
+  },
+  drawerContent: {
+    flexGrow: 1,
+    paddingTop: 0,
   },
   header: {
-    marginTop: 20,
     paddingHorizontal: 20,
-    marginBottom: 30,
+    marginTop: 20,
+    paddingTop: Platform.OS === 'ios' ? 50 : 30, // Increase top padding to move content down
+    marginBottom: 10,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 26, // Slightly bigger
     fontWeight: 'bold',
     color: '#f7b305',
+    marginLeft: 5, // Add a little left margin to align with icons
+  },
+  navigationSection: {
+    paddingHorizontal: 5, // Increased from 5
+    marginTop: 10,
+  },
+  additionalSection: {
+    paddingHorizontal: 5, // Increased from 5
+    paddingBottom: Platform.OS === 'ios' ? 30 : 20, // Increased bottom padding
   },
   drawerItem: {
     borderRadius: 10,
-    marginVertical: 2,
+    marginVertical: 4, // Increased for better spacing
   },
   drawerLabel: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600', // Changed from bold to semi-bold
     color: '#333333',
+    marginLeft: 0, // Move labels closer to icons
   },
   separator: {
     height: 1,
