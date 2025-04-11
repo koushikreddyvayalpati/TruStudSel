@@ -12,7 +12,8 @@ import {
   RefreshControl,
   Dimensions,
   TextInput,
-  ScrollView
+  ScrollView,
+  ActivityIndicator
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -342,6 +343,12 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
   const [totalCount, setTotalCount] = useState(0);
   const [showBackToTop, setShowBackToTop] = useState(false);
   
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(0); // Start from page 0 (zero-based)
+  const [hasMoreData, setHasMoreData] = useState(true);
+  const [loadingMoreData, setLoadingMoreData] = useState(false);
+  const [totalPages, setTotalPages] = useState(1);
+  
   // Sort and filter states
   const [isSortDropdownVisible, setIsSortDropdownVisible] = useState(false);
   const [selectedSortOption, setSelectedSortOption] = useState<string>('default');
@@ -391,14 +398,21 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
   const isInitialLoadRef = useRef(true);
 
   // Load category products based on the specific type
-  const loadCategoryProducts = useCallback(async () => {
-    console.log(`[CategoryProducts] Loading products for ${categoryName}`);
-    setLoading(true);
+  const loadCategoryProducts = useCallback(async (page = 0, shouldAppend = false) => {
+    // Don't set loading true if we're loading more data (pagination)
+    if (!shouldAppend) {
+      console.log(`[CategoryProducts] Loading initial products for ${categoryName}`);
+      setLoading(true);
+    } else {
+      console.log(`[CategoryProducts] Loading more products for ${categoryName}, page ${page}`);
+      setLoadingMoreData(true);
+    }
+    
     setError(null);
     isInitialLoadRef.current = false;
     
     try {
-      // Create a cache key that includes all filter parameters (but exclude sort since we do that client-side)
+      // Create a cache key that includes all filter parameters and page number
       const filterString = JSON.stringify({
         // Only include query and location filters for API calls
         query: searchQuery.trim() || undefined,
@@ -408,14 +422,17 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
         isFeatured,
         isNewArrivals,
         isUniversity,
-        isCity
+        isCity,
+        page // Include page in cache key
       });
       const cacheKey = `${PRODUCTS_CACHE_KEY}${categoryName}_${simpleHash(filterString)}`;
-      const cachedData = await AsyncStorage.getItem(cacheKey);
       
-      if (cachedData) {
+      // Only check cache for first page
+      const cachedData = page === 0 ? await AsyncStorage.getItem(cacheKey) : null;
+      
+      if (cachedData && !shouldAppend) {
         try {
-          const { data, timestamp } = JSON.parse(cachedData);
+          const { data, timestamp, totalPages: cachedTotalPages, totalCount: cachedTotalCount } = JSON.parse(cachedData);
           const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
           
           // If cache is not expired, use cached data
@@ -423,8 +440,12 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
             console.log(`[CategoryProducts] Using cached data (${data?.length || 0} products)`);
             setProductsOriginal(data); // Save original data
             setProducts(data);
-            setTotalCount(data.length);
+            setTotalCount(cachedTotalCount || data.length);
+            setTotalPages(cachedTotalPages || 1);
+            setHasMoreData(page < (cachedTotalPages - 1 || 0));
+            setCurrentPage(page);
             setLoading(false);
+            setLoadingMoreData(false);
             return;
           } else {
             console.log('[CategoryProducts] Cache expired or empty, fetching new data');
@@ -434,69 +455,103 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
           // Continue with API call
         }
       } else {
-        console.log('[CategoryProducts] No cache found, fetching from API');
+        console.log(`[CategoryProducts] No cache found or loading page ${page}, fetching from API`);
       }
       
-      // Create API filters for basic search, but handle condition/selling type filters client-side
+      // Create API filters including pagination
       const apiSearchFilters: ProductFilters = {
-        query: searchQuery.trim() || undefined,
+        page: page,
+        size: 10 // Number of items per page
       };
       
       let result;
       // Determine which API to call based on the type
       if (isFeatured) {
-        // Call featured products API
-        console.log(`[CategoryProducts] Fetching featured products with university: "${userUniversity}" and city: "${userCity}"`);
-        result = await getFeaturedProducts(userUniversity, userCity);
+        // Now use pagination for featured products
+        console.log(`[CategoryProducts] Fetching featured products with pagination, page ${page}`);
+        result = await getFeaturedProducts(userUniversity, userCity, page, 10);
       } else if (isNewArrivals) {
-        // Call new arrivals API
-        console.log(`[CategoryProducts] Fetching new arrivals with university: "${userUniversity}"`);
+        // Now use pagination for new arrivals
+        console.log(`[CategoryProducts] Fetching new arrivals with pagination, page ${page}`);
         if (!userUniversity) {
           throw new Error('University is required for new arrivals');
         }
-        result = await getNewArrivals(userUniversity);
+        result = await getNewArrivals(userUniversity, page, 10);
       } else if (isUniversity && userUniversity) {
-        // Call university products API
-        console.log(`[CategoryProducts] Fetching university products for: "${userUniversity}"`);
+        // University products already support pagination
+        console.log(`[CategoryProducts] Fetching university products with pagination, page ${page}`);
         result = await getProductsByUniversity(userUniversity, apiSearchFilters);
       } else if (isCity && userCity) {
-        // Call city products API
-        console.log(`[CategoryProducts] Fetching city products for: "${userCity}"`);
+        // City products already support pagination
+        console.log(`[CategoryProducts] Fetching city products with pagination, page ${page}`);
         result = await getProductsByCity(userCity, apiSearchFilters);
       } else {
-        // Default to category products
-        console.log(`[CategoryProducts] Fetching category products for: "${categoryName.toLowerCase()}"`);
+        // Category products already support pagination
+        console.log(`[CategoryProducts] Fetching category products with pagination, page ${page}`);
         result = await getProductsByCategory(categoryName.toLowerCase(), apiSearchFilters);
       }
       
       // Handle different response formats from different APIs
       let productsList: Product[] = [];
+      let totalItems = 0;
+      let pagesTotal = 1;
+      
       if (Array.isArray(result)) {
+        // Legacy API response (array of products)
         productsList = result;
-        setTotalCount(result.length);
+        totalItems = result.length;
+        pagesTotal = 1; // If it's just an array, assume single page
       } else if (result && result.products) {
+        // New paginated response format
         productsList = result.products;
-        setTotalCount(result.totalItems || result.products.length);
+        totalItems = result.totalItems || result.products.length;
+        pagesTotal = result.totalPages || 1;
       }
       
-      // Save original products list for filtering
-      setProductsOriginal(productsList);
-      setProducts(productsList);
+      console.log(`[CategoryProducts] Loaded ${productsList.length} products, page ${page}/${pagesTotal-1}`);
       
-      // Save to cache
-      await AsyncStorage.setItem(cacheKey, JSON.stringify({
-        data: productsList,
-        timestamp: Date.now()
-      }));
+      // Update pagination state
+      setTotalCount(totalItems);
+      setTotalPages(pagesTotal);
+      setCurrentPage(page);
+      setHasMoreData(page < pagesTotal - 1);
+      
+      if (shouldAppend) {
+        // Append new products to existing list for pagination
+        setProducts(prev => [...prev, ...productsList]);
+        // Also update original products for filtering
+        setProductsOriginal(prev => [...prev, ...productsList]);
+      } else {
+        // Replace products for initial load or refresh
+        setProducts(productsList);
+        setProductsOriginal(productsList);
+      }
+      
+      // Save to cache (only first page)
+      if (page === 0) {
+        await AsyncStorage.setItem(cacheKey, JSON.stringify({
+          data: productsList,
+          timestamp: Date.now(),
+          totalPages: pagesTotal,
+          totalCount: totalItems
+        }));
+      }
     } catch (err: any) {
       console.error('[CategoryProducts] Error loading products:', err);
       setError(err?.message || 'Failed to load products');
-      setProducts([]);
-      setProductsOriginal([]);
-      setTotalCount(0);
+      
+      if (!shouldAppend) {
+        // Only clear products on initial load error
+        setProducts([]);
+        setProductsOriginal([]);
+        setTotalCount(0);
+      }
+      
+      setHasMoreData(false);
     } finally {
-      console.log('[CategoryProducts] FINISHED loading products, setting loading=false');
+      console.log('[CategoryProducts] FINISHED loading products');
       setLoading(false);
+      setLoadingMoreData(false);
     }
   }, [
     categoryName, 
@@ -511,23 +566,12 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     isCity
   ]);
 
-  // Force a complete refresh of products (ignoring loading state)
-  const forceRefreshProducts = useCallback(() => {
-    console.log('[CategoryProducts] Forcing complete refresh of products');
-    // Reset loading state and force a new load
-    isInitialLoadRef.current = true;
-    setLoading(false);
-    setTimeout(() => {
-      loadCategoryProducts();
-    }, 100);
-  }, [loadCategoryProducts]);
-
   // Handle search submission
   const handleSearchSubmit = useCallback(() => {
     console.log('[CategoryProducts] Search submitted with query:', searchQuery);
     // Force reload of products with current search query
-    forceRefreshProducts();
-  }, [forceRefreshProducts, searchQuery]);
+    loadCategoryProducts(0, false);
+  }, [loadCategoryProducts, searchQuery]);
 
   // Handle search text change
   const handleSearchChange = useCallback((text: string) => {
@@ -537,9 +581,9 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     // If the user clears the search, reload with empty query
     if (text === '' && searchQuery !== '') {
       console.log('[CategoryProducts] Search cleared, reloading products');
-      forceRefreshProducts();
+      loadCategoryProducts(0, false);
     }
-  }, [forceRefreshProducts, searchQuery]);
+  }, [loadCategoryProducts, searchQuery]);
 
   // Handle when user clears all filters
   const handleClearFilters = useCallback(() => {
@@ -554,13 +598,17 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
       setProducts([...productsOriginal]);
     } else {
       // Fall back to refresh if no original products are available
-      forceRefreshProducts();
+      loadCategoryProducts(0, false);
     }
-  }, [forceRefreshProducts, productsOriginal]);
+  }, [loadCategoryProducts, productsOriginal]);
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
-    loadCategoryProducts().finally(() => {
+    // Reset pagination when refreshing
+    setCurrentPage(0);
+    setHasMoreData(true);
+    
+    loadCategoryProducts(0, false).finally(() => {
       setRefreshing(false);
     });
   }, [loadCategoryProducts]);
@@ -711,17 +759,37 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     />
   ), [refreshing, handleRefresh]);
 
+  // Handler for loading more products when reaching end of list
+  const handleLoadMore = useCallback(() => {
+    if (loadingMoreData || !hasMoreData || loading || refreshing) return;
+    
+    const nextPage = currentPage + 1;
+    console.log(`[CategoryProducts] Loading more products, page ${nextPage}`);
+    loadCategoryProducts(nextPage, true);
+  }, [currentPage, hasMoreData, loading, loadingMoreData, refreshing, loadCategoryProducts]);
+
   // List footer component with loading indicator for pagination
-  const ListFooterComponent = useMemo(() => (
+  const ListFooterComponent = useCallback(() => (
     <View style={{ height: 80, justifyContent: 'center', alignItems: 'center' }}>
-      {products.length > 0 && (
+      {loadingMoreData && (
+        <View style={{ paddingVertical: 20 }}>
+          <ActivityIndicator size="small" color="#f7b305" />
+          <Text style={{ color: '#888', fontSize: 12, marginTop: 5 }}>
+            Loading more products...
+          </Text>
+        </View>
+      )}
+      
+      {products.length > 0 && !loadingMoreData && (
         <Text style={{ color: '#888', fontSize: 12, marginTop: 10 }}>
-          {`Showing ${products.length} of ${totalCount} products`}
+          {hasMoreData 
+            ? `Showing ${products.length} of ${totalCount} products`
+            : `Showing all ${products.length} products`}
         </Text>
       )}
     </View>
-  ), [products.length, totalCount]);
-
+  ), [products.length, totalCount, loadingMoreData, hasMoreData]);
+  
   // Use an effect to apply filters whenever selectedFilters changes
   useEffect(() => {
     // Skip if we're loading or if there are no original products
@@ -828,6 +896,17 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
   const scrollToTop = useCallback(() => {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
   }, []);
+
+  // Force a complete refresh of products (ignoring loading state)
+  const forceRefreshProducts = useCallback(() => {
+    console.log('[CategoryProducts] Forcing complete refresh of products');
+    // Reset loading state and force a new load
+    isInitialLoadRef.current = true;
+    setLoading(false);
+    setTimeout(() => {
+      loadCategoryProducts(0, false);
+    }, 100);
+  }, [loadCategoryProducts]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -965,6 +1044,7 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
             removeClippedSubviews={Platform.OS === 'android'}
             refreshControl={refreshControl}
             onEndReachedThreshold={0.5}
+            onEndReached={handleLoadMore}
             onScroll={handleScroll}
             scrollEventThrottle={400}
           />

@@ -1027,29 +1027,77 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
       // Since getFeaturedProducts doesn't accept filters parameter, we'll fetch and filter client-side
       const response = await getFeaturedProducts(userUniversity || '', userCity || '');
       
+      let productsToFilter: Product[] = [];
+      
+      // Handle the new paginated response format
       if (Array.isArray(response)) {
-        // Apply filtering on the client side
-        const filteredProducts = applySortingAndFilters(response, selectedSort, 
-          Object.entries(filters).reduce((acc, [key, value]) => {
-            if (Array.isArray(value)) {
-              return [...acc, ...value];
-            } else if (value) {
-              return [...acc, value as string];
-            }
-            return acc;
-          }, [] as string[])
-        );
-        
-        setFeaturedProducts(filteredProducts || []);
+        productsToFilter = response;
+      } else if (response && response.products) {
+        productsToFilter = response.products;
       } else {
         console.error('Unexpected response format from loadFilteredFeaturedProducts:', response);
         setFeaturedProducts([]);
+        return;
       }
+      
+      // Apply filtering on the client side
+      const filteredProducts = applySortingAndFilters(productsToFilter, selectedSort, 
+        Object.entries(filters).reduce((acc, [key, value]) => {
+          if (Array.isArray(value)) {
+            return [...acc, ...value];
+          } else if (value) {
+            return [...acc, value as string];
+          }
+          return acc;
+        }, [] as string[])
+      );
+      
+      setFeaturedProducts(filteredProducts || []);
     } catch (err) {
       console.error('Error loading filtered featured products:', err);
       setError('Failed to load featured products with filters');
     }
   }, [userUniversity, userCity, selectedSort, applySortingAndFilters]);
+
+  // Client-side filtering for new arrivals
+  const loadFilteredNewArrivals = useCallback(async (filters: ProductFilters) => {
+    try {
+      console.log('[HomeScreen] Using client-side filtering for new arrivals with filters:', filters);
+      
+      // Since getNewArrivals doesn't accept filters parameter, we'll fetch and filter client-side
+      const response = await getNewArrivals(userUniversity || '');
+      
+      let productsToFilter: Product[] = [];
+      
+      // Handle the new paginated response format
+      if (Array.isArray(response)) {
+        productsToFilter = response;
+      } else if (response && response.products) {
+        productsToFilter = response.products;
+      } else {
+        console.error('Unexpected response format from loadFilteredNewArrivals:', response);
+        setNewArrivalsProducts([]);
+        return;
+      }
+      
+      // Apply filtering on the client side
+      const filteredProducts = applySortingAndFilters(productsToFilter, selectedSort, 
+        Object.entries(filters).reduce((acc, [key, value]) => {
+          if (Array.isArray(value)) {
+            return [...acc, ...value];
+          } else if (value) {
+            return [...acc, value as string];
+          }
+          return acc;
+        }, [] as string[])
+      );
+      
+      setNewArrivalsProducts(filteredProducts || []);
+    } catch (err) {
+      console.error('Error loading filtered new arrivals:', err);
+      setError('Failed to load new arrivals with filters');
+    }
+  }, [userUniversity, selectedSort, applySortingAndFilters]);
 
   // Update loadNewArrivals to check for force refresh synchronously
   const loadNewArrivals = useCallback(async () => {
@@ -1061,7 +1109,9 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
         console.log(`[HomeScreen] Force refresh enabled, fetching fresh new arrivals`);
         const response = await getNewArrivals(userUniversity || '');
         
+        // Handle the new paginated response format
         if (Array.isArray(response)) {
+          // Legacy format - response is an array of products
           setNewArrivalsProducts(response);
           setNewArrivalsProductsOriginal(response);
           
@@ -1071,6 +1121,17 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
           
           // Cache the result
           await cacheProducts(NEW_ARRIVALS_CACHE_KEY, response, userUniversity);
+        } else if (response && response.products) {
+          // New paginated response format
+          setNewArrivalsProducts(response.products);
+          setNewArrivalsProductsOriginal(response.products);
+          
+          if (response.products.length > 0) {
+            setNewArrivalsFilterMaps(createFilterMaps(response.products));
+          }
+          
+          // Cache the result
+          await cacheProducts(NEW_ARRIVALS_CACHE_KEY, response.products, userUniversity);
         } else {
           console.error('Unexpected response format from getNewArrivals:', response);
           setNewArrivalsProducts([]);
@@ -1096,7 +1157,9 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
         console.log(`[HomeScreen] Fetching fresh new arrivals: univ=${userUniversity}`);
         const response = await getNewArrivals(userUniversity || '');
         
+        // Handle the new paginated response format
         if (Array.isArray(response)) {
+          // Legacy format - response is an array of products
           setNewArrivalsProducts(response);
           setNewArrivalsProductsOriginal(response);
           
@@ -1107,6 +1170,18 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
           
           // Cache the result
           await cacheProducts(NEW_ARRIVALS_CACHE_KEY, response, userUniversity);
+        } else if (response && response.products) {
+          // New paginated response format
+          setNewArrivalsProducts(response.products);
+          setNewArrivalsProductsOriginal(response.products);
+          
+          // Create filter maps for optimization
+          if (response.products.length > 0) {
+            setNewArrivalsFilterMaps(createFilterMaps(response.products));
+          }
+          
+          // Cache the result
+          await cacheProducts(NEW_ARRIVALS_CACHE_KEY, response.products, userUniversity);
         } else {
           console.error('Unexpected response format from getNewArrivals:', response);
           setNewArrivalsProducts([]);
@@ -1121,100 +1196,6 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     }
   }, [userUniversity, shouldForceRefresh]);
 
-  // Client-side filtering for new arrivals
-  const loadFilteredNewArrivals = useCallback(async (filters: ProductFilters) => {
-    try {
-      console.log('[HomeScreen] Using client-side filtering for new arrivals with filters:', filters);
-      
-      // Since getNewArrivals doesn't accept filters parameter, we'll fetch and filter client-side
-      const response = await getNewArrivals(userUniversity || '');
-      
-      if (Array.isArray(response)) {
-        // Apply filtering on the client side
-        const filteredProducts = applySortingAndFilters(response, selectedSort, 
-          Object.entries(filters).reduce((acc, [key, value]) => {
-            if (Array.isArray(value)) {
-              return [...acc, ...value];
-            } else if (value) {
-              return [...acc, value as string];
-            }
-            return acc;
-          }, [] as string[])
-        );
-        
-        setNewArrivalsProducts(filteredProducts || []);
-      } else {
-        console.error('Unexpected response format from loadFilteredNewArrivals:', response);
-        setNewArrivalsProducts([]);
-      }
-    } catch (err) {
-      console.error('Error loading filtered new arrivals:', err);
-      setError('Failed to load new arrivals with filters');
-    }
-  }, [userUniversity, selectedSort, applySortingAndFilters]);
-
-  const loadFilteredUniversityProducts = useCallback(async (filters: ProductFilters) => {
-    if (!userUniversity) return;
-    
-    try {
-      // Use API to fetch university products with filters
-      const response = await getProductsByUniversity(userUniversity, filters);
-      if (response && typeof response === 'object' && 'products' in response) {
-        setUniversityProducts(response.products || []);
-      } else {
-        console.error('Unexpected response format from loadFilteredUniversityProducts:', response);
-        setUniversityProducts([]);
-      }
-    } catch (err) {
-      console.error('Error loading filtered university products:', err);
-      setError('Failed to load university products with filters');
-    }
-  }, [userUniversity]);
-
-  const loadFilteredCityProducts = useCallback(async (filters: ProductFilters) => {
-    if (!userCity) return;
-    
-    try {
-      // Use API to fetch city products with filters
-      const response = await getProductsByCity(userCity, filters);
-      if (response && typeof response === 'object' && 'products' in response) {
-        setCityProducts(response.products || []);
-      } else {
-        console.error('Unexpected response format from loadFilteredCityProducts:', response);
-        setCityProducts([]);
-      }
-    } catch (err) {
-      console.error('Error loading filtered city products:', err);
-      setError('Failed to load city products with filters');
-    }
-  }, [userCity]);
-
-  // Add refresh handling
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  
-  // Add refresh counter
-  const [refreshCount, setRefreshCount] = useState<number>(0);
-  
-  // Add a forceRefresh flag
-  const [shouldForceRefresh, setShouldForceRefresh] = useState(false);
-
-  // When the component mounts, check if we should force refresh
-  useEffect(() => {
-    const checkForceRefreshFlag = async () => {
-      try {
-        const forceRefreshValue = await AsyncStorage.getItem(FORCE_REFRESH_KEY);
-        if (forceRefreshValue === 'true') {
-          console.log('[HomeScreen] Force refresh flag is set, will skip cache');
-          setShouldForceRefresh(true);
-        }
-      } catch (err) {
-        console.error('Error checking force refresh flag:', err);
-      }
-    };
-    
-    checkForceRefreshFlag();
-  }, []);
-
   // Update loadFeaturedProducts to check for force refresh synchronously
   const loadFeaturedProducts = useCallback(async () => {
     try {
@@ -1225,7 +1206,9 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
         console.log(`[HomeScreen] Force refresh enabled, fetching fresh featured products`);
         const response = await getFeaturedProducts(userUniversity || '', userCity || '');
         
+        // Handle the new paginated response format
         if (Array.isArray(response)) {
+          // Legacy format - response is an array of products
           setFeaturedProducts(response);
           setFeaturedProductsOriginal(response);
           setTotalFeaturedCount(response.length);
@@ -1236,6 +1219,18 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
           
           // Cache the result
           await cacheProducts(FEATURED_PRODUCTS_CACHE_KEY, response, userUniversity, userCity);
+        } else if (response && response.products) {
+          // New paginated response format
+          setFeaturedProducts(response.products);
+          setFeaturedProductsOriginal(response.products);
+          setTotalFeaturedCount(response.totalItems || response.products.length);
+          
+          if (response.products.length > 0) {
+            setFeaturedFilterMaps(createFilterMaps(response.products));
+          }
+          
+          // Cache the result
+          await cacheProducts(FEATURED_PRODUCTS_CACHE_KEY, response.products, userUniversity, userCity);
         } else {
           console.error('Unexpected response format from getFeaturedProducts:', response);
           setFeaturedProducts([]);
@@ -1263,7 +1258,9 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
         console.log(`[HomeScreen] Fetching fresh featured products: univ=${userUniversity}, city=${userCity}`);
         const response = await getFeaturedProducts(userUniversity || '', userCity || '');
         
+        // Handle the new paginated response format
         if (Array.isArray(response)) {
+          // Legacy format - response is an array of products
           setFeaturedProducts(response);
           setFeaturedProductsOriginal(response);
           setTotalFeaturedCount(response.length);
@@ -1275,6 +1272,19 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
           
           // Cache the result
           await cacheProducts(FEATURED_PRODUCTS_CACHE_KEY, response, userUniversity, userCity);
+        } else if (response && response.products) {
+          // New paginated response format
+          setFeaturedProducts(response.products);
+          setFeaturedProductsOriginal(response.products);
+          setTotalFeaturedCount(response.totalItems || response.products.length);
+          
+          // Create filter maps for optimization
+          if (response.products.length > 0) {
+            setFeaturedFilterMaps(createFilterMaps(response.products));
+          }
+          
+          // Cache the result
+          await cacheProducts(FEATURED_PRODUCTS_CACHE_KEY, response.products, userUniversity, userCity);
         } else {
           console.error('Unexpected response format from getFeaturedProducts:', response);
           setFeaturedProducts([]);
@@ -1288,7 +1298,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     } finally {
       setLoadingFeatured(false);
     }
-  }, [userUniversity, userCity, shouldForceRefresh]);
+  }, [userUniversity, userCity, shouldForceRefresh, cacheProducts, getCachedProducts]);
 
   // Update loadUniversityProducts to check for force refresh synchronously
   const loadUniversityProducts = useCallback(async () => {
@@ -1352,7 +1362,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     } finally {
       setLoadingUniversity(false);
     }
-  }, [userUniversity, shouldForceRefresh]);
+  }, [userUniversity, shouldForceRefresh, cacheProducts, getCachedProducts]);
 
   // Update loadCityProducts to check for force refresh synchronously
   const loadCityProducts = useCallback(async () => {
@@ -1413,7 +1423,76 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     } finally {
       setLoadingCity(false);
     }
-  }, [userCity, shouldForceRefresh]);
+  }, [userCity, shouldForceRefresh, cacheProducts, getCachedProducts]);
+
+  // Helper function to save products to cache
+  const cacheProducts = async (key: string, products: any, university?: string, city?: string) => {
+    try {
+      const cacheKey = `${key}${university ? '_' + university : ''}${city ? '_' + city : ''}`;
+      await AsyncStorage.setItem(
+        cacheKey,
+        JSON.stringify({
+          data: products,
+          timestamp: Date.now()
+        })
+      );
+      
+      console.log(`[HomeScreen] Cached ${products.length} products with key: ${cacheKey}`);
+      
+      // If this was a forced refresh, clear the flag now that we've refreshed the data
+      if (shouldForceRefresh) {
+        console.log('[HomeScreen] Clearing force refresh flag after refresh');
+        await AsyncStorage.setItem(FORCE_REFRESH_KEY, 'false');
+        setShouldForceRefresh(false);
+        setRefreshCount(0);
+      }
+    } catch (error) {
+      console.error(`[HomeScreen] Error caching products:`, error);
+    }
+  };
+
+  // Helper function to get products from cache
+  const getCachedProducts = async (key: string, university?: string, city?: string) => {
+    try {
+      // Check for force refresh flag in both state and AsyncStorage
+      // This is a safety check to ensure we're definitely bypassing cache when needed
+      if (shouldForceRefresh) {
+        console.log(`[HomeScreen] Force refresh is enabled in state, skipping cache for ${key}`);
+        return null;
+      }
+      
+      // Double-check AsyncStorage as well (in case the state update hasn't propagated)
+      const forceRefreshValue = await AsyncStorage.getItem(FORCE_REFRESH_KEY);
+      if (forceRefreshValue === 'true') {
+        console.log(`[HomeScreen] Force refresh flag found in storage, skipping cache for ${key}`);
+        // Update local state to match storage
+        if (!shouldForceRefresh) {
+          setShouldForceRefresh(true);
+        }
+        return null;
+      }
+      
+      // If we get here, it's safe to check the cache
+      const cacheKey = `${key}${university ? '_' + university : ''}${city ? '_' + city : ''}`;
+      const cachedData = await AsyncStorage.getItem(cacheKey);
+      
+      if (cachedData) {
+        const { data, timestamp } = JSON.parse(cachedData);
+        const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
+        
+        if (!isExpired) {
+          console.log(`[HomeScreen] Using cached products from: ${cacheKey}`);
+          return data;
+        } else {
+          console.log(`[HomeScreen] Cache expired for: ${cacheKey}`);
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error(`[HomeScreen] Error retrieving cached products:`, error);
+      return null;
+    }
+  };
 
   // Define SearchPaginationFooter component
   const SearchPaginationFooter: React.FC<{
@@ -1452,61 +1531,104 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     );
   };
 
-  // Helper function to save products to cache
-  const cacheProducts = async (key: string, products: any, university?: string, city?: string) => {
+  const loadFilteredUniversityProducts = useCallback(async (filters: ProductFilters) => {
+    if (!userUniversity) return;
+    
     try {
-      const cacheKey = `${key}${university ? '_' + university : ''}${city ? '_' + city : ''}`;
-      await AsyncStorage.setItem(
-        cacheKey,
-        JSON.stringify({
-          data: products,
-          timestamp: Date.now()
-        })
-      );
-      
-      console.log(`[HomeScreen] Cached ${products.length} products with key: ${cacheKey}`);
-      
-      // If this was a forced refresh, clear the flag now that we've refreshed the data
-      if (shouldForceRefresh) {
-        console.log('[HomeScreen] Clearing force refresh flag after refresh');
-        await AsyncStorage.setItem(FORCE_REFRESH_KEY, 'false');
-        setShouldForceRefresh(false);
-        setRefreshCount(0);
+      // Use API to fetch university products with filters
+      const response = await getProductsByUniversity(userUniversity, filters);
+      if (response && typeof response === 'object' && 'products' in response) {
+        setUniversityProducts(response.products || []);
+      } else {
+        console.error('Unexpected response format from loadFilteredUniversityProducts:', response);
+        setUniversityProducts([]);
       }
-    } catch (error) {
-      console.error(`[HomeScreen] Error caching products:`, error);
+    } catch (err) {
+      console.error('Error loading filtered university products:', err);
+      setError('Failed to load university products with filters');
     }
-  };
+  }, [userUniversity]);
 
-  // Helper function to get products from cache
-  const getCachedProducts = async (key: string, university?: string, city?: string) => {
+  const loadFilteredCityProducts = useCallback(async (filters: ProductFilters) => {
+    if (!userCity) return;
+    
     try {
-      // Skip cache immediately if force refresh is true
-      if (shouldForceRefresh) {
-        console.log(`[HomeScreen] Force refresh is enabled, skipping cache for ${key}`);
-        return null;
+      // Use API to fetch city products with filters
+      const response = await getProductsByCity(userCity, filters);
+      if (response && typeof response === 'object' && 'products' in response) {
+        setCityProducts(response.products || []);
+      } else {
+        console.error('Unexpected response format from loadFilteredCityProducts:', response);
+        setCityProducts([]);
       }
-      
-      const cacheKey = `${key}${university ? '_' + university : ''}${city ? '_' + city : ''}`;
-      const cachedData = await AsyncStorage.getItem(cacheKey);
-      
-      if (cachedData) {
-        const { data, timestamp } = JSON.parse(cachedData);
-        const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
-        
-        if (!isExpired) {
-          console.log(`[HomeScreen] Using cached products from: ${cacheKey}`);
-          return data;
-        } else {
-          console.log(`[HomeScreen] Cache expired for: ${cacheKey}`);
-        }
-      }
-      return null;
-    } catch (error) {
-      console.error(`[HomeScreen] Error retrieving cached products:`, error);
-      return null;
+    } catch (err) {
+      console.error('Error loading filtered city products:', err);
+      setError('Failed to load city products with filters');
     }
-  };
+  }, [userCity]);
+
+  // Add refresh handling
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Add refresh counter
+  const [refreshCount, setRefreshCount] = useState<number>(0);
+  
+  // Add a forceRefresh flag
+  const [shouldForceRefresh, setShouldForceRefresh] = useState(false);
+
+  // When the component mounts, check if we should force refresh
+  useEffect(() => {
+    const checkForceRefreshFlag = async () => {
+      try {
+        const forceRefreshValue = await AsyncStorage.getItem(FORCE_REFRESH_KEY);
+        if (forceRefreshValue === 'true') {
+          console.log('[HomeScreen] Force refresh flag is set, will skip cache');
+          setShouldForceRefresh(true);
+        }
+      } catch (err) {
+        console.error('Error checking force refresh flag:', err);
+      }
+    };
+    
+    checkForceRefreshFlag();
+  }, []);
+
+  // Helper function to clear all product cache keys
+  const clearProductCaches = useCallback(async () => {
+    try {
+      console.log('[HomeScreen] Clearing all product cache keys');
+      
+      // Build a list of cache keys to clear
+      const keysToRemove = [];
+      
+      // Add featured products cache key
+      if (userUniversity && userCity) {
+        keysToRemove.push(`${FEATURED_PRODUCTS_CACHE_KEY}${userUniversity}_${userCity}`);
+      }
+      
+      // Add new arrivals cache key
+      if (userUniversity) {
+        keysToRemove.push(`${NEW_ARRIVALS_CACHE_KEY}${userUniversity}`);
+      }
+      
+      // Add university products cache key
+      if (userUniversity) {
+        keysToRemove.push(`${UNIVERSITY_PRODUCTS_CACHE_KEY}${userUniversity}`);
+      }
+      
+      // Add city products cache key
+      if (userCity) {
+        keysToRemove.push(`${CITY_PRODUCTS_CACHE_KEY}${userCity}`);
+      }
+      
+      // Remove all identified keys
+      await Promise.all(keysToRemove.map(key => AsyncStorage.removeItem(key)));
+      
+      console.log(`[HomeScreen] Cleared ${keysToRemove.length} cache keys`);
+    } catch (error) {
+      console.error('[HomeScreen] Error clearing product caches:', error);
+    }
+  }, [userUniversity, userCity]);
 
   // Update handleRefresh to use the force refresh flag directly
   const handleRefresh = useCallback(async () => {
@@ -1514,23 +1636,28 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     setError(null);
     
     // Increment refresh counter locally
-    setRefreshCount(prev => {
-      const newCount = prev + 1;
-      console.log(`[HomeScreen] Refresh counter incremented to ${newCount}`);
+    const newCount = refreshCount + 1;
+    setRefreshCount(newCount);
+    console.log(`[HomeScreen] Refresh counter incremented to ${newCount}`);
+    
+    // After 2 refreshes, force refresh all data
+    let needsForceRefresh = false;
+    if (newCount >= 2) {
+      console.log('[HomeScreen] Setting force refresh to bypass cache');
+      setShouldForceRefresh(true);
+      needsForceRefresh = true;
       
-      // After 2 refreshes, force refresh all data
-      if (newCount >= 2) {
-        console.log('[HomeScreen] Setting force refresh to bypass cache');
-        setShouldForceRefresh(true);
-        
-        // Also store in AsyncStorage for persistence
-        AsyncStorage.setItem(FORCE_REFRESH_KEY, 'true').catch(err => {
-          console.error('Error saving force refresh flag:', err);
-        });
-      }
+      // Also store in AsyncStorage for persistence
+      await AsyncStorage.setItem(FORCE_REFRESH_KEY, 'true').catch(err => {
+        console.error('Error saving force refresh flag:', err);
+      });
       
-      return newCount;
-    });
+      // IMPORTANT: Immediately clear all cache to force fresh data
+      await clearProductCaches();
+      
+      // Add a small delay to ensure the state update has taken effect
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
     
     // Also increment search refresh counter
     if (search && search.incrementSearchRefreshCount) {
@@ -1538,6 +1665,9 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     }
     
     try {
+      // Check refresh status for logging
+      console.log(`[HomeScreen] Starting refresh with forceRefresh=${needsForceRefresh}`);
+      
       await Promise.all([
         loadFeaturedProducts(),
         loadNewArrivals(),
@@ -1546,13 +1676,13 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
       ]);
       
       // Reset force refresh flag after successfully loading fresh data
-      if (shouldForceRefresh) {
+      if (needsForceRefresh) {
         console.log('[HomeScreen] Resetting force refresh flag after successful refresh');
         setShouldForceRefresh(false);
         setRefreshCount(0);
         
         // Update in AsyncStorage
-        AsyncStorage.setItem(FORCE_REFRESH_KEY, 'false').catch(err => {
+        await AsyncStorage.setItem(FORCE_REFRESH_KEY, 'false').catch(err => {
           console.error('Error saving force refresh flag:', err);
         });
       }
@@ -1562,7 +1692,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     } finally {
       setIsRefreshing(false);
     }
-  }, [loadFeaturedProducts, loadNewArrivals, loadUniversityProducts, loadCityProducts, search, shouldForceRefresh]);
+  }, [loadFeaturedProducts, loadNewArrivals, loadUniversityProducts, loadCityProducts, search, refreshCount, clearProductCaches]);
   
   // Add missing handlers
   const handleProductPress = useCallback((product: Product) => {

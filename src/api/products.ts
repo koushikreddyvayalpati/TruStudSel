@@ -490,44 +490,72 @@ export const getProductsByCategory = async (category: string, filters: ProductFi
 /**
  * Get featured products for university and city
  */
-export const getFeaturedProducts = async (university: string, city: string): Promise<Product[]> => {
-  console.log(`[API:products] Getting featured products for university: ${university}, city: ${city}`);
+export const getFeaturedProducts = async (university: string, city: string, page: number = 0, size: number = 10): Promise<ProductListResponse> => {
+  console.log(`[API:products] Getting featured products for university: ${university}, city: ${city}, page: ${page}, size: ${size}`);
   
   try {
     const response = await fetchWithTimeout(
-      `${API_URL}/api/products/featured/${encodeURIComponent(university)}/${encodeURIComponent(city)}`,
+      `${API_URL}/api/products/featured/${encodeURIComponent(university)}/${encodeURIComponent(city)}/paginated?page=${page}&size=${size}&pageSize=${size}`,
       { method: 'GET' }
     );
     
-    const products = await handleResponse<Product[]>(response);
+    const result = await handleResponse<ProductListResponse>(response);
     
     // Process products to add full image URLs
-    return products.map(product => processProductImages(product));
+    if (result.products) {
+      console.log(`[API:products] Received ${result.products.length} featured products out of total ${result.totalItems}`);
+      result.products = result.products.map(product => processProductImages(product));
+    } else {
+      // Handle case where result is just an array of products (for backward compatibility)
+      const products = await handleResponse<Product[]>(response);
+      return {
+        products: products.map(product => processProductImages(product)),
+        totalItems: products.length,
+        currentPage: page,
+        totalPages: 1
+      };
+    }
+    
+    return result;
   } catch (error) {
     console.error('Error fetching featured products:', error);
-    return [];
+    return { products: [], totalItems: 0, currentPage: page, totalPages: 1 };
   }
 };
 
 /**
  * Get new arrivals for university
  */
-export const getNewArrivals = async (university: string): Promise<Product[]> => {
-  console.log(`[API:products] Getting new arrivals for university: ${university}`);
+export const getNewArrivals = async (university: string, page: number = 0, size: number = 10): Promise<ProductListResponse> => {
+  console.log(`[API:products] Getting new arrivals for university: ${university}, page: ${page}, size: ${size}`);
   
   try {
     const response = await fetchWithTimeout(
-      `${API_URL}/api/products/new-arrivals/${encodeURIComponent(university)}`,
+      `${API_URL}/api/products/new-arrivals/${encodeURIComponent(university)}/paginated?page=${page}&size=${size}&pageSize=${size}`,
       { method: 'GET' }
     );
     
-    const products = await handleResponse<Product[]>(response);
+    const result = await handleResponse<ProductListResponse>(response);
     
     // Process products to add full image URLs
-    return products.map(product => processProductImages(product));
+    if (result.products) {
+      console.log(`[API:products] Received ${result.products.length} new arrivals out of total ${result.totalItems}`);
+      result.products = result.products.map(product => processProductImages(product));
+    } else {
+      // Handle case where result is just an array of products (for backward compatibility)
+      const products = await handleResponse<Product[]>(response);
+      return {
+        products: products.map(product => processProductImages(product)),
+        totalItems: products.length,
+        currentPage: page,
+        totalPages: 1
+      };
+    }
+    
+    return result;
   } catch (error) {
     console.error('Error fetching new arrivals:', error);
-    return [];
+    return { products: [], totalItems: 0, currentPage: page, totalPages: 1 };
   }
 };
 
@@ -776,11 +804,11 @@ export const searchProducts = async (searchParams: SearchProductsParams): Promis
         throw new Error(`Search API returned status: ${response.status}`);
       }
       
-      const result = await handleResponse<SearchProductsResponse>(response);
-      
+        const result = await handleResponse<SearchProductsResponse>(response);
+        
       // Process images in search results
-      if (result.products && Array.isArray(result.products)) {
-        result.products = result.products.map(product => processProductImages(product));
+        if (result.products && Array.isArray(result.products)) {
+          result.products = result.products.map(product => processProductImages(product));
       } else {
         // Ensure products is always an array
         result.products = [];
@@ -795,7 +823,7 @@ export const searchProducts = async (searchParams: SearchProductsParams): Promis
         hasMorePages: result.currentPage < result.totalPages - 1,
         nextPageToken: result.nextPageToken || null
       };
-    } catch (error) {
+  } catch (error) {
       console.error('[API:products] Error in searchProducts:', error);
       
       // Return empty results on error
