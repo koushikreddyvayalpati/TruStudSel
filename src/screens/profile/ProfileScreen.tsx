@@ -11,20 +11,23 @@ import {
   Animated,
   Platform,
   Alert,
-  Dimensions
+  Dimensions,
+  ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect, useRoute, RouteProp } from '@react-navigation/native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
-import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProfileScreenNavigationProp, MainStackParamList } from '../../types/navigation.types';
 import { fetchUserProfileById } from '../../api/users';
 import { fetchUserProducts, Product } from '../../api/products';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Import the Zustand profile store
+import useProfileStore from '../../store/profileStore';
 
 // Constants
 const PROFILE_BANNER_HEIGHT = 160;
@@ -526,6 +529,187 @@ async function refreshProductsCacheInBackground(email: string) {
   }
 }
 
+// Create a ProfileContentView component to render the profile content with the original UI
+const ProfileContentView = React.memo(({
+  userData,
+  backendUserData,
+  filteredProducts,
+  productCount,
+  activeTab,
+  onTabChange,
+  onEditProfile,
+  isLoadingProducts,
+  isRefreshing,
+  onRefresh,
+  productsError,
+  isViewingSeller,
+  navigation,
+  productsMap,
+  scrollY
+}: {
+  userData: any,
+  backendUserData: BackendUserData | null,
+  filteredProducts: Post[],
+  productCount: number,
+  activeTab: TabType,
+  onTabChange: (tab: TabType) => void,
+  onEditProfile: () => void,
+  isLoadingProducts: boolean,
+  isRefreshing: boolean,
+  onRefresh: () => Promise<void>,
+  productsError: string | null,
+  isViewingSeller: boolean,
+  navigation: ProfileScreenNavigationProp,
+  productsMap: Map<number, Product>,
+  scrollY: Animated.Value
+}) => {
+  // The item renderer for FlatList
+  const renderItem = useCallback(({ item, index }: { item: Post, index: number }) => {
+    const isEven = index % 2 === 0;
+    return (
+      <View style={[styles.postGridItem, isEven ? { paddingRight: 4 } : { paddingLeft: 4 }]}>
+        <PostItem 
+          item={item} 
+          originalData={productsMap.get(item.id)} 
+          isViewingSeller={isViewingSeller}
+          onDeleteProduct={!isViewingSeller ? (productId) => {
+            console.log('Delete product:', productId);
+            // Add actual delete functionality here
+            Alert.alert('Feature Coming Soon', 'Product deletion will be available in a future update.');
+          } : undefined}
+        />
+      </View>
+    );
+  }, [productsMap, isViewingSeller]);
+
+  // Key extractor for the FlatList
+  const keyExtractor = useCallback((item: Post) => item.id.toString(), []);
+
+  // ListEmptyComponent for better organization
+  const ListEmptyComponent = useMemo(() => {
+    if (isLoadingProducts) {
+      return (
+        <View style={styles.emptyListContainer}>
+          <ActivityIndicator size="large" color="#f7b305" />
+          <Text style={styles.emptyListText}>Loading products...</Text>
+        </View>
+      );
+    }
+    
+    if (productsError) {
+      return (
+        <View style={styles.emptyListContainer}>
+          <MaterialIcons name="error-outline" size={56} color="#e74c3c" />
+          <Text style={styles.emptyListErrorText}>{productsError}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={onRefresh}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    
+    if (filteredProducts.length === 0) {
+      return (
+        <View style={styles.emptyListContainer}>
+          {activeTab === 'inMarket' ? (
+            <>
+              <MaterialCommunityIcons name="storefront-outline" size={56} color="#bbb" />
+              <Text style={styles.emptyListText}>
+                {isViewingSeller 
+                  ? "This seller doesn't have any active listings" 
+                  : "You don't have any active listings"}
+              </Text>
+              {!isViewingSeller && (
+                <TouchableOpacity 
+                  style={styles.emptyListButton}
+                  onPress={() => {
+                    // Handle add listing 
+                    // Get the user's university and city
+                    const userUniversity = backendUserData?.university || '';
+                    const userCity = backendUserData?.city || '';
+                    navigation.navigate('PostingScreen', {
+                      userUniversity,
+                      userCity
+                    });
+                  }}
+                >
+                  <Text style={styles.emptyListButtonText}>Post Something</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          ) : (
+            <>
+              <MaterialCommunityIcons name="archive-outline" size={56} color="#bbb" />
+              <Text style={styles.emptyListText}>
+                {isViewingSeller 
+                  ? "This seller doesn't have any archived items" 
+                  : "You don't have any archived items"}
+              </Text>
+            </>
+          )}
+        </View>
+      );
+    }
+    
+    return null;
+  }, [activeTab, filteredProducts.length, isLoadingProducts, productsError, onRefresh, isViewingSeller, navigation]);
+
+  // Render the profile content using FlatList with the original styling
+  return (
+    <Animated.FlatList
+      data={filteredProducts}
+      renderItem={renderItem}
+      keyExtractor={keyExtractor}
+      numColumns={2}
+      showsVerticalScrollIndicator={false}
+      onScroll={Animated.event(
+        [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+        { useNativeDriver: true }
+      )}
+      scrollEventThrottle={16}
+      contentContainerStyle={styles.scrollContent}
+      ListHeaderComponent={() => (
+        <>
+          {/* Profile Banner with background color #f7b305 */}
+          <View style={styles.bannerContainer}>
+            <View style={styles.bannerContent}>
+              {/* Banner content without buttons */}
+            </View>
+          </View>
+          
+          <ProfileHeader 
+            userData={userData}
+            backendUserData={backendUserData}
+            filteredPosts={filteredProducts}
+            activeTab={activeTab}
+            onTabChange={onTabChange}
+            onEditProfile={onEditProfile}
+            isLoadingProducts={isLoadingProducts}
+            isViewingSeller={isViewingSeller}
+          />
+        </>
+      )}
+      ListEmptyComponent={ListEmptyComponent}
+      ListFooterComponent={() => (
+        <View style={styles.listFooter} />
+      )}
+      columnWrapperStyle={styles.columnWrapper}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={onRefresh}
+          colors={['#ffffff']}
+          tintColor="#ffffff"
+          progressBackgroundColor="#f7b305"
+        />
+      }
+    />
+  );
+});
+
 const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<ProfileScreenNavigationProp>();
   const route = useRoute<RouteProp<MainStackParamList, 'Profile'>>();
@@ -540,18 +724,6 @@ const ProfileScreen: React.FC = () => {
     return sellerEmail.toLowerCase() !== user.email.toLowerCase();
   }, [sellerEmail, user?.email]);
   
-  // Add a ref to track refresh count
-  const refreshCountRef = useRef<number>(0);
-  
-  // Reset refresh count when component unmounts or when profile changes
-  useEffect(() => {
-    refreshCountRef.current = 0;
-    
-    return () => {
-      refreshCountRef.current = 0;
-    };
-  }, [sellerEmail]);
-  
   // For logging purposes
   useEffect(() => {
     if (sellerEmail) {
@@ -560,18 +732,27 @@ const ProfileScreen: React.FC = () => {
     }
   }, [sellerEmail, isViewingSeller]);
   
-  // State for backend user data
-  const [backendUserData, setBackendUserData] = useState<BackendUserData | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
-  
-  // State for user product data
-  const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(true);
-  const [productsError, setProductsError] = useState<string | null>(null);
-  const [products, setProducts] = useState<Post[]>([]);
-  const [productsMap, setProductsMap] = useState<Map<number, Product>>(new Map());
-  const [activeTab, setActiveTab] = useState<TabType>('inMarket');
+  // Use Zustand store for state management
+  const {
+    backendUserData,
+    processedUserData,
+    products,
+    productsMap,
+    filteredProducts,
+    activeTab,
+    isLoading,
+    isLoadingProducts,
+    isRefreshing,
+    error,
+    productsError,
+    setActiveTab,
+    fetchUserProfile,
+    fetchUserProducts,
+    refreshAllData
+  } = useProfileStore();
+
+  // Add scrollY animated value for header animation
+  const scrollY = useMemo(() => new Animated.Value(0), []);
 
   // Handle navigation back
   const handleGoBack = useCallback(() => {
@@ -634,580 +815,82 @@ const ProfileScreen: React.FC = () => {
     });
   }, [navigation, backendUserData]);
 
-  // Process the user data for display
-  const userData = useMemo(() => {
-    return processUserData(user, backendUserData);
-  }, [user, backendUserData]);
+  // Handle tab change
+  const handleTabChange = useCallback((tab: 'inMarket' | 'archive') => {
+    setActiveTab(tab);
+  }, [setActiveTab]);
 
-  // Fetch user products from API with caching
-  const fetchUserProductData = useCallback(async () => {
-    // Use sellerEmail from route params if available, otherwise use logged-in user email
-    const emailToFetch = sellerEmail || user?.email;
-    
-    if (!emailToFetch) {
-      setIsLoadingProducts(false);
-      return;
-    }
-    
-    setProductsError(null);
-    if (!isRefreshing) setIsLoadingProducts(true);
-    
-    // If this is the second or more refresh, log it and force refresh from API
-    const shouldForceRefresh = refreshCountRef.current >= 2;
-    if (shouldForceRefresh) {
-      console.log(`[ProfileScreen] Force refreshing user products from API (refresh count: ${refreshCountRef.current})`);
-    }
-    
-    try {
-      const cacheKey = `${USER_PRODUCTS_CACHE_KEY}${emailToFetch}`;
-      
-      // First, check the in-memory cache for the fastest access
-      if (!shouldForceRefresh && !isRefreshing && productsCache.has(emailToFetch)) {
-        const { data, timestamp } = productsCache.get(emailToFetch);
-        const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
-        const isStale = Date.now() - timestamp > (PRODUCTS_CACHE_EXPIRY_TIME / 3);
-        
-        if (!isExpired) {
-          console.log('[ProfileScreen] Using in-memory cached user products data');
-          
-          // Create a new map to store the relationship between Posts and Products
-          const newProductsMap = new Map<number, Product>();
-          
-          // Convert API products to Post format
-          const formattedPosts = data.map((product: Product) => {
-            const post = convertProductToPost(product);
-            // Store the original product data for future reference
-            newProductsMap.set(post.id, product);
-            return post;
-          });
-          
-          setProducts(formattedPosts);
-          setProductsMap(newProductsMap);
-          setIsLoadingProducts(false);
-          
-          // If data is stale but not expired, trigger a background refresh
-          if (isStale && !isViewingSeller) {
-            console.log('[ProfileScreen] Products data is stale, triggering background refresh');
-            setTimeout(() => refreshProductsCacheInBackground(emailToFetch), 100);
-          }
-          
-          return;
-        }
-      }
-      
-      // Then try AsyncStorage if not refreshing and not forcing refresh
-      if (!shouldForceRefresh && !isRefreshing) {
-        try {
-          const cachedData = await AsyncStorage.getItem(cacheKey);
-          
-          if (cachedData) {
-            const { data, timestamp } = JSON.parse(cachedData);
-            const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
-            const isStale = Date.now() - timestamp > (PRODUCTS_CACHE_EXPIRY_TIME / 3);
-            
-            if (!isExpired) {
-              console.log('[ProfileScreen] Using AsyncStorage cached user products data');
-              
-              // Update in-memory cache too
-              productsCache.set(emailToFetch, { data, timestamp });
-              
-              // Create a new map to store the relationship between Posts and Products
-              const newProductsMap = new Map<number, Product>();
-              
-              // Convert API products to Post format
-              const formattedPosts = data.map((product: Product) => {
-                const post = convertProductToPost(product);
-                // Store the original product data for future reference
-                newProductsMap.set(post.id, product);
-                return post;
-              });
-              
-              setProducts(formattedPosts);
-              setProductsMap(newProductsMap);
-              setIsLoadingProducts(false);
-              
-              // If data is stale but not expired, trigger a background refresh
-              if (isStale && !isViewingSeller) {
-                console.log('[ProfileScreen] Products data is stale, triggering background refresh');
-                setTimeout(() => refreshProductsCacheInBackground(emailToFetch), 100);
-              }
-              
-              return;
-            } else {
-              console.log('[ProfileScreen] Products cache expired, fetching fresh data');
-            }
-          }
-        } catch (cacheError) {
-          console.warn('[ProfileScreen] Error reading products from cache:', cacheError);
-          // Continue with API fetch on cache error
-        }
-      }
-      
-      // Check if we should rate limit this API request (skip if forcing refresh)
-      const lastRequestTime = PRODUCTS_API_REQUEST_TIMESTAMPS.get(emailToFetch);
-      const now = Date.now();
-      
-      if (!shouldForceRefresh && lastRequestTime && (now - lastRequestTime < MIN_API_REQUEST_INTERVAL) && !isRefreshing) {
-        console.log(`[ProfileScreen] Rate limiting products API request for ${emailToFetch}`);
-        // Use cache even if expired, but mark for refresh
-        if (productsCache.has(emailToFetch)) {
-          const { data } = productsCache.get(emailToFetch);
-          
-          // Create a new map to store the relationship between Posts and Products
-          const newProductsMap = new Map<number, Product>();
-          
-          // Convert API products to Post format
-          const formattedPosts = data.map((product: Product) => {
-            const post = convertProductToPost(product);
-            // Store the original product data for future reference
-            newProductsMap.set(post.id, product);
-            return post;
-          });
-          
-          setProducts(formattedPosts);
-          setProductsMap(newProductsMap);
-          setIsLoadingProducts(false);
-          
-          // Schedule a delayed refresh if not viewing a seller profile
-          if (!isViewingSeller) {
-            setTimeout(() => refreshProductsCacheInBackground(emailToFetch), MIN_API_REQUEST_INTERVAL);
-          }
-          return;
-        }
-      }
-      
-      // If cache miss or cache expired or explicitly refreshing, fetch from API
-      console.log(`[ProfileScreen] Fetching products for user: ${emailToFetch}`);
-      PRODUCTS_API_REQUEST_TIMESTAMPS.set(emailToFetch, now);
-      
-      const productData = await fetchUserProducts(emailToFetch);
-      
-      // Create a new map to store the relationship between Posts and Products
-      const newProductsMap = new Map<number, Product>();
-      
-      // Convert API products to Post format
-      const formattedPosts = productData.map((product: Product) => {
-        const post = convertProductToPost(product);
-        // Store the original product data for future reference
-        newProductsMap.set(post.id, product);
-        return post;
-      });
-      
-      // Update state with new data
-      setProducts(formattedPosts);
-      setProductsMap(newProductsMap);
-      
-      // Save to both caches
-      const cacheData = {
-        data: productData,
-        timestamp: now
-      };
-      
-      // Update in-memory cache
-      productsCache.set(emailToFetch, cacheData);
-      
-      // Run cache cleanup to prevent memory issues
-      cleanupProductsCache();
-      
-      // Update AsyncStorage cache
-      await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
-      
-    } catch (error: any) {
-      console.error('[ProfileScreen] Error fetching user products:', error.message || error);
-      
-      // If we have cached data, use it despite the error
-      if (productsCache.has(emailToFetch)) {
-        console.log('[ProfileScreen] Using cached products data after API error');
-        const { data } = productsCache.get(emailToFetch);
-        
-        // Create a new map to store the relationship between Posts and Products
-        const newProductsMap = new Map<number, Product>();
-        
-        // Convert API products to Post format
-        const formattedPosts = data.map((product: Product) => {
-          const post = convertProductToPost(product);
-          // Store the original product data for future reference
-          newProductsMap.set(post.id, product);
-          return post;
-        });
-        
-        setProducts(formattedPosts);
-        setProductsMap(newProductsMap);
-      } else {
-        setProductsError('Network error while fetching products');
-      }
-    } finally {
-      setIsLoadingProducts(false);
-    }
-  }, [sellerEmail, user?.email, isRefreshing, isViewingSeller, refreshCountRef]);
-  
-  // Fetch user data from backend API with caching
-  const fetchUserData = useCallback(async () => {
-    // Use sellerEmail from route params if available, otherwise use logged-in user email
-    const emailToFetch = sellerEmail || user?.email;
-    
-    if (!emailToFetch) {
-      setIsLoading(false);
-      return;
-    }
-    
-    setError(null);
-    if (!isRefreshing) setIsLoading(true);
-    
-    // If this is the second or more refresh, log it and force refresh from API
-    const shouldForceRefresh = refreshCountRef.current >= 2;
-    if (shouldForceRefresh) {
-      console.log(`[ProfileScreen] Force refreshing user profile from API (refresh count: ${refreshCountRef.current})`);
-    }
-    
-    try {
-      const cacheKey = `${USER_PROFILE_CACHE_KEY}${emailToFetch}`;
-      
-      // First, check the in-memory cache for the fastest access
-      if (!shouldForceRefresh && !isRefreshing && profileCache.has(emailToFetch)) {
-        const { data, timestamp } = profileCache.get(emailToFetch);
-        const isExpired = Date.now() - timestamp > CACHE_EXPIRY_TIME;
-        const isStale = Date.now() - timestamp > (CACHE_EXPIRY_TIME / 3);
-        
-        if (!isExpired) {
-          console.log('[ProfileScreen] Using in-memory cached user profile data');
-          setBackendUserData(data);
-          setIsLoading(false);
-          
-          // If data is stale but not expired, trigger a background refresh
-          if (isStale && !isViewingSeller) {
-            console.log('[ProfileScreen] Data is stale, triggering background refresh');
-            setTimeout(() => refreshCacheInBackground(emailToFetch), 100);
-          }
-          
-          return;
-        }
-      }
-      
-      // Then try AsyncStorage if not refreshing and not forcing refresh
-      if (!shouldForceRefresh && !isRefreshing) {
-        try {
-          const cachedData = await AsyncStorage.getItem(cacheKey);
-          
-          if (cachedData) {
-            const { data, timestamp } = JSON.parse(cachedData);
-            const isExpired = Date.now() - timestamp > CACHE_EXPIRY_TIME;
-            const isStale = Date.now() - timestamp > (CACHE_EXPIRY_TIME / 3);
-            
-            if (!isExpired) {
-              console.log('[ProfileScreen] Using AsyncStorage cached user profile data');
-              // Update in-memory cache too
-              profileCache.set(emailToFetch, { data, timestamp });
-              setBackendUserData(data);
-              setIsLoading(false);
-              
-              // If data is stale but not expired, trigger a background refresh
-              if (isStale && !isViewingSeller) {
-                console.log('[ProfileScreen] Data is stale, triggering background refresh');
-                setTimeout(() => refreshCacheInBackground(emailToFetch), 100);
-              }
-              
-              return;
-            } else {
-              console.log('[ProfileScreen] Cache expired, fetching fresh data');
-            }
-          }
-        } catch (cacheError) {
-          console.warn('[ProfileScreen] Error reading from cache:', cacheError);
-          // Continue with API fetch on cache error
-        }
-      }
-      
-      // Check if we should rate limit this API request (skip if forcing refresh)
-      const lastRequestTime = API_REQUEST_TIMESTAMPS.get(emailToFetch);
-      const now = Date.now();
-      
-      if (!shouldForceRefresh && lastRequestTime && (now - lastRequestTime < MIN_API_REQUEST_INTERVAL) && !isRefreshing) {
-        console.log(`[ProfileScreen] Rate limiting API request for ${emailToFetch}`);
-        // Use cache even if expired, but mark for refresh
-        if (profileCache.has(emailToFetch)) {
-          const { data } = profileCache.get(emailToFetch);
-          setBackendUserData(data);
-          setIsLoading(false);
-          // Schedule a delayed refresh if not viewing a seller profile
-          if (!isViewingSeller) {
-            setTimeout(() => refreshCacheInBackground(emailToFetch), MIN_API_REQUEST_INTERVAL);
-          }
-          return;
-        }
-      }
-      
-      // If cache miss or cache expired or explicitly refreshing, fetch from API
-      console.log('[ProfileScreen] Fetching user profile from API');
-      API_REQUEST_TIMESTAMPS.set(emailToFetch, now);
-      
-      const data = await fetchUserProfileById(emailToFetch);
-      
-      // Update state with new data
-      setBackendUserData(data);
-      
-      // Save to both caches
-      const cacheData = {
-        data,
-        timestamp: now
-      };
-      
-      // Update in-memory cache
-      profileCache.set(emailToFetch, cacheData);
-      
-      // Run cache cleanup to prevent memory issues
-      cleanupCache();
-      
-      // Update AsyncStorage cache
-      await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
-      
-    } catch (error: any) {
-      console.error('[ProfileScreen] Error fetching user data:', error.message || error);
-      
-      // If we have cached data, use it despite the error
-      if (profileCache.has(emailToFetch)) {
-        console.log('[ProfileScreen] Using cached data after API error');
-        setBackendUserData(profileCache.get(emailToFetch).data);
-      } else {
-        setError('Network error while fetching profile data');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [sellerEmail, user?.email, isRefreshing, isViewingSeller, refreshCountRef]);
-  
-  // Load both user profile and products data
+  // Load data when screen is focused
   useFocusEffect(
     useCallback(() => {
-      let isActive = true;
-      
       const loadData = async () => {
-        if (isActive) {
-          await Promise.all([
-            fetchUserData(),
-            fetchUserProductData()
-          ]);
-        }
+        const emailToFetch = sellerEmail || user?.email;
+        if (!emailToFetch) return;
+        
+        console.log(`[ProfileScreen] Loading data for ${emailToFetch}`);
+        
+        // Load profile and products in parallel
+        fetchUserProfile(emailToFetch);
+        fetchUserProducts(emailToFetch);
       };
       
       loadData();
-      
-      return () => {
-        isActive = false;
-      };
-    }, [fetchUserData, fetchUserProductData])
+    }, [sellerEmail, user?.email, fetchUserProfile, fetchUserProducts])
   );
   
-  // Animated values with useMemo to avoid recreating on every render
-  const scrollY = useMemo(() => new Animated.Value(0), []);
-
-  // Memoized filtered posts based on active tab
-  const filteredPosts = useMemo(() => {
-    switch (activeTab) {
-      case 'inMarket':
-        return products.filter(post => post.status === 'active');
-      case 'archive':
-        return products.filter(post => post.status === 'archived');
-      default:
-        return products;
-    }
-  }, [products, activeTab]);
-
-  // Pull-to-refresh handler
-  const handleRefresh = useCallback(() => {
-    // Increment the refresh counter
-    refreshCountRef.current += 1;
-    console.log(`[ProfileScreen] Refresh triggered (count: ${refreshCountRef.current})`);
+  // Handle refresh 
+  const handleRefresh = useCallback(async () => {
+    const emailToFetch = sellerEmail || user?.email;
+    if (!emailToFetch) return;
     
-    setIsRefreshing(true);
-    
-    // Refresh backend user data and products
-    Promise.all([
-      fetchUserData(), 
-      fetchUserProductData()
-    ]).finally(() => {
-      setIsRefreshing(false);
-      
-      // Reset the refresh counter after a timeout (5 seconds)
-      setTimeout(() => {
-        if (refreshCountRef.current > 0) {
-          console.log('[ProfileScreen] Resetting refresh counter');
-          refreshCountRef.current = 0;
-        }
-      }, 5000);
-    });
-  }, [fetchUserData, fetchUserProductData]);
+    // Use the store's refresh function
+    await refreshAllData(emailToFetch);
+  }, [sellerEmail, user?.email, refreshAllData]);
 
-  // Tab change handler
-  const handleTabChange = useCallback((tab: TabType) => {
-    setActiveTab(tab);
-  }, []);
-
-  // Scroll handler - optimized with useNativeDriver for better performance
-  const handleScroll = useMemo(() => Animated.event(
-    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-    { useNativeDriver: true }
-  ), [scrollY]);
-
-  // Function to delete a product
-  const deleteProduct = useCallback(async (productId: string) => {
-    if (!user?.email) return;
-    
-    try {
-      console.log(`[ProfileScreen] Deleting product ${productId}`);
-      const apiUrl = `${API_BASE_URL}/api/products/${productId}`;
-      
-      const response = await fetch(apiUrl, {
-        method: 'DELETE',
-      });
-      
-      if (response.status >= 200 && response.status < 300) {
-        console.log('[ProfileScreen] Successfully deleted product');
-        
-        // Update the products state by removing the deleted product
-        setProducts(prevProducts => prevProducts.filter(product => product.id.toString() !== productId));
-        
-        // Also update the productsMap
-        const newProductsMap = new Map(productsMap);
-        newProductsMap.delete(parseInt(productId));
-        setProductsMap(newProductsMap);
-        
-        // Clear cache to force refresh on next load
-        const emailToUse = user?.email;
-        if (emailToUse) {
-          const cacheKey = `${USER_PRODUCTS_CACHE_KEY}${emailToUse}`;
-          productsCache.delete(emailToUse);
-          try {
-            await AsyncStorage.removeItem(cacheKey);
-          } catch (cacheError) {
-            console.warn('[ProfileScreen] Error clearing product cache:', cacheError);
-          }
-        }
-        
-        // Show success message
-        Alert.alert('Success', 'Product has been deleted successfully');
-        
-        return true;
-      } else {
-        console.error(`[ProfileScreen] Failed to delete product: ${response.status}`);
-        Alert.alert('Error', 'Failed to delete product. Please try again.');
-        return false;
-      }
-    } catch (error) {
-      console.error('[ProfileScreen] Error deleting product:', error);
-      Alert.alert('Error', 'Failed to delete product. Please try again.');
-      return false;
-    }
-  }, [user?.email, productsMap]);
-
-  // Update the renderItem function
-  const renderItem = useCallback(({ item, index }: { item: Post, index: number }) => {
-    const isEven = index % 2 === 0;
-    return (
-      <View style={[styles.postGridItem, isEven ? { paddingRight: 4 } : { paddingLeft: 4 }]}>
-        <PostItem 
-          item={item} 
-          originalData={productsMap.get(item.id)} 
-          isViewingSeller={isViewingSeller}
-          onDeleteProduct={!isViewingSeller ? deleteProduct : undefined}
-        />
-      </View>
-    );
-  }, [productsMap, isViewingSeller, deleteProduct]);
-
-  // Keyextractor for FlatList optimization
-  const keyExtractor = useCallback((item: Post) => item.id.toString(), []);
-
-  // FlatList performance optimization
-  const getItemLayout = useCallback((_: any, index: number) => ({
-    length: ITEM_HEIGHT,
-    offset: ITEM_HEIGHT * Math.floor(index / 2),
-    index,
-  }), []);
-
-  // ListEmptyComponent for better organization
-  const ListEmptyComponent = useMemo(() => {
-    if (isLoadingProducts) {
+  // Render loading state
+  if (isLoading && !isRefreshing) {
       return (
-        <View style={styles.emptyListContainer}>
+      <SafeAreaView style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#f7b305" />
-          <Text style={styles.emptyListText}>Loading products...</Text>
-        </View>
+        <Text style={styles.loadingText}>Loading profile...</Text>
+      </SafeAreaView>
       );
     }
     
-    if (productsError) {
+  // Render error state
+  if (error && !isRefreshing) {
       return (
-        <View style={styles.emptyListContainer}>
-          <MaterialIcons name="error-outline" size={56} color="#e74c3c" />
-          <Text style={styles.emptyListErrorText}>{productsError}</Text>
+      <SafeAreaView style={styles.errorContainer}>
+        <MaterialIcons name="error-outline" size={48} color="#e74c3c" />
+        <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity 
             style={styles.retryButton}
-            onPress={handleRefresh}
+          onPress={() => {
+            const emailToFetch = sellerEmail || user?.email;
+            if (emailToFetch) {
+              fetchUserProfile(emailToFetch, true);
+            }
+          }}
           >
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
-        </View>
-      );
-    }
-    
-    if (filteredPosts.length === 0) {
-      return (
-        <View style={styles.emptyListContainer}>
-          {activeTab === 'inMarket' ? (
-            <>
-              <MaterialCommunityIcons name="storefront-outline" size={56} color="#bbb" />
-              <Text style={styles.emptyListText}>
-                {isViewingSeller 
-                  ? "This seller doesn't have any active listings" 
-                  : "You don't have any active listings"}
-              </Text>
-              {!isViewingSeller && (
-                <TouchableOpacity 
-                  style={styles.emptyListButton}
-                  onPress={handleAddListing}
-                >
-                  <Text style={styles.emptyListButtonText}>Post Something</Text>
-                </TouchableOpacity>
-              )}
-            </>
-          ) : (
-            <>
-              <MaterialCommunityIcons name="archive-outline" size={56} color="#bbb" />
-              <Text style={styles.emptyListText}>
-                {isViewingSeller 
-                  ? "This seller doesn't have any archived items" 
-                  : "You don't have any archived items"}
-              </Text>
-            </>
-          )}
-        </View>
-      );
-    }
-    
-    return null;
-  }, [activeTab, filteredPosts.length, isLoadingProducts, productsError, handleRefresh, isViewingSeller, handleAddListing]);
+      </SafeAreaView>
+    );
+  }
   
-  // Memoized Footer component
-  const ListFooterComponent = useMemo(() => {
-    if (filteredPosts.length > 0) {
-      return <View style={styles.listFooter} />;
-    }
-    return null;
-  }, [filteredPosts.length]);
+  // Use processedUserData from the store
+  const userData = processedUserData || {
+    name: 'User',
+    email: user?.email || '',
+    university: 'Unknown University',
+    photo: null,
+    soldProducts: '0',
+    totalProducts: 0,
+    city: '',
+    wishlist: []
+  };
 
-  // Add component unmount cleanup at the end of the ProfileScreen component
-  useEffect(() => {
-    // Component cleanup function
-    return () => {
-      // Remove this user's data from the request timestamp tracking when component unmounts
-      if (user?.email) {
-        API_REQUEST_TIMESTAMPS.delete(user?.email);
-        PRODUCTS_API_REQUEST_TIMESTAMPS.delete(user?.email);
-      }
-    };
-  }, [user?.email]);
-
+  // Render the profile screen
   return (
     <SafeAreaView style={styles.safeAreaContainer} edges={['top']}>
       <StatusBar 
@@ -1279,68 +962,38 @@ const ProfileScreen: React.FC = () => {
           </View>
         )}
         
-        {/* Using FlatList instead of ScrollView for better performance with large lists */}
+        {/* Show profile content when not loading or error */}
         {!isLoading && !error && (
-          <Animated.FlatList
-            data={filteredPosts}
-            renderItem={renderItem}
-            keyExtractor={keyExtractor}
-            numColumns={2}
-            showsVerticalScrollIndicator={false}
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
-            contentContainerStyle={styles.scrollContent}
-            ListHeaderComponent={() => (
-              <>
-                {/* Profile Banner with background color #f7b305 */}
-                <View style={styles.bannerContainer}>
-                  <View style={styles.bannerContent}>
-                    {/* Banner content without buttons */}
-                  </View>
-                </View>
-                
-                <ProfileHeader 
-                  userData={userData}
-                  backendUserData={backendUserData}
-                  filteredPosts={filteredPosts}
-                  activeTab={activeTab}
-                  onTabChange={handleTabChange}
-                  onEditProfile={handleEditProfile}
-                  isLoadingProducts={isLoadingProducts}
-                  isViewingSeller={isViewingSeller}
-                />
-              </>
+          <>
+            <ProfileContentView
+              userData={userData}
+              backendUserData={backendUserData}
+              filteredProducts={filteredProducts}
+              productCount={products.length}
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+              onEditProfile={handleEditProfile}
+              isLoadingProducts={isLoadingProducts}
+              isRefreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              productsError={productsError}
+              isViewingSeller={isViewingSeller}
+              navigation={navigation}
+              productsMap={productsMap}
+              scrollY={scrollY}
+            />
+            
+            {/* Add Listing FAB - only show if viewing own profile */}
+            {!isViewingSeller && (
+              <TouchableOpacity 
+                style={styles.floatingButton}
+                onPress={handleAddListing}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons name="add" size={30} color="white" />
+              </TouchableOpacity>
             )}
-            ListEmptyComponent={ListEmptyComponent}
-            ListFooterComponent={ListFooterComponent}
-            columnWrapperStyle={styles.columnWrapper}
-            getItemLayout={getItemLayout}
-            initialNumToRender={6}
-            maxToRenderPerBatch={10}
-            windowSize={5}
-            removeClippedSubviews={true}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={handleRefresh}
-                colors={['#ffffff']}
-                tintColor="#ffffff"
-                progressBackgroundColor="#f7b305"
-              />
-            }
-          />
-        )}
-        
-        {/* Floating Add Button - only show when viewing own profile */}
-        {!isViewingSeller && (
-          <TouchableOpacity 
-            style={styles.floatingButton}
-            activeOpacity={0.9}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            onPress={handleAddListing}
-          >
-            <Ionicons name="add" size={30} color="#FFF" />
-          </TouchableOpacity>
+          </>
         )}
       </SafeAreaView>
     </SafeAreaView>
@@ -2051,6 +1704,29 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#666',
     marginLeft: 4,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+  },
+  backButton: {
+    padding: 8,
+    backgroundColor: '#f7b305',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  signOutButton: {
+    padding: 8,
+    backgroundColor: '#f7b305',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 
