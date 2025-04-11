@@ -1,7 +1,7 @@
 /**
  * Import statements 
  */
-import React, { useState, useMemo, useCallback, useRef, memo, useEffect } from 'react';
+import React, { useCallback, memo, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -26,33 +26,15 @@ import { useTheme } from '../../hooks';
 import { TextInput } from '../../components/common';
 import { useAuth } from '../../contexts/AuthContext';
 import { launchImageLibrary } from 'react-native-image-picker';
-import { uploadProductImages, S3_BASE_URL } from '../../api/fileUpload';
-import { createProductWithImageFilenames } from '../../api/products';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import the Zustand store
+import usePostingStore, { ProductType, ProductCondition } from '../../store/postingStore';
 
 // Get device dimensions for responsive layout
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const THUMBNAIL_SIZE = SCREEN_WIDTH > 400 ? 85 : 75;
 const MAIN_PHOTO_HEIGHT = SCREEN_WIDTH * 0.5;
-
-// Define the product category type for consistency with ProductsScreen
-type ProductCategory = 'electronics' | 'furniture' | 'auto' | 'fashion' | 'sports' | 'stationery' | 'eventpass';
-
-// Define types for better code structure
-interface ProductType {
-  id: ProductCategory | string;
-  name: string;
-  icon: string;
-  iconType: 'material' | 'fontawesome' | 'entypo';
-  color: string;
-  subcategories?: string[];
-}
-
-interface ProductCondition {
-  id: string;
-  name: string;
-  description: string;
-}
 
 // Updated product types with main categories matching ProductsScreen and using consistent icons
 const PRODUCT_TYPES: ProductType[] = [
@@ -305,69 +287,64 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
   console.log('[PostingScreen] User university from auth:', user?.university || 'not set');
   console.log('[PostingScreen] User city from auth:', user?.city || 'not set');
 
-  const [images, setImages] = useState<Array<{uri: string; type: string; name: string}>>([]);
-  const [localImageUris, setLocalImageUris] = useState<string[]>([]);
-  const [title, setTitle] = useState('');
-  const [selectedType, setSelectedType] = useState<ProductType | null>(null);
-  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
-  const [description, setDescription] = useState('');
-  const [price, setPrice] = useState('');
-  const [selectedCondition, setSelectedCondition] = useState<ProductCondition | null>(null);
-  const [isSell, setIsSell] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0); // 0-100
-  
-  // State for form validation
-  const [errors, setErrors] = useState<{
-    title?: string;
-    type?: string;
-    description?: string;
-    price?: string;
-    condition?: string;
-    images?: string;
-  }>({});
-  
-  // State for dropdown modals
-  const [typeModalVisible, setTypeModalVisible] = useState(false);
-  const [subcategoryModalVisible, setSubcategoryModalVisible] = useState(false);
-  const [conditionModalVisible, setConditionModalVisible] = useState(false);
-
-  // Memoized variables for better performance
-  const displayType = useMemo(() => selectedType?.name || "", [selectedType]);
-  const displaySubcategory = useMemo(() => selectedSubcategory || "", [selectedSubcategory]);
-  const displayCondition = useMemo(() => selectedCondition?.name || "", [selectedCondition]);
-  const hasSubcategories = useMemo(() => selectedType?.subcategories && selectedType.subcategories.length > 0, [selectedType]);
-
-  // Reference to keep track of images that need to be uploaded
-  const selectedImagesRef = useRef<Array<{uri: string; type: string; name: string}>>([]);
-  
-  // Memoize the university value to use
-  const universityToUse = useMemo(() => {
-    const university = routeUniversity ||  '';
-    console.log('[PostingScreen] Using university:', university || 'none available');
+  // Use the Zustand store for state management
+  const {
+    // Form state
+    images,
+    localImageUris,
+    title,
+    selectedType,
+    selectedSubcategory,
+    description,
+    price,
+    selectedCondition,
+    isSell,
+    isLoading,
+    uploadProgress,
+    errors,
     
-    // If no university was provided through any means, use a fallback
-    if (!university) {
-      console.warn('[PostingScreen] No university value found in route or user, using fallback');
-      return 'University not provided';
-    }
+    // UI state
+    typeModalVisible,
+    subcategoryModalVisible,
+    conditionModalVisible,
     
-    return university;
-  }, [routeUniversity]);
-  
-  // Memoize the city value to use
-  const cityToUse = useMemo(() => {
-    const city = routeCity ||  '';
-    console.log('[PostingScreen] Using city:', city || 'none available');
+    // Computed values
+    displayType,
+    displayCondition,
     
-    // If no city was provided through any means, use a fallback
-    if (!city) {
-      console.warn('[PostingScreen] No city value found in route or user, using fallback');
-      return 'City not provided';
-    }
+    // Context
+    setUniversityToUse,
+    setCityToUse,
     
-    return city;
-  }, [routeCity]);
+    // Actions
+    setTitle,
+    setSelectedType,
+    setSelectedSubcategory,
+    setDescription,
+    setPrice,
+    setSelectedCondition,
+    setIsSell,
+    
+    // Modal actions
+    setTypeModalVisible,
+    setSubcategoryModalVisible,
+    setConditionModalVisible,
+    
+    // Image handling
+    addImage,
+    removeImage,
+    
+    // Posting functionality
+    postItem,
+    
+    // Reset state
+    resetState
+  } = usePostingStore();  
+  // Set university and city from route params
+  useEffect(() => {
+    setUniversityToUse(routeUniversity || 'University not provided');
+    setCityToUse(routeCity || 'City not provided');
+  }, [routeUniversity, routeCity, setUniversityToUse, setCityToUse]);
   
   // Debug log of navigation params when component mounts
   useEffect(() => {
@@ -376,9 +353,12 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
     if (user) {
       console.log('[PostingScreen] User university from user object:', user.university || 'not set');
     }
-  }, [route.params, user]);
+    
+    // Reset the store state when component mounts
+    resetState();
+  }, [route.params, user, resetState]);
   
-  // Real image picker implementation - now stores locally first, uploads only when posting
+  // Real image picker implementation - now uses the store's addImage function
   const handleImageUpload = useCallback(async () => {
     console.log('[PostingScreen] Starting image selection process');
     if (images.length >= 5) {
@@ -437,362 +417,60 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
         return;
       }
       
-      // Store the image locally for display
+      // Add the image to the store
       const newImage = {
         uri: selected.uri,
         type: selected.type || 'image/jpeg',
-        name: selected.fileName || `image_${Date.now()}.jpg`
+        name: selected.fileName || `image_${Date.now()}.jpg`,
+        fileSize: selected.fileSize
       };
       
-      console.log('[PostingScreen] Adding new image to state:', JSON.stringify(newImage));
-      
-      // Update the local images array for UI display
-      const updatedImages = [...images, newImage];
-      const updatedLocalUris = [...localImageUris, selected.uri];
-      
-      setImages(updatedImages);
-      setLocalImageUris(updatedLocalUris);
-      
-      // Save images to ref for later upload 
-      selectedImagesRef.current = updatedImages;
-      
-      // Clear any image-related errors
-      if (errors.images) {
-        setErrors(prev => ({...prev, images: undefined}));
-      }
+      console.log('[PostingScreen] Adding new image to store:', JSON.stringify(newImage));
+      addImage(newImage);
       
     } catch (error) {
       console.error('[PostingScreen] Error selecting image:', error);
       Alert.alert('Error', 'Failed to select image');
     }
-  }, [images, localImageUris, errors]);
+  }, [images.length, addImage]);
 
-  // Remove image from array
+  // Handle removing images - uses the store's removeImage function
   const handleRemoveImage = useCallback((index: number) => {
-    const newImages = [...images];
-    newImages.splice(index, 1);
-    setImages(newImages);
-    
-    const newLocalUris = [...localImageUris];
-    newLocalUris.splice(index, 1);
-    setLocalImageUris(newLocalUris);
-    
-    // Also update the ref
-    selectedImagesRef.current = newImages;
-  }, [images, localImageUris]);
+    removeImage(index);
+  }, [removeImage]);
 
+  // Select a product type - uses the store's setSelectedType function
   const selectType = useCallback((type: ProductType) => {
     setSelectedType(type);
-    setSelectedSubcategory(null); // Reset subcategory when type changes
     setTypeModalVisible(false);
-    
-    // Clear type-related errors
-    if (errors.type) {
-      setErrors(prev => ({...prev, type: undefined}));
-    }
-    
-    // If the selected type has subcategories, show the subcategory modal
-    if (type.subcategories && type.subcategories.length > 0) {
-      setTimeout(() => {
-        setSubcategoryModalVisible(true);
-      }, 300); // Small delay for better UX
-    }
-  }, [errors]);
+  }, [setSelectedType, setTypeModalVisible]);
 
+  // Select a subcategory - uses the store's setSelectedSubcategory function
   const selectSubcategory = useCallback((subcategory: string) => {
     setSelectedSubcategory(subcategory);
     setSubcategoryModalVisible(false);
-  }, []);
+  }, [setSelectedSubcategory, setSubcategoryModalVisible]);
 
+  // Select a condition - uses the store's setSelectedCondition function
   const selectCondition = useCallback((condition: ProductCondition) => {
     setSelectedCondition(condition);
     setConditionModalVisible(false);
-    
-    // Clear condition-related errors
-    if (errors.condition) {
-      setErrors(prev => ({...prev, condition: undefined}));
-    }
-  }, [errors]);
+  }, [setSelectedCondition, setConditionModalVisible]);
 
-  // Validate the form before submission
-  const validateForm = useCallback(() => {
-    console.log('[PostingScreen] Validating form with data:', JSON.stringify({
-      title: title || '(empty)',
-      hasType: !!selectedType,
-      typeId: selectedType?.id || '(none)',
-      descriptionLength: description?.length || 0,
-      price: price || '(empty)',
-      hasCondition: !!selectedCondition,
-      conditionId: selectedCondition?.id || '(none)',
-      imageCount: images.length,
-      isSellMode: isSell
-    }));
-    
-    const newErrors: {
-      title?: string;
-      type?: string;
-      description?: string;
-      price?: string;
-      condition?: string;
-      images?: string;
-    } = {};
-    
-    if (!title.trim()) {
-      console.log('[PostingScreen] Validation failed: Title is empty');
-      newErrors.title = "Title is required";
-    } else if (title.length < 3) {
-      console.log('[PostingScreen] Validation failed: Title is too short:', title.length);
-      newErrors.title = "Title must be at least 3 characters";
-    }
-    
-    if (!selectedType) {
-      console.log('[PostingScreen] Validation failed: No item type selected');
-      newErrors.type = "Please select an item type";
-    }
-    
-    if (!description.trim()) {
-      console.log('[PostingScreen] Validation failed: Description is empty');
-      newErrors.description = "Description is required";
-    } else if (description.length < 10) {
-      console.log('[PostingScreen] Validation failed: Description is too short:', description.length);
-      newErrors.description = "Please provide a more detailed description (at least 10 characters)";
-    }
-    
-    if (isSell && !price.trim()) {
-      console.log('[PostingScreen] Validation failed: Price is empty');
-      newErrors.price = "Price is required for items you want to sell";
-    } else if (isSell && isNaN(Number(price))) {
-      console.log('[PostingScreen] Validation failed: Price is not a number:', price);
-      newErrors.price = "Price must be a number";
-    }
-    
-    if (!selectedCondition) {
-      console.log('[PostingScreen] Validation failed: No condition selected');
-      newErrors.condition = "Please select the item condition";
-    }
-    
-    if (images.length === 0) {
-      console.log('[PostingScreen] Validation failed: No images uploaded');
-      newErrors.images = "Please upload at least one image";
-    }
-    
-    const isValid = Object.keys(newErrors).length === 0;
-    console.log('[PostingScreen] Form validation result:', isValid ? 'PASSED' : 'FAILED');
-    if (!isValid) {
-      console.log('[PostingScreen] Validation errors:', JSON.stringify(newErrors));
-    }
-    
-    setErrors(newErrors);
-    return isValid;
-  }, [title, selectedType, description, price, selectedCondition, images, isSell]);
-
-  // Implement the modified post item function that handles uploads first, then creates product
-  const handlePostItem = useCallback(async () => {
-    console.log('[PostingScreen] Starting product posting process');
-    
-    if (!validateForm()) {
-      console.log('[PostingScreen] Form validation failed');
-      
-      // Show validation errors to the user
-      const errorMessages = Object.entries(errors)
-        .filter(([_, value]) => value)
-        .map(([_field, message]) => `• ${message}`)
-        .join('\n');
-      
-      if (errorMessages) {
-        Alert.alert(
-          "Please Fix These Issues",
-          errorMessages,
-          [{ text: "OK" }]
-        );
-      }
-      
-      return;
-    }
-    
+  // Handle post item - uses the store's postItem function
+  const handlePostItem = useCallback(() => {
     if (!user?.email) {
-      console.error('[PostingScreen] User email not available');
       Alert.alert('Error', 'You must be logged in to post an item');
       return;
     }
-
-    // Check total size of all images - this is a secondary check
-    const MAX_TOTAL_SIZE = 20 * 1024 * 1024; // 20MB total
-    const totalSize = selectedImagesRef.current.reduce((size, img) => {
-      // Try to get file size if available in the ref
-      const fileSize = (img as any).fileSize || 0;
-      return size + fileSize;
-    }, 0);
-
-    if (totalSize > MAX_TOTAL_SIZE) {
-      Alert.alert(
-        'Images Too Large',
-        'The total size of all images exceeds our 20MB limit. Please use smaller or fewer images.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
     
-    console.log('[PostingScreen] Form data validated, proceeding with upload');
-    console.log('[PostingScreen] Images to upload:', selectedImagesRef.current.length);
-    
-    console.log('[PostingScreen] Product data:', JSON.stringify({
-      title,
-      category: selectedType?.id,
-      subcategory: selectedSubcategory || '',
-      description: description.length > 50 ? description.substring(0, 50) + '...' : description,
-      price,
-      email: user.email,
-      sellerName: user.name || user.username || 'Anonymous User',
-      city: cityToUse || '',
-      zipcode: user.zipcode || '',
-      university: universityToUse,
-      productage: selectedCondition?.id,
-      sellingtype: isSell ? 'sell' : 'rent'
-    }));
-    
-    setIsLoading(true);
-    setUploadProgress(10);
-    
-    try {
-      if (!selectedImagesRef.current.length) {
-        throw new Error('No images to upload');
-      }
-      
-      // Step 1: Upload images to get filenames
-      console.log('[PostingScreen] Starting image upload to server...');
-      let imageFileNames: string[] = [];
-      
-      try {
-        const uploadResponse = await uploadProductImages(selectedImagesRef.current);
-        console.log('[PostingScreen] Image upload response:', JSON.stringify(uploadResponse));
-        setUploadProgress(50);
-        
-        if (!uploadResponse || !uploadResponse.fileNames || uploadResponse.fileNames.length === 0) {
-          console.error('[PostingScreen] Upload response missing filenames:', uploadResponse);
-          throw new Error('Failed to upload images - no filenames returned');
-        }
-        
-        // Store the filenames (not URLs) returned from the API
-        imageFileNames = uploadResponse.fileNames;
-        console.log('[PostingScreen] Uploaded image filenames:', imageFileNames);
-        
-        // Log the image filenames for verification
-        console.log('[PostingScreen] Image filenames for product creation:');
-        imageFileNames.forEach(filename => {
-          console.log(`- ${filename}`);
-        });
-        
-        // Add S3 base URL to each image filename
-        const fullImageUrls = imageFileNames.map(filename => `${S3_BASE_URL}${filename}`);
-        
-        // Step 2: Create the product with the uploaded image filenames WITH the S3 base URL
-        const productData = {
-          name: title,
-          category: selectedType?.id || '',
-          subcategory: selectedSubcategory || '',
-          description: description,
-          price: price,
-          email: user.email,
-          sellerName: user.name || user.username || 'Anonymous User',
-          city: cityToUse || '',
-          zipcode: user.zipcode || '',
-          university: universityToUse,
-          productage: selectedCondition?.id || '',
-          sellingtype: isSell ? 'sell' : 'rent',
-          imageFilenames: fullImageUrls,  // Send full URLs including S3 base URL
-          allImages: fullImageUrls,
-          primaryImage: fullImageUrls.length > 0 ? fullImageUrls[0] : ''  // Use empty string instead of null
-        };
-        
-        console.log('[PostingScreen] Creating product with data:', JSON.stringify(productData));
-        setUploadProgress(80);
-        
-        // Create the product with the image filenames
-        try {
-          const createdProduct = await createProductWithImageFilenames(productData);
-          console.log('[PostingScreen] Product created successfully:', JSON.stringify(createdProduct));
-          
-          // Clear the images reference after successful upload
-          selectedImagesRef.current = [];
-          
-          setUploadProgress(100);
-          setIsLoading(false);
-          
-          // Log the product with image URLs
-          console.log('[PostingScreen] Created product with image URLs:');
-          console.log(JSON.stringify({
-            id: createdProduct.id,
-            name: createdProduct.name,
-            primaryImage: createdProduct.primaryImage,
-            images: createdProduct.images
-          }));
-          
-          // Show success message
-          Alert.alert(
-            "Success",
-            "Your item has been posted successfully!",
-            [{ text: "OK", onPress: () => {
-              console.log('[PostingScreen] Navigating back after successful post');
-              navigation.goBack();
-            }}]
-          );
-        } catch (productError) {
-          console.error('[PostingScreen] Product creation error:', productError);
-          setIsLoading(false);
-          
-          // Log the image filenames for debugging
-          console.log('[PostingScreen] Image filenames that were sent:');
-          imageFileNames.forEach(filename => {
-            console.log(`- ${filename}`);
-          });
-          
-          Alert.alert(
-            "Error Creating Listing",
-            productError instanceof Error 
-              ? `Failed to create product: ${productError.message}` 
-              : "Failed to create product. Please try again."
-          );
-        }
-      } catch (uploadError: any) {
-        console.error('[PostingScreen] Image upload error:', uploadError);
-        setIsLoading(false);
-        
-        // Check specifically for 413 error (Payload Too Large)
-        if (uploadError.message && uploadError.message.includes('413')) {
-          Alert.alert(
-            "Images Too Large",
-            "Your images are too large to upload. Please try using smaller images (under 5MB each) or fewer images.",
-            [{ text: "OK" }]
-          );
-        } else {
-          Alert.alert(
-            "Image Upload Failed",
-            uploadError instanceof Error 
-              ? `Failed to upload images: ${uploadError.message}` 
-              : "Failed to upload images. Please check your connection and try again."
-          );
-        }
-      }
-    } catch (error) {
-      setIsLoading(false);
-      console.error('[PostingScreen] Error posting item:', error);
-      
-      // Log more details about the error
-      if (error instanceof Error) {
-        console.error('[PostingScreen] Error name:', error.name);
-        console.error('[PostingScreen] Error message:', error.message);
-        console.error('[PostingScreen] Error stack:', error.stack);
-      }
-      
-      Alert.alert(
-        "Error",
-        error instanceof Error 
-          ? `Failed to post item: ${error.message}` 
-          : "Failed to post item: Unknown error"
-      );
-    }
-  }, [validateForm, title, selectedType, description, price, user, selectedCondition, isSell, navigation, errors, selectedSubcategory, universityToUse, cityToUse]);
+    postItem(
+      user.email,
+      user.name || user.username || 'Anonymous User',
+      user.zipcode || '',
+      () => navigation.goBack()
+    );
+  }, [user, postItem, navigation]);
 
   // Render individual type option with icon
   const renderTypeOptionItem = ({ item }: { item: ProductType }) => (
@@ -1029,12 +707,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
               <TextInput
                 label="Title"
                 value={title}
-                onChangeText={(text) => {
-                  setTitle(text);
-                  if (errors.title) {
-                    setErrors(prev => ({...prev, title: undefined}));
-                  }
-                }}
+                onChangeText={setTitle}
                 placeholder="Enter item title"
                 containerStyle={styles.inputContainer}
                 error={errors.title}
@@ -1051,47 +724,69 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
                     styles.dropdown, 
                     { 
                       borderColor: errors.type ? '#e74c3c' : theme.colors.border, 
-                      backgroundColor: theme.colors.surface 
-                    }
+                      backgroundColor: theme.colors.surface,
+                      borderWidth: 1.5
+                    },
+                    selectedType && { borderColor: '#f7b305', borderWidth: 2 }
                   ]} 
                   onPress={() => setTypeModalVisible(true)}
                 >
-                  <Text style={[styles.dropdownText, { 
-                    color: displayType ? theme.colors.text : theme.colors.textSecondary 
-                  }]}>
-                    {displayType || "Select item type"}
+                  <Text style={[
+                    styles.dropdownText, 
+                    { 
+                      color: selectedType ? theme.colors.text : theme.colors.textSecondary,
+                      fontWeight: selectedType ? '600' : 'normal'
+                    }
+                  ]}>
+                    {selectedType?.name || "Select item type"}
                   </Text>
                   <Icon name="chevron-down" size={16} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
+                {selectedType && (
+                  <Text style={[styles.selectedSubcategoryNote, { color: '#f7b305' }]}>
+                    {selectedType.name}
+                  </Text>
+                )}
               </View>
               
               {/* Subcategory Dropdown - Only shown if selected type has subcategories */}
-              {hasSubcategories && selectedType && (
+              {selectedType && selectedType.subcategories && selectedType.subcategories.length > 0 && (
                 <View style={styles.inputContainer}>
                   <Text style={[styles.label, { color: theme.colors.text }]}>Subcategory</Text>
                   <TouchableOpacity 
-                    style={[styles.dropdown, { borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]} 
+                    style={[
+                      styles.dropdown, 
+                      { 
+                        borderColor: theme.colors.border, 
+                        backgroundColor: theme.colors.surface,
+                        borderWidth: 1.5
+                      }
+                    ]} 
                     onPress={() => setSubcategoryModalVisible(true)}
                   >
-                    <Text style={[styles.dropdownText, { 
-                      color: displaySubcategory ? theme.colors.text : theme.colors.textSecondary 
-                    }]}>
-                      {displaySubcategory || `Select ${selectedType.name.toLowerCase()} subcategory`}
+                    <Text style={[
+                      styles.dropdownText, 
+                      { 
+                        color: selectedSubcategory ? theme.colors.text : theme.colors.textSecondary,
+                        fontWeight: selectedSubcategory ? '500' : 'normal'
+                      }
+                    ]}>
+                      {selectedSubcategory || `Select ${selectedType.name.toLowerCase()} subcategory`}
                     </Text>
                     <Icon name="chevron-down" size={16} color={theme.colors.textSecondary} />
                   </TouchableOpacity>
+                  {selectedSubcategory && (
+                    <Text style={[styles.selectedSubcategoryNote, { color: theme.colors.primary }]}>
+                      {selectedType.name} → {selectedSubcategory}
+                    </Text>
+                  )}
                 </View>
               )}
               
               <TextInput
                 label="Description"
                 value={description}
-                onChangeText={(text) => {
-                  setDescription(text);
-                  if (errors.description) {
-                    setErrors(prev => ({...prev, description: undefined}));
-                  }
-                }}
+                onChangeText={setDescription}
                 placeholder="Describe your item (condition, features, etc.)"
                 multiline
                 textAlignVertical="top"
@@ -1109,21 +804,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
               <TextInput
                 label={`Price${isSell ? '' : ' (per day)'}`}
                 value={price}
-                onChangeText={(text) => {
-                  // Allow only numbers and a single decimal point
-                  const cleanedText = text.replace(/[^0-9.]/g, '');
-                  const decimalSplit = cleanedText.split('.');
-                  
-                  // If more than one decimal point, keep only the first one
-                  const formattedText = decimalSplit.length > 2 
-                    ? `${decimalSplit[0]}.${decimalSplit.slice(1).join('')}`
-                    : cleanedText;
-                    
-                  setPrice(formattedText);
-                  if (errors.price) {
-                    setErrors(prev => ({...prev, price: undefined}));
-                  }
-                }}
+                onChangeText={setPrice}
                 placeholder={`Enter price in $${isSell ? '' : ' per day'}`}
                 keyboardType="numeric"
                 containerStyle={styles.inputContainer}
@@ -1142,15 +823,20 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
                     styles.dropdown, 
                     { 
                       borderColor: errors.condition ? '#e74c3c' : theme.colors.border, 
-                      backgroundColor: theme.colors.surface 
+                      backgroundColor: theme.colors.surface,
+                      borderWidth: 1.5
                     }
                   ]} 
                   onPress={() => setConditionModalVisible(true)}
                 >
-                  <Text style={[styles.dropdownText, { 
-                    color: displayCondition ? theme.colors.text : theme.colors.textSecondary 
-                  }]}>
-                    {displayCondition || "Select item condition"}
+                  <Text style={[
+                    styles.dropdownText, 
+                    { 
+                      color: displayCondition ? theme.colors.text : theme.colors.textSecondary,
+                      fontWeight: displayCondition ? '500' : 'normal'
+                    }
+                  ]}>
+                    {selectedCondition?.name || "Select item condition"}
                   </Text>
                   <Icon name="chevron-down" size={16} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
@@ -1201,7 +887,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
       </Modal>
 
       {/* Subcategory Selection Modal */}
-      {selectedType && selectedType.subcategories && (
+      {selectedType && selectedType.subcategories && selectedType.subcategories.length > 0 && (
         <Modal
           visible={subcategoryModalVisible}
           transparent={true}
@@ -1867,6 +1553,11 @@ const styles = StyleSheet.create({
   },
   checkIcon: {
     marginLeft: 10,
+  },
+  selectedSubcategoryNote: {
+    marginTop: 6,
+    fontSize: 13,
+    fontWeight: '500',
   },
 });
 
