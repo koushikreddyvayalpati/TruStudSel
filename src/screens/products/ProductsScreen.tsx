@@ -10,100 +10,23 @@ import {
   Animated, 
   SafeAreaView,
   Alert,
-  Share,
-  ActivityIndicator,
   FlatList,
   Modal,
   StatusBar,
   Platform,
-  Pressable
+  Pressable,
+  ActivityIndicator
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { ProductInfoScreenRouteProp, ProductInfoScreenNavigationProp } from '../../types/navigation.types';
-import { getProductById, getProductsByCategory } from '../../api/products'; // Import the category API function
 import { useAuth } from '../../contexts'; // Add this to get user email
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import useProductDetailsStore from '../../store/productDetailsStore';
 
 const { width, height } = Dimensions.get('window');
-
-// Add a base URL constant for API calls
-const API_BASE_URL = Platform.OS === 'android' 
-  ? 'http://10.0.2.2:8080' 
-  : 'http://localhost:8080';
-
-// Extended Product type that includes seller information
-interface ExtendedProduct {
-  id: number | string;
-  name: string;
-  price: string;
-  image: string;
-  description?: string;
-  condition?: string;
-  type?: string;
-  images?: string[];
-  seller?: {
-    name: string;
-    rating?: number;
-    id?: string;
-    contactNumber?: string;
-    email?: string;
-  };
-  sellerName?: string;
-  email?: string;
-  category?: string;
-  sellingtype?: string; // Note the lowercase in the API response
-}
-
-// Base product type from params
-interface BaseProduct {
-  id: number | string;
-  name: string;
-  price: string;
-  image: string;
-  description?: string;
-  condition?: string;
-  type?: string;
-  images?: string[];
-  sellerName?: string;
-  email?: string;
-  sellingtype?: string; // Add sellingtype property
-}
-
-// Sample product data (fallback if route params are missing)
-const sampleProduct: ExtendedProduct = {
-  id: 1,
-  name: 'Product Name',
-  price: '$24.99',
-  image: 'https://via.placeholder.com/300',
-  condition: 'New',
-  type: 'Electronics',
-  description: 'This is a sample product description. It includes details about the product, its features, and its benefits.',
-  images: [
-    'https://via.placeholder.com/300',
-    'https://via.placeholder.com/300/FF0000',
-    'https://via.placeholder.com/300/00FF00',
-  ],
-  seller: {
-    id: 'seller1',
-    name: 'Koushik Reddy',
-    rating: 4.8,
-    contactNumber: '+1234567890',
-    email: 'seller@example.com'
-  },
-  sellerName: 'Koushik Reddy',
-  email: 'seller@example.com'
-};
-
-// Sample reviews for the seller
-const sellerReviews = [
-  { id: 1, name: 'Alice', rating: 5, text: 'Excellent communication and fast shipping!' },
-  { id: 2, name: 'Bob', rating: 4, text: 'Great seller, item as described, would buy again.' },
-  { id: 3, name: 'Charlie', rating: 5, text: 'Super friendly and helpful, highly recommend!' },
-];
 
 // Product Image Gallery Component
 const ImageGallery: React.FC<{
@@ -214,11 +137,11 @@ const RatingStars: React.FC<{
 
 // Similar Products Component
 const SimilarProducts: React.FC<{
-  products: BaseProduct[];
-  onProductPress: (product: BaseProduct) => void;
+  products: any[];
+  onProductPress: (product: any) => void;
 }> = React.memo(({ products, onProductPress }) => {
   // Memoized render item function
-  const renderItem = useCallback(({ item }: { item: BaseProduct }) => (
+  const renderItem = useCallback(({ item }: { item: any }) => (
     <TouchableOpacity 
       style={styles.similarProductItem}
       onPress={() => onProductPress(item)}
@@ -307,119 +230,58 @@ const ImageZoomModal: React.FC<{
 const ProductsScreen = () => {
   const navigation = useNavigation<ProductInfoScreenNavigationProp>();
   const route = useRoute<ProductInfoScreenRouteProp>();
-  const [isLoading, setIsLoading] = useState(false);
-  const [zoomVisible, setZoomVisible] = useState(false);
-  const [selectedImage, setSelectedImage] = useState('');
-  const [expandDescription, setExpandDescription] = useState(false);
-  const [isInWishlist, setIsInWishlist] = useState(false);
-  const [productData, setProductData] = useState<ExtendedProduct | null>(null);
-  const [similarProductsData, setSimilarProductsData] = useState<BaseProduct[]>([]);
-  const [loadingSimilarProducts, setLoadingSimilarProducts] = useState(false);
-  const [_lastCacheRefresh, setLastCacheRefresh] = useState<number>(0);
-  
-  // Get wishlist functions and state
   const { user } = useAuth();
+  
+  // Use the product details store
+  const {
+    isLoading,
+    zoomVisible,
+    selectedImage,
+    expandDescription,
+    isInWishlist,
+    product,
+    productImages,
+    similarProductsData,
+    loadingSimilarProducts,
+    
+    setProductFromRoute,
+    setUserEmail,
+    handleImagePress,
+    closeZoom,
+    toggleExpandDescription,
+    toggleWishlist,
+    checkWishlistStatus,
+    refreshWishlistCache,
+    handleShare,
+    isCurrentUserSeller
+  } = useProductDetailsStore();
 
   // Extract product and productId from route params
   const routeParams = route.params || {};
   const productFromRoute = routeParams.product;
   const productId = routeParams.productId;
   
-  // Fetch product data when component mounts if we have a productId
+  // Set user email from context
   useEffect(() => {
-    const fetchProductData = async () => {
-      // If we already have the product data in route params, use that
-      if (productFromRoute) {
-        return;
-      }
-      
-      // Only fetch from API if we have a productId and no product object
-      if (productId) {
-        try {
-          setIsLoading(true);
-          
-          const fetchedProduct = await getProductById(productId);
-          
-          setProductData(fetchedProduct as unknown as ExtendedProduct);
-        } catch (error) {
-          console.error('[ProductsScreen] Error fetching product:', error);
-          // Show error alert to user
-          Alert.alert('Error', 'Unable to load product details. Please try again.');
-        } finally {
-          setIsLoading(false);
-        }
-      }
-    };
-    
-    fetchProductData();
-  }, [productId, productFromRoute]);
+    if (user?.email) {
+      setUserEmail(user.email);
+    }
+  }, [user?.email, setUserEmail]);
   
-  // Use the product from route params if available, otherwise use the one fetched from API, or the sample product as fallback
-  const routeProduct = productFromRoute || productData;
+  // Initialize product from route params or id
+  useEffect(() => {
+    setProductFromRoute(productFromRoute, productId);
+  }, [setProductFromRoute, productFromRoute, productId]);
   
-  // Create an extended product object with seller information if not provided
-  const product: ExtendedProduct = useMemo(() => {
-    if (!routeProduct) {
-      return sampleProduct;
-    }
-    
-    // Add a check for case-sensitivity issues
-    const productObj = routeProduct as unknown as Record<string, any>;
-    const keys = Object.keys(productObj);
-    const normalizedKeys = keys.reduce((obj, key) => {
-      obj[key.toLowerCase()] = key;
-      return obj;
-    }, {} as Record<string, string>);
-    
-    // Try to find sellerName with different case variations
-    let actualSellerName = productObj.sellerName;
-    if (!actualSellerName && normalizedKeys.sellername) {
-      const key = normalizedKeys.sellername;
-      actualSellerName = productObj[key];
-    }
-    
-    const result: ExtendedProduct = {
-      ...productObj,
-      id: productObj.id,
-      name: productObj.name,
-      price: productObj.price,
-      image: productObj.image || 'https://via.placeholder.com/300',
-      // Ensure sellerName is properly assigned regardless of case
-      sellerName: actualSellerName || productObj.sellerName,
-      seller: productObj.seller || sampleProduct.seller // Use sample seller data if not provided
-    };
-    
-    return result;
-  }, [routeProduct]);
+  // Check wishlist status when product changes
+  useEffect(() => {
+    checkWishlistStatus();
+  }, [checkWishlistStatus]);
   
-  // Handle case where product might not have images array - also normalize to strings only
-  const productImages = useMemo(() => {
-    const defaultImage = 'https://via.placeholder.com/300';
-    
-    if (!product.images || !Array.isArray(product.images) || product.images.length === 0) {
-      return [(product.image && product.image.trim() !== '') ? product.image : defaultImage];
-    }
-    
-    // Ensure all items are valid non-empty strings
-    const validImages = product.images
-      .map(img => typeof img === 'string' && img.trim() !== '' ? img : defaultImage)
-      .filter(img => img && img.trim() !== '');
-    
-    // If no valid images were found, return the default image
-    return validImages.length > 0 ? validImages : [defaultImage];
-  }, [product.images, product.image]);
-
-  // Memoize share function
-  const handleShare = useCallback(async () => {
-    try {
-      await Share.share({
-        message: `Check out this awesome product: ${product.name} for ${product.price}`,
-        url: productImages[0]
-      });
-    } catch (error) {
-      console.error('Error sharing product:', error);
-    }
-  }, [product.name, product.price, productImages]);
+  // Refresh wishlist cache when component mounts
+  useEffect(() => {
+    refreshWishlistCache();
+  }, [refreshWishlistCache]);
 
   // Memoize contact seller function
   const handleContactSeller = useCallback((method: string) => {
@@ -450,16 +312,8 @@ const ProductsScreen = () => {
     }
   }, [navigation, product]);
 
-  // Memoize image press function
-  const handleImagePress = useCallback((index: number) => {
-    if (index >= 0 && index < productImages.length) {
-      setSelectedImage(productImages[index]);
-      setZoomVisible(true);
-    }
-  }, [productImages]);
-
   // Memoize similar product press function
-  const handleSimilarProductPress = useCallback((similarProduct: BaseProduct) => {
+  const handleSimilarProductPress = useCallback((similarProduct: any) => {
     // @ts-ignore - We know this route exists
     navigation.replace('ProductInfoPage', { product: similarProduct });
   }, [navigation]);
@@ -514,7 +368,7 @@ const ProductsScreen = () => {
                   styles.readMoreButton,
                   expandDescription && styles.readLessButton
                 ]}
-                onPress={() => setExpandDescription(!expandDescription)}
+                onPress={toggleExpandDescription}
               >
                 <Text style={styles.readMoreText}>
                   {expandDescription ? 'Show less' : 'Read more'}
@@ -532,82 +386,13 @@ const ProductsScreen = () => {
         )}
       </View>
     </View>
-  ), [product.description, expandDescription]);
+  ), [product.description, expandDescription, toggleExpandDescription]);
 
   // Debug section memoization
   const renderDebugSection = useMemo(() => {
     // Return null to disable debug section completely
     return null;
   }, []);
-
-  // Fetch similar products based on the current product category
-  useEffect(() => {
-    const fetchSimilarProducts = async () => {
-      // Only fetch if we have a valid product with category
-      if (!product) return;
-      
-      // Try to get category from the product
-      const category = product.category || product.type;
-      
-      if (!category) {
-        console.log('[ProductsScreen] No category found for similar products');
-        return;
-      }
-      
-      try {
-        setLoadingSimilarProducts(true);
-        
-        // Convert category to lowercase for consistency with API
-        const normalizedCategory = category.toLowerCase();
-        console.log(`[ProductsScreen] Fetching similar products for category: ${normalizedCategory}`);
-        
-        // Fetch products by category
-        const result = await getProductsByCategory(normalizedCategory, {
-          // Limit results to 10 similar products
-          size: 10
-        });
-        
-        // Filter out the current product from results
-        let similarItems = Array.isArray(result.products) 
-          ? result.products 
-          : [];
-        
-        // Remove the current product from similar items
-        similarItems = similarItems.filter(item => item.id !== product.id);
-        
-        // Limit to 5 similar products max
-        similarItems = similarItems.slice(0, 5);
-        
-        console.log(`[ProductsScreen] Found ${similarItems.length} similar products`);
-        
-        // Convert API Product type to BaseProduct type for state
-        const convertedSimilarItems: BaseProduct[] = similarItems.map(item => ({
-          id: item.id,
-          name: item.name,
-          price: item.price || '0.00',
-          image: item.image || item.primaryImage || 'https://via.placeholder.com/150',
-          description: item.description,
-          condition: item.condition || 'Used',
-          type: item.type,
-          sellerName: item.sellerName || (item.seller?.name || ''),
-          email: item.email || '',
-          images: item.images || item.imageUrls || [],
-          sellingtype: item.sellingtype || ''
-        }));
-        
-        // Update state with similar products
-        setSimilarProductsData(convertedSimilarItems);
-      } catch (error) {
-        console.error('[ProductsScreen] Error fetching similar products:', error);
-        // Keep the array empty on error
-        setSimilarProductsData([]);
-      } finally {
-        setLoadingSimilarProducts(false);
-      }
-    };
-    
-    fetchSimilarProducts();
-  }, [product]);
 
   // Similar Products rendering section with loading state
   const renderSimilarProductsSection = useMemo(() => {
@@ -631,6 +416,7 @@ const ProductsScreen = () => {
     
     // Otherwise show the similar products list
     return (
+      // @ts-ignore - Type safety is handled within the component
       <SimilarProducts 
         products={similarProductsData}
         onProductPress={handleSimilarProductPress}
@@ -638,294 +424,8 @@ const ProductsScreen = () => {
     );
   }, [similarProductsData, loadingSimilarProducts, handleSimilarProductPress]);
 
-  // Add API functions for wishlist operations as useCallback hooks
-  const checkProductInWishlist = useCallback(async (productId: string) => {
-    try {
-      if (!user?.email) {
-        console.error('[ProductsScreen] No user email found for wishlist check');
-        return false;
-      }
-      
-      // Wrap fetch in a try/catch and use a simple response check instead of json parsing
-      try {
-        const apiUrl = `${API_BASE_URL}/api/wishlist/${user.email}/check/${productId}`;
-        console.log(`[ProductsScreen] Checking wishlist status: ${apiUrl}`);
-        
-        const response = await fetch(apiUrl);
-        
-        if (!response.ok) {
-          console.error(`[ProductsScreen] API error: ${response.status}`);
-          return false;
-        }
-        
-        // Safely parse response to avoid issues
-        try {
-          const text = await response.text();
-          const data = text ? JSON.parse(text) : {};
-          return !!data.inWishlist;
-        } catch (parseError) {
-          console.error('[ProductsScreen] Error parsing response:', parseError);
-          return false;
-        }
-      } catch (fetchError) {
-        // Handle network errors
-        console.error('[ProductsScreen] Fetch error:', fetchError);
-        return false;
-      }
-    } catch (error) {
-      // Global error handler
-      console.error('[ProductsScreen] Error in checkProductInWishlist:', error);
-      return false;
-    }
-  }, [user?.email]);
-
-  const addProductToWishlist = useCallback(async (productId: string) => {
-    try {
-      if (!user?.email) {
-        console.error('[ProductsScreen] No user email found for wishlist add');
-        return false;
-      }
-      
-      console.log(`[ProductsScreen] Adding product ${productId} to wishlist for user ${user.email}`);
-      const apiUrl = `${API_BASE_URL}/api/wishlist/${user.email}?productId=${productId}`;
-      console.log(`[ProductsScreen] API URL: ${apiUrl}`);
-      
-      try {
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        });
-        
-        // Simple status check instead of complex error handling
-        if (response.status >= 200 && response.status < 300) {
-          console.log('[ProductsScreen] Successfully added product to wishlist');
-          return true;
-        } else {
-          console.error(`[ProductsScreen] Failed API response: ${response.status}`);
-          return false;
-        }
-      } catch (fetchError) {
-        console.error('[ProductsScreen] Fetch error:', fetchError);
-        return false;
-      }
-    } catch (error) {
-      console.error('[ProductsScreen] Error in addProductToWishlist:', error);
-      return false;
-    }
-  }, [user?.email]);
-
-  const removeProductFromWishlist = useCallback(async (productId: string) => {
-    try {
-      if (!user?.email) {
-        console.error('[ProductsScreen] No user email found for wishlist remove');
-        return false;
-      }
-      
-      try {
-        const apiUrl = `${API_BASE_URL}/api/wishlist/${user.email}/${productId}`;
-        console.log(`[ProductsScreen] Removing product from wishlist: ${apiUrl}`);
-        
-        const response = await fetch(apiUrl, {
-          method: 'DELETE',
-        });
-        
-        // Simple status check
-        if (response.status >= 200 && response.status < 300) {
-          console.log('[ProductsScreen] Successfully removed product from wishlist');
-          return true;
-        } else {
-          console.error(`[ProductsScreen] Failed API response: ${response.status}`);
-          return false;
-        }
-      } catch (fetchError) {
-        console.error('[ProductsScreen] Fetch error:', fetchError);
-        return false;
-      }
-    } catch (error) {
-      console.error('[ProductsScreen] Error in removeProductFromWishlist:', error);
-      return false;
-    }
-  }, [user?.email]);
-
-  // Function to check and refresh cache if needed
-  const refreshWishlistCache = useCallback(async () => {
-    if (!user?.email || !product?.id) return;
-    
-    try {
-      const productId = product.id.toString();
-      const cacheKey = `wishlist_${user.email}_${productId}`;
-      const cacheTimeKey = `${cacheKey}_timestamp`;
-      
-      // Check when the cache was last refreshed
-      const lastRefreshStr = await AsyncStorage.getItem(cacheTimeKey);
-      const lastRefresh = lastRefreshStr ? parseInt(lastRefreshStr, 10) : 0;
-      const now = Date.now();
-      
-      // If cache is older than 1 hour (3600000 ms), refresh it
-      if (now - lastRefresh > 3600000) {
-        console.log('[ProductsScreen] Cache is stale, refreshing from API');
-        
-        // Use safer API call
-        try {
-          const inWishlist = await checkProductInWishlist(productId);
-          
-          // Only update cache if API call succeeded
-          await AsyncStorage.setItem(cacheKey, inWishlist.toString());
-          await AsyncStorage.setItem(cacheTimeKey, now.toString());
-          setLastCacheRefresh(now);
-          setIsInWishlist(inWishlist);
-        } catch (apiError) {
-          console.error('[ProductsScreen] Error refreshing from API:', apiError);
-          // On error, extend cache lifetime but don't change status
-          await AsyncStorage.setItem(cacheTimeKey, now.toString());
-          setLastCacheRefresh(now);
-        }
-      } else {
-        setLastCacheRefresh(lastRefresh);
-      }
-    } catch (error) {
-      console.error('[ProductsScreen] Error refreshing wishlist cache:', error);
-    }
-  }, [user?.email, product?.id, checkProductInWishlist]);
-
-  // Add this useEffect to refresh cache when component mounts
-  useEffect(() => {
-    refreshWishlistCache();
-  }, [refreshWishlistCache]);
-
-  // Modify the checkWishlistStatus function inside the existing useEffect
-  useEffect(() => {
-    const checkWishlistStatus = async () => {
-      if (!product || !product.id || !user?.email) return;
-      
-      const productId = product.id.toString();
-      const cacheKey = `wishlist_${user.email}_${productId}`;
-      const cacheTimeKey = `${cacheKey}_timestamp`;
-      
-      try {
-        // Try to get cached wishlist status first
-        let cachedStatus = null;
-        try {
-          cachedStatus = await AsyncStorage.getItem(cacheKey);
-        } catch (cacheError) {
-          console.warn('[ProductsScreen] Error reading from cache:', cacheError);
-        }
-        
-        if (cachedStatus !== null) {
-          console.log('[ProductsScreen] Using cached wishlist status');
-          setIsInWishlist(cachedStatus === 'true');
-          
-          // Check when the cache was last refreshed
-          try {
-            const lastRefreshStr = await AsyncStorage.getItem(cacheTimeKey);
-            const lastRefresh = lastRefreshStr ? parseInt(lastRefreshStr, 10) : 0;
-            setLastCacheRefresh(lastRefresh);
-            
-            // If not refreshed recently, schedule a background refresh
-            const now = Date.now();
-            if (now - lastRefresh > 3600000) {
-              refreshWishlistCache();
-            }
-          } catch (timeError) {
-            console.warn('[ProductsScreen] Error reading timestamp:', timeError);
-          }
-          
-          return;
-        }
-        
-        // If no cache or cache read failed, check with API
-        console.log('[ProductsScreen] No cached status, checking with API');
-        const inWishlist = await checkProductInWishlist(productId);
-        setIsInWishlist(inWishlist);
-        
-        // Cache the result with timestamp
-        try {
-          const now = Date.now();
-          await AsyncStorage.setItem(cacheKey, inWishlist.toString());
-          await AsyncStorage.setItem(cacheTimeKey, now.toString());
-          setLastCacheRefresh(now);
-        } catch (saveError) {
-          console.warn('[ProductsScreen] Error saving to cache:', saveError);
-        }
-      } catch (error) {
-        console.error('[ProductsScreen] Error checking wishlist status:', error);
-        // Default to not in wishlist on error
-        setIsInWishlist(false);
-      }
-    };
-    
-    checkWishlistStatus();
-  }, [product, user?.email, checkProductInWishlist, refreshWishlistCache]);
-
-  // Update handleToggleWishlist to use safer error handling
-  const handleToggleWishlist = useCallback(async () => {
-    if (!product || !user?.email) {
-      Alert.alert('Error', 'You must be logged in to manage your wishlist');
-      return;
-    }
-    
-    const productId = product.id.toString();
-    const cacheKey = `wishlist_${user.email}_${productId}`;
-    const cacheTimeKey = `${cacheKey}_timestamp`;
-    
-    try {
-      let success = false;
-      
-      // Determine the action based on current state
-      const action = isInWishlist ? 'remove' : 'add';
-      console.log(`[ProductsScreen] Toggling wishlist - ${action} for product ${productId}`);
-      
-      if (isInWishlist) {
-        // Remove from wishlist
-        success = await removeProductFromWishlist(productId);
-      } else {
-        // Add to wishlist
-        success = await addProductToWishlist(productId);
-      }
-      
-      if (success) {
-        // Update the UI state
-        setIsInWishlist(!isInWishlist);
-        
-        // Try to update the cache
-        try {
-          const now = Date.now();
-          await AsyncStorage.setItem(cacheKey, (!isInWishlist).toString());
-          await AsyncStorage.setItem(cacheTimeKey, now.toString());
-          setLastCacheRefresh(now);
-        } catch (cacheError) {
-          console.warn('[ProductsScreen] Error updating cache:', cacheError);
-          // Continue even if cache update fails - UI is already updated
-        }
-      } else {
-        // Show a simple error without extra details
-        const actionVerb = isInWishlist ? 'removing from' : 'adding to';
-        Alert.alert(
-          'Wishlist Error',
-          `There was a problem ${actionVerb} your wishlist. Please try again.`,
-          [{ text: 'OK' }]
-        );
-      }
-    } catch (error) {
-      console.error('[ProductsScreen] Error in handleToggleWishlist:', error);
-      
-      // Show a simple error without exposing internal details
-      const actionVerb = isInWishlist ? 'removing from' : 'adding to';
-      Alert.alert(
-        'Wishlist Error',
-        `There was a problem ${actionVerb} your wishlist. Please try again.`,
-        [{ text: 'OK' }]
-      );
-    }
-  }, [product, isInWishlist, user?.email, addProductToWishlist, removeProductFromWishlist]);
-
   // Check if the current user is the seller of this product
-  const isCurrentUserSeller = useMemo(() => {
-    if (!user?.email || !product?.email) return false;
-    return user.email.toLowerCase() === product.email.toLowerCase();
-  }, [user?.email, product?.email]);
+  const isUserSeller = isCurrentUserSeller();
 
   if (isLoading) {
     return (
@@ -1000,7 +500,7 @@ const ProductsScreen = () => {
                   <Text style={styles.tagText}>{product.condition}</Text>
                 </View>
               )}
-              {/* Show selling type (sale/rent) if available */}
+              
               {product.sellingtype && (
                 <View style={[styles.tagItem, styles.sellingTypeTag]}>
                   <Text style={styles.tagText}>
@@ -1011,120 +511,103 @@ const ProductsScreen = () => {
             </View>
             
             {/* Wishlist heart button */}
-            <TouchableOpacity 
-              style={styles.wishlistButton}
-              onPress={handleToggleWishlist}
-            >
-              <FontAwesome 
-                name={isInWishlist ? "heart" : "heart-o"}
-                size={22} 
-                color={isInWishlist ? "#e74c3c" : "#666"} 
-              />
-            </TouchableOpacity>
+            {!isUserSeller && (
+              <TouchableOpacity 
+                style={[styles.wishlistButton, isInWishlist && styles.wishlistActiveButton]}
+                onPress={toggleWishlist}
+              >
+                <FontAwesome 
+                  name={isInWishlist ? "heart" : "heart-o"}
+                  size={22} 
+                  color={isInWishlist ? "#e74c3c" : "#666"} 
+                />
+              </TouchableOpacity>
+            )}
           </View>
           
-          {/* Debug Section - Only visible in development */}
-          {renderDebugSection}
-
-          {/* Description Section */}
+          {/* Description */}
           {renderDescriptionSection}
-
+          
           {/* Seller Profile - Only show if the current user is not the seller */}
-          {!isCurrentUserSeller && (
-            <>
-              <View style={styles.sellerSection}>
-                <Text style={styles.sectionTitle}>Seller Information</Text>
-                
-                <View style={styles.sellerProfileContainer}>
-                  {/* Top row with profile and details */}
-                  <View style={styles.sellerInfoContainer}>
-                    <View style={styles.profileImageWrapper}>
-                      <TouchableOpacity 
-                        style={styles.profileCircle}
-                        onPress={handleViewSellerProfile}
-                      >
-                        <Text style={styles.profileText}>
-                          {(() => {
-                            // Get the display name prioritizing sellerName, then seller.name
-                            const displayName = product.sellerName || product.seller?.name || '';
-                            return displayName ? displayName.charAt(0).toUpperCase() : 'S';
-                          })()}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                    
-                    <View style={styles.sellerDetails}>
-                      <Text style={styles.sellerName}>
-                        {product.sellerName || product.seller?.name || 'Unknown Seller'}
-                      </Text>
-                      <View style={styles.sellerMetaInfo}>
-                        {product.seller?.rating && (
-                          <View style={styles.sellerRatingContainer}>
-                            <RatingStars rating={product.seller.rating} />
-                            <Text style={styles.ratingText}>{product.seller.rating.toFixed(1)}</Text>
-                          </View>
-                        )}
-                        <View style={styles.sellerBadgeContainer}>
-                          <View style={styles.verifiedBadge}>
-                            <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
-                            <Text style={styles.verifiedText}>Verified</Text>
-                          </View>
-                        </View>
-                      </View>
-                    </View>
-                    
+          {!isUserSeller && (
+            <View style={styles.sellerSection}>
+              <Text style={styles.sectionTitle}>Seller Information</Text>
+              
+              <View style={styles.sellerProfileContainer}>
+                {/* Top row with profile and details */}
+                <View style={styles.sellerInfoContainer}>
+                  <View style={styles.profileImageWrapper}>
                     <TouchableOpacity 
-                      style={styles.viewProfileButton}
+                      style={styles.profileCircle}
                       onPress={handleViewSellerProfile}
                     >
-                      <Text style={styles.viewProfileText}>View Profile</Text>
-                      <Ionicons name="chevron-forward" size={16} color="#f7b305" />
+                      <Text style={styles.profileText}>
+                        {(() => {
+                          // Get the display name prioritizing sellerName, then seller.name
+                          const displayName = product.sellerName || product.seller?.name || '';
+                          return displayName ? displayName.charAt(0).toUpperCase() : 'S';
+                        })()}
+                      </Text>
                     </TouchableOpacity>
                   </View>
                   
-                  {/* Contact button with gradient-like effect */}
+                  <View style={styles.sellerDetails}>
+                    <Text style={styles.sellerName}>
+                      {product.sellerName || product.seller?.name || 'Unknown Seller'}
+                    </Text>
+                    <View style={styles.sellerMetaInfo}>
+                      {product.seller?.rating && (
+                        <View style={styles.sellerRatingContainer}>
+                          <RatingStars rating={product.seller.rating} />
+                          <Text style={styles.ratingText}>{product.seller.rating.toFixed(1)}</Text>
+                        </View>
+                      )}
+                      <View style={styles.sellerBadgeContainer}>
+                        <View style={styles.verifiedBadge}>
+                          <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
+                          <Text style={styles.verifiedText}>Verified</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                  
                   <TouchableOpacity 
-                    style={styles.contactSellerButton}
-                    onPress={() => handleContactSeller('message')}
+                    style={styles.viewProfileButton}
+                    onPress={handleViewSellerProfile}
                   >
-                    <Ionicons name="chatbubble-outline" size={18} color="#FFF" />
-                    <Text style={styles.contactButtonText}>Message Seller</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-              
-              {/* Seller Reviews - Also only show if current user is not the seller */}
-              <View style={styles.sectionContainer}>
-                <View style={styles.sectionTitleRow}>
-                  <Text style={styles.sectionTitle}>Reviews</Text>
-                  <TouchableOpacity>
-                    <Text style={styles.seeAllText}>See all</Text>
+                    <Text style={styles.viewProfileText}>View Profile</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#f7b305" />
                   </TouchableOpacity>
                 </View>
                 
-                {sellerReviews.map(review => (
-                  <View key={review.id} style={styles.reviewItem}>
-                    <View style={styles.reviewHeader}>
-                      <Text style={styles.reviewName}>{review.name}</Text>
-                      <RatingStars rating={review.rating} />
-                    </View>
-                    <Text style={styles.reviewText}>{review.text}</Text>
-                  </View>
-                ))}
+                {/* Contact button with gradient-like effect */}
+                <TouchableOpacity 
+                  style={styles.contactSellerButton}
+                  onPress={() => handleContactSeller('message')}
+                >
+                  <Ionicons name="chatbubble-outline" size={18} color="#FFF" />
+                  <Text style={styles.contactButtonText}>Message Seller</Text>
+                </TouchableOpacity>
               </View>
-            </>
+            </View>
           )}
           
           {/* Your own product indicator - show when the current user is the seller */}
-          {isCurrentUserSeller && (
+          {isUserSeller && (
             <View style={styles.ownProductContainer}>
               <Ionicons name="checkmark-circle" size={22} color="#4CAF50" />
               <Text style={styles.ownProductText}>This is your product listing</Text>
             </View>
           )}
           
-          {/* Similar Products - Showing dynamic content */}
+          {/* Similar Products */}
           {renderSimilarProductsSection}
+          
+          {/* Debug Info - Hidden in Production */}
+          {renderDebugSection}
+          
+          {/* Bottom padding */}
+          <View style={styles.bottomPadding} />
         </View>
       </ScrollView>
       
@@ -1132,7 +615,7 @@ const ProductsScreen = () => {
       <ImageZoomModal 
         visible={zoomVisible}
         imageUri={selectedImage}
-        onClose={() => setZoomVisible(false)}
+        onClose={closeZoom}
       />
     </SafeAreaView>
   );
@@ -1415,50 +898,15 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   
-  sellerSection: {
+  sellerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: 20,
     paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#eeeeee',
   },
-  sellerProfileContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#eeeeee',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 0,
-      },
-    }),
-  },
-  sellerInfoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    position: 'relative',
-  },
-  profileImageWrapper: {
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 0,
-      },
-    }),
-  },
-  profileCircle: {
+  sellerAvatar: {
     width: 60,
     height: 60,
     borderRadius: 30,
@@ -1468,12 +916,12 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: 'white',
   },
-  profileText: {
+  sellerAvatarText: {
     fontSize: 24,
     fontWeight: 'bold',
     color: 'white',
   },
-  sellerDetails: {
+  sellerInfo: {
     marginLeft: 16,
     flex: 1,
   },
@@ -1483,14 +931,9 @@ const styles = StyleSheet.create({
     color: '#222',
     marginBottom: 6,
   },
-  sellerMetaInfo: {
+  sellerRating: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  sellerRatingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 12,
   },
   ratingText: {
     fontSize: 14,
@@ -1498,39 +941,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 4,
   },
-  sellerBadgeContainer: {
-    flexDirection: 'row',
-  },
-  verifiedBadge: {
+  sellerContact: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(76, 175, 80, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
   },
-  verifiedText: {
-    fontSize: 12,
-    color: '#4CAF50',
-    fontWeight: '600',
-    marginLeft: 2,
-  },
-  viewProfileButton: {
+  contactButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    position: 'absolute',
-    right: 0,
-    top: 0,
-  },
-  viewProfileText: {
-    fontSize: 13,
-    color: '#f7b305',
-    fontWeight: '600',
-  },
-  contactSellerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     paddingVertical: 14,
     paddingHorizontal: 18,
     borderRadius: 16,
@@ -1667,48 +1084,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: 'white',
   },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'white',
-    flexDirection: 'row',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#eeeeee',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -3 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    paddingVertical: 14,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: 4,
-  },
-  actionButtonIcon: {
-    marginRight: 8,
-  },
-  offerButton: {
-    backgroundColor: '#2ecc71',
-  },
-  actionButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
+  bottomPadding: {
+    height: 100, // Adjust this value based on your design
   },
   modalBackground: {
     flex: 1,
@@ -1777,6 +1154,129 @@ const styles = StyleSheet.create({
   wishlistButton: {
     padding: 8,
     marginLeft: 6,
+  },
+  wishlistActiveButton: {
+    backgroundColor: '#e74c3c',
+  },
+  sellerSection: {
+    marginTop: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eeeeee',
+  },
+  sellerProfileContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#eeeeee',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
+  },
+  sellerInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    position: 'relative',
+  },
+  profileImageWrapper: {
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
+  },
+  profileCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'black',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'white',
+  },
+  profileText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  sellerDetails: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  sellerMetaInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sellerRatingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  sellerBadgeContainer: {
+    flexDirection: 'row',
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  verifiedText: {
+    fontSize: 12,
+    color: '#4CAF50',
+    fontWeight: '600',
+    marginLeft: 2,
+  },
+  viewProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
+  viewProfileText: {
+    fontSize: 13,
+    color: '#f7b305',
+    fontWeight: '600',
+  },
+  contactSellerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    backgroundColor: '#f7b305',
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(247, 179, 5, 0.5)',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
   },
   ownProductContainer: {
     flexDirection: 'row',
