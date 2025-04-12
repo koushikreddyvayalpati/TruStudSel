@@ -78,6 +78,7 @@ interface BackendUserData {
   university?: string;
   userphoto?: string;
   zipcode?: string;
+  userRating?: string;
 }
 
 // Extract profile header component for better code organization and performance
@@ -147,13 +148,13 @@ const ProfileHeader = React.memo(({
       </View>
       <View style={styles.statDivider} />
       <View style={styles.statItem}>
-        <Text style={styles.statNumber}>{userData.totalProducts}</Text>
+        <Text style={styles.statNumber}>{backendUserData?.userRating || '0'}</Text>
         <View style={styles.statLabelRow}>
           <Text style={styles.statLabel}>Rating</Text>
         </View>
       </View>
     </View>
-  ), [userData.soldProducts, userData.totalProducts, filteredPosts.length, isLoadingProducts]);
+  ), [userData.soldProducts, backendUserData?.userRating, filteredPosts.length, isLoadingProducts]);
 
   return (
     <View style={styles.profileContainer}>
@@ -455,7 +456,8 @@ const processUserData = (user: any, backendUser: BackendUserData | null) => {
     city: backendUser?.city || '',
     totalProducts: parseInt(backendUser?.productsListed || '0', 10),
     soldProducts: backendUser?.productssold || '0',
-    wishlist: backendUser?.productswishlist || []
+    wishlist: backendUser?.productswishlist || [],
+    userRating: backendUser?.userRating || '0'
   };
 };
 
@@ -1025,7 +1027,8 @@ const ProfileScreen: React.FC = () => {
     soldProducts: '0',
     totalProducts: 0,
     city: '',
-    wishlist: []
+    wishlist: [],
+    userRating: '0'
   };
 
   // Render the profile screen
@@ -1853,6 +1856,17 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  stat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statValue: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#000000',
+    marginRight: 4,
   },
 });
 
