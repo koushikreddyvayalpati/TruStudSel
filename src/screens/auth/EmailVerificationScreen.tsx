@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -13,8 +13,7 @@ import {
   ScrollView
 } from 'react-native';
 import { Auth } from 'aws-amplify';
-import { useNavigation } from '@react-navigation/native';
-import { EmailVerificationScreenProps, SignInScreenNavigationProp } from '../../types/navigation.types';
+import { EmailVerificationScreenProps } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
 import { TextInput } from '../../components/common';
 import Entypo from 'react-native-vector-icons/Entypo';
@@ -23,9 +22,7 @@ import LinearGradient from 'react-native-linear-gradient';
 // For consistent logging in development
 const SCREEN_NAME = 'EmailVerification';
 
-const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route }) => {
-  // Get navigation using useNavigation hook like in SignInScreen
-  const navigation = useNavigation<SignInScreenNavigationProp>();
+const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route, navigation }) => {
   const { theme } = useTheme();
   const [email, setEmail] = useState(route.params?.email || '');
   const [name, setName] = useState('');
@@ -73,31 +70,6 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
       console.log(`[${SCREEN_NAME}] ${message}`);
     }
   };
-
-  // Simple navigation handler with logging
-  const goBack = useCallback(() => {
-    logDebug('Attempting to go back to SignIn');
-    
-    // Try direct navigation - simple approach
-    try {
-      logDebug('Using navigation.goBack()');
-      navigation.goBack();
-    } catch (e) {
-      logDebug('Navigation error:', e);
-      
-      // Fallback to reset navigation
-      try {
-        logDebug('Fallback: Using navigation.reset()');
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'SignIn' }],
-        });
-      } catch (resetError) {
-        logDebug('Reset navigation error:', resetError);
-        Alert.alert('Navigation Error', 'Unable to navigate back. Please restart the app.');
-      }
-    }
-  }, [navigation]);
 
   const handleContinue = async () => {
     logDebug('Continue button pressed');
@@ -267,6 +239,15 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {/* Fixed position back button */}
+      <TouchableOpacity 
+        style={styles.fixedBackButton}
+        onPress={() => navigation.navigate('SignIn')}
+        activeOpacity={0.7}
+      >
+        <Entypo name="chevron-left" size={32} color={theme.colors.secondary} />
+      </TouchableOpacity>
+      
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoidingView}
@@ -278,15 +259,7 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
           ]}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.header}>
-            <TouchableOpacity 
-              onPress={goBack} 
-              style={styles.backButton}
-              activeOpacity={0.7}
-            >
-              <Entypo name="chevron-left" size={28} color={theme.colors.secondary} />
-            </TouchableOpacity>
-          </View> 
+          
           
           <Animated.View 
             style={[
@@ -413,10 +386,11 @@ const styles = StyleSheet.create({
     }),
   },
   header: {
-    height: 50,
+    height: 60,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 15,
+    marginBottom: 10,
     ...Platform.select({
       android: {
         marginTop: 20,
@@ -424,21 +398,43 @@ const styles = StyleSheet.create({
       }
     }),
   },
-  backButton: {
-    padding: 10,
-    paddingLeft: 0,
-    marginTop: 5,
+  backButtonWrapper: {
+    backgroundColor: 'rgba(220,220,220,0.3)',
+    padding: 5,
+    borderRadius: 12,
     marginRight: 10,
+    width: 60,
+    height: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
     ...Platform.select({
       android: {
         marginTop: 0,
-        paddingBottom: 0,
       }
     }),
   },
+  backButton: {
+    width: 50,
+    height: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 25,
+  },
+  textBackButton: {
+    backgroundColor: 'rgba(200,200,200,0.3)',
+    padding: 12,
+    borderRadius: 8,
+    marginLeft: 10,
+  },
+  textBackButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    letterSpacing: 0.5,
+  },
   contentContainer: {
     padding: 20,
-    paddingTop: 0,
+    paddingTop: 35,
     flex: 1,
   },
   title: {
@@ -571,6 +567,29 @@ const styles = StyleSheet.create({
   bottomRightCorner: {
     bottom: -50,
     right: -50,
+  },
+  fixedBackButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 30,
+    left: 4,
+    zIndex: 999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  fixedBackButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 4,
+    color: '#333',
   },
 });
 
