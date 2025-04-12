@@ -13,7 +13,8 @@ import {
   Dimensions,
   TextInput,
   ScrollView,
-  ActivityIndicator
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -308,6 +309,20 @@ const BackToTopButton = React.memo<{
   );
 });
 
+// Add a LoadingOverlay component for filtering and sorting operations
+const LoadingOverlay: React.FC<{ visible: boolean, message: string }> = ({ visible, message }) => {
+  if (!visible) return null;
+  
+  return (
+    <View style={styles.loadingOverlay}>
+      <View style={styles.loadingOverlayContent}>
+        <ActivityIndicator size="large" color="#f7b305" />
+        <Text style={styles.loadingOverlayText}>{message}</Text>
+      </View>
+    </View>
+  );
+};
+
 // Main component
 const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigation, route }) => {
   const { user } = useAuth();
@@ -439,32 +454,28 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     refreshProducts();
   }, [refreshProducts]);
 
-  // Handler for sort button click
-  const handleSortButtonClick = useCallback(() => {
-    setSortDropdownVisible(!isSortDropdownVisible);
-    if (isFilterDropdownVisible) {
-      setFilterDropdownVisible(false);
-    }
-  }, [isSortDropdownVisible, isFilterDropdownVisible, setSortDropdownVisible, setFilterDropdownVisible]);
+  // Add a loading state for sort operations
+  const [isSorting, setIsSorting] = useState(false);
 
-  // Handler for filter button click
-  const handleFilterButtonClick = useCallback(() => {
-    setFilterDropdownVisible(!isFilterDropdownVisible);
-    if (isSortDropdownVisible) {
-      setSortDropdownVisible(false);
-    }
-  }, [isFilterDropdownVisible, isSortDropdownVisible, setFilterDropdownVisible, setSortDropdownVisible]);
-
-  // Handler for sort option selection
+  // Handler for sort option selection - improved with visual feedback
   const handleSortOptionSelect = useCallback((option: string) => {
+    // Show sorting spinner
+    setIsSorting(true);
+    
+    // Update the selected option immediately
     setSelectedSortOption(option);
     setSortDropdownVisible(false);
     
     // Apply filters with the new sort option
     setTimeout(() => {
       applyFilters();
+      // Hide spinner after sorting is done
+      setIsSorting(false);
     }, 100);
   }, [setSelectedSortOption, setSortDropdownVisible, applyFilters]);
+
+  // Update the component to track filtering state
+  const [isFiltering, setIsFiltering] = useState(false);
 
   // Handler for filter option selection
   const handleFilterOptionSelect = useCallback((option: string) => {
@@ -474,16 +485,87 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
       ? currentFilters.filter(id => id !== option)
       : [...currentFilters, option];
     
-    // Set the new filters array
+    // Only update the selected filters, don't apply them yet
     setSelectedFilters(newFilters);
     
-    // Don't close the dropdown so the user can continue selecting options
+    // We'll only apply filters when the "Apply Filters" button is clicked
   }, [selectedFilters, setSelectedFilters]);
 
-  // Handler for clearing all filters
+  // Add an Apply Filters button handler
+  const handleApplyFilters = useCallback(() => {
+    setIsFiltering(true);
+    setFilterDropdownVisible(false);
+    
+    // Apply filters after a short delay to allow UI to update
+    setTimeout(() => {
+      applyFilters();
+      setIsFiltering(false);
+    }, 100);
+  }, [applyFilters, setFilterDropdownVisible]);
+
+  // Update Clear Filters to restore original products
   const handleClearFilters = useCallback(() => {
-    clearFilters();
-  }, [clearFilters]);
+    if (selectedFilters.length > 0 && selectedSortOption !== 'default' && searchQuery.trim() !== '') {
+      Alert.alert(
+        "Clear All",
+        "Do you want to clear all filters, sorting, and search?",
+        [
+          {
+            text: "Clear All",
+            onPress: () => {
+              // Show loading spinner during clear operation
+              setIsFiltering(true);
+              setTimeout(() => {
+                clearFilters();
+                setIsFiltering(false);
+              }, 100);
+            }
+          },
+          {
+            text: "Clear Filters Only",
+            onPress: () => {
+              setIsFiltering(true);
+              setTimeout(() => {
+                setSelectedFilters([]);
+                applyFilters(); // Apply with empty filters
+                setIsFiltering(false);
+              }, 100);
+            }
+          },
+          {
+            text: "Clear Sort Only",
+            onPress: () => {
+              setIsSorting(true);
+              setTimeout(() => {
+                setSelectedSortOption('default');
+                applyFilters(); // Apply with default sort
+                setIsSorting(false);
+              }, 100);
+            }
+          },
+          {
+            text: "Cancel",
+            style: "cancel"
+          }
+        ]
+      );
+    } else {
+      // Show loading indicator during clear operation
+      if (selectedFilters.length > 0) {
+        setIsFiltering(true);
+      } else if (selectedSortOption !== 'default') {
+        setIsSorting(true);
+      } else {
+        setIsFiltering(true);
+      }
+      
+      setTimeout(() => {
+        clearFilters();
+        setIsFiltering(false);
+        setIsSorting(false);
+      }, 100);
+    }
+  }, [clearFilters, selectedFilters, selectedSortOption, searchQuery, setSelectedFilters, setSelectedSortOption, applyFilters]);
 
   // Initial data load on mount
   useEffect(() => {
@@ -574,19 +656,30 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     // so we could enhance it if needed
   }, [loadMore]);
   
-  // Apply filters whenever selectedFilters changes
+  // We might need to keep an effect for handling searchQuery changes
   useEffect(() => {
-    if (selectedFilters.length === 0 && selectedSortOption === 'default') return;
-    
-    console.log(`[CategoryProducts] Filter/sort effect triggered`);
-    
-    // Small timeout to debounce multiple filter selections
-    const timeoutId = setTimeout(() => {
-      applyFilters();
-    }, 100);
-    
-    return () => clearTimeout(timeoutId);
-  }, [selectedFilters, selectedSortOption, applyFilters]);
+    // Only run this effect for search query changes
+    if (searchQuery && searchQuery.trim() !== '') {
+      // This is for search functionality only - not for regular filters
+      console.log(`[CategoryProducts] Search query changed, searching for: "${searchQuery}"`);
+    }
+  }, [searchQuery]);
+
+  // Remove the refs, layouts and measurement code that's causing errors
+  // Keep the original handlers without the measure calls
+  const handleSortButtonClick = useCallback(() => {
+    setSortDropdownVisible(!isSortDropdownVisible);
+    if (isFilterDropdownVisible) {
+      setFilterDropdownVisible(false);
+    }
+  }, [isSortDropdownVisible, isFilterDropdownVisible, setSortDropdownVisible, setFilterDropdownVisible]);
+
+  const handleFilterButtonClick = useCallback(() => {
+    setFilterDropdownVisible(!isFilterDropdownVisible);
+    if (isSortDropdownVisible) {
+      setSortDropdownVisible(false);
+    }
+  }, [isFilterDropdownVisible, isSortDropdownVisible, setFilterDropdownVisible, setSortDropdownVisible]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -624,10 +717,22 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
             {/* Clear filters button - only visible if filters are applied */}
             {(selectedFilters.length > 0 || selectedSortOption !== 'default' || searchQuery.trim() !== '') && (
               <TouchableOpacity
-                style={styles.clearFiltersButton}
+                style={[
+                  styles.clearFiltersButton,
+                  (selectedFilters.length > 3 || selectedSortOption !== 'default') && styles.emphasizedClearButton
+                ]}
                 onPress={handleClearFilters}
+                disabled={isSorting || isFiltering}
               >
-                <Text style={styles.clearFiltersText}>Clear All</Text>
+                <Text style={styles.clearFiltersText}>
+                  {(selectedFilters.length > 0 && selectedSortOption !== 'default') ? 
+                    `Clear All (${selectedFilters.length + 1})` : 
+                    selectedFilters.length > 0 ? 
+                      `Clear Filters (${selectedFilters.length})` : 
+                      selectedSortOption !== 'default' ? 
+                        'Clear Sort' : 
+                        'Clear All'}
+                </Text>
                 <MaterialIcons name="clear" size={14} color="#f7b305" />
               </TouchableOpacity>
             )}
@@ -640,18 +745,23 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
                 selectedSortOption !== 'default' && styles.activeFilterButton
               ]}
               onPress={handleSortButtonClick}
+              disabled={isSorting}
             >
               <Text style={styles.filterButtonText}>
                 {selectedSortOption !== 'default' ? 
                   `Sort: ${sortOptions.find(o => o.id === selectedSortOption)?.label || 'Custom'}` : 
                   'Sort'}
               </Text>
-              <Icon name="sort" size={14} color="black" />
+              {isSorting ? (
+                <ActivityIndicator size="small" color="black" style={{ marginLeft: 5 }} />
+              ) : (
+                <Icon name="sort" size={14} color="black" />
+              )}
             </TouchableOpacity>
             
             {/* Sort dropdown */}
             {isSortDropdownVisible && (
-              <View style={styles.dropdownContainer}>
+              <View style={styles.sortDropdownContainer}>
                 <EnhancedDropdown
                   items={sortOptions}
                   selectedItems={[selectedSortOption]}
@@ -679,7 +789,7 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
             
             {/* Filter dropdown */}
             {isFilterDropdownVisible && (
-              <View style={styles.dropdownContainer}>
+              <View style={styles.filterDropdownContainer}>
                 <EnhancedDropdown
                   items={filterOptions}
                   selectedItems={selectedFilters}
@@ -688,6 +798,12 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
                   title="Filter By"
                   onClose={() => setFilterDropdownVisible(false)}
                 />
+                <TouchableOpacity 
+                  style={styles.applyFiltersButton}
+                  onPress={handleApplyFilters}
+                >
+                  <Text style={styles.applyFiltersText}>Apply Filters</Text>
+                </TouchableOpacity>
               </View>
             )}
           </View>
@@ -734,6 +850,12 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
             <MaterialIcons name="keyboard-arrow-up" size={24} color="white" />
           </TouchableOpacity>
         )}
+
+        {/* Loading overlay for filtering and sorting */}
+        <LoadingOverlay 
+          visible={isSorting || isFiltering} 
+          message={isSorting ? "Sorting products..." : "Applying filters..."}
+        />
       </View>
     </SafeAreaView>
   );
@@ -813,8 +935,8 @@ const styles = StyleSheet.create({
   },
   dropdownContainer: {
     position: 'absolute',
-    top: 145,
-    right: 15,
+    top: 40,
+    right: 0,
     zIndex: 1000,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1083,6 +1205,75 @@ const styles = StyleSheet.create({
     padding: 4,
     borderRadius: 12,
     backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  emphasizedClearButton: {
+    backgroundColor: '#fff0d4',
+    borderColor: '#f7b305',
+    borderWidth: 1.5,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  loadingOverlayContent: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  loadingOverlayText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  applyFiltersButton: {
+    backgroundColor: '#f7b305',
+    padding: 12,
+    borderRadius: 5,
+    margin: 10,
+    alignItems: 'center',
+  },
+  applyFiltersText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  sortDropdownContainer: {
+    position: 'absolute',
+    top: 38,
+    right: 0,
+    width: 260,
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 8,
+  },
+  filterDropdownContainer: {
+    position: 'absolute',
+    top: 38,
+    right: 0,
+    width: 260,
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 8,
   },
 });
 

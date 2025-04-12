@@ -436,74 +436,108 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
     // Skip if no original products
     if (state.productsOriginal.length === 0) return;
     
+    // Start with a fresh copy of the original products
     let filteredProducts = [...state.productsOriginal];
+    
+    // Track if any operations were applied
+    let operationsApplied = false;
     
     // Apply filters first
     if (state.selectedFilters.length > 0) {
-      // Create sets of condition and selling type filters for easier checking
-      const conditionFilters = state.selectedFilters.filter(filter => 
-        ['brand-new', 'like-new', 'very-good', 'good', 'acceptable', 'for-parts'].includes(filter)
+      operationsApplied = true;
+      
+      // Pre-process filter arrays for faster lookups
+      const conditionFilters = new Set(
+        state.selectedFilters.filter(filter => 
+          ['brand-new', 'like-new', 'very-good', 'good', 'acceptable', 'for-parts'].includes(filter)
+        )
       );
       
-      const sellingTypeFilters = state.selectedFilters.filter(filter => 
-        ['rent', 'sell', 'free'].includes(filter)
+      const sellingTypeFilters = new Set(
+        state.selectedFilters.filter(filter => 
+          ['rent', 'sell', 'free'].includes(filter)
+        )
       );
       
+      const hasFreeFilter = sellingTypeFilters.has('free');
+      const hasConditionFilters = conditionFilters.size > 0;
+      const hasSellingTypeFilters = sellingTypeFilters.size > 0;
+      
+      // Apply all filters in a single pass
       filteredProducts = filteredProducts.filter(product => {
-        // Check if we need to filter by condition
-        if (conditionFilters.length > 0) {
-          // If this product doesn't match any of our selected condition filters, filter it out
+        // Check condition filters if needed
+        if (hasConditionFilters) {
           const productCondition = product.productage || '';
-          const passesConditionFilter = conditionFilters.includes(productCondition);
-          
-          if (!passesConditionFilter) {
+          if (!conditionFilters.has(productCondition)) {
             return false;
           }
         }
         
-        // Check if we need to filter by selling type
-        if (sellingTypeFilters.length > 0) {
+        // Check selling type filters if needed
+        if (hasSellingTypeFilters) {
           const productSellingType = product.sellingtype || '';
           const isFree = parseFloat(product.price) === 0;
           
           // Special case for free items
-          if (sellingTypeFilters.includes('free') && isFree) {
-            return true; // Keep free items when "free" filter is active
-          }
-          
-          // Check for rent/sell filters
-          if (sellingTypeFilters.includes('rent') && productSellingType === 'rent') {
+          if (hasFreeFilter && isFree) {
             return true;
           }
           
-          if (sellingTypeFilters.includes('sell') && productSellingType === 'sell') {
+          // Regular selling type checks
+          if ((sellingTypeFilters.has('rent') && productSellingType === 'rent') || 
+              (sellingTypeFilters.has('sell') && productSellingType === 'sell')) {
             return true;
           }
           
-          // If we have selling type filters but this product doesn't match any, filter it out
-          if (!sellingTypeFilters.includes('free') || !isFree) {
-            return false;
-          }
+          // If we have selling type filters but nothing matched, filter out
+          return false;
         }
         
-        // If we get here, the product passed all active filters
         return true;
       });
     }
     
     // Then apply sorting
     if (state.selectedSortOption !== 'default') {
+      operationsApplied = true;
+      
+      // Use more efficient sorting algorithms
       switch (state.selectedSortOption) {
         case 'price_low_high':
-          filteredProducts.sort((a, b) => parseFloat(a.price || '0') - parseFloat(b.price || '0'));
+          // Convert price to number once for better performance
+          filteredProducts.sort((a, b) => {
+            const priceA = parseFloat(a.price || '0');
+            const priceB = parseFloat(b.price || '0');
+            return priceA - priceB;
+          });
           break;
         case 'price_high_low':
-          filteredProducts.sort((a, b) => parseFloat(b.price || '0') - parseFloat(a.price || '0'));
+          filteredProducts.sort((a, b) => {
+            const priceA = parseFloat(a.price || '0');
+            const priceB = parseFloat(b.price || '0');
+            return priceB - priceA;
+          });
           break;
         case 'newest':
+          // Cache date objects for better performance
+          const getDateValue = (product: any) => {
+            if (!product.postingdate) return 0;
+            // Use a simple timestamp number instead of Date object for better performance
+            return new Date(product.postingdate).getTime();
+          };
+          
+          // Create a cache of computed values
+          const dateCache = new Map<string, number>();
+          
+          // Populate cache
+          filteredProducts.forEach(product => {
+            dateCache.set(product.id, getDateValue(product));
+          });
+          
+          // Sort using cache
           filteredProducts.sort((a, b) => {
-            const dateA = (a as any).postingdate ? new Date((a as any).postingdate).getTime() : 0;
-            const dateB = (b as any).postingdate ? new Date((b as any).postingdate).getTime() : 0;
+            const dateA = dateCache.get(a.id) || 0;
+            const dateB = dateCache.get(b.id) || 0;
             return dateB - dateA;
           });
           break;
@@ -516,18 +550,32 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
       }
     }
     
-    // Update the products state with filtered and sorted products
-    set({ products: filteredProducts });
+    // Only update the state if changes were made
+    if (operationsApplied) {
+      // Update the products state with filtered and sorted products
+      set({ products: filteredProducts });
+    }
   },
   
   // Clear all filters and sorting
   clearFilters: () => {
-    set(state => ({
-      selectedFilters: [],
-      selectedSortOption: 'default',
-      searchQuery: '',
-      products: [...state.productsOriginal]
-    }));
+    console.log('[CategoryStore] Clearing all filters and restoring original products');
+    
+    set(state => {
+      // Create a deep copy of the original products to avoid reference issues
+      const restoredProducts = [...state.productsOriginal];
+      
+      return {
+        selectedFilters: [],
+        selectedSortOption: 'default',
+        searchQuery: '',
+        // Restore the original product list exactly as it was
+        products: restoredProducts,
+        // Close any open dropdowns
+        isSortDropdownVisible: false,
+        isFilterDropdownVisible: false
+      };
+    });
   },
   
   // Load more products (pagination)
