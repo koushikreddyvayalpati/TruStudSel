@@ -23,7 +23,7 @@ const convertProductToPost = (product: Product): Post => ({
   caption: product.name,
   price: `$${product.price}`,
   condition: product.productage || 'Unknown',
-  status: product.status === 'SOLD' ? 'sold' : (product.status === 'ARCHIVED' ? 'archived' : 'active')
+  status: product.status === 'sold' ? 'sold' : (product.status === 'archived' ? 'archived' : 'available')
 });
 
 // Post item type
@@ -33,11 +33,11 @@ interface Post {
   caption: string;
   price?: string;
   condition?: string;
-  status?: 'active' | 'sold' | 'archived';
+  status?: 'available' | 'sold' | 'archived';
 }
 
 // Define tab types
-type TabType = 'inMarket' | 'archive';
+type TabType = 'inMarket' | 'archive' | 'sold';
 
 // Add this interface for backend user data
 interface BackendUserData {
@@ -148,9 +148,11 @@ const useProfileStore = create<ProfileState>((set, get) => ({
     const { products, activeTab } = get();
     
     if (activeTab === 'inMarket') {
-      return products.filter(post => post.status === 'active');
+      return products.filter(post => post.status === 'available');
     } else if (activeTab === 'archive') {
-      return products.filter(post => post.status === 'sold' || post.status === 'archived');
+      return products.filter(post => post.status === 'archived');
+    } else if (activeTab === 'sold') {
+      return products.filter(post => post.status === 'sold');
     }
     
     return products;
@@ -296,8 +298,8 @@ const useProfileStore = create<ProfileState>((set, get) => ({
             });
             
             const filteredPosts = get().activeTab === 'inMarket'
-              ? formattedPosts.filter(post => post.status === 'active')
-              : formattedPosts.filter(post => post.status === 'sold' || post.status === 'archived');
+              ? formattedPosts.filter(post => post.status === 'available')
+              : formattedPosts.filter(post => post.status === 'archived');
             
             set({
               products: formattedPosts,
@@ -335,8 +337,8 @@ const useProfileStore = create<ProfileState>((set, get) => ({
             });
             
             const filteredPosts = get().activeTab === 'inMarket'
-              ? formattedPosts.filter(post => post.status === 'active')
-              : formattedPosts.filter(post => post.status === 'sold' || post.status === 'archived');
+              ? formattedPosts.filter(post => post.status === 'available')
+              : formattedPosts.filter(post => post.status === 'archived');
             
             set({
               products: formattedPosts,
@@ -371,8 +373,8 @@ const useProfileStore = create<ProfileState>((set, get) => ({
           });
           
           const filteredPosts = get().activeTab === 'inMarket'
-            ? formattedPosts.filter(post => post.status === 'active')
-            : formattedPosts.filter(post => post.status === 'sold' || post.status === 'archived');
+            ? formattedPosts.filter(post => post.status === 'available')
+            : formattedPosts.filter(post => post.status === 'archived');
           
           set({
             products: formattedPosts,
@@ -410,9 +412,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
         return post;
       });
       
-      const filteredPosts = get().activeTab === 'inMarket'
-        ? formattedPosts.filter(post => post.status === 'active')
-        : formattedPosts.filter(post => post.status === 'sold' || post.status === 'archived');
+      const filteredPosts = get().getFilteredProducts();
       
       // Update store state
       set({

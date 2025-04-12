@@ -38,7 +38,7 @@ const processProductImages = (product: any): any => {
 };
 
 // Define product status enum for better type safety
-export type ProductStatus = 'ACTIVE' | 'SOLD' | 'ARCHIVED' | 'PENDING';
+export type ProductStatus = 'available' | 'sold' | 'archived' | 'pending';
 
 // Product types
 export interface Product {
@@ -866,24 +866,32 @@ const btoa = (input: string): string => {
  * @returns The updated product
  */
 export const updateProductStatus = async (id: string, status: string): Promise<Product> => {
-  console.log(`[API:products] Updating product status: ${id} to ${status}`);
-  
   try {
-    // Use the exact format as shown in the curl example
-    const response = await fetchWithTimeout(
-      `${API_URL}/api/products/${encodeURIComponent(id)}/status?status=${status}`,
-      { 
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      }
-    );
+    console.log(`[API:products] Updating product ${id} status to: ${status}`);
     
-    const updatedProduct = await handleResponse<Product>(response);
-    console.log('[API:products] Product status updated successfully:', updatedProduct.id);
+    // Validate status
+    const validStatuses = ['available', 'sold', 'archived', 'pending'];
+    if (!validStatuses.includes(status.toLowerCase())) {
+      throw new Error(`Invalid product status: ${status}. Must be one of: ${validStatuses.join(', ')}`);
+    }
     
-    return updatedProduct;
+    // Make API call
+    const url = `${API_BASE_URL}/products/${id}/status`;
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status: status.toLowerCase() }),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to update product status: ${response.status} - ${errorText}`);
+    }
+    
+    const updatedProduct = await response.json();
+    return processProductImages(updatedProduct);
   } catch (error) {
     console.error('[API:products] Error updating product status:', error);
     throw error;

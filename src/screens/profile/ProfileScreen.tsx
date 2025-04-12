@@ -48,7 +48,7 @@ const convertProductToPost = (product: Product): Post => ({
   caption: product.name,
   price: `$${product.price}`,
   condition: product.productage || 'Unknown',
-  status: product.status === 'SOLD' ? 'sold' : (product.status === 'ARCHIVED' ? 'archived' : 'active')
+  status: product.status === 'sold' ? 'sold' : (product.status === 'archived' ? 'archived' : 'available')
 });
 
 // Post item type
@@ -58,11 +58,11 @@ interface Post {
   caption: string;
   price?: string;
   condition?: string;
-  status?: 'active' | 'sold' | 'archived';
+  status?: 'available' | 'sold' | 'archived';
 }
 
 // Define tab types
-type TabType = 'inMarket' | 'archive';
+type TabType = 'inMarket' | 'archive' | 'sold';
 
 // Add this interface for backend user data
 interface BackendUserData {
@@ -101,12 +101,12 @@ const ProfileHeader = React.memo(({
   isViewingSeller: boolean,
 }) => {
   // Create animated value for tab animation
-  const tabPosition = useRef(new Animated.Value(activeTab === 'archive' ? 1 : 0)).current;
+  const tabPosition = useRef(new Animated.Value(activeTab === 'archive' ? 1 : (activeTab === 'sold' ? 2 : 0))).current;
 
   // Update animated value when tab changes
   useEffect(() => {
     Animated.timing(tabPosition, {
-      toValue: activeTab === 'archive' ? 1 : 0,
+      toValue: activeTab === 'archive' ? 1 : (activeTab === 'sold' ? 2 : 0),
       duration: 250,
       useNativeDriver: true,
     }).start();
@@ -235,8 +235,8 @@ const ProfileHeader = React.memo(({
             {
               transform: [{
                 translateX: tabPosition.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, width / 2 - 3],
+                  inputRange: [0, 1, 2],
+                  outputRange: [0, width / 3 - 3, (2 * width) / 3 - 6],
                   extrapolate: 'clamp'
                 })
               }]
@@ -269,6 +269,20 @@ const ProfileHeader = React.memo(({
             activeTab === 'archive' && styles.activeTabText
           ]}>
             Archive
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.tabButton,
+            activeTab === 'sold' && styles.activeTabButton
+          ]}
+          onPress={() => onTabChange('sold')}
+        >
+          <Text style={[
+            styles.tabText,
+            activeTab === 'sold' && styles.activeTabText
+          ]}>
+            Sold Products
           </Text>
         </TouchableOpacity>
       </View>
@@ -342,9 +356,9 @@ const PostItem = React.memo(({
 
   // Handle mark as sold confirmation and action
   const handleMarkAsSold = useCallback(() => {
-    if (item.status === 'sold') {
-      // Don't allow re-marking as sold
-      Alert.alert('Already Sold', 'This product has already been marked as sold.');
+    if (item.status !== 'available') {
+      // Only allow marking available items as sold
+      Alert.alert('Cannot Mark as Sold', 'Only available items can be marked as sold.');
       return;
     }
 
@@ -403,8 +417,8 @@ const PostItem = React.memo(({
         {/* Action buttons - only show for own products */}
         {!isViewingSeller && (
           <View style={styles.productActionButtons}>
-            {/* Mark as Sold button - only show for active products */}
-            {item.status !== 'sold' && onMarkAsSold && (
+            {/* Mark as Sold button - only show for available products */}
+            {item.status === 'available' && onMarkAsSold && (
               <TouchableOpacity 
                 style={styles.markAsSoldButton}
                 onPress={handleMarkAsSold}
@@ -849,7 +863,6 @@ const ProfileScreen: React.FC = () => {
     processedUserData,
     products,
     productsMap,
-    filteredProducts,
     activeTab,
     isLoading,
     isLoadingProducts,
@@ -864,6 +877,20 @@ const ProfileScreen: React.FC = () => {
 
   // Add scrollY animated value for header animation
   const scrollY = useMemo(() => new Animated.Value(0), []);
+
+  // Filter products based on active tab - MOVED HERE before any conditional returns
+  const filteredProducts = useMemo(() => {
+    switch (activeTab) {
+      case 'inMarket':
+        return products.filter(product => product.status === 'available');
+      case 'archive':
+        return products.filter(product => product.status === 'archived');
+      case 'sold':
+        return products.filter(product => product.status === 'sold');
+      default:
+        return products;
+    }
+  }, [activeTab, products]);
 
   // Handle navigation back
   const handleGoBack = useCallback(() => {
@@ -927,7 +954,7 @@ const ProfileScreen: React.FC = () => {
   }, [navigation, backendUserData]);
 
   // Handle tab change
-  const handleTabChange = useCallback((tab: 'inMarket' | 'archive') => {
+  const handleTabChange = useCallback((tab: TabType) => {
     setActiveTab(tab);
   }, [setActiveTab]);
 
@@ -1491,14 +1518,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 9,
     zIndex: 2,
+    backgroundColor: 'transparent',
   },
   activeTabButton: {
-    backgroundColor: 'transparent',
+    backgroundColor: '#f7b305',
   },
   tabSlider: {
     position: 'absolute',
     height: 40,
-    width: '49.5%',
+    width: '25%',
     backgroundColor: '#f7b305',
     borderRadius: 9,
     top: 3,
