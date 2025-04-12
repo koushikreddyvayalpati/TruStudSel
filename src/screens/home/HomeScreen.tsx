@@ -501,20 +501,31 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     console.log('[HomeScreen] setLoadingCity is now a stub - will use Zustand in the future');
   };
   
+  // Add state variables to store the processed products
+  const [featuredProductsState, setFeaturedProductsState] = useState<Product[]>([]);
+  const [newArrivalsProductsState, setNewArrivalsProductsState] = useState<Product[]>([]);
+  const [universityProductsState, setUniversityProductsState] = useState<Product[]>([]);
+  const [cityProductsState, setCityProductsState] = useState<Product[]>([]);
+  
+  // Update setter functions to use local state
   const setFeaturedProducts = (products: Product[]) => {
-    console.log('[HomeScreen] setFeaturedProducts is now a stub - will use Zustand in the future');
+    console.log('[HomeScreen] Updating featured products with', products.length, 'items');
+    setFeaturedProductsState(products as any);
   };
   
   const setNewArrivalsProducts = (products: Product[]) => {
-    console.log('[HomeScreen] setNewArrivalsProducts is now a stub - will use Zustand in the future');
+    console.log('[HomeScreen] Updating new arrivals products with', products.length, 'items');
+    setNewArrivalsProductsState(products as any);
   };
   
   const setUniversityProducts = (products: Product[]) => {
-    console.log('[HomeScreen] setUniversityProducts is now a stub - will use Zustand in the future');
+    console.log('[HomeScreen] Updating university products with', products.length, 'items');
+    setUniversityProductsState(products as any);
   };
   
   const setCityProducts = (products: Product[]) => {
-    console.log('[HomeScreen] setCityProducts is now a stub - will use Zustand in the future');
+    console.log('[HomeScreen] Updating city products with', products.length, 'items');
+    setCityProductsState(products as any);
   };
   
   // Cache the University and City values for API calls
@@ -913,11 +924,44 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     setSelectedSort(optionId);
     setSortDropdownVisible(false);
     
-    // Instead of using the old filtering functions, we should use the Zustand store
-    // This is a stub for now - will be fully implemented later
-    console.log('[HomeScreen] Sorting will be handled by Zustand store in future implementation');
+    // Apply sorting directly using the applySortingAndFilters function
+    if (_featuredProductsOriginal.length > 0) {
+      setFeaturedProducts(
+        applySortingAndFilters(_featuredProductsOriginal, optionId, selectedFilters)
+      );
+    }
     
-  }, []);
+    if (_newArrivalsProductsOriginal.length > 0) {
+      setNewArrivalsProducts(
+        applySortingAndFilters(_newArrivalsProductsOriginal, optionId, selectedFilters)
+      );
+    }
+    
+    if (_universityProductsOriginal.length > 0) {
+      setUniversityProducts(
+        applySortingAndFilters(_universityProductsOriginal, optionId, selectedFilters)
+      );
+    }
+    
+    if (_cityProductsOriginal.length > 0) {
+      setCityProducts(
+        applySortingAndFilters(_cityProductsOriginal, optionId, selectedFilters)
+      );
+    }
+    
+    // Apply to search results if visible
+    if (search.showSearchResults && search.searchResults.length > 0) {
+      // For search results, re-run search with new sort option
+      search.handleSearch();
+    }
+  }, [
+    _featuredProductsOriginal,
+    _newArrivalsProductsOriginal,
+    _universityProductsOriginal,
+    _cityProductsOriginal,
+    selectedFilters,
+    search
+  ]);
 
   // Comprehensive function to apply both sorting and filtering
   const applySortingAndFilters = (products: Product[], sortOption: string, filters: string[]): Product[] => {
@@ -1103,6 +1147,43 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     console.log('[HomeScreen] Filters will be handled by Zustand store in future implementation');
     
   }, [selectedFilters]);
+
+  // Sync original product arrays with Zustand store data
+  useEffect(() => {
+    if (featuredProducts.length > 0 && _featuredProductsOriginal.length === 0) {
+      console.log('[HomeScreen] Syncing featured products to original array:', featuredProducts.length);
+      setFeaturedProductsOriginal([...featuredProducts] as any);
+      // Also create filter maps
+      setFeaturedFilterMaps(createFilterMaps(featuredProducts as any));
+    }
+    
+    if (newArrivalsProducts.length > 0 && _newArrivalsProductsOriginal.length === 0) {
+      console.log('[HomeScreen] Syncing new arrivals to original array:', newArrivalsProducts.length);
+      setNewArrivalsProductsOriginal([...newArrivalsProducts] as any);
+      setNewArrivalsFilterMaps(createFilterMaps(newArrivalsProducts as any));
+    }
+    
+    if (universityProducts.length > 0 && _universityProductsOriginal.length === 0) {
+      console.log('[HomeScreen] Syncing university products to original array:', universityProducts.length);
+      setUniversityProductsOriginal([...universityProducts] as any);
+      setUniversityFilterMaps(createFilterMaps(universityProducts as any));
+    }
+    
+    if (cityProducts.length > 0 && _cityProductsOriginal.length === 0) {
+      console.log('[HomeScreen] Syncing city products to original array:', cityProducts.length);
+      setCityProductsOriginal([...cityProducts] as any);
+      setCityFilterMaps(createFilterMaps(cityProducts as any));
+    }
+  }, [
+    featuredProducts, 
+    newArrivalsProducts, 
+    universityProducts, 
+    cityProducts, 
+    _featuredProductsOriginal, 
+    _newArrivalsProductsOriginal, 
+    _universityProductsOriginal, 
+    _cityProductsOriginal
+  ]);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: 'white' }]}>
@@ -1385,7 +1466,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
               {/* New Arrivals Section */}
               <ProductSection 
                 title="New Arrivals"
-                data={newArrivalsProducts}
+                data={(newArrivalsProductsState.length > 0 ? newArrivalsProductsState : newArrivalsProducts) as any}
                 wishlist={wishlist}
                 onToggleWishlist={toggleWishlist}
                 onProductPress={handleProductPress}
@@ -1395,30 +1476,22 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
               />
 
               {/* University Products Section */}
-              {(userUniversity && (!loadingUniversity || universityProducts.length > 0)) && (
-                <ProductSection 
-                  title={loadingUniversity 
-                    ? "Loading University Products..." 
-                    : `${userUniversity || 'University'} Products`
-                  }
-                  data={universityProducts}
-                  wishlist={wishlist}
-                  onToggleWishlist={toggleWishlist}
-                  onProductPress={handleProductPress}
-                  onMessageSeller={handleMessageSeller}
-                  onSeeAll={() => handleSeeAll('university')}
-                  isLoading={loadingUniversity}
-                />
-              )}
+              <ProductSection 
+                title={`${userUniversity} Products`}
+                data={(universityProductsState.length > 0 ? universityProductsState : universityProducts) as any}
+                wishlist={wishlist}
+                onToggleWishlist={toggleWishlist}
+                onProductPress={handleProductPress}
+                onMessageSeller={handleMessageSeller}
+                onSeeAll={() => handleSeeAll('university')}
+                isLoading={loadingUniversity}
+              />
 
               {/* City Products Section */}
-              {(userCity && (!loadingCity || cityProducts.length > 0)) && (
+              {userCity && (
                 <ProductSection 
-                  title={loadingCity 
-                    ? "Loading City Products..." 
-                    : `${userCity || 'City'} Products`
-                  }
-                  data={cityProducts}
+                  title={`${userCity} Products`}
+                  data={(cityProductsState.length > 0 ? cityProductsState : cityProducts) as any}
                   wishlist={wishlist}
                   onToggleWishlist={toggleWishlist}
                   onProductPress={handleProductPress}
@@ -1428,10 +1501,10 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                 />
               )}
               
-              {/* Featured Items Section */}
+              {/* Featured Products Section */}
               <ProductSection 
-                title="Featured Items"
-                data={featuredProducts}
+                title="Featured Products"
+                data={(featuredProductsState.length > 0 ? featuredProductsState : featuredProducts) as any}
                 wishlist={wishlist}
                 onToggleWishlist={toggleWishlist}
                 onProductPress={handleProductPress}
