@@ -8,6 +8,7 @@ import {
   GetStartedScreen, 
   OnboardingScreen,
   OnboardingScreen2,
+  OnboardingScreen3,
   EmailVerificationScreen,
   OtpInputScreen,
   ProfileFillingScreen,
@@ -36,6 +37,10 @@ const AuthNavigator: React.FC = () => {
       <Stack.Screen 
         name="Onboarding2"
         component={OnboardingScreen2}
+      />
+      <Stack.Screen 
+        name="Onboarding3"
+        component={OnboardingScreen3}
       />
       <Stack.Screen 
         name="SignIn"

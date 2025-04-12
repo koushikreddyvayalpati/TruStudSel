@@ -9,16 +9,16 @@ import {
   SafeAreaView
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Onboarding2ScreenNavigationProp } from '../../types/navigation.types';
+import { Onboarding3ScreenNavigationProp } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
 
 const { width } = Dimensions.get('window');
 
-interface OnboardingScreen2Props {
-  navigation: Onboarding2ScreenNavigationProp;
+interface OnboardingScreen3Props {
+  navigation: Onboarding3ScreenNavigationProp;
 }
 
-const OnboardingScreen2: React.FC<OnboardingScreen2Props> = ({ navigation }) => {
+const OnboardingScreen3: React.FC<OnboardingScreen3Props> = ({ navigation }) => {
   const { theme } = useTheme();
   
   // Mark that user has seen onboarding
@@ -40,17 +40,17 @@ const OnboardingScreen2: React.FC<OnboardingScreen2Props> = ({ navigation }) => 
   };
   
   const handleNext = async () => {
-    navigation.navigate('Onboarding3');
+    navigation.navigate('SignIn');
   };
   
   const handleBack = async () => {
-    navigation.navigate('Onboarding');
+    navigation.navigate('Onboarding2');
   };
   
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.header}>
-        <Text style={styles.pageIndicator}>2/3</Text>
+        <Text style={styles.pageIndicator}>3/3</Text>
         <TouchableOpacity onPress={handleSkip}>
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
@@ -58,16 +58,17 @@ const OnboardingScreen2: React.FC<OnboardingScreen2Props> = ({ navigation }) => 
       
       <View style={styles.imageContainer}>
         <Image 
-          source={require('../../../assets/image.jpg')} 
+          source={require('../../../assets/onboard3.jpg')} 
           style={styles.image}
           resizeMode="contain"
         />
       </View>
       
       <View style={styles.contentContainer}>
-        <Text style={styles.title}>Instant Chat</Text>
+        <Text style={styles.title}>Meet in Safe Zones</Text>
         <Text style={styles.description}>
-          Message the seller directly from product listing and get the best price for your product
+          Meet other students in designated safe zones on campus
+          for a secure buying and selling experience
         </Text>
       </View>
       
@@ -81,15 +82,15 @@ const OnboardingScreen2: React.FC<OnboardingScreen2Props> = ({ navigation }) => 
         
         <View style={styles.paginationDots}>
           <View style={styles.dot} />
-          <View style={[styles.dot, styles.activeDot]} />
           <View style={styles.dot} />
+          <View style={[styles.dot, styles.activeDot]} />
         </View>
         
         <TouchableOpacity 
           style={[styles.nextButton]}
           onPress={handleNext}
         >
-          <Text style={styles.nextButtonText}>Next</Text>
+          <Text style={styles.nextButtonText}>Get Started</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -192,4 +193,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default OnboardingScreen2; 
+export default OnboardingScreen3; 
