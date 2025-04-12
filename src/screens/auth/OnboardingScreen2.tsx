@@ -9,16 +9,16 @@ import {
   SafeAreaView
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { OnboardingScreenNavigationProp } from '../../types/navigation.types';
+import { Onboarding2ScreenNavigationProp } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
 
 const { width } = Dimensions.get('window');
 
-interface OnboardingScreenProps {
-  navigation: OnboardingScreenNavigationProp;
+interface OnboardingScreen2Props {
+  navigation: Onboarding2ScreenNavigationProp;
 }
 
-const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }) => {
+const OnboardingScreen2: React.FC<OnboardingScreen2Props> = ({ navigation }) => {
   const { theme } = useTheme();
   
   // Mark that user has seen onboarding
@@ -40,13 +40,17 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }) => {
   };
   
   const handleNext = async () => {
-    navigation.navigate('Onboarding2');
+    navigation.navigate('SignIn');
+  };
+  
+  const handleBack = async () => {
+    navigation.navigate('Onboarding');
   };
   
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.header}>
-        <Text style={styles.pageIndicator}>1/3</Text>
+        <Text style={styles.pageIndicator}>2/3</Text>
         <TouchableOpacity onPress={handleSkip}>
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
@@ -54,24 +58,30 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }) => {
       
       <View style={styles.imageContainer}>
         <Image 
-          source={require('../../../assets/pana.png')} 
+          source={require('../../../assets/image.jpg')} 
           style={styles.image}
           resizeMode="contain"
         />
       </View>
       
       <View style={styles.contentContainer}>
-        <Text style={styles.title}>Choose Products</Text>
+        <Text style={styles.title}>Instant Chat</Text>
         <Text style={styles.description}>
-          choose the best and genuine products available for the student
-          our TrueStudSelling
+          Message the seller directly from product listing and get the best price for your product
         </Text>
       </View>
       
       <View style={styles.footer}>
+        <TouchableOpacity 
+          style={[styles.backButton]}
+          onPress={handleBack}
+        >
+          <Text style={styles.backButtonText}>Back</Text>
+        </TouchableOpacity>
+        
         <View style={styles.paginationDots}>
-          <View style={[styles.dot, styles.activeDot]} />
           <View style={styles.dot} />
+          <View style={[styles.dot, styles.activeDot]} />
           <View style={styles.dot} />
         </View>
         
@@ -102,7 +112,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: 'Montserrat',
     marginLeft: 10,
-
   },
   skipText: {
     fontSize: 18,
@@ -158,7 +167,17 @@ const styles = StyleSheet.create({
   activeDot: {
     backgroundColor: '#F7B305',
     width: 50,
-    marginLeft: 160,
+  },
+  backButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 4,
+  },
+  backButtonText: {
+    color: '#888',
+    fontSize: 18,
+    fontWeight: '600',
+    fontFamily: 'Montserrat',
   },
   nextButton: {
     paddingVertical: 10,
@@ -173,4 +192,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default OnboardingScreen; 
+export default OnboardingScreen2; 
