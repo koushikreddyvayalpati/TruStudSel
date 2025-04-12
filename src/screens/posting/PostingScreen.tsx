@@ -309,7 +309,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
     conditionModalVisible,
     
     // Computed values
-    displayType,
+  
     displayCondition,
     
     // Context
@@ -463,7 +463,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
       Alert.alert('Error', 'You must be logged in to post an item');
       return;
     }
-    
+
     postItem(
       user.email,
       user.name || user.username || 'Anonymous User',

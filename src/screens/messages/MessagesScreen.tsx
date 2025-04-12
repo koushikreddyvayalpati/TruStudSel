@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,38 +13,41 @@ import {
   Animated,
   Platform,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { MainStackParamList } from '../../types/navigation.types';
 import { Conversation } from '../../types/chat.types';
-import { getConversations, getCurrentUser, subscribeToUserConversations } from '../../services/firebaseChatService';
-
-// AsyncStorage key for conversations
-const CONVERSATIONS_STORAGE_KEY = '@TruStudSel_conversations';
-const CONVERSATIONS_TIMESTAMP_KEY = '@TruStudSel_conversations_timestamp';
+import useChatStore from '../../store/chatStore';
 
 // Navigation prop type with stack methods
 type MessagesScreenNavigationProp = StackNavigationProp<MainStackParamList, 'MessagesScreen'>;
 
 const MessagesScreen = () => {
   const navigation = useNavigation<MessagesScreenNavigationProp>();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSearchActive, setIsSearchActive] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   
-  // Reference for conversation subscription
-  const conversationSubscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
+  // Get state and actions from Zustand store
+  const {
+    conversations,
+    isSearchActive,
+    searchQuery,
+    isRefreshing,
+    isLoading,
+    error,
+    currentUserEmail,
+    
+    setIsSearchActive,
+    setSearchQuery,
+    fetchCurrentUser,
+    fetchConversations,
+    setupConversationSubscription,
+    cleanupConversationSubscription,
+    handleRefresh,
+    getConversationDisplayName,
+    getTimeDisplay,
+  } = useChatStore();
   
-  // Flag to track if we've shown cached data
-  const hasCachedDataRef = useRef<boolean>(false);
-
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const searchBarAnim = useRef(new Animated.Value(0)).current;
@@ -62,109 +65,7 @@ const MessagesScreen = () => {
     shadow: 'rgba(0, 0, 0, 0.08)'
   }), []);
   
-  // Function to get current user email only once
-  const fetchCurrentUser = useCallback(async () => {
-    try {
-      const user = await getCurrentUser();
-      if (user && user.email) {
-        setCurrentUserEmail(user.email);
-        console.log('[MessagesScreen] Current user email:', user.email);
-      }
-    } catch (error) {
-      console.error('[MessagesScreen] Error fetching current user:', error);
-    }
-  }, []);
-  
-  // Cache conversations to AsyncStorage
-  const cacheConversations = useCallback(async (conversationsToCache: Conversation[]) => {
-    try {
-      await AsyncStorage.setItem(CONVERSATIONS_STORAGE_KEY, JSON.stringify(conversationsToCache));
-      await AsyncStorage.setItem(CONVERSATIONS_TIMESTAMP_KEY, new Date().toISOString());
-      console.log(`[AsyncStorage] Cached ${conversationsToCache.length} conversations`);
-    } catch (error) {
-      console.error('[AsyncStorage] Error caching conversations:', error);
-    }
-  }, []);
-  
-  // Load cached conversations from AsyncStorage
-  const loadCachedConversations = useCallback(async (): Promise<Conversation[] | null> => {
-    try {
-      const cachedConversationsJson = await AsyncStorage.getItem(CONVERSATIONS_STORAGE_KEY);
-      const cachedTimestamp = await AsyncStorage.getItem(CONVERSATIONS_TIMESTAMP_KEY);
-      
-      if (cachedConversationsJson && cachedTimestamp) {
-        const cachedConversations = JSON.parse(cachedConversationsJson);
-        
-        // Check if cache is too old (more than 1 hour)
-        const cacheAge = new Date().getTime() - new Date(cachedTimestamp).getTime();
-        const cacheAgeMinutes = cacheAge / (1000 * 60);
-        
-        console.log(`[AsyncStorage] Found cached conversations (${cachedConversations.length}) from ${cacheAgeMinutes.toFixed(1)} minutes ago`);
-        
-        if (cacheAgeMinutes < 60) {
-          return cachedConversations;
-        } else {
-          console.log('[AsyncStorage] Cache too old, will fetch fresh data');
-          return null;
-        }
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('[AsyncStorage] Error loading cached conversations:', error);
-      return null;
-    }
-  }, []);
-  
-  // Subscribe to real-time conversation updates
-  const setupConversationSubscription = useCallback(() => {
-    // Clean up any existing subscription first
-    if (conversationSubscriptionRef.current) {
-      conversationSubscriptionRef.current.unsubscribe();
-      conversationSubscriptionRef.current = null;
-    }
-    
-    if (!currentUserEmail) return;
-    
-    try {
-      console.log('[MessagesScreen] Setting up real-time conversation subscription');
-      
-      const unsubscribe = subscribeToUserConversations(currentUserEmail, (updatedConversations: Conversation[]) => {
-        // Compare with current conversations to see if there are new messages
-        setConversations(prevConversations => {
-          const hasNewMessages = updatedConversations.some((newConv: Conversation) => {
-            const existingConv = prevConversations.find(conv => conv.id === newConv.id);
-            
-            // New conversation or more recent message in existing conversation
-            if (!existingConv || 
-               (existingConv.lastMessageTime && newConv.lastMessageTime && 
-                new Date(newConv.lastMessageTime) > new Date(existingConv.lastMessageTime))) {
-              return true;
-            }
-            
-            // Check unread count
-            return (newConv.unreadCount || 0) > (existingConv?.unreadCount || 0);
-          });
-          
-          if (hasNewMessages) {
-            console.log('[MessagesScreen] New messages detected in subscription update');
-          }
-          
-          // Also update cache
-          cacheConversations(updatedConversations);
-          
-          return updatedConversations;
-        });
-      });
-      
-      conversationSubscriptionRef.current = { unsubscribe };
-      
-    } catch (error) {
-      console.error('[MessagesScreen] Error setting up conversation subscription:', error);
-    }
-  }, [currentUserEmail, cacheConversations]);
-  
-  // Fetch current user email on component mount
+  // Fetch current user email only once
   useEffect(() => {
     fetchCurrentUser();
     
@@ -177,12 +78,9 @@ const MessagesScreen = () => {
     
     // Cleanup subscription on unmount
     return () => {
-      if (conversationSubscriptionRef.current) {
-        conversationSubscriptionRef.current.unsubscribe();
-        conversationSubscriptionRef.current = null;
-      }
+      cleanupConversationSubscription();
     };
-  }, [fetchCurrentUser, fadeAnim]);
+  }, [fetchCurrentUser, fadeAnim, cleanupConversationSubscription]);
   
   // Set up real-time subscription when user email is available
   useEffect(() => {
@@ -199,132 +97,6 @@ const MessagesScreen = () => {
       useNativeDriver: true,
     }).start();
   }, [isSearchActive, searchBarAnim]);
-
-  // Get display name for a conversation (the other participant's name)
-  const getConversationDisplayName = useCallback((conversation: Conversation) => {
-    if (!currentUserEmail) return conversation.name || 'Unknown Contact';
-    
-    // Find the other participant (the person we're talking to)
-    const otherParticipant = conversation.participants.find(p => p !== currentUserEmail);
-    
-    // If no other participant is found or we're looking at our own conversation
-    if (!otherParticipant) {
-      return conversation.name || 'Unknown Contact';
-    }
-    
-    // Check for user-specific name mapping first (new format)
-    const nameKey = `name_${currentUserEmail.replace(/[.@]/g, '_')}`;
-    if (conversation[nameKey]) {
-      return conversation[nameKey];
-    }
-    
-    // Use conversation name if available - but ONLY if it doesn't match the current user's name
-    const currentUserBaseName = currentUserEmail.split('@')[0].toLowerCase();
-    if (conversation.name && 
-        conversation.name.toLowerCase() !== currentUserBaseName) {
-      // Format name with proper capitalization
-      return conversation.name.charAt(0).toUpperCase() + conversation.name.slice(1);
-    }
-    
-    // Format email to show just the username part
-    if (otherParticipant.includes('@')) {
-      // Extract just the username part of the email
-      const username = otherParticipant.split('@')[0];
-      // Convert to proper case (first letter uppercase)
-      return username.charAt(0).toUpperCase() + username.slice(1);
-    }
-    
-    return otherParticipant;
-  }, [currentUserEmail]);
-
-  // Fetch conversations with caching
-  const fetchConversations = useCallback(async () => {
-    if (!currentUserEmail) return;
-    
-    try {
-      setIsLoading(true);
-      console.log('[MessagesScreen] Fetching conversations...');
-      
-      // Try to get cached conversations first for immediate display
-      if (!hasCachedDataRef.current) {
-        const cachedConversations = await loadCachedConversations();
-        
-        if (cachedConversations && cachedConversations.length > 0) {
-          hasCachedDataRef.current = true;
-          setConversations(cachedConversations);
-          setIsLoading(false);
-          console.log('[MessagesScreen] Displayed cached conversations while fetching fresh data');
-          
-          // We still continue to fetch fresh data below, but we've already shown something to the user
-        }
-      }
-      
-      // Get fresh data from Firebase
-      let fetchedConversations = await getConversations();
-      console.log('[MessagesScreen] Fetched Firebase conversations:', 
-        fetchedConversations.map(c => ({
-          id: c.id,
-          name: c.name,
-          participants: c.participants,
-          lastMessage: c.lastMessageContent
-        }))
-      );
-      
-      // Ensure all conversation names are properly formatted
-      // and update any that need to be corrected
-      if (fetchedConversations.length > 0 && currentUserEmail) {
-        try {
-          // Import the necessary functions for updating Firestore
-          const { doc, updateDoc } = await import('firebase/firestore');
-          const { db } = await import('../../services/firebaseService');
-          
-          // Check each conversation and update names if needed
-          const updatedConversations = await Promise.all(fetchedConversations.map(async (conv) => {
-            // Find the other participant
-            const otherParticipant = conv.participants.find(p => p !== currentUserEmail);
-            if (!otherParticipant) return conv;
-            
-            // Get the properly formatted name
-            const properName = getConversationDisplayName(conv);
-            
-            // If the name is different, update it in Firestore
-            if (conv.name !== properName) {
-              try {
-                const conversationRef = doc(db, 'conversations', conv.id);
-                await updateDoc(conversationRef, { name: properName });
-                console.log(`[MessagesScreen] Updated conversation ${conv.id} name to: ${properName}`);
-                
-                // Return the conversation with the updated name
-                return { ...conv, name: properName };
-              } catch (error) {
-                console.error(`[MessagesScreen] Error updating conversation ${conv.id} name:`, error);
-                return conv;
-              }
-            }
-            
-            return conv;
-          }));
-          
-          // Use the updated conversations
-          fetchedConversations = updatedConversations;
-        } catch (error) {
-          console.error('[MessagesScreen] Error updating conversation names:', error);
-        }
-      }
-      
-      // Cache the fresh conversations
-      cacheConversations(fetchedConversations);
-      
-      setConversations(fetchedConversations);
-      setError(null);
-    } catch (err) {
-      console.error('[MessagesScreen] Failed to fetch conversations:', err);
-      setError(`Failed to load conversations: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [currentUserEmail, getConversationDisplayName, loadCachedConversations, cacheConversations]);
 
   // Initial load
   useEffect(() => {
@@ -345,19 +117,10 @@ const MessagesScreen = () => {
     );
   }, [searchQuery, conversations]);
 
-  // Handle refresh
-  const handleRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    fetchConversations();
-  }, [fetchConversations]);
-
   // Toggle search mode
   const toggleSearch = useCallback(() => {
-    setIsSearchActive(prev => !prev);
-    if (isSearchActive) {
-      setSearchQuery('');
-    }
-  }, [isSearchActive]);
+    setIsSearchActive(!isSearchActive);
+  }, [isSearchActive, setIsSearchActive]);
   
   // Navigate to conversation using FirebaseChatScreen
   const goToConversation = useCallback((conversation: Conversation) => {
@@ -384,71 +147,6 @@ const MessagesScreen = () => {
       recipientName: displayName
     });
   }, [navigation, currentUserEmail, getConversationDisplayName]);
-
-  // Get time display for conversation list (today, yesterday, or date)
-  const getTimeDisplay = useCallback((timeString?: string) => {
-    if (!timeString) return '';
-    
-    try {
-      const date = new Date(timeString);
-      const now = new Date();
-      
-      // Check if valid date
-      if (isNaN(date.getTime())) {
-        console.warn('[MessagesScreen] Invalid date:', timeString);
-        return '';
-      }
-      
-      // Fix future date issue (specific to this app where messages show 2025)
-      let correctedDate = new Date(date);
-      if (date > now) {
-        console.warn('[MessagesScreen] Future date detected, correcting:', timeString);
-        // Adjust to current time minus 7 hours (based on observed logs)
-        const hoursInMilliseconds = 7 * 60 * 60 * 1000; // 7 hours in ms
-        correctedDate = new Date(now.getTime() - hoursInMilliseconds);
-      }
-      
-      // Check if it's today
-      const isToday = 
-        correctedDate.getDate() === now.getDate() &&
-        correctedDate.getMonth() === now.getMonth() &&
-        correctedDate.getFullYear() === now.getFullYear();
-      
-      // Check if it's yesterday
-      const yesterday = new Date(now);
-      yesterday.setDate(now.getDate() - 1);
-      const isYesterday = 
-        correctedDate.getDate() === yesterday.getDate() &&
-        correctedDate.getMonth() === yesterday.getMonth() &&
-        correctedDate.getFullYear() === yesterday.getFullYear();
-      
-      // Format based on when the message was sent
-      if (isToday) {
-        return correctedDate.toLocaleTimeString([], { 
-          hour: 'numeric', 
-          minute: '2-digit',
-          hour12: true 
-        });
-      } else if (isYesterday) {
-        return 'Yesterday';
-      } else {
-        // Get month name (Jan, Feb, etc) and day
-        const month = correctedDate.toLocaleString('default', { month: 'short' });
-        const day = correctedDate.getDate();
-        
-        // If it's from this year, just show month/day
-        if (correctedDate.getFullYear() === now.getFullYear()) {
-          return `${month} ${day}`;
-        } else {
-          // If it's from a different year, include the year
-          return `${month} ${day}, ${correctedDate.getFullYear()}`;
-        }
-      }
-    } catch (error) {
-      console.error('[MessagesScreen] Error formatting time:', error, timeString);
-      return '';
-    }
-  }, []);
 
   // Conversation item separator
   const ItemSeparator = useCallback(() => (
@@ -582,7 +280,7 @@ const MessagesScreen = () => {
         </>
       )}
     </Animated.View>
-  ), [isLoading, error, searchQuery, fadeAnim, navigation, fetchConversations]);
+  ), [isLoading, error, searchQuery, fadeAnim, navigation, fetchConversations, setSearchQuery]);
 
   // Render loader at the bottom of the list
   const renderFooter = useCallback(() => {
@@ -708,15 +406,6 @@ const MessagesScreen = () => {
           extraData={currentUserEmail}
         />
       </Animated.View>
-      
-      {/* Compose Button - Navigate to UserSearchScreen */}
-      <TouchableOpacity 
-        style={styles.composeButton}
-        onPress={() => navigation.navigate('UserSearchScreen')}
-        activeOpacity={0.9}
-      >
-        <Ionicons name="chatbubble-ellipses" size={24} color="#FFF" />
-      </TouchableOpacity>
     </SafeAreaView>
   );
 };
