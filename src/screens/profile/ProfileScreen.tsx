@@ -22,8 +22,8 @@ import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProfileScreenNavigationProp, MainStackParamList } from '../../types/navigation.types';
-import { fetchUserProfileById } from '../../api/users';
-import { fetchUserProducts, Product } from '../../api/products';
+import { fetchUserProfileById, updateUserProfileData } from '../../api/users';
+import { fetchUserProducts, Product, updateProductStatus, ProductStatus } from '../../api/products';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import the Zustand profile store
@@ -276,17 +276,19 @@ const ProfileHeader = React.memo(({
   );
 });
 
-// Update PostItem component to include delete functionality
+// Update PostItem component to include mark as sold functionality
 const PostItem = React.memo(({ 
   item, 
   originalData,
   isViewingSeller,
-  onDeleteProduct 
+  onDeleteProduct,
+  onMarkAsSold 
 }: { 
   item: Post, 
   originalData?: Product, 
   isViewingSeller: boolean,
-  onDeleteProduct?: (productId: string) => void 
+  onDeleteProduct?: (productId: string) => void,
+  onMarkAsSold?: (productId: string) => void 
 }) => {
   const navigation = useNavigation<ProfileScreenNavigationProp>();
   
@@ -337,6 +339,41 @@ const PostItem = React.memo(({
       ]
     );
   }, [item.id, onDeleteProduct]);
+
+  // Handle mark as sold confirmation and action
+  const handleMarkAsSold = useCallback(() => {
+    if (item.status === 'sold') {
+      // Don't allow re-marking as sold
+      Alert.alert('Already Sold', 'This product has already been marked as sold.');
+      return;
+    }
+
+    // Make sure we have the original product data with the correct UUID
+    if (!originalData || !originalData.id) {
+      Alert.alert('Error', 'Cannot mark product as sold: Missing product ID.');
+      return;
+    }
+
+    Alert.alert(
+      'Mark as Sold',
+      'Are you sure you want to mark this product as sold? This will update your seller stats.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Mark as Sold',
+          onPress: () => {
+            if (onMarkAsSold) {
+              // Use the original product ID (UUID) instead of the item.id (numeric)
+              onMarkAsSold(originalData.id);
+            }
+          }
+        }
+      ]
+    );
+  }, [item.status, originalData, onMarkAsSold]);
   
   return (
     <TouchableOpacity 
@@ -363,15 +400,31 @@ const PostItem = React.memo(({
         <Text style={styles.postCaption} numberOfLines={1}>{item.caption}</Text>
         <Text style={styles.postCondition}>{item.condition}</Text>
         
-        {/* Delete button - only show for own products - moved here */}
-        {!isViewingSeller && onDeleteProduct && (
-          <TouchableOpacity 
-            style={styles.deleteButton}
-            onPress={handleDeletePress}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <MaterialCommunityIcons name="trash-can-outline" size={16} color="#666" />
-          </TouchableOpacity>
+        {/* Action buttons - only show for own products */}
+        {!isViewingSeller && (
+          <View style={styles.productActionButtons}>
+            {/* Mark as Sold button - only show for active products */}
+            {item.status !== 'sold' && onMarkAsSold && (
+              <TouchableOpacity 
+                style={styles.markAsSoldButton}
+                onPress={handleMarkAsSold}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <MaterialCommunityIcons name="cash" size={16} color="#4CAF50" />
+              </TouchableOpacity>
+            )}
+            
+            {/* Delete button */}
+            {onDeleteProduct && (
+              <TouchableOpacity 
+                style={styles.deleteButton}
+                onPress={handleDeletePress}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <MaterialCommunityIcons name="trash-can-outline" size={16} color="#666" />
+              </TouchableOpacity>
+            )}
+          </View>
         )}
       </View>
     </TouchableOpacity>
@@ -563,6 +616,63 @@ const ProfileContentView = React.memo(({
   productsMap: Map<number, Product>,
   scrollY: Animated.Value
 }) => {
+  // Define handleMarkAsSold function inside the component
+  const handleMarkAsSold = useCallback(async (productId: string) => {
+    try {
+      console.log(`[ProfileScreen] Marking product as sold: ${productId}`);
+      
+      // Get the current sold count before making the API call
+      let currentUserData;
+      if (!isViewingSeller && userData.email) {
+        currentUserData = await fetchUserProfileById(userData.email);
+        const beforeSoldCount = parseInt(currentUserData.productssold || '0', 10);
+        console.log(`[ProfileScreen] Current sold count before API call: ${beforeSoldCount}`);
+      }
+      
+      // Update the product status to 'sold'
+      await updateProductStatus(productId, 'sold');
+      
+      if (!isViewingSeller && userData.email && currentUserData) {
+        // Get the updated user profile after the status change
+        const updatedUserData = await fetchUserProfileById(userData.email);
+        const afterSoldCount = parseInt(updatedUserData.productssold || '0', 10);
+        const beforeSoldCount = parseInt(currentUserData.productssold || '0', 10);
+        
+        console.log(`[ProfileScreen] Sold count before: ${beforeSoldCount}, after: ${afterSoldCount}`);
+        
+        // Only update if the backend didn't already increment the count
+        if (afterSoldCount === beforeSoldCount) {
+          console.log(`[ProfileScreen] Backend did not increment count, doing it in frontend`);
+          const updatedSoldCount = (beforeSoldCount + 1).toString();
+          
+          // Update the user profile with the new count
+          await updateUserProfileData(userData.email, {
+            productssold: updatedSoldCount
+          });
+          
+          console.log(`[ProfileScreen] Updated user's sold products count to: ${updatedSoldCount}`);
+        } else {
+          console.log(`[ProfileScreen] Backend already incremented the count, no need to update`);
+        }
+        
+        // Refresh the data to reflect changes
+        await onRefresh();
+        
+        // Show success message
+        Alert.alert(
+          'Product Marked as Sold',
+          'The product has been successfully marked as sold and your seller stats have been updated.'
+        );
+      }
+    } catch (error) {
+      console.error('[ProfileScreen] Error marking product as sold:', error);
+      Alert.alert(
+        'Error',
+        'Failed to mark product as sold. Please try again.'
+      );
+    }
+  }, [userData.email, onRefresh, isViewingSeller]);
+
   // The item renderer for FlatList
   const renderItem = useCallback(({ item, index }: { item: Post, index: number }) => {
     const isEven = index % 2 === 0;
@@ -577,10 +687,11 @@ const ProfileContentView = React.memo(({
             // Add actual delete functionality here
             Alert.alert('Feature Coming Soon', 'Product deletion will be available in a future update.');
           } : undefined}
+          onMarkAsSold={!isViewingSeller ? handleMarkAsSold : undefined}
         />
       </View>
     );
-  }, [productsMap, isViewingSeller]);
+  }, [productsMap, isViewingSeller, handleMarkAsSold]);
 
   // Key extractor for the FlatList
   const keyExtractor = useCallback((item: Post) => item.id.toString(), []);
@@ -1673,37 +1784,24 @@ const styles = StyleSheet.create({
     borderLeftColor: '#f7b305', 
     width: '100%',
   },
-  deleteButton: {
+  productActionButtons: {
     position: 'absolute',
-    bottom: 12,
-    right: 12,
+    right: 5,
+    bottom: 5,
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 16,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 1,
-      },
-      android: {
-        elevation: 0,
-        backgroundColor: '#f0f0f0',
-      }
-    }),
-    zIndex: 10,
   },
-  deleteText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#666',
-    marginLeft: 4,
+  markAsSoldButton: {
+    padding: 6,
+    marginRight: 8,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    borderRadius: 50,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.3)',
+  },
+  deleteButton: {
+    padding: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: 50,
   },
   header: {
     flexDirection: 'row',

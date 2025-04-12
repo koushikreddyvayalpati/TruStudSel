@@ -37,6 +37,9 @@ const processProductImages = (product: any): any => {
   return processed;
 };
 
+// Define product status enum for better type safety
+export type ProductStatus = 'ACTIVE' | 'SOLD' | 'ARCHIVED' | 'PENDING';
+
 // Product types
 export interface Product {
   id: string;
@@ -53,7 +56,7 @@ export interface Product {
   primaryImage?: string;
   productage?: string;
   sellingtype?: string;
-  status?: string;
+  status?: ProductStatus; // Updated to use the new type
   images?: string[];
   imageUrls?: string[]; // Full S3 URLs
   additionalImages?: string[];
@@ -856,6 +859,37 @@ const btoa = (input: string): string => {
   return Buffer.from(input, 'binary').toString('base64');
 };
 
+/**
+ * Update a product's status
+ * @param id Product ID to update
+ * @param status New status for the product (e.g., 'sold', 'archived')
+ * @returns The updated product
+ */
+export const updateProductStatus = async (id: string, status: string): Promise<Product> => {
+  console.log(`[API:products] Updating product status: ${id} to ${status}`);
+  
+  try {
+    // Use the exact format as shown in the curl example
+    const response = await fetchWithTimeout(
+      `${API_URL}/api/products/${encodeURIComponent(id)}/status?status=${status}`,
+      { 
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
+    );
+    
+    const updatedProduct = await handleResponse<Product>(response);
+    console.log('[API:products] Product status updated successfully:', updatedProduct.id);
+    
+    return updatedProduct;
+  } catch (error) {
+    console.error('[API:products] Error updating product status:', error);
+    throw error;
+  }
+};
+
 export default {
   getProducts,
   getProductsByUniversity,
@@ -867,4 +901,5 @@ export default {
   getProductById,
   fetchUserProducts,
   searchProducts,
+  updateProductStatus,
 }; 
