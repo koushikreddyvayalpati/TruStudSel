@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -14,6 +14,10 @@ import {
   ActivityIndicator,
   Modal,
   TextInput as RNTextInput,
+  Animated,
+  Easing,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { ProfileFillingScreenProps } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
@@ -215,6 +219,63 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
     zipcode: false,
     categories: false,
   });
+
+  // Add animation values for the scroll indicator
+  const scrollIndicatorY = useRef(new Animated.Value(0)).current;
+  const scrollOpacity = useRef(new Animated.Value(1)).current;
+  const [showScrollIndicator, setShowScrollIndicator] = useState(true);
+  
+  // Setup scroll indicator animation
+  useEffect(() => {
+    if (showScrollIndicator) {
+      // Start the bouncing animation for the scroll indicator
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(scrollIndicatorY, {
+            toValue: 10,
+            duration: 800,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(scrollIndicatorY, {
+            toValue: 0,
+            duration: 800,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }
+    
+    return () => {
+      scrollIndicatorY.stopAnimation();
+    };
+  }, [showScrollIndicator, scrollIndicatorY]);
+  
+  // Function to handle scroll events
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const scrollOffset = event.nativeEvent.contentOffset.y;
+    const contentHeight = event.nativeEvent.contentSize.height;
+    const scrollViewHeight = event.nativeEvent.layoutMeasurement.height;
+    
+    // If user scrolled close to the bottom, hide the indicator
+    if (scrollOffset + scrollViewHeight > contentHeight - 100) {
+      setShowScrollIndicator(false);
+      Animated.timing(scrollOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    } else if (!showScrollIndicator && scrollOffset < contentHeight - scrollViewHeight - 100) {
+      // Show the indicator again if user scrolls back up
+      setShowScrollIndicator(true);
+      Animated.timing(scrollOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  };
 
   // Update university selection handling
   // Modify the filter universities effect
@@ -530,17 +591,26 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
   };
 
   const toggleCategorySelection = (categoryId: string) => {
+    // Find the category by ID
+    const category = PRODUCT_CATEGORIES.find(cat => cat.id === categoryId);
+    if (!category) return;
+    
+    // Use the category name in lowercase for the API
+    const categoryNameLowerCase = category.name.toLowerCase();
+    
     setSelectedCategories(prevSelected => {
-      if (prevSelected.includes(categoryId)) {
-        return prevSelected.filter(id => id !== categoryId);
+      // Check if the category name is already in the array
+      if (prevSelected.includes(categoryNameLowerCase)) {
+        return prevSelected.filter(name => name !== categoryNameLowerCase);
       } else {
-        return [...prevSelected, categoryId];
+        return [...prevSelected, categoryNameLowerCase];
       }
     });
   };
 
   const renderCategoryItem = ({ item }: { item: typeof PRODUCT_CATEGORIES[0] }) => {
-    const isSelected = selectedCategories.includes(item.id);
+    // Check if this category name (in lowercase) is in selectedCategories
+    const isSelected = selectedCategories.includes(item.name.toLowerCase());
     
     return (
       <TouchableOpacity
@@ -659,6 +729,8 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
       <ScrollView 
         showsVerticalScrollIndicator={false} 
         keyboardShouldPersistTaps="handled"
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       >
         <View style={styles.contentContainer}>
           <View style={styles.headerContainer}>
@@ -900,6 +972,21 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
           )}
         </View>
       </ScrollView>
+      
+      {/* Scroll indicator */}
+      <Animated.View 
+        style={[
+          styles.scrollIndicator, 
+          { 
+            transform: [{ translateY: scrollIndicatorY }],
+            opacity: scrollOpacity
+          }
+        ]}
+      >
+        <View style={styles.scrollIndicatorLine} />
+        <Text style={styles.scrollIndicatorText}>Scroll for more</Text>
+        <Entypo name="chevron-down" size={20} color="#666" />
+      </Animated.View>
       
       {/* Premium corner decorative elements */}
       <View style={[styles.cornerDecoration, styles.topLeftCorner]} />
@@ -1437,6 +1524,41 @@ const styles = StyleSheet.create({
     padding: 20,
     textAlign: 'center',
     fontSize: 14,
+  },
+  scrollIndicator: {
+    position: 'absolute',
+    bottom: 20,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  scrollIndicatorText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#666',
+    marginVertical: 4,
+  },
+  scrollIndicatorLine: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#ddd',
+    borderRadius: 2,
+    marginBottom: 4,
   },
 });
 
