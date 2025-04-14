@@ -876,17 +876,23 @@ export const updateProductStatus = async (id: string, status: string): Promise<P
     }
     
     // Make API call
-    const url = `${API_BASE_URL}/products/${id}/status`;
+    // Try with query parameter instead of request body
+    const statusParam = status.toLowerCase();
+    const url = `${API_URL}/api/products/${id}/status?status=${statusParam}`;
+    console.log(`[API:products] Making PATCH request to: ${url}`);
+    
     const response = await fetch(url, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ status: status.toLowerCase() }),
+      // Send an empty body since we're using query params
     });
     
     if (!response.ok) {
       const errorText = await response.text();
+      console.log(`[API:products] Error response status: ${response.status}`);
+      console.log(`[API:products] Error response text: ${errorText}`);
       throw new Error(`Failed to update product status: ${response.status} - ${errorText}`);
     }
     

@@ -425,7 +425,7 @@ const PostItem = React.memo(({
                 onPress={handleMarkAsSold}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <MaterialCommunityIcons name="cash" size={16} color="#4CAF50" />
+                <MaterialCommunityIcons name="briefcase-edit-outline" size={16} color="black" />
               </TouchableOpacity>
             )}
             
@@ -674,17 +674,47 @@ const ProfileContentView = React.memo(({
         // Refresh the data to reflect changes
         await onRefresh();
         
-        // Show success message
+        // Show success message with congratulations
         Alert.alert(
-          'Product Marked as Sold',
-          'The product has been successfully marked as sold and your seller stats have been updated.'
+          'Congratulations! 🎉',
+          'You have successfully sold your product! Your seller stats have been updated and your product has been moved to the "Sold Products" tab.',
+          [
+            {
+              text: 'Great!',
+              style: 'default'
+            }
+          ]
         );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[ProfileScreen] Error marking product as sold:', error);
+      
+      // Extract more helpful error information
+      let errorMessage = 'Failed to mark product as sold. Please try again.';
+      
+      if (error.message) {
+        if (error.message.includes('405')) {
+          errorMessage = 'Server error: The API endpoint is temporarily unavailable. Our team has been notified and is working on a fix.';
+        } else if (error.message.includes('400')) {
+          errorMessage = 'Invalid request: The product may already be sold or contains invalid data.';
+        } else if (error.message.includes('403')) {
+          errorMessage = 'Permission denied: You may not have rights to update this product.';
+        } else if (error.message.includes('404')) {
+          errorMessage = 'Product not found: This product may have been deleted or moved.';
+        } else if (error.message.includes('Network request failed')) {
+          errorMessage = 'Network error: Please check your internet connection and try again.';
+        }
+      }
+      
       Alert.alert(
-        'Error',
-        'Failed to mark product as sold. Please try again.'
+        'Unable to Mark as Sold',
+        errorMessage,
+        [
+          {
+            text: 'OK',
+            style: 'default'
+          }
+        ]
       );
     }
   }, [userData.email, onRefresh, isViewingSeller]);
@@ -1824,10 +1854,8 @@ const styles = StyleSheet.create({
   markAsSoldButton: {
     padding: 6,
     marginRight: 8,
-    backgroundColor: 'rgba(76, 175, 80, 0.1)',
     borderRadius: 50,
-    borderWidth: 1,
-    borderColor: 'rgba(76, 175, 80, 0.3)',
+    borderWidth: 0,
   },
   deleteButton: {
     padding: 6,
