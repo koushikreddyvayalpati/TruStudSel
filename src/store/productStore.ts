@@ -8,12 +8,14 @@ import {
   getProductsByCity 
 } from '../api/products';
 import { createFilterMaps } from '../utils/filterUtils';
+import { API_URL } from '../api/config';
 
 // Cache constants
 export const FEATURED_PRODUCTS_CACHE_KEY = 'featured_products_cache_';
 export const NEW_ARRIVALS_CACHE_KEY = 'new_arrivals_cache_';
 export const UNIVERSITY_PRODUCTS_CACHE_KEY = 'university_products_cache_';
 export const CITY_PRODUCTS_CACHE_KEY = 'city_products_cache_';
+export const INTERESTED_CATEGORY_CACHE_KEY = 'interested_category_cache_';
 export const FORCE_REFRESH_KEY = 'force_refresh_flag';
 export const PRODUCTS_CACHE_EXPIRY_TIME = 5 * 60 * 1000; // 5 minutes
 
@@ -28,6 +30,7 @@ interface ProductState {
   universityProductsOriginal: Product[];
   cityProducts: Product[];
   cityProductsOriginal: Product[];
+  interestedCategoryProducts: Product[];
   
   // Filter maps for optimization
   featuredFilterMaps: any;
@@ -40,6 +43,10 @@ interface ProductState {
   loadingNewArrivals: boolean;
   loadingUniversity: boolean;
   loadingCity: boolean;
+  loadingInterestedCategory: boolean;
+  
+  // Selected category
+  selectedInterestCategory: string | null;
   
   // Total counts
   totalFeaturedCount: number;
@@ -50,22 +57,26 @@ interface ProductState {
   refreshCount: number;
   shouldForceRefresh: boolean;
   error: string | null;
+  interestedCategoryError: string | null;
   
   // Helper functions
-  cacheProducts: (key: string, products: any, university?: string, city?: string) => Promise<void>;
-  getCachedProducts: (key: string, university?: string, city?: string) => Promise<any>;
+  cacheProducts: (key: string, products: any, university?: string, city?: string, category?: string) => Promise<void>;
+  getCachedProducts: (key: string, university?: string, city?: string, category?: string) => Promise<any>;
   
   // Actions
   setError: (error: string | null) => void;
+  setInterestedCategoryError: (error: string | null) => void;
   incrementRefreshCount: () => number;
   setForceRefresh: (value: boolean) => Promise<void>;
   clearProductCaches: (university?: string, city?: string) => Promise<void>;
+  setSelectedInterestCategory: (category: string | null) => void;
   
   // Product loading functions
   loadFeaturedProducts: (university: string, city: string) => Promise<void>;
   loadNewArrivals: (university: string) => Promise<void>;
   loadUniversityProducts: (university: string) => Promise<void>;
   loadCityProducts: (city: string) => Promise<void>;
+  loadInterestedCategoryProducts: (category: string, university?: string, city?: string) => Promise<void>;
   
   // Refresh handling
   handleRefresh: (university: string, city: string) => Promise<void>;
@@ -82,6 +93,7 @@ const useProductStore = create<ProductState>((set, get) => ({
   universityProductsOriginal: [],
   cityProducts: [],
   cityProductsOriginal: [],
+  interestedCategoryProducts: [],
   
   featuredFilterMaps: {},
   newArrivalsFilterMaps: {},
@@ -92,6 +104,9 @@ const useProductStore = create<ProductState>((set, get) => ({
   loadingNewArrivals: false,
   loadingUniversity: false,
   loadingCity: false,
+  loadingInterestedCategory: false,
+  
+  selectedInterestCategory: null,
   
   totalFeaturedCount: 0,
   totalUniversityCount: 0,
@@ -100,14 +115,26 @@ const useProductStore = create<ProductState>((set, get) => ({
   refreshCount: 0,
   shouldForceRefresh: false,
   error: null,
+  interestedCategoryError: null,
   
   // Action to set error
   setError: (error) => set({ error }),
   
+  // Action to set interested category error
+  setInterestedCategoryError: (error) => set({ interestedCategoryError: error }),
+  
+  // Action to set selected interest category
+  setSelectedInterestCategory: (category) => set({ selectedInterestCategory: category }),
+  
   // Helper function to cache products
-  cacheProducts: async (key: string, products: any, university?: string, city?: string) => {
+  cacheProducts: async (key: string, products: any, university?: string, city?: string, category?: string) => {
     try {
-      const cacheKey = `${key}${university ? '_' + university : ''}${city ? '_' + city : ''}`;
+      // Build cache key with optional parameters
+      let cacheKey = key;
+      if (university) cacheKey += `_${university}`;
+      if (city) cacheKey += `_${city}`;
+      if (category) cacheKey += `_${category}`;
+      
       await AsyncStorage.setItem(
         cacheKey,
         JSON.stringify({
@@ -128,7 +155,7 @@ const useProductStore = create<ProductState>((set, get) => ({
   },
   
   // Helper function to get products from cache
-  getCachedProducts: async (key: string, university?: string, city?: string) => {
+  getCachedProducts: async (key: string, university?: string, city?: string, category?: string) => {
     try {
       // Skip cache if force refresh is enabled
       if (get().shouldForceRefresh) {
@@ -147,7 +174,12 @@ const useProductStore = create<ProductState>((set, get) => ({
         return null;
       }
       
-      const cacheKey = `${key}${university ? '_' + university : ''}${city ? '_' + city : ''}`;
+      // Build cache key with optional parameters
+      let cacheKey = key;
+      if (university) cacheKey += `_${university}`;
+      if (city) cacheKey += `_${city}`;
+      if (category) cacheKey += `_${category}`;
+      
       const cachedData = await AsyncStorage.getItem(cacheKey);
       
       if (cachedData) {
@@ -186,6 +218,12 @@ const useProductStore = create<ProductState>((set, get) => ({
       
       if (city) {
         keysToRemove.push(`${CITY_PRODUCTS_CACHE_KEY}${city}`);
+      }
+      
+      // Also clear interested category cache if applicable
+      const selectedCategory = get().selectedInterestCategory;
+      if (selectedCategory) {
+        keysToRemove.push(`${INTERESTED_CATEGORY_CACHE_KEY}${selectedCategory}`);
       }
       
       await Promise.all(keysToRemove.map(key => AsyncStorage.removeItem(key)));
@@ -569,34 +607,131 @@ const useProductStore = create<ProductState>((set, get) => ({
     }
   },
   
+  // Load interested category products
+  loadInterestedCategoryProducts: async (category, university, city) => {
+    try {
+      if (!category) {
+        console.log('[ProductStore] No interested category selected, skipping fetch');
+        return;
+      }
+      
+      set({ loadingInterestedCategory: true, interestedCategoryError: null });
+      console.log(`[ProductStore] STARTING TO LOAD products for interested category: "${category}"`);
+      console.log(`[ProductStore] User university: "${university}", User city: "${city}"`);
+      
+      // Try to get from cache first
+      const cachedProducts = await get().getCachedProducts(INTERESTED_CATEGORY_CACHE_KEY, university, city, category);
+      
+      if (cachedProducts) {
+        set({ 
+          interestedCategoryProducts: cachedProducts,
+          loadingInterestedCategory: false
+        });
+        return;
+      }
+      
+      // Create query params including university if available
+      const queryParams = new URLSearchParams();
+      if (university) {
+        queryParams.append('university', university);
+      }
+      if (city) {
+        queryParams.append('city', city);
+      }
+      
+      // Add pagination params
+      queryParams.append('page', '0');
+      queryParams.append('size', '10');
+      
+      const url = `${API_URL}/api/products/category/${encodeURIComponent(category.toLowerCase())}/paginated?${queryParams}`;
+      console.log(`[ProductStore] Making API call to: ${url}`);
+      
+      // Make API call
+      const response = await fetch(url, { method: 'GET' });
+      
+      console.log(`[ProductStore] API response status: ${response.status}`);
+      
+      if (!response.ok) {
+        throw new Error(`Error fetching products: ${response.status}`);
+      }
+      
+      const responseText = await response.text();
+      console.log(`[ProductStore] Raw API response (first 100 chars): ${responseText.substring(0, 100)}`);
+      
+      // Parse the JSON manually
+      const data = JSON.parse(responseText);
+      console.log(`[ProductStore] API response parsed successfully, data type: ${typeof data}`);
+      
+      // Process the products
+      let productsList: Product[] = [];
+      if (data && Array.isArray(data.products)) {
+        console.log(`[ProductStore] Found products array in response with ${data.products.length} items`);
+        productsList = data.products;
+      } else if (Array.isArray(data)) {
+        console.log(`[ProductStore] Response is a direct array with ${data.length} items`);
+        productsList = data;
+      } else {
+        console.log(`[ProductStore] Unexpected response format:`, JSON.stringify(data).substring(0, 200));
+      }
+      
+      console.log(`[ProductStore] Final processed products list contains ${productsList.length} items`);
+      
+      // Process image URLs if needed
+      productsList = productsList.map(product => {
+        // Handle image URLs
+        if (product.primaryImage && !product.primaryImage.startsWith('http')) {
+          console.log(`[ProductStore] Processing image URL: ${product.primaryImage}`);
+          product.primaryImage = `https://trustudsel-products.s3.amazonaws.com/${product.primaryImage}`;
+        }
+        return product;
+      });
+      
+      // Set the products in state
+      set({ interestedCategoryProducts: productsList });
+      
+      // Cache the products
+      await get().cacheProducts(INTERESTED_CATEGORY_CACHE_KEY, productsList, university, city, category);
+      
+      console.log(`[ProductStore] State updated with ${productsList.length} interested category products`);
+    } catch (error) {
+      console.error(`[ProductStore] ERROR loading interested category products:`, error);
+      set({ interestedCategoryError: 'Failed to load products for your interests' });
+    } finally {
+      set({ loadingInterestedCategory: false });
+      console.log(`[ProductStore] Finished loading attempt for interested category products`);
+    }
+  },
+  
   // Handle refresh action
   handleRefresh: async (university, city) => {
-    set({ isRefreshing: true, error: null });
-    
-    // Increment refresh counter
-    const newCount = get().incrementRefreshCount();
-    
-    // If we're force refreshing, clear cache first
-    if (newCount >= 2) {
-      await get().clearProductCaches(university, city);
-      
-      // Small delay to ensure state updates
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    
     try {
-      // Log refresh status
-      console.log(`[ProductStore] Starting refresh with forceRefresh=${get().shouldForceRefresh}`);
+      set({ isRefreshing: true });
       
-      // Load all product types
+      // Increment the refresh count
+      const refreshCount = get().incrementRefreshCount();
+      console.log(`[ProductStore] Handling refresh #${refreshCount} for university: ${university}, city: ${city}`);
+      
+      // Clear caches if this is a force refresh
+      if (get().shouldForceRefresh) {
+        await get().clearProductCaches(university, city);
+      }
+      
+      // Get selectedInterestCategory to avoid using it directly in the array
+      const selectedCategory = get().selectedInterestCategory;
+      
+      // Load all types of products in parallel
       await Promise.all([
         get().loadFeaturedProducts(university, city),
-        get().loadNewArrivals(university),
-        get().loadUniversityProducts(university),
-        get().loadCityProducts(city)
+        university ? get().loadNewArrivals(university) : Promise.resolve(),
+        university ? get().loadUniversityProducts(university) : Promise.resolve(),
+        city ? get().loadCityProducts(city) : Promise.resolve(),
+        // Add interested category products refresh
+        selectedCategory ? get().loadInterestedCategoryProducts(selectedCategory, university, city) : Promise.resolve()
       ]);
-    } catch (err) {
-      console.error('Error refreshing products:', err);
+      
+      console.log('[ProductStore] Refresh completed successfully');
+    } catch (error) {
+      console.error('[ProductStore] Error during refresh:', error);
       set({ error: 'Failed to refresh products' });
     } finally {
       set({ isRefreshing: false });

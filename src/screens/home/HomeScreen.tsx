@@ -22,24 +22,13 @@ import Entypoicon from 'react-native-vector-icons/Entypo';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { useNavigation, DrawerActions } from '@react-navigation/native';
-import { debounce } from 'lodash'; // Add lodash import for debouncing
 
 // Import from contexts with new structure
 import { useAuth } from '../../contexts';
 import { useUniversity, useCity } from '../../navigation/MainNavigator';
 
-// Import API methods
-import { 
-  getProductsByUniversity,
-  getProductsByCity,
-  getFeaturedProducts,
-  getNewArrivals,
-  Product as ApiProduct,
-  searchProducts,
-  SearchProductsParams,
-  SearchProductsResponse,
-  ProductFilters
-} from '../../api/products';
+// Import the Product type from types/product
+import { Product } from '../../types/product';
 
 // Import new filter utilities
 import {
@@ -48,9 +37,7 @@ import {
   shouldUseClientSideFiltering,
   applyOptimizedFiltering,
   convertToApiFilters,
-  needsServerRefetch,
-  PRODUCT_SIZE_THRESHOLD,
-  SORTING_THRESHOLD
+  needsServerRefetch
 } from '../../utils/filterUtils';
 
 // Import user profile API
@@ -59,18 +46,6 @@ import { fetchUserProfileById } from '../../api/users';
 // Import types
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MainStackParamList } from '../../types/navigation.types';
-
-// Import search utilities
-import {
-  saveRecentSearch,
-  loadRecentSearches,
-  cacheSearchResults,
-  getCachedSearchResults,
-  SEARCH_CACHE_KEY,
-  SEARCH_CACHE_RESULTS_KEY,
-  SEARCH_CACHE_EXPIRY_TIME,
-  MAX_RECENT_SEARCHES
-} from './searchUtils';
 
 // Import the search hook
 import { useSearch } from './home-search';
@@ -85,8 +60,8 @@ interface Category {
   icon: 'electronics' | 'furniture' | 'auto' | 'fashion' | 'sports' | 'stationery' | 'eventpass';
 }
 
-// Using the API Product interface directly
-type Product = ApiProduct;
+// Using the Product interface directly from types/product instead of from api
+// type Product = ApiProduct;
 
 type ProductSectionType = 'featured' | 'newArrivals' | 'bestSellers' | 'university' | 'city';
 
@@ -553,30 +528,42 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     newArrivalsProducts,
     universityProducts,
     cityProducts,
+    interestedCategoryProducts,
     
     // Loading states from store
     loadingFeatured,
     loadingNewArrivals,
     loadingUniversity,
     loadingCity,
+    loadingInterestedCategory,
     
     // Refresh state from store
     isRefreshing,
     error: productError,
+    interestedCategoryError,
+    
+    // Selected interest category
+    selectedInterestCategory,
+    setSelectedInterestCategory,
     
     // Actions from store
     loadFeaturedProducts,
     loadNewArrivals,
     loadUniversityProducts,
     loadCityProducts,
+    loadInterestedCategoryProducts,
     handleRefresh,
     setError
   } = useProductStore();
   
-  // Load user profile data
+  // Modify the fetchUserProfile function to better log category selection
   const fetchUserProfile = useCallback(async () => {
-    if (!user?.email) return;
+    if (!user?.email) {
+      console.log('[HomeScreen] No user email available, skipping profile fetch');
+      return;
+    }
     
+    console.log(`[HomeScreen] Starting profile fetch for user: ${user.email}`);
     setIsLoadingUserData(true);
     setUserDataError(null);
     
@@ -596,20 +583,130 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
           if (data.university) setUserUniversity(data.university);
           if (data.city) setUserCity(data.city);
           
+          // DETAILED DEBUG: Examine profile data structure
+          console.log(`[HomeScreen] DEBUG - Full cached user profile:`, JSON.stringify(data).substring(0, 300));
+          console.log(`[HomeScreen] DEBUG - Profile data type:`, typeof data);
+          console.log(`[HomeScreen] DEBUG - Profile has productsCategoriesIntrested:`, 
+            data.hasOwnProperty('productsCategoriesIntrested'));
+          
+          // Check all property names for possible misspellings
+          console.log(`[HomeScreen] DEBUG - Available profile properties:`, Object.keys(data));
+          
+          // Try alternate spellings/formats
+          const possibleInterestProps = [
+            'productsCategoriesIntrested', 
+            'productsCategories',
+            'interestedCategories',
+            'interests',
+            'categories',
+            'productCategories',
+            'categoriesInterested'
+          ];
+          
+          let interestCategories = null;
+          let propName = null;
+          
+          for (const prop of possibleInterestProps) {
+            if (data[prop] && Array.isArray(data[prop]) && data[prop].length > 0) {
+              console.log(`[HomeScreen] Found interests in property: ${prop}`);
+              interestCategories = data[prop];
+              propName = prop;
+              break;
+            }
+          }
+          
+          // If we found interests, log and use them
+          if (interestCategories && interestCategories.length > 0) {
+            console.log(`[HomeScreen] User interests found in '${propName}':`, interestCategories);
+            
+            // Select a random category from user's interests
+            const randomIndex = Math.floor(Math.random() * interestCategories.length);
+            const selectedCategory = interestCategories[randomIndex];
+            console.log(`[HomeScreen] Selected random interest category: "${selectedCategory}" (index ${randomIndex} of ${interestCategories.length})`);
+            setSelectedInterestCategory(selectedCategory);
+          } else {
+            console.log('[HomeScreen] ERROR: No interest categories found in user profile data');
+            
+            // If we found the property but it's empty, log that
+            if (data.productsCategoriesIntrested !== undefined) {
+              console.log(`[HomeScreen] productsCategoriesIntrested exists but is:`, 
+                data.productsCategoriesIntrested);
+            }
+            
+            // Fallback to a default category if needed
+            console.log('[HomeScreen] Using fallback category "electronics" since no interests found');
+            setSelectedInterestCategory('electronics');
+          }
+          
           setIsLoadingUserData(false);
           return;
         }
       }
       
-      console.log(`[HomeScreen] Fetching fresh user profile data`);
+      console.log(`[HomeScreen] Fetching fresh user profile data from API`);
       const userData = await fetchUserProfileById(user.email);
       
       if (userData) {
+        console.log(`[HomeScreen] User profile fetched successfully from API`);
+        console.log(`[HomeScreen] DEBUG - Full API user profile:`, JSON.stringify(userData).substring(0, 300));
+        console.log(`[HomeScreen] DEBUG - API profile data type:`, typeof userData);
+        console.log(`[HomeScreen] DEBUG - API profile has productsCategoriesIntrested:`, 
+          userData.hasOwnProperty('productsCategoriesIntrested'));
+        
+        // Check all property names for possible misspellings
+        console.log(`[HomeScreen] DEBUG - Available API profile properties:`, Object.keys(userData));
+        
         setUserProfileData(userData);
         
         // Update shared context
         if (userData.university) setUserUniversity(userData.university);
         if (userData.city) setUserCity(userData.city);
+        
+        // Try alternate spellings/formats
+        const possibleInterestProps = [
+          'productsCategoriesIntrested', 
+          'productsCategories',
+          'interestedCategories',
+          'interests',
+          'categories',
+          'productCategories',
+          'categoriesInterested'
+        ];
+        
+        let interestCategories = null;
+        let propName = null;
+        
+        for (const prop of possibleInterestProps) {
+          if (userData[prop] && Array.isArray(userData[prop]) && userData[prop].length > 0) {
+            console.log(`[HomeScreen] Found interests in API response property: ${prop}`);
+            interestCategories = userData[prop];
+            propName = prop;
+            break;
+          }
+        }
+        
+        // If we found interests, log and use them
+        if (interestCategories && interestCategories.length > 0) {
+          console.log(`[HomeScreen] User interests from API in '${propName}':`, interestCategories);
+          
+          // Select a random category from user's interests
+          const randomIndex = Math.floor(Math.random() * interestCategories.length);
+          const selectedCategory = interestCategories[randomIndex];
+          console.log(`[HomeScreen] Selected random interest category from API: "${selectedCategory}" (index ${randomIndex} of ${interestCategories.length})`);
+          setSelectedInterestCategory(selectedCategory);
+        } else {
+          console.log('[HomeScreen] ERROR: No interest categories found in API user profile data');
+          
+          // If we found the property but it's empty, log that
+          if (userData.productsCategoriesIntrested !== undefined) {
+            console.log(`[HomeScreen] productsCategoriesIntrested from API exists but is:`, 
+              userData.productsCategoriesIntrested);
+          }
+          
+          // Fallback to a default category if needed
+          console.log('[HomeScreen] Using fallback category "electronics" since no interests found in API');
+          setSelectedInterestCategory('electronics');
+        }
         
         // Cache the user data
         await AsyncStorage.setItem(
@@ -619,19 +716,39 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
             timestamp: Date.now()
           })
         );
+      } else {
+        console.log('[HomeScreen] No user data returned from API');
+        // Fallback to a default category
+        console.log('[HomeScreen] Using fallback category "electronics" since no user data');
+        setSelectedInterestCategory('electronics');
       }
     } catch (err) {
-      console.error('Error fetching user profile:', err);
+      console.error('[HomeScreen] Error fetching user profile:', err);
       setUserDataError('Failed to load user profile');
+      // Fallback to a default category
+      console.log('[HomeScreen] Using fallback category "electronics" due to error');
+      setSelectedInterestCategory('electronics');
     } finally {
       setIsLoadingUserData(false);
     }
-  }, [user, setUserUniversity, setUserCity]);
+  }, [user, setUserUniversity, setUserCity, setSelectedInterestCategory]);
+  
+  // Add logging to useEffect
+  useEffect(() => {
+    if (selectedInterestCategory) {
+      console.log(`[HomeScreen] useEffect triggered to load interest products for: "${selectedInterestCategory}"`);
+      loadInterestedCategoryProducts(selectedInterestCategory, userUniversity, userCity);
+    } else {
+      console.log(`[HomeScreen] useEffect for interest products skipped: no category selected`);
+    }
+  }, [selectedInterestCategory, loadInterestedCategoryProducts, userUniversity, userCity]);
   
   // Load products when the component mounts
   useEffect(() => {
     fetchUserProfile();
   }, [fetchUserProfile]);
+  
+  // We removed the duplicate useEffect here that was calling loadInterestedCategoryProducts
   
   // Load products when userUniversity or userCity changes
   useEffect(() => {
@@ -646,8 +763,22 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
       if (userCity) {
         loadCityProducts(userCity);
       }
+      
+      // Also reload interested category products if we have a category
+      if (selectedInterestCategory) {
+        loadInterestedCategoryProducts(selectedInterestCategory, userUniversity, userCity);
+      }
     }
-  }, [userUniversity, userCity, loadFeaturedProducts, loadNewArrivals, loadUniversityProducts, loadCityProducts]);
+  }, [
+    userUniversity, 
+    userCity, 
+    loadFeaturedProducts, 
+    loadNewArrivals, 
+    loadUniversityProducts, 
+    loadCityProducts,
+    selectedInterestCategory,
+    loadInterestedCategoryProducts
+  ]);
   
   // Handle the refresh action with the Zustand store
   const onRefresh = useCallback(() => {
@@ -658,7 +789,15 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     if (search && search.incrementSearchRefreshCount) {
       search.incrementSearchRefreshCount();
     }
-  }, [handleRefresh, userUniversity, userCity, search]);
+    
+    // No need to manually refresh interested category products here,
+    // since the store's handleRefresh already handles that
+  }, [
+    handleRefresh, 
+    userUniversity, 
+    userCity, 
+    search
+  ]);
   
   // Get the initial letter for the profile avatar
   const getInitial = useCallback(() => {
@@ -779,23 +918,23 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
       
       // Determine if we should use server-side filtering for any of the product sets
       const useFeaturedServerFiltering = _featuredProductsOriginal.length > 0 && 
-        !shouldUseClientSideFiltering(_featuredProductsOriginal, newFilters, totalFeaturedCount);
+        !shouldUseClientSideFiltering(_featuredProductsOriginal as any, newFilters, totalFeaturedCount);
       
       const useNewArrivalsServerFiltering = _newArrivalsProductsOriginal.length > 0 && 
-        !shouldUseClientSideFiltering(_newArrivalsProductsOriginal, newFilters, totalNewArrivalsCount);
+        !shouldUseClientSideFiltering(_newArrivalsProductsOriginal as any, newFilters, totalNewArrivalsCount);
       
       const useUniversityServerFiltering = _universityProductsOriginal.length > 0 && 
-        !shouldUseClientSideFiltering(_universityProductsOriginal, newFilters, totalUniversityCount);
+        !shouldUseClientSideFiltering(_universityProductsOriginal as any, newFilters, totalUniversityCount);
       
       const useCityServerFiltering = _cityProductsOriginal.length > 0 && 
-        !shouldUseClientSideFiltering(_cityProductsOriginal, newFilters, totalCityCount);
+        !shouldUseClientSideFiltering(_cityProductsOriginal as any, newFilters, totalCityCount);
       
       // Check if we need to do progressive loading - fetch more data from server
       const needsProgressiveLoading = 
-        needsServerRefetch(newFilters, prevFilters, totalFeaturedCount, _featuredProductsOriginal) ||
-        needsServerRefetch(newFilters, prevFilters, totalNewArrivalsCount, _newArrivalsProductsOriginal) ||
-        needsServerRefetch(newFilters, prevFilters, totalUniversityCount, _universityProductsOriginal) ||
-        needsServerRefetch(newFilters, prevFilters, totalCityCount, _cityProductsOriginal);
+        needsServerRefetch(newFilters, prevFilters, totalFeaturedCount, _featuredProductsOriginal as any) ||
+        needsServerRefetch(newFilters, prevFilters, totalNewArrivalsCount, _newArrivalsProductsOriginal as any) ||
+        needsServerRefetch(newFilters, prevFilters, totalUniversityCount, _universityProductsOriginal as any) ||
+        needsServerRefetch(newFilters, prevFilters, totalCityCount, _cityProductsOriginal as any);
       
       // If any product set needs server filtering or progressive loading, set the flag
       const useServer = useFeaturedServerFiltering || 
@@ -853,32 +992,32 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
         if (_featuredProductsOriginal.length > 0) {
           setFeaturedProducts(
             _featuredProductsOriginal.length < 100 ? 
-              applySortingAndFilters(_featuredProductsOriginal, selectedSort, newFilters) :
-              applyOptimizedFiltering(_featuredProductsOriginal, newFilters, featuredFilterMaps)
+              applySortingAndFilters(_featuredProductsOriginal as any, selectedSort, newFilters) :
+              applyOptimizedFiltering(_featuredProductsOriginal as any, newFilters, featuredFilterMaps)
           );
         }
         
         if (_newArrivalsProductsOriginal.length > 0) {
           setNewArrivalsProducts(
             _newArrivalsProductsOriginal.length < 100 ? 
-              applySortingAndFilters(_newArrivalsProductsOriginal, selectedSort, newFilters) :
-              applyOptimizedFiltering(_newArrivalsProductsOriginal, newFilters, newArrivalsFilterMaps)
+              applySortingAndFilters(_newArrivalsProductsOriginal as any, selectedSort, newFilters) :
+              applyOptimizedFiltering(_newArrivalsProductsOriginal as any, newFilters, newArrivalsFilterMaps)
           );
         }
         
         if (_universityProductsOriginal.length > 0) {
           setUniversityProducts(
             _universityProductsOriginal.length < 100 ? 
-              applySortingAndFilters(_universityProductsOriginal, selectedSort, newFilters) :
-              applyOptimizedFiltering(_universityProductsOriginal, newFilters, universityFilterMaps)
+              applySortingAndFilters(_universityProductsOriginal as any, selectedSort, newFilters) :
+              applyOptimizedFiltering(_universityProductsOriginal as any, newFilters, universityFilterMaps)
           );
         }
         
         if (_cityProductsOriginal.length > 0) {
           setCityProducts(
             _cityProductsOriginal.length < 100 ? 
-              applySortingAndFilters(_cityProductsOriginal, selectedSort, newFilters) :
-              applyOptimizedFiltering(_cityProductsOriginal, newFilters, cityFilterMaps)
+              applySortingAndFilters(_cityProductsOriginal as any, selectedSort, newFilters) :
+              applyOptimizedFiltering(_cityProductsOriginal as any, newFilters, cityFilterMaps)
           );
         }
         
@@ -927,25 +1066,25 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     // Apply sorting directly using the applySortingAndFilters function
     if (_featuredProductsOriginal.length > 0) {
       setFeaturedProducts(
-        applySortingAndFilters(_featuredProductsOriginal, optionId, selectedFilters)
+        applySortingAndFilters(_featuredProductsOriginal as any, optionId, selectedFilters)
       );
     }
     
     if (_newArrivalsProductsOriginal.length > 0) {
       setNewArrivalsProducts(
-        applySortingAndFilters(_newArrivalsProductsOriginal, optionId, selectedFilters)
+        applySortingAndFilters(_newArrivalsProductsOriginal as any, optionId, selectedFilters)
       );
     }
     
     if (_universityProductsOriginal.length > 0) {
       setUniversityProducts(
-        applySortingAndFilters(_universityProductsOriginal, optionId, selectedFilters)
+        applySortingAndFilters(_universityProductsOriginal as any, optionId, selectedFilters)
       );
     }
     
     if (_cityProductsOriginal.length > 0) {
       setCityProducts(
-        applySortingAndFilters(_cityProductsOriginal, optionId, selectedFilters)
+        applySortingAndFilters(_cityProductsOriginal as any, optionId, selectedFilters)
       );
     }
     
@@ -978,8 +1117,8 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
         break;
       case 'newest':
         filteredProducts.sort((a, b) => {
-          const dateA = a.postingdate ? new Date(a.postingdate).getTime() : 0;
-          const dateB = b.postingdate ? new Date(b.postingdate).getTime() : 0;
+          const dateA = (a as any).postingdate ? new Date((a as any).postingdate).getTime() : 0;
+          const dateB = (b as any).postingdate ? new Date((b as any).postingdate).getTime() : 0;
           return dateB - dateA;
         });
         break;
@@ -1486,6 +1625,27 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                 onSeeAll={() => handleSeeAll('university')}
                 isLoading={loadingUniversity}
               />
+
+              {/* Interested Category Products Section */}
+              {selectedInterestCategory && (
+                <ProductSection 
+                  title="Products You May Like"
+                  data={interestedCategoryProducts}
+                  wishlist={wishlist}
+                  onToggleWishlist={toggleWishlist}
+                  onProductPress={handleProductPress}
+                  onMessageSeller={handleMessageSeller}
+                  onSeeAll={() => {
+                    nav.navigate('CategoryProducts', {
+                      categoryId: categories.find(c => c.name.toLowerCase() === selectedInterestCategory.toLowerCase())?.id || 1,
+                      categoryName: selectedInterestCategory.charAt(0).toUpperCase() + selectedInterestCategory.slice(1),
+                      userUniversity: userUniversity,
+                      userCity: userCity
+                    });
+                  }}
+                  isLoading={loadingInterestedCategory}
+                />
+              )}
 
               {/* City Products Section */}
               {userCity && (

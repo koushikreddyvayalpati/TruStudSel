@@ -1,4 +1,5 @@
-import { Product, ProductFilters } from '../api/products';
+import { ProductFilters } from '../api/products';
+import { Product } from '../types/product';
 
 // Thresholds for client vs server filtering
 export const PRODUCT_SIZE_THRESHOLD = 500; // If more than 500 products, prefer server filtering
