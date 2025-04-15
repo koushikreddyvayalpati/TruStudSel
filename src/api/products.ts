@@ -859,6 +859,21 @@ const btoa = (input: string): string => {
   return Buffer.from(input, 'binary').toString('base64');
 };
 
+// Add a function to clear product cache for a specific product
+export const clearProductCache = async (productId: string): Promise<void> => {
+  try {
+    console.log(`[API:products] Clearing cache for product: ${productId}`);
+    
+    // Add code to clear cached items if you implement product caching
+    // For now, this is just a placeholder for future implementation
+    
+    return Promise.resolve();
+  } catch (error) {
+    console.error('[API:products] Error clearing product cache:', error);
+    return Promise.resolve();
+  }
+};
+
 /**
  * Update a product's status
  * @param id Product ID to update
@@ -866,40 +881,112 @@ const btoa = (input: string): string => {
  * @returns The updated product
  */
 export const updateProductStatus = async (id: string, status: string): Promise<Product> => {
+  // Start timing the request (dev only)
+  const startTime = __DEV__ ? Date.now() : 0;
+  
   try {
-    console.log(`[API:products] Updating product ${id} status to: ${status}`);
+    // Verify and format the ID
+    if (!id || typeof id !== 'string') {
+      throw new Error(`Invalid product ID: ${id}. Must be a non-empty string.`);
+    }
+    
+    // Ensure the ID is properly formatted 
+    const productId = id.trim();
+    
+    // Only log in development mode
+    if (__DEV__) {
+      console.log(`[API:products] Updating product ${productId} status to: ${status}`);
+      console.log(`[API:products] Product ID type: ${typeof productId}, length: ${productId.length}`);
+      
+      // Log ID format to help debug UUID issues
+      if (productId.includes('-')) {
+        console.log(`[API:products] ID appears to be a UUID format: ${productId}`);
+      } else {
+        console.log(`[API:products] ID does not appear to be in UUID format: ${productId}`);
+      }
+    }
     
     // Validate status
-    const validStatuses = ['available', 'sold', 'archived', 'pending'];
+    const validStatuses = ['available', 'sold', 'archived', 'reserved', 'hidden', 'pending'];
     if (!validStatuses.includes(status.toLowerCase())) {
       throw new Error(`Invalid product status: ${status}. Must be one of: ${validStatuses.join(', ')}`);
     }
     
-    // Make API call
-    // Try with query parameter instead of request body
+    // Format the status as lowercase to match API requirements
     const statusParam = status.toLowerCase();
-    const url = `${API_URL}/api/products/${id}/status?status=${statusParam}`;
-    console.log(`[API:products] Making PATCH request to: ${url}`);
     
+    // Make API call with query parameter as specified in the API documentation
+    const url = `${API_URL}/api/products/${productId}/status?status=${statusParam}`;
+    
+    if (__DEV__) {
+      console.log(`[API:products] Making PATCH request to: ${url}`);
+    }
+    
+    // Make the API request
     const response = await fetch(url, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-      },
-      // Send an empty body since we're using query params
+        'Accept': 'application/json'
+      }
+      // No body needed as we're using query parameters
     });
     
+    if (__DEV__) {
+      console.log(`[API:products] Response status: ${response.status}`);
+    }
+    
+    // Check for success
     if (!response.ok) {
-      const errorText = await response.text();
-      console.log(`[API:products] Error response status: ${response.status}`);
-      console.log(`[API:products] Error response text: ${errorText}`);
+      // Try to get detailed error information
+      let errorText;
+      try {
+        errorText = await response.text();
+        
+        // Only log in development mode
+        if (__DEV__) {
+          console.log(`[API:products] Error response text: ${errorText}`);
+          
+          // Try to parse as JSON if possible
+          try {
+            const errorJson = JSON.parse(errorText);
+            console.log(`[API:products] Error JSON:`, errorJson);
+          } catch (jsonError) {
+            // Not JSON, that's fine
+          }
+        }
+      } catch (textError) {
+        errorText = 'Could not extract error details';
+      }
+      
       throw new Error(`Failed to update product status: ${response.status} - ${errorText}`);
     }
     
+    // Parse the response
     const updatedProduct = await response.json();
+    
+    // Only log in development mode
+    if (__DEV__) {
+      console.log(`[API:products] Updated product:`, JSON.stringify(updatedProduct, null, 2));
+      
+      // Performance tracking
+      const endTime = Date.now();
+      console.log(`[API:products] updateProductStatus took ${endTime - startTime}ms`);
+    }
+    
+    // Clear any cached data for this product
+    await clearProductCache(productId);
+    
     return processProductImages(updatedProduct);
   } catch (error) {
     console.error('[API:products] Error updating product status:', error);
+    
+    // For performance monitoring in dev mode
+    if (__DEV__) {
+      const endTime = Date.now();
+      console.log(`[API:products] updateProductStatus failed after ${endTime - startTime}ms`);
+    }
+    
     throw error;
   }
 };
@@ -916,4 +1003,5 @@ export default {
   fetchUserProducts,
   searchProducts,
   updateProductStatus,
+  clearProductCache,
 }; 

@@ -59,6 +59,7 @@ interface Post {
   price?: string;
   condition?: string;
   status?: 'available' | 'sold' | 'archived';
+  originalId?: string; // The original UUID
 }
 
 // Define tab types
@@ -307,6 +308,8 @@ const PostItem = React.memo(({
 }) => {
   const navigation = useNavigation<ProfileScreenNavigationProp>();
   
+  // No duplicate Post interface needed here as it's already defined at the top level
+  
   const handleProductPress = useCallback(() => {
     console.log('[ProfileScreen] Product pressed:', item.id);
     
@@ -318,22 +321,26 @@ const PostItem = React.memo(({
       });
     } else {
       // If original data isn't available, navigate with the minimal data we have
+      // and use originalId if available
       navigation.navigate('ProductInfoPage', { 
         product: {
-          id: item.id.toString(),
+          id: item.originalId || item.id.toString(),
           name: item.caption,
           price: item.price?.replace('$', '') || '0',
           image: item.image,
           condition: item.condition,
           primaryImage: item.image
         },
-        productId: item.id.toString()
+        productId: item.originalId || item.id.toString()
       });
     }
   }, [item, originalData, navigation]);
 
   // Handle delete confirmation and action
   const handleDeletePress = useCallback(() => {
+    // Get the best ID to use (originalData.id, originalId, or item.id)
+    const productId = originalData?.id || item.originalId || item.id.toString();
+    
     Alert.alert(
       'Delete Product',
       'Are you sure you want to delete this product? This action cannot be undone.',
@@ -347,13 +354,13 @@ const PostItem = React.memo(({
           style: 'destructive',
           onPress: () => {
             if (onDeleteProduct) {
-              onDeleteProduct(item.id.toString());
+              onDeleteProduct(productId);
             }
           }
         }
       ]
     );
-  }, [item.id, onDeleteProduct]);
+  }, [item, originalData, onDeleteProduct]);
 
   // Handle mark as sold confirmation and action
   const handleMarkAsSold = useCallback(() => {
@@ -363,15 +370,33 @@ const PostItem = React.memo(({
       return;
     }
 
-    // Make sure we have the original product data with the correct UUID
-    if (!originalData || !originalData.id) {
+    // Get the most reliable product ID available
+    const productId = originalData?.id || item.originalId;
+    
+    // Make sure we have a valid product ID
+    if (!productId) {
+      console.error('[ProfileScreen:PostItem] Cannot mark as sold: Missing product ID:', {
+        originalData,
+        item
+      });
       Alert.alert('Error', 'Cannot mark product as sold: Missing product ID.');
       return;
     }
 
+    // Make sure we're marking the correct product
+    console.log('[ProfileScreen:PostItem] About to mark product as sold:', {
+      itemId: item.id,
+      itemCaption: item.caption,
+      itemOriginalId: item.originalId,
+      originalDataId: originalData?.id,
+      finalProductId: productId
+    });
+
+    // Verify with user that they're marking the correct item as sold
+    const productName = originalData?.name || item.caption;
     Alert.alert(
       'Mark as Sold',
-      'Are you sure you want to mark this product as sold? This will update your seller stats.',
+      `Are you sure you want to mark "${productName}" as sold? This will update your seller stats.`,
       [
         {
           text: 'Cancel',
@@ -381,14 +406,16 @@ const PostItem = React.memo(({
           text: 'Mark as Sold',
           onPress: () => {
             if (onMarkAsSold) {
-              // Use the original product ID (UUID) instead of the item.id (numeric)
-              onMarkAsSold(originalData.id);
+              // Ensure the ID is a string format
+              const cleanProductId = String(productId).trim();
+              console.log(`[ProfileScreen:PostItem] Calling onMarkAsSold with ID: ${cleanProductId}`);
+              onMarkAsSold(cleanProductId);
             }
           }
         }
       ]
     );
-  }, [item.status, originalData, onMarkAsSold]);
+  }, [item, originalData, onMarkAsSold]);
   
   return (
     <TouchableOpacity 
@@ -614,7 +641,8 @@ const ProfileContentView = React.memo(({
   isViewingSeller,
   navigation,
   productsMap,
-  scrollY
+  scrollY,
+  setActiveTab
 }: {
   userData: any,
   backendUserData: BackendUserData | null,
@@ -630,23 +658,51 @@ const ProfileContentView = React.memo(({
   isViewingSeller: boolean,
   navigation: ProfileScreenNavigationProp,
   productsMap: Map<number, Product>,
-  scrollY: Animated.Value
+  scrollY: Animated.Value,
+  setActiveTab: (tab: TabType) => void
 }) => {
   // Define handleMarkAsSold function inside the component
   const handleMarkAsSold = useCallback(async (productId: string) => {
     try {
-      console.log(`[ProfileScreen] Marking product as sold: ${productId}`);
+      // Validate product ID
+      if (!productId || typeof productId !== 'string') {
+        console.error(`[ProfileScreen] Invalid product ID: ${productId}, type: ${typeof productId}`);
+        Alert.alert('Error', 'Invalid product ID. Please try again.');
+        return;
+      }
       
-      // Get the current sold count before making the API call
+      // Ensure we have a clean string ID
+      const cleanProductId = productId.trim();
+      
+      // Only log in development
+      if (__DEV__) {
+        console.log(`[ProfileScreen] Marking product as sold: ${cleanProductId}`);
+      }
+      
+      // Track processing time for performance monitoring (dev only)
+      const startTime = __DEV__ ? Date.now() : 0;
+      
+      // Get the current sold count before making the API call (only if needed)
       let currentUserData;
       if (!isViewingSeller && userData.email) {
         currentUserData = await fetchUserProfileById(userData.email);
-        const beforeSoldCount = parseInt(currentUserData.productssold || '0', 10);
-        console.log(`[ProfileScreen] Current sold count before API call: ${beforeSoldCount}`);
+        if (__DEV__) {
+          const beforeSoldCount = parseInt(currentUserData.productssold || '0', 10);
+          console.log(`[ProfileScreen] Current sold count before API call: ${beforeSoldCount}`);
+        }
       }
       
       // Update the product status to 'sold'
-      await updateProductStatus(productId, 'sold');
+      if (__DEV__) {
+        console.log(`[ProfileScreen] Calling updateProductStatus with ID: ${cleanProductId}`);
+      }
+      
+      // Show a loading indicator to the user
+      const updatedProduct = await updateProductStatus(cleanProductId, 'sold');
+      
+      if (__DEV__) {
+        console.log(`[ProfileScreen] Product updated successfully:`, updatedProduct);
+      }
       
       if (!isViewingSeller && userData.email && currentUserData) {
         // Get the updated user profile after the status change
@@ -654,11 +710,16 @@ const ProfileContentView = React.memo(({
         const afterSoldCount = parseInt(updatedUserData.productssold || '0', 10);
         const beforeSoldCount = parseInt(currentUserData.productssold || '0', 10);
         
-        console.log(`[ProfileScreen] Sold count before: ${beforeSoldCount}, after: ${afterSoldCount}`);
+        if (__DEV__) {
+          console.log(`[ProfileScreen] Sold count before: ${beforeSoldCount}, after: ${afterSoldCount}`);
+        }
         
         // Only update if the backend didn't already increment the count
         if (afterSoldCount === beforeSoldCount) {
-          console.log(`[ProfileScreen] Backend did not increment count, doing it in frontend`);
+          if (__DEV__) {
+            console.log(`[ProfileScreen] Backend did not increment count, doing it in frontend`);
+          }
+          
           const updatedSoldCount = (beforeSoldCount + 1).toString();
           
           // Update the user profile with the new count
@@ -666,13 +727,32 @@ const ProfileContentView = React.memo(({
             productssold: updatedSoldCount
           });
           
-          console.log(`[ProfileScreen] Updated user's sold products count to: ${updatedSoldCount}`);
-        } else {
+          if (__DEV__) {
+            console.log(`[ProfileScreen] Updated user's sold products count to: ${updatedSoldCount}`);
+          }
+        } else if (__DEV__) {
           console.log(`[ProfileScreen] Backend already incremented the count, no need to update`);
         }
         
-        // Refresh the data to reflect changes
+        // Force refresh the data to reflect all changes
+        if (__DEV__) {
+          console.log(`[ProfileScreen] Refreshing data after marking product as sold`);
+        }
+        
         await onRefresh();
+        
+        // Switch to the 'sold' tab to show the sold product
+        if (__DEV__) {
+          console.log(`[ProfileScreen] Switching to 'sold' tab to display newly sold product`);
+        }
+        
+        setActiveTab('sold');
+        
+        // Performance tracking in dev mode
+        if (__DEV__) {
+          const endTime = Date.now();
+          console.log(`[ProfileScreen] Mark as sold operation took ${endTime - startTime}ms`);
+        }
         
         // Show success message with congratulations
         Alert.alert(
@@ -685,6 +765,16 @@ const ProfileContentView = React.memo(({
             }
           ]
         );
+      } else {
+        // For sellers or when userData is not available, still refresh
+        if (__DEV__) {
+          console.log(`[ProfileScreen] Refreshing data after marking product as sold (seller view or no userData)`);
+        }
+        
+        await onRefresh();
+        
+        // Switch to the 'sold' tab to show the sold product
+        setActiveTab('sold');
       }
     } catch (error: any) {
       console.error('[ProfileScreen] Error marking product as sold:', error);
@@ -717,16 +807,48 @@ const ProfileContentView = React.memo(({
         ]
       );
     }
-  }, [userData.email, onRefresh, isViewingSeller]);
+  }, [userData.email, onRefresh, isViewingSeller, setActiveTab]);
 
   // The item renderer for FlatList
   const renderItem = useCallback(({ item, index }: { item: Post, index: number }) => {
     const isEven = index % 2 === 0;
+    
+    // Find the original data more reliably by using the product name as a fallback
+    // but only log warnings for development purposes in case of no match
+    let originalData = productsMap.get(item.id);
+    
+    if (!originalData && item.originalId) {
+      // Try using the originalId directly
+      for (const product of productsMap.values()) {
+        if (product.id === item.originalId) {
+          originalData = product;
+          break;
+        }
+      }
+    }
+    
+    if (!originalData && __DEV__) {
+      // Only in development mode, try matching by name as a last resort
+      for (const product of productsMap.values()) {
+        if (product.name === item.caption) {
+          originalData = product;
+          // Don't log in production to improve performance
+          console.log(`[ProfileScreen] Found product by name match: ${product.name} with ID ${product.id}`);
+          break;
+        }
+      }
+      
+      if (!originalData) {
+        // Only log in development mode
+        console.log(`[ProfileScreen] Warning: No original data found for product ${item.caption}(${item.id})`);
+      }
+    }
+    
     return (
       <View style={[styles.postGridItem, isEven ? { paddingRight: 4 } : { paddingLeft: 4 }]}>
         <PostItem 
           item={item} 
-          originalData={productsMap.get(item.id)} 
+          originalData={originalData} 
           isViewingSeller={isViewingSeller}
           onDeleteProduct={!isViewingSeller ? (productId) => {
             console.log('Delete product:', productId);
@@ -1152,6 +1274,7 @@ const ProfileScreen: React.FC = () => {
               navigation={navigation}
               productsMap={productsMap}
               scrollY={scrollY}
+              setActiveTab={setActiveTab}
             />
             
             {/* Add Listing FAB - only show if viewing own profile */}
@@ -1681,26 +1804,21 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 5,
   },
   soldText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: 'bold',
-    fontSize: 18,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: '#fff',
-    overflow: 'hidden',
-    ...Platform.select({
-      android: {
-        elevation: 0,
-      }
-    }),
+    fontSize: 20,
+    transform: [{ rotate: '-30deg' }],
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    letterSpacing: 2,
   },
   emptyState: {
     flex: 1,

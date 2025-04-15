@@ -16,15 +16,62 @@ const productsCache = new Map();
 const API_REQUEST_TIMESTAMPS = new Map();
 const PRODUCTS_API_REQUEST_TIMESTAMPS = new Map();
 
+// A simple map to cache numeric IDs for product UUIDs
+const uuidToNumericIdCache = new Map<string, number>();
+
 // Convert API product to Post interface
-const convertProductToPost = (product: Product): Post => ({
-  id: parseInt(product.id) || Math.floor(Math.random() * 1000),
-  image: product.primaryImage || product.imageUrls?.[0] || 'https://via.placeholder.com/150',
-  caption: product.name,
-  price: `$${product.price}`,
-  condition: product.productage || 'Unknown',
-  status: product.status === 'sold' ? 'sold' : (product.status === 'archived' ? 'archived' : 'available')
-});
+const convertProductToPost = (product: Product): Post => {
+  // Check if we already have a cached numeric ID for this UUID
+  const cachedId = uuidToNumericIdCache.get(product.id);
+  if (cachedId !== undefined) {
+    return {
+      id: cachedId,
+      image: product.primaryImage || product.imageUrls?.[0] || 'https://via.placeholder.com/150',
+      caption: product.name,
+      price: `$${product.price}`,
+      condition: product.productage || 'Unknown',
+      status: product.status === 'sold' ? 'sold' : (product.status === 'archived' ? 'archived' : 'available'),
+      originalId: product.id // Store the original UUID for reference
+    };
+  }
+  
+  // Generate a consistent numeric ID by hashing the UUID
+  // This ensures the same UUID always maps to the same numeric ID
+  const generateNumericId = (uuid: string): number => {
+    if (!uuid || uuid.length === 0) return 0;
+    
+    // Faster hash function that still provides good distribution
+    let hash = 0;
+    const len = Math.min(uuid.length, 20); // Only use first 20 chars for faster hashing
+    
+    for (let i = 0; i < len; i++) {
+      hash = ((hash << 5) - hash) + uuid.charCodeAt(i);
+      hash |= 0; // Convert to 32-bit integer
+    }
+    
+    // Make sure the hash is positive and within a reasonable range
+    return Math.abs(hash) % 1000000;
+  };
+  
+  // Generate and cache the numeric ID
+  const numericId = generateNumericId(product.id);
+  uuidToNumericIdCache.set(product.id, numericId);
+  
+  // Only log in development mode
+  if (__DEV__ && uuidToNumericIdCache.size % 10 === 0) {
+    console.log(`[ProfileStore] ID cache size: ${uuidToNumericIdCache.size}`);
+  }
+  
+  return {
+    id: numericId,
+    image: product.primaryImage || product.imageUrls?.[0] || 'https://via.placeholder.com/150',
+    caption: product.name,
+    price: `$${product.price}`,
+    condition: product.productage || 'Unknown',
+    status: product.status === 'sold' ? 'sold' : (product.status === 'archived' ? 'archived' : 'available'),
+    originalId: product.id // Store the original UUID for reference
+  };
+};
 
 // Post item type
 interface Post {
@@ -34,6 +81,7 @@ interface Post {
   price?: string;
   condition?: string;
   status?: 'available' | 'sold' | 'archived';
+  originalId: string;
 }
 
 // Define tab types
@@ -276,16 +324,19 @@ const useProfileStore = create<ProfileState>((set, get) => ({
     try {
       // Check if we should force refresh
       const shouldForceRefresh = forceRefresh || get().refreshCount >= 2;
+      console.log(`[ProfileStore] Fetching user products - forceRefresh: ${forceRefresh}, shouldForceRefresh: ${shouldForceRefresh}`);
+      
+      // Rate limiting check
+      const currentTime = Date.now();
+      const lastRequestTime = PRODUCTS_API_REQUEST_TIMESTAMPS.get(email);
       
       // Try to get from cache first if not forcing refresh
       if (!shouldForceRefresh && !get().isRefreshing) {
-        // Check in-memory cache
-        if (productsCache.has(email)) {
-          const { data, timestamp } = productsCache.get(email);
-          const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
+        if (lastRequestTime && (currentTime - lastRequestTime < MIN_API_REQUEST_INTERVAL)) {
+          console.log(`[ProfileStore] Rate limiting products API request for ${email}`);
           
-          if (!isExpired) {
-            console.log('[ProfileStore] Using in-memory cached products data');
+          if (productsCache.has(email)) {
+            const { data } = productsCache.get(email);
             
             // Create a map of products
             const newProductsMap = new Map<number, Product>();
@@ -312,86 +363,96 @@ const useProfileStore = create<ProfileState>((set, get) => ({
           }
         }
         
-        // Try AsyncStorage cache
-        const cacheKey = `${USER_PRODUCTS_CACHE_KEY}${email}`;
-        const cachedData = await AsyncStorage.getItem(cacheKey);
-        
-        if (cachedData) {
-          const { data, timestamp } = JSON.parse(cachedData);
-          const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
-          
-          if (!isExpired) {
-            console.log('[ProfileStore] Using AsyncStorage cached products data');
+        // Try to get from cache first if not forcing refresh
+        if (!shouldForceRefresh && !get().isRefreshing) {
+          // Check in-memory cache
+          if (productsCache.has(email)) {
+            const { data, timestamp } = productsCache.get(email);
+            const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
             
-            // Update in-memory cache
-            productsCache.set(email, { data, timestamp });
-            
-            // Create a map of products
-            const newProductsMap = new Map<number, Product>();
-            
-            // Convert API products to Post format
-            const formattedPosts = data.map((product: Product) => {
-              const post = convertProductToPost(product);
-              newProductsMap.set(post.id, product);
-              return post;
-            });
-            
-            const filteredPosts = get().activeTab === 'inMarket'
-              ? formattedPosts.filter(post => post.status === 'available')
-              : formattedPosts.filter(post => post.status === 'archived');
-            
-            set({
-              products: formattedPosts,
-              productsMap: newProductsMap,
-              filteredProducts: filteredPosts,
-              isLoadingProducts: false
-            });
-            
-            return;
+            if (!isExpired) {
+              console.log('[ProfileStore] Using in-memory cached products data');
+              
+              // Create a map of products
+              const newProductsMap = new Map<number, Product>();
+              
+              // Convert API products to Post format
+              const formattedPosts = data.map((product: Product) => {
+                const post = convertProductToPost(product);
+                newProductsMap.set(post.id, product);
+                return post;
+              });
+              
+              const filteredPosts = get().activeTab === 'inMarket'
+                ? formattedPosts.filter(post => post.status === 'available')
+                : formattedPosts.filter(post => post.status === 'archived');
+              
+              set({
+                products: formattedPosts,
+                productsMap: newProductsMap,
+                filteredProducts: filteredPosts,
+                isLoadingProducts: false
+              });
+              
+              return;
+            }
           }
-        }
-      }
-      
-      // Check rate limiting
-      const lastRequestTime = PRODUCTS_API_REQUEST_TIMESTAMPS.get(email);
-      const now = Date.now();
-      
-      if (!shouldForceRefresh && lastRequestTime && (now - lastRequestTime < MIN_API_REQUEST_INTERVAL) && !get().isRefreshing) {
-        console.log(`[ProfileStore] Rate limiting products API request for ${email}`);
-        
-        if (productsCache.has(email)) {
-          const { data } = productsCache.get(email);
           
-          // Create a map of products
-          const newProductsMap = new Map<number, Product>();
+          // Try AsyncStorage cache
+          const cacheKey = `${USER_PRODUCTS_CACHE_KEY}${email}`;
+          const cachedData = await AsyncStorage.getItem(cacheKey);
           
-          // Convert API products to Post format
-          const formattedPosts = data.map((product: Product) => {
-            const post = convertProductToPost(product);
-            newProductsMap.set(post.id, product);
-            return post;
-          });
-          
-          const filteredPosts = get().activeTab === 'inMarket'
-            ? formattedPosts.filter(post => post.status === 'available')
-            : formattedPosts.filter(post => post.status === 'archived');
-          
-          set({
-            products: formattedPosts,
-            productsMap: newProductsMap,
-            filteredProducts: filteredPosts,
-            isLoadingProducts: false
-          });
-          
-          return;
+          if (cachedData) {
+            const { data, timestamp } = JSON.parse(cachedData);
+            const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
+            
+            if (!isExpired) {
+              console.log('[ProfileStore] Using AsyncStorage cached products data');
+              
+              // Update in-memory cache
+              productsCache.set(email, { data, timestamp });
+              
+              // Create a map of products
+              const newProductsMap = new Map<number, Product>();
+              
+              // Convert API products to Post format
+              const formattedPosts = data.map((product: Product) => {
+                const post = convertProductToPost(product);
+                newProductsMap.set(post.id, product);
+                return post;
+              });
+              
+              const filteredPosts = get().activeTab === 'inMarket'
+                ? formattedPosts.filter(post => post.status === 'available')
+                : formattedPosts.filter(post => post.status === 'archived');
+              
+              set({
+                products: formattedPosts,
+                productsMap: newProductsMap,
+                filteredProducts: filteredPosts,
+                isLoadingProducts: false
+              });
+              
+              return;
+            }
+          }
         }
       }
       
       // Fetch from API
       console.log('[ProfileStore] Fetching user products from API');
-      PRODUCTS_API_REQUEST_TIMESTAMPS.set(email, now);
+      PRODUCTS_API_REQUEST_TIMESTAMPS.set(email, currentTime);
       
       const productsData = await fetchUserProducts(email);
+      console.log(`[ProfileStore] Fetched ${productsData.length} products from API`);
+      
+      // Log product statuses for debugging
+      const statusCounts = productsData.reduce((acc: Record<string, number>, product: Product) => {
+        const status = product.status || 'unknown';
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {});
+      console.log(`[ProfileStore] Product status counts:`, statusCounts);
       
       // Cache the data
       const timestamp = Date.now();
@@ -412,7 +473,22 @@ const useProfileStore = create<ProfileState>((set, get) => ({
         return post;
       });
       
-      const filteredPosts = get().getFilteredProducts();
+      // Get filtered products based on active tab
+      const activeTab = get().activeTab;
+      let filteredPosts;
+      
+      if (activeTab === 'inMarket') {
+        filteredPosts = formattedPosts.filter(post => post.status === 'available');
+        console.log(`[ProfileStore] Filtered ${filteredPosts.length} available products`);
+      } else if (activeTab === 'archive') {
+        filteredPosts = formattedPosts.filter(post => post.status === 'archived');
+        console.log(`[ProfileStore] Filtered ${filteredPosts.length} archived products`);
+      } else if (activeTab === 'sold') {
+        filteredPosts = formattedPosts.filter(post => post.status === 'sold');
+        console.log(`[ProfileStore] Filtered ${filteredPosts.length} sold products`);
+      } else {
+        filteredPosts = formattedPosts;
+      }
       
       // Update store state
       set({
