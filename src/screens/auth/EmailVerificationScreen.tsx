@@ -245,7 +245,13 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
         onPress={() => navigation.navigate('SignIn')}
         activeOpacity={0.7}
       >
-        <Entypo name="chevron-left" size={32} color={theme.colors.secondary} />
+        {Platform.OS === 'ios' ? (
+          <Entypo name="chevron-left" size={32} color={theme.colors.secondary} />
+        ) : (
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Entypo name="chevron-left" size={24} color="black" />
+          </View>
+        )}
       </TouchableOpacity>
       
       <KeyboardAvoidingView 
@@ -434,7 +440,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 20,
-    paddingTop: 35,
+    paddingTop: Platform.OS === 'android' ? 65 : 35,
     flex: 1,
   },
   title: {
@@ -555,8 +561,10 @@ const styles = StyleSheet.create({
         shadowRadius: 20,
       },
       android: {
-        elevation: 10,
-        backgroundColor: '#FFFFFF',
+        elevation: 0,
+        backgroundColor: '',
+        height: 0,
+        width: 0,
       },
     }),
   },
@@ -570,20 +578,31 @@ const styles = StyleSheet.create({
   },
   fixedBackButton: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 30,
-    left: 4,
+    top: Platform.OS === 'ios' ? 50 : 20,
+    left: Platform.OS === 'ios' ? 4 : 10,
     zIndex: 999,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    ...Platform.select({
+      ios: {
+        backgroundColor: '',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        backgroundColor: '',
+        paddingVertical: 10,
+        paddingHorizontal: 6,
+        marginTop: 16,
+        borderRadius: 30,
+        elevation: 0,
+      }
+    }),
   },
   fixedBackButtonText: {
     fontSize: 16,
