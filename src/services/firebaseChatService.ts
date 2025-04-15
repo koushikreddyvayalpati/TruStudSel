@@ -11,7 +11,8 @@ import {
   serverTimestamp,
   setDoc,
   increment,
-  Unsubscribe
+  Unsubscribe,
+  writeBatch
 } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from './firebaseService';
@@ -462,11 +463,16 @@ export const sendMessage = async (conversationId: string, content: string): Prom
     });
     
     // Get the conversation to find the other participant
-    const conversation = await getConversation(conversationId);
-    if (!conversation) throw new Error('Conversation not found');
+    const conversationRef = doc(db, 'conversations', conversationId);
+    const conversationDoc = await getDoc(conversationRef);
     
-    // Find the other participant (receiver)
-    const otherParticipant = conversation.participants.find(p => p !== user.email);
+    if (!conversationDoc.exists()) {
+      throw new Error('Conversation not found');
+    }
+    
+    const conversationData = conversationDoc.data();
+    const otherParticipant = conversationData.participants.find((p: string) => p !== user.email);
+    
     if (!otherParticipant) throw new Error('Recipient not found in conversation');
     
     // Create message data with explicit timestamp values
@@ -483,20 +489,27 @@ export const sendMessage = async (conversationId: string, content: string): Prom
       updatedAt: nowISO
     };
     
+    // Use a batch to optimize performance
+    const batch = writeBatch(db);
+    
     // Add message to conversation's messages subcollection
-    await setDoc(doc(db, 'conversations', conversationId, 'messages', messageId), messageData);
+    const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
+    batch.set(messageRef, messageData);
     
     // Increment unread count for the recipient
     const recipientUnreadCountKey = `unreadCount_${otherParticipant.replace(/[.@]/g, '_')}`;
     
     // Update conversation with last message details and increment unread count
-    await updateDoc(doc(db, 'conversations', conversationId), {
+    batch.update(conversationRef, {
       lastMessageContent: content,
       lastMessageTime: nowISO,
       updatedAt: nowISO,
       lastSenderId: user.email,
       [recipientUnreadCountKey]: increment(1)  // Import increment from firebase/firestore
     });
+    
+    // Commit all changes at once
+    await batch.commit();
     
     return;
   } catch (error) {
@@ -526,63 +539,126 @@ export const updateMessageStatus = async (
 };
 
 /**
- * Subscribe to messages in a conversation
+ * Subscribe to messages in a conversation with optimized real-time handling
  */
 export const subscribeToMessages = (
   conversationId: string,
   callback: (messages: Message[]) => void
 ) => {
   try {
+    console.log(`[firebaseChatService] Setting up optimized message subscription for conversation ${conversationId}`);
     const messagesRef = collection(db, 'conversations', conversationId, 'messages');
     const q = query(messagesRef, orderBy('createdAt', 'asc'));
     
+    // Use snapshot metadata to efficiently detect various update types
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       try {
         const messages: Message[] = [];
+        let hasChanges = false;
+        let hasNewMessages = false;
+        
+        // Track which messages have changed to log details
+        const changedMessages: string[] = [];
+        
+        querySnapshot.docChanges().forEach(change => {
+          if (change.type === 'added' || change.type === 'modified') {
+            hasChanges = true;
+            changedMessages.push(`${change.doc.id} (${change.type})`);
+          }
+        });
+        
+        if (hasChanges) {
+          console.log(`[firebaseChatService] Detected ${changedMessages.length} changed messages:`, 
+            changedMessages.join(', '));
+        }
+        
         querySnapshot.forEach((doc) => {
           try {
             const data = doc.data();
             
             // Parse the createdAt timestamp and ensure it's valid
             const createdAtStr = safeTimestampToISOString(data.createdAt);
-            const parsedDate = new Date(createdAtStr);
             
-            // Check if the parsed date is valid (if not, use current time)
-            const validCreatedAt = !isNaN(parsedDate.getTime()) 
-              ? createdAtStr 
-              : new Date().toISOString();
+            // Get real-time state tracking for this message
+            const isPendingWrite = doc.metadata.hasPendingWrites;
             
-            // Add message with validated timestamp
+            // If this document is newly added or pending, count it as a new message
+            if (isPendingWrite || querySnapshot.docChanges().some(change => 
+                change.type === 'added' && change.doc.id === doc.id)) {
+              hasNewMessages = true;
+            }
+            
+            // Add message with pending state tracking for UI feedback
             messages.push({
               id: doc.id,
               conversationId,
               senderId: data.senderId || '',
               senderName: data.senderName || '',
               content: data.content || '',
-              status: data.status || MessageStatus.SENT,
-              receiptStatus: data.receiptStatus || ReceiptStatus.NONE,
+              status: isPendingWrite ? MessageStatus.SENDING : (data.status || MessageStatus.SENT),
+              receiptStatus: isPendingWrite ? ReceiptStatus.SENDING : (data.receiptStatus || ReceiptStatus.NONE),
               readAt: data.readAt ? safeTimestampToISOString(data.readAt) : undefined,
-              createdAt: validCreatedAt,
-              updatedAt: safeTimestampToISOString(data.updatedAt)
+              createdAt: createdAtStr,
+              updatedAt: safeTimestampToISOString(data.updatedAt),
+              isPending: isPendingWrite
             });
           } catch (docError) {
-            console.error('[firebaseChatService] Error processing message document:', docError);
+            console.error('[firebaseChatService] Error processing message document:', docError, doc.id);
           }
         });
         
-        // If there are messages and they have a recipient who is different from the sender,
-        // mark the messages as read
-        markMessagesAsRead(conversationId, messages).catch(error => {
-          console.error('[firebaseChatService] Error marking messages as read:', error);
+        // Sort messages by timestamp to ensure correct display order
+        messages.sort((a, b) => {
+          const dateA = new Date(a.createdAt).getTime();
+          const dateB = new Date(b.createdAt).getTime();
+          return dateA - dateB;
         });
         
+        // If new messages detected, log for debugging
+        if (hasNewMessages) {
+          console.log('[firebaseChatService] New messages detected in real-time update');
+        }
+        
+        // Return messages immediately for real-time UI update
         callback(messages);
+        
+        // Handle message read status updates in the background to avoid blocking UI
+        if (messages.length > 0 && !querySnapshot.metadata.fromCache) {
+          setTimeout(() => {
+            markMessagesAsRead(conversationId, messages).catch(error => {
+              console.error('[firebaseChatService] Error marking messages as read:', error);
+            });
+          }, 100); // Small delay to prioritize UI updates
+        }
       } catch (snapshotError) {
-        console.error('[firebaseChatService] Error processing snapshot:', snapshotError);
+        console.error('[firebaseChatService] Error processing message snapshot:', snapshotError);
+        // Return empty array in case of error to avoid UI crashes
         callback([]);
       }
     }, (error) => {
       console.error('[firebaseChatService] Error in messages subscription:', error);
+      // Try to recover from subscription errors if possible
+      setTimeout(() => {
+        try {
+          // Notify UI that we're in error state
+          callback([]);
+          console.log('[firebaseChatService] Attempting to recover from subscription error');
+          
+          // Attempt to get messages via regular fetch as fallback
+          getMessages(conversationId)
+            .then(messages => {
+              if (messages.length > 0) {
+                callback(messages);
+                console.log('[firebaseChatService] Successfully recovered messages via fallback fetch');
+              }
+            })
+            .catch(fallbackError => {
+              console.error('[firebaseChatService] Failed to recover via fallback fetch:', fallbackError);
+            });
+        } catch (recoveryError) {
+          console.error('[firebaseChatService] Error during subscription recovery attempt:', recoveryError);
+        }
+      }, 2000);
     });
     
     return { unsubscribe };
@@ -619,14 +695,17 @@ const markMessagesAsRead = async (
     
     console.log('[firebaseChatService] Marking messages as read:', messagesToUpdate.length);
     
-    // Get the conversation reference to update unread counts later
+    // Get the conversation reference to update unread counts 
     const conversationRef = doc(db, 'conversations', conversationId);
     
-    // Update each message status
+    // Use batch writes for better performance
+    const batch = writeBatch(db);
     const now = new Date().toISOString();
-    const updatePromises = messagesToUpdate.map(async (message) => {
+    
+    // Add all message updates to the batch
+    messagesToUpdate.forEach((message) => {
       const messageRef = doc(db, 'conversations', conversationId, 'messages', message.id);
-      return updateDoc(messageRef, {
+      batch.update(messageRef, {
         status: MessageStatus.READ,
         receiptStatus: ReceiptStatus.READ,
         readAt: now,
@@ -634,14 +713,15 @@ const markMessagesAsRead = async (
       });
     });
     
-    await Promise.all(updatePromises);
-    
-    // Reset unread count for this conversation for the current user
+    // Add the unread count reset to the batch
     const unreadCountKey = `unreadCount_${currentUserEmail.replace(/[.@]/g, '_')}`;
-    await updateDoc(conversationRef, {
+    batch.update(conversationRef, {
       [unreadCountKey]: 0,
       updatedAt: now
     });
+    
+    // Commit all updates at once
+    await batch.commit();
     
     console.log('[firebaseChatService] Successfully marked messages as read');
     

@@ -243,15 +243,10 @@ const FirebaseChatScreen = () => {
         
         console.log(`[AsyncStorage] Found cached messages (${messages.length}) from ${cacheAgeMinutes.toFixed(1)} minutes ago`);
         
-        // Only use cache if it's less than 15 minutes old (reduced from 30)
-        if (cacheAgeMinutes < 0) {
-          return messages;
-        } else {
-          console.log('[AsyncStorage] Cache too old, will fetch fresh data');
-          // Clear outdated cache
-          await AsyncStorage.removeItem(storageKey);
-          return null;
-        }
+        // Always use fresh data for better real-time experience
+        // This ensures we don't miss any messages and app stays responsive
+        console.log('[AsyncStorage] Cache exists, but fetching fresh data for real-time updates');
+        return null;
       }
       return null;
     } catch (error) {
@@ -295,44 +290,48 @@ const FirebaseChatScreen = () => {
     }
   }, [processMessagesForCache]);
 
-  // Subscribe to new messages with improved handling
+  // Subscribe to new messages with improved handling for real-time updates
   const subscribeToNewMessages = useCallback((conversationId: string) => {
     const subscription = subscribeToMessages(conversationId, (updatedMessages) => {
       console.log('[FirebaseChatScreen] Received updated messages:', updatedMessages.length);
       
-      // Compare with current messages to see if there are actually new messages
       if (updatedMessages && updatedMessages.length > 0) {
-        // Check if we have new messages
-        const hasNewMessages = updatedMessages.length > messages.length;
+        // Apply updates immediately for real-time experience regardless of changes
+        setMessages(updatedMessages);
         
-        // Or if any message content has changed
+        // Check if there's a new message or status change for logging only
+        const hasNewMessages = updatedMessages.length > messages.length;
+        const newMessageExists = updatedMessages.some(
+          newMsg => !messages.some(existingMsg => existingMsg.id === newMsg.id)
+        );
         const hasChangedMessages = updatedMessages.some((newMsg) => {
           const existingMsg = messages.find(msg => msg.id === newMsg.id);
           return existingMsg && 
                  (existingMsg.content !== newMsg.content || 
-                  existingMsg.status !== newMsg.status);
+                  existingMsg.status !== newMsg.status || 
+                  existingMsg.receiptStatus !== newMsg.receiptStatus);
         });
         
-        if (hasNewMessages || hasChangedMessages) {
-          console.log('[FirebaseChatScreen] Updating messages: new or changed messages detected');
-          setMessages(updatedMessages);
-          
-          // Update cache with fresh messages
-          cacheMessages(conversationId, updatedMessages);
-          
-          // Scroll to bottom on new messages if user is already at bottom
-          if (hasNewMessages) {
-            setTimeout(() => {
-              if (flatListRef.current) {
-                flatListRef.current.scrollToEnd({ animated: true });
-              }
-            }, 100);
-          }
-        } else {
-          console.log('[FirebaseChatScreen] No new or changed messages, skipping update');
+        if (hasNewMessages || newMessageExists || hasChangedMessages) {
+          console.log('[FirebaseChatScreen] New or changed messages detected');
         }
-      } else {
+        
+        // Cache in the background without blocking UI updates
+        setTimeout(() => {
+          cacheMessages(conversationId, updatedMessages);
+        }, 0);
+        
+        // Scroll to bottom on new messages if there are additions
+        if (hasNewMessages || newMessageExists) {
+          setTimeout(() => {
+            if (flatListRef.current) {
+              flatListRef.current.scrollToEnd({ animated: true });
+            }
+          }, 100);
+        }
+      } else if (updatedMessages && updatedMessages.length === 0) {
         console.warn('[FirebaseChatScreen] Received empty messages from subscription');
+        setMessages([]);
       }
     });
     

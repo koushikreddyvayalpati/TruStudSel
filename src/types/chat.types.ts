@@ -1,7 +1,8 @@
 export enum MessageStatus {
   SENT = 'SENT',
   DELIVERED = 'DELIVERED',
-  READ = 'READ'
+  READ = 'READ',
+  SENDING = 'SENDING'
 }
 
 // Message receipt status
@@ -9,7 +10,8 @@ export enum ReceiptStatus {
   NONE = 'NONE',        // No receipt info
   SENT = 'SENT',        // Message was sent to the server
   DELIVERED = 'DELIVERED', // Message was delivered to recipient's device
-  READ = 'READ'         // Message was read by recipient
+  READ = 'READ',         // Message was read by recipient
+  SENDING = 'SENDING'    // Message is currently being sent
 }
 
 export interface Message {
@@ -23,6 +25,7 @@ export interface Message {
   readAt?: string;              // Timestamp when message was read
   createdAt: string;
   updatedAt?: string;
+  isPending?: boolean;         // Indicates if this message has pending writes
 }
 
 export interface Conversation {
