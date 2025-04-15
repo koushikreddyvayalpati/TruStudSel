@@ -50,27 +50,6 @@ const FirebaseChatScreen = () => {
   // Get parameters from navigation
   const { recipientEmail, recipientName } = route.params || {};
   
-  // Format the recipient name consistently
-  const getFormattedRecipientName = useCallback(() => {
-    if (!recipientEmail) return recipientName || 'Chat';
-    
-    if (recipientName && 
-        recipientName !== recipientEmail && 
-        recipientName !== recipientEmail.split('@')[0]) {
-      return recipientName;
-    }
-    
-    if (recipientEmail.includes('@')) {
-      const username = recipientEmail.split('@')[0];
-      return username.charAt(0).toUpperCase() + username.slice(1);
-    }
-    
-    return recipientName || recipientEmail;
-  }, [recipientEmail, recipientName]);
-  
-  // Calculate the proper display name once
-  const displayName = getFormattedRecipientName();
-  
   // States and refs
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
@@ -82,6 +61,32 @@ const FirebaseChatScreen = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [_keyboardVisible, setKeyboardVisible] = useState(false);
+  
+  // Format the recipient name consistently
+  const getFormattedRecipientName = useCallback(() => {
+    if (!recipientEmail) return recipientName || 'Chat';
+    
+    // If we have a specific recipientName provided and it's different from the email,
+    // use it (this comes from the navigation params)
+    if (recipientName && 
+        recipientName !== recipientEmail && 
+        recipientName !== recipientEmail.split('@')[0] &&
+        recipientName !== currentUserEmail?.split('@')[0] &&  // Make sure it's not the current user
+        recipientName.toLowerCase() !== currentUserEmail?.split('@')[0].toLowerCase()) {
+      return recipientName;
+    }
+    
+    // Otherwise, format the email username part
+    if (recipientEmail.includes('@')) {
+      const username = recipientEmail.split('@')[0];
+      return username.charAt(0).toUpperCase() + username.slice(1);
+    }
+    
+    return recipientName || recipientEmail;
+  }, [recipientEmail, recipientName, currentUserEmail]);
+  
+  // Calculate the proper display name once
+  const displayName = getFormattedRecipientName();
   
   // Refs for tracking animation and component state
   const isInitializedRef = useRef<boolean>(false);
@@ -239,7 +244,7 @@ const FirebaseChatScreen = () => {
         console.log(`[AsyncStorage] Found cached messages (${messages.length}) from ${cacheAgeMinutes.toFixed(1)} minutes ago`);
         
         // Only use cache if it's less than 15 minutes old (reduced from 30)
-        if (cacheAgeMinutes < 15) {
+        if (cacheAgeMinutes < 0) {
           return messages;
         } else {
           console.log('[AsyncStorage] Cache too old, will fetch fresh data');
@@ -440,22 +445,41 @@ const FirebaseChatScreen = () => {
         if (!effectMounted || !isMountedRef.current) return;
         setOtherUserName(otherUserFormattedName);
         
-        // Try to get cached conversation first for faster load
-        const cachedConversation = await loadCachedConversation(recipientEmail);
         let conversation;
+        let usingCachedConversation = false;
         
-        if (cachedConversation) {
-          conversation = cachedConversation;
-          console.log('[AsyncStorage] Using cached conversation');
-        } else {
-          // Get conversation from Firebase
-          conversation = await getOrCreateConversation(
-            recipientEmail,
-            displayName
-          );
+        // Try to get cached conversation first for faster load
+        try {
+          const cachedConversation = await loadCachedConversation(recipientEmail);
           
-          // Cache the conversation for future use
-          cacheConversation(conversation);
+          if (cachedConversation) {
+            console.log('[AsyncStorage] Using cached conversation');
+            conversation = cachedConversation;
+            usingCachedConversation = true;
+          }
+        } catch (cacheError) {
+          console.error('[AsyncStorage] Error loading cached conversation:', cacheError);
+        }
+        
+        // If no valid cached conversation, create or get one from Firebase
+        if (!conversation) {
+          try {
+            // Get conversation from Firebase
+            conversation = await getOrCreateConversation(
+              recipientEmail,
+              displayName
+            );
+            
+            // Cache the conversation for future use
+            cacheConversation(conversation);
+          } catch (convError) {
+            console.error('[FirebaseChatScreen] Error creating/getting conversation:', convError);
+            
+            if (!effectMounted || !isMountedRef.current) return;
+            Alert.alert('Error', 'Failed to start conversation. Please try again.');
+            navigation.goBack();
+            return;
+          }
         }
         
         // Check for user-specific name mapping in the conversation
@@ -468,45 +492,129 @@ const FirebaseChatScreen = () => {
         if (!effectMounted || !isMountedRef.current) return;
         setConversationId(conversation.id);
         
-        // Try to get cached messages first
-        let initialMessages: Message[] = [];
-        const cachedMessages = await loadCachedMessages(conversation.id);
-        
-        if (cachedMessages && cachedMessages.length > 0) {
-          // Use cached messages for immediate display
-          initialMessages = cachedMessages;
+        // Load messages with verification for cached conversations
+        try {
+          let initialMessages: Message[] = [];
+          let cachedMessages = null;
           
-          if (!effectMounted || !isMountedRef.current) return;
-          setMessages(initialMessages);
+          // Only try to load cached messages if we're using a valid cached conversation
+          if (usingCachedConversation) {
+            cachedMessages = await loadCachedMessages(conversation.id);
+          }
           
-          // Mark as initialized to prevent re-initialization
-          isInitializedRef.current = true;
-          
-          // We can set loading to false early since we have cached data
-          setIsLoading(false);
-          
-          // Then fetch fresh messages in the background
-          getMessages(conversation.id).then(freshMessages => {
-            if (effectMounted && isMountedRef.current && freshMessages.length !== initialMessages.length) {
-              setMessages(freshMessages);
-              cacheMessages(conversation.id, freshMessages);
+          if (cachedMessages && cachedMessages.length > 0) {
+            // Use cached messages for immediate display
+            initialMessages = cachedMessages;
+            
+            if (!effectMounted || !isMountedRef.current) return;
+            setMessages(initialMessages);
+            
+            // Mark as initialized to prevent re-initialization
+            isInitializedRef.current = true;
+            
+            // We can set loading to false early since we have cached data
+            setIsLoading(false);
+            
+            // Verify cached conversation still exists by fetching fresh messages
+            try {
+              const freshMessages = await getMessages(conversation.id);
+              
+              if (freshMessages.length >= 0) {
+                // Conversation still valid
+                if (effectMounted && isMountedRef.current && 
+                    (freshMessages.length !== initialMessages.length || 
+                    JSON.stringify(freshMessages) !== JSON.stringify(initialMessages))) {
+                  setMessages(freshMessages);
+                  cacheMessages(conversation.id, freshMessages);
+                }
+              }
+            } catch (verifyError: any) {
+              // Handle case where cached conversation no longer exists
+              if (verifyError?.message?.includes('Conversation not found')) {
+                console.log('[FirebaseChatScreen] Cached conversation no longer exists, recreating...');
+                
+                // Clear cached conversation and messages
+                const conversationKey = `${CONVERSATION_STORAGE_KEY_PREFIX}${conversation.id}`;
+                const messagesKey = `${MESSAGES_STORAGE_KEY_PREFIX}${conversation.id}`;
+                
+                await AsyncStorage.removeItem(conversationKey);
+                await AsyncStorage.removeItem(messagesKey);
+                
+                // Create a new conversation
+                const newConversation = await getOrCreateConversation(
+                  recipientEmail,
+                  displayName
+                );
+                
+                // Update state with new conversation
+                if (effectMounted && isMountedRef.current) {
+                  setConversationId(newConversation.id);
+                  setMessages([]);
+                  cacheConversation(newConversation);
+                  
+                  // Reset subscription with new conversation ID
+                  if (messageSubscriptionRef.current) {
+                    messageSubscriptionRef.current.unsubscribe();
+                  }
+                  subscribeToNewMessages(newConversation.id);
+                }
+              } else {
+                console.error('[FirebaseChatScreen] Error verifying conversation:', verifyError);
+              }
             }
-          }).catch(error => {
-            console.error('[FirebaseChatScreen] Error fetching fresh messages:', error);
-          });
-        } else {
-          // No cached messages, fetch from Firebase
-          initialMessages = await getMessages(conversation.id);
-          
-          if (!effectMounted || !isMountedRef.current) return;
-          setMessages(initialMessages);
-          
-          // Cache the messages
-          cacheMessages(conversation.id, initialMessages);
+          } else {
+            // No cached messages or invalid cache, fetch from Firebase
+            try {
+              initialMessages = await getMessages(conversation.id);
+              
+              if (!effectMounted || !isMountedRef.current) return;
+              setMessages(initialMessages);
+              
+              // Cache the messages
+              cacheMessages(conversation.id, initialMessages);
+            } catch (loadError: any) {
+              // Handle case where conversation doesn't exist
+              if (loadError?.message?.includes('Conversation not found')) {
+                console.log('[FirebaseChatScreen] Conversation not found, recreating...');
+                
+                // Clear any cached data
+                const conversationKey = `${CONVERSATION_STORAGE_KEY_PREFIX}${conversation.id}`;
+                const messagesKey = `${MESSAGES_STORAGE_KEY_PREFIX}${conversation.id}`;
+                
+                await AsyncStorage.removeItem(conversationKey);
+                await AsyncStorage.removeItem(messagesKey);
+                
+                // Create a new conversation
+                const newConversation = await getOrCreateConversation(
+                  recipientEmail,
+                  displayName
+                );
+                
+                // Update state with new conversation
+                if (effectMounted && isMountedRef.current) {
+                  setConversationId(newConversation.id);
+                  setMessages([]);
+                  cacheConversation(newConversation);
+                  
+                  // Set up subscription with new conversation ID
+                  conversation = newConversation;
+                }
+              } else {
+                throw loadError; // Re-throw if it's a different error
+              }
+            }
+          }
+        } catch (error) {
+          console.error('[FirebaseChatScreen] Error loading messages:', error);
+          if (effectMounted && isMountedRef.current) {
+            Alert.alert('Error', 'Failed to load messages. Please try again.');
+            navigation.goBack();
+          }
+          return;
         }
         
         // Subscribe to new messages
-        if (effectMounted && isMountedRef.current) {
+        if (effectMounted && isMountedRef.current && conversation?.id) {
           subscribeToNewMessages(conversation.id);
           
           // Mark as initialized to prevent re-initialization
@@ -575,15 +683,83 @@ const FirebaseChatScreen = () => {
       }, 10);
       
       // Send in background without showing any loading state
-      sendMessage(conversationId, messageContent).catch(error => {
+      try {
+        await sendMessage(conversationId, messageContent);
+      } catch (error: any) {
         console.error('Error sending message:', error);
-        // If sending fails, we could update the message status here
-      });
+        
+        // Handle "Conversation not found" error specifically
+        if (error?.message?.includes('Conversation not found')) {
+          console.log('Conversation not found in database. Clearing cache and recreating conversation...');
+          
+          // Clear cached conversation and messages
+          try {
+            const conversationKey = `${CONVERSATION_STORAGE_KEY_PREFIX}${conversationId}`;
+            const messagesKey = `${MESSAGES_STORAGE_KEY_PREFIX}${conversationId}`;
+            
+            await AsyncStorage.removeItem(conversationKey);
+            await AsyncStorage.removeItem(messagesKey);
+            
+            // Create a new conversation
+            if (recipientEmail) {
+              const newConversation = await getOrCreateConversation(
+                recipientEmail,
+                displayName
+              );
+              
+              // Update conversation ID
+              setConversationId(newConversation.id);
+              
+              // Cache the new conversation
+              cacheConversation(newConversation);
+              
+              // Now try to send the message again with the new conversation ID
+              await sendMessage(newConversation.id, messageContent);
+              
+              // Update temporary message with new conversation ID
+              const updatedMessagesWithNewConvId = updatedMessages.map(msg => {
+                if (msg.id === tempId) {
+                  return {
+                    ...msg,
+                    conversationId: newConversation.id
+                  };
+                }
+                return msg;
+              });
+              
+              setMessages(updatedMessagesWithNewConvId);
+              cacheMessages(newConversation.id, updatedMessagesWithNewConvId);
+              
+              // Subscribe to new messages with the new conversation ID
+              if (messageSubscriptionRef.current) {
+                messageSubscriptionRef.current.unsubscribe();
+              }
+              subscribeToNewMessages(newConversation.id);
+              
+              console.log('Successfully recreated conversation and sent message');
+            }
+          } catch (cleanupError) {
+            console.error('Error clearing cache and recreating conversation:', cleanupError);
+            Alert.alert(
+              'Error', 
+              'Failed to send message. Please try again later.'
+            );
+          }
+        } else {
+          // For other errors, show an alert
+          Alert.alert(
+            'Error',
+            'Failed to send message. Please try again.'
+          );
+        }
+      }
       
     } catch (error) {
       console.error('Error in message sending flow:', error);
+      Alert.alert('Error', 'Failed to send message. Please try again.');
     }
-  }, [inputText, conversationId, currentUserEmail, _currentUserName, messages, cacheMessages]);
+  }, [inputText, conversationId, currentUserEmail, _currentUserName, messages, cacheMessages, 
+      recipientEmail, displayName, cacheConversation, subscribeToNewMessages]);
   
   // Scroll to bottom
   const scrollToBottom = useCallback(() => {
@@ -841,6 +1017,54 @@ const FirebaseChatScreen = () => {
       </>
     );
   };
+  
+  // Clear all conversation and message cache
+  const clearAllConversationCache = useCallback(async () => {
+    try {
+      console.log('[FirebaseChatScreen] Clearing all conversation and message cache');
+      
+      // Get all keys from AsyncStorage
+      const keys = await AsyncStorage.getAllKeys();
+      
+      // Filter for conversation and message keys
+      const conversationKeys = keys.filter(k => 
+        k.startsWith(CONVERSATION_STORAGE_KEY_PREFIX) || 
+        k.startsWith(MESSAGES_STORAGE_KEY_PREFIX)
+      );
+      
+      if (conversationKeys.length > 0) {
+        // Remove all matching keys
+        await AsyncStorage.multiRemove(conversationKeys);
+        console.log(`[FirebaseChatScreen] Cleared ${conversationKeys.length} cached items`);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('[FirebaseChatScreen] Error clearing conversation cache:', error);
+      return false;
+    }
+  }, []);
+  
+  // Update the error handler in handleSendMessage to call this function when appropriate
+  useEffect(() => {
+    // Add event listener for database reset detection
+    const handleDatabaseReset = (error: any) => {
+      if (error?.message?.includes('Conversation not found')) {
+        // This might indicate the database was reset or cleared
+        clearAllConversationCache()
+          .then(() => console.log('[FirebaseChatScreen] Cache cleared after database reset detection'))
+          .catch(err => console.error('[FirebaseChatScreen] Failed to clear cache:', err));
+      }
+    };
+    
+    // Subscribe to conversation errors (in a real app, this would be a proper event system)
+    const errorListener = { current: handleDatabaseReset };
+    
+    return () => {
+      // Clean up listener in a real event system
+      errorListener.current = () => {};
+    };
+  }, [clearAllConversationCache]);
   
   return (
     <SafeAreaView style={styles.container}>

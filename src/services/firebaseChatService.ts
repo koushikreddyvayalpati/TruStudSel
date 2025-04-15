@@ -163,7 +163,18 @@ export const getConversations = async (): Promise<Conversation[]> => {
       const unreadCountKey = `unreadCount_${user.email.replace(/[.@]/g, '_')}`;
       const unreadCount = data[unreadCountKey] || 0;
       
-      conversations.push({
+      // Get user-specific name mappings for all participants
+      const userSpecificFields: Record<string, any> = {};
+      
+      // Copy all fields that look like name mappings (name_*) from the data
+      Object.keys(data).forEach(key => {
+        if (key.startsWith('name_')) {
+          userSpecificFields[key] = data[key];
+        }
+      });
+      
+      // Create the conversation object with both general fields and user-specific mappings
+      const conversation: Conversation = {
         id: doc.id,
         name: data.name,
         participants: data.participants || [],
@@ -174,8 +185,11 @@ export const getConversations = async (): Promise<Conversation[]> => {
         owner: data.owner,
         lastSenderId: data.lastSenderId,
         unreadCount: unreadCount,
-        lastReadMessageId: data[`lastReadMessageId_${user.email.replace(/[.@]/g, '_')}`]
-      });
+        lastReadMessageId: data[`lastReadMessageId_${user.email.replace(/[.@]/g, '_')}`],
+        ...userSpecificFields // Include all name mappings
+      };
+      
+      conversations.push(conversation);
     });
     
     // Sort conversations by lastMessageTime (most recent first)
@@ -203,6 +217,18 @@ export const getConversation = async (conversationId: string): Promise<Conversat
     }
     
     const data = conversationSnapshot.data();
+    
+    // Get user-specific name mappings
+    const userSpecificFields: Record<string, any> = {};
+    
+    // Copy all fields that look like name mappings (name_*) from the data
+    Object.keys(data).forEach(key => {
+      if (key.startsWith('name_')) {
+        userSpecificFields[key] = data[key];
+      }
+    });
+    
+    // Create conversation with both general fields and user-specific mappings
     return {
       id: conversationSnapshot.id,
       name: data.name,
@@ -211,7 +237,8 @@ export const getConversation = async (conversationId: string): Promise<Conversat
       lastMessageTime: safeTimestampToISOString(data.lastMessageTime),
       createdAt: safeTimestampToISOString(data.createdAt),
       updatedAt: safeTimestampToISOString(data.updatedAt),
-      owner: data.owner
+      owner: data.owner,
+      ...userSpecificFields // Include all name mappings
     };
   } catch (error) {
     console.error('[firebaseChatService] Error fetching conversation:', error);
@@ -238,29 +265,53 @@ export const getOrCreateConversation = async (
     const participants = [currentUser.email, otherUserEmail].sort();
     const conversationId = participants.join('_');
     
+    // Format the current user's name properly
+    const formattedCurrentUserName = currentUser.name || 
+      (currentUser.email.includes('@') ? 
+        currentUser.email.split('@')[0].charAt(0).toUpperCase() + currentUser.email.split('@')[0].slice(1) : 
+        currentUser.email);
+    
+    // Format the other user's name if it's not provided
+    const formattedOtherUserName = otherUserName || 
+      (otherUserEmail.includes('@') ? 
+        otherUserEmail.split('@')[0].charAt(0).toUpperCase() + otherUserEmail.split('@')[0].slice(1) : 
+        otherUserEmail);
+    
+    // Create the name mapping keys - these are used to store user-specific display names
+    const currentUserNameKey = `name_${currentUser.email.replace(/[.@]/g, '_')}`;
+    const otherUserNameKey = `name_${otherUserEmail.replace(/[.@]/g, '_')}`;
+    
     // Try to fetch existing conversation
     const existingConversation = await getConversation(conversationId);
     if (existingConversation) {
       // For existing conversations, make sure we have the correct name mapping for this user
       try {
-        // Format the current user's name properly
-        const formattedCurrentUserName = currentUser.name || 
-          (currentUser.email.includes('@') ? 
-            currentUser.email.split('@')[0].charAt(0).toUpperCase() + currentUser.email.split('@')[0].slice(1) : 
-            currentUser.email);
-            
-        // Store separate names for each participant
-        const nameKey = `name_${currentUser.email.replace(/[.@]/g, '_')}`;
-        const otherUserNameKey = `name_${otherUserEmail.replace(/[.@]/g, '_')}`;
-        
-        // Update the conversation with the user-specific name if needed
+        // Update the conversation with the user-specific name mappings if needed
         const conversationRef = doc(db, 'conversations', conversationId);
-        await updateDoc(conversationRef, {
-          [nameKey]: otherUserName,
-          [otherUserNameKey]: formattedCurrentUserName // Make sure the other user sees our name correctly too
-        });
         
-        console.log(`[firebaseChatService] Updated conversation with user-specific name: ${nameKey} = ${otherUserName}`);
+        const updates: Record<string, any> = {};
+        
+        // Current user should see the other user's name
+        updates[currentUserNameKey] = formattedOtherUserName;
+        
+        // Other user should see the current user's name
+        updates[otherUserNameKey] = formattedCurrentUserName;
+        
+        // Add general name for backward compatibility
+        if (!existingConversation.name) {
+          updates.name = formattedOtherUserName;
+        }
+        
+        await updateDoc(conversationRef, updates);
+        
+        console.log(`[firebaseChatService] Updated conversation with user-specific names: ${currentUserNameKey}=${formattedOtherUserName}, ${otherUserNameKey}=${formattedCurrentUserName}`);
+        
+        // Add the user-specific name mappings to the returned conversation
+        return {
+          ...existingConversation,
+          [currentUserNameKey]: formattedOtherUserName,
+          [otherUserNameKey]: formattedCurrentUserName,
+        };
       } catch (error) {
         console.error('[firebaseChatService] Error updating conversation with user names:', error);
       }
@@ -268,21 +319,18 @@ export const getOrCreateConversation = async (
       return existingConversation;
     }
     
-    // Format the current user's name properly
-    const formattedCurrentUserName = currentUser.name || 
-      (currentUser.email.includes('@') ? 
-        currentUser.email.split('@')[0].charAt(0).toUpperCase() + currentUser.email.split('@')[0].slice(1) : 
-        currentUser.email);
-    
-    // For new conversations, store separate names for each participant
-    const currentUserNameKey = `name_${currentUser.email.replace(/[.@]/g, '_')}`;
-    const otherUserNameKey = `name_${otherUserEmail.replace(/[.@]/g, '_')}`;
-    
     // Create raw conversation data with user-specific name mappings
     const rawConversationData = {
-      name: otherUserName, // Default name (used for transition period)
-      [currentUserNameKey]: otherUserName, // For current user, show other user's name
-      [otherUserNameKey]: formattedCurrentUserName, // For other user, show current user's name
+      // Default name (general)
+      name: formattedOtherUserName, 
+      
+      // Store specific name mappings:
+      // For current user, store the other user's name 
+      [currentUserNameKey]: formattedOtherUserName,
+      
+      // For other user, store the current user's name
+      [otherUserNameKey]: formattedCurrentUserName,
+      
       participants: participants,
       productId: productId,
       productName: productName,
@@ -291,16 +339,29 @@ export const getOrCreateConversation = async (
       owner: currentUser.email
     };
     
+    // Log the conversation data for debugging
+    console.log('[firebaseChatService] Creating new conversation with name mappings:', {
+      conversationId,
+      currentUserEmail: currentUser.email,
+      currentUserName: formattedCurrentUserName,
+      otherUserEmail: otherUserEmail,
+      otherUserName: formattedOtherUserName,
+      currentUserNameKey,
+      otherUserNameKey
+    });
+    
     // Sanitize data for Firestore
     const conversationData = sanitizeDataForFirestore(rawConversationData);
     
     // Use the conversationId as the document ID
     await setDoc(doc(db, 'conversations', conversationId), conversationData);
     
-    // Return the newly created conversation
+    // Return the newly created conversation with all needed properties
     return {
       id: conversationId,
-      name: otherUserName,
+      name: formattedOtherUserName,
+      [currentUserNameKey]: formattedOtherUserName, // Add user-specific name mapping
+      [otherUserNameKey]: formattedCurrentUserName, // Add other user-specific name mapping
       participants,
       productId,
       productName,
@@ -621,7 +682,21 @@ export const subscribeToUserConversations = (
         const createdAt = data.createdAt
           ? safeTimestampToISOString(data.createdAt)
           : new Date().toISOString(); // Default to current time if missing
-            
+        
+        // Get user-specific unread count
+        const unreadCountKey = `unreadCount_${userEmail.replace(/[.@]/g, '_')}`;
+        const unreadCount = data[unreadCountKey] || 0;
+        
+        // Get user-specific name mappings
+        const userSpecificFields: Record<string, any> = {};
+        
+        // Copy all fields that look like name mappings (name_*) from the data
+        Object.keys(data).forEach(key => {
+          if (key.startsWith('name_')) {
+            userSpecificFields[key] = data[key];
+          }
+        });
+        
         conversationData.push({
           id: doc.id,
           name: data.name || '',
@@ -632,10 +707,12 @@ export const subscribeToUserConversations = (
           createdAt: createdAt,
           updatedAt: data.updatedAt ? safeTimestampToISOString(data.updatedAt) : undefined,
           owner: data.owner,
-          unreadCount: data.unreadCount || 0,
-          lastReadMessageId: data.lastReadMessageId,
+          unreadCount: unreadCount,
+          lastSenderId: data.lastSenderId,
+          lastReadMessageId: data[`lastReadMessageId_${userEmail.replace(/[.@]/g, '_')}`],
           productId: data.productId,
-          productName: data.productName
+          productName: data.productName,
+          ...userSpecificFields // Include all name mappings
         });
       });
       

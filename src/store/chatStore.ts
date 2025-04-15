@@ -42,6 +42,7 @@ interface ChatStore extends ChatState {
   handleRefresh: () => Promise<void>;
   getConversationDisplayName: (conversation: Conversation) => string;
   getTimeDisplay: (timeString?: string) => string;
+  clearConversationsCache: () => Promise<boolean>;
 }
 
 const useChatStore = create<ChatStore>((set, get) => ({
@@ -189,9 +190,22 @@ const useChatStore = create<ChatStore>((set, get) => ({
   // Set conversations
   setConversations: (conversations) => set({ conversations }),
   
+  // Clear cached conversations
+  clearConversationsCache: async () => {
+    try {
+      await AsyncStorage.removeItem(CONVERSATIONS_STORAGE_KEY);
+      await AsyncStorage.removeItem(CONVERSATIONS_TIMESTAMP_KEY);
+      console.log('[chatStore] Conversations cache cleared');
+      return true;
+    } catch (error) {
+      console.error('[chatStore] Error clearing conversations cache:', error);
+      return false;
+    }
+  },
+  
   // Fetch conversations
   fetchConversations: async () => {
-    const { currentUserEmail, loadCachedConversations, cacheConversations } = get();
+    const { currentUserEmail, loadCachedConversations, cacheConversations, clearConversationsCache } = get();
     
     if (!currentUserEmail) return;
     
@@ -210,19 +224,55 @@ const useChatStore = create<ChatStore>((set, get) => ({
         console.log('[chatStore] Displayed cached conversations while fetching fresh data');
       }
       
-      // Get fresh data from Firebase
-      const fetchedConversations = await getConversations();
-      console.log('[chatStore] Fetched Firebase conversations:', fetchedConversations.length);
-      
-      // Cache the fresh conversations
-      cacheConversations(fetchedConversations);
-      
-      set({
-        conversations: fetchedConversations,
-        error: undefined,
-        isLoading: false,
-        isRefreshing: false
-      });
+      try {
+        // Get fresh data from Firebase
+        const fetchedConversations = await getConversations();
+        console.log('[chatStore] Fetched Firebase conversations:', fetchedConversations.length);
+        
+        // Cache the fresh conversations
+        cacheConversations(fetchedConversations);
+        
+        set({
+          conversations: fetchedConversations,
+          error: undefined,
+          isLoading: false,
+          isRefreshing: false
+        });
+      } catch (fetchError: any) {
+        console.error('[chatStore] Error fetching conversations:', fetchError);
+        
+        // Check if error indicates database was reset
+        if (fetchError?.message?.includes('not found') || 
+            fetchError?.message?.includes('permission denied') ||
+            fetchError?.code === 'not-found') {
+          
+          // Clear cached conversations as they're no longer valid
+          await clearConversationsCache();
+          
+          // If we displayed cached conversations, update UI with empty array
+          if (cachedConversations && cachedConversations.length > 0) {
+            set({
+              conversations: [],
+              error: 'Conversations were reset. Start a new conversation.',
+              isLoading: false,
+              isRefreshing: false
+            });
+          } else {
+            set({
+              error: 'No conversations found. Start a new conversation.',
+              isLoading: false,
+              isRefreshing: false
+            });
+          }
+        } else {
+          // For other errors
+          set({ 
+            error: `Failed to load conversations: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
+            isLoading: false,
+            isRefreshing: false
+          });
+        }
+      }
     } catch (err) {
       console.error('[chatStore] Failed to fetch conversations:', err);
       set({ 
@@ -259,11 +309,26 @@ const useChatStore = create<ChatStore>((set, get) => ({
       return conversation[nameKey];
     }
     
-    // Use conversation name if available - but ONLY if it doesn't match the current user's name
+    // Check if the conversation name is the current user's name - we never want to show that
     const currentUserBaseName = currentUserEmail.split('@')[0].toLowerCase();
+    const currentUserDisplayName = currentUserBaseName.charAt(0).toUpperCase() + currentUserBaseName.slice(1);
+    
+    // If conversation name matches current user in any format, fall back to other participant's name
     if (conversation.name && 
-        conversation.name.toLowerCase() !== currentUserBaseName) {
-      // Format name with proper capitalization
+        (conversation.name.toLowerCase() === currentUserBaseName ||
+         conversation.name === currentUserDisplayName ||
+         conversation.name === currentUserEmail)) {
+      
+      // Format the other participant's email as a name
+      if (otherParticipant.includes('@')) {
+        const username = otherParticipant.split('@')[0];
+        return username.charAt(0).toUpperCase() + username.slice(1);
+      }
+      return otherParticipant;
+    }
+    
+    // If we have a conversation name that isn't the current user, use it
+    if (conversation.name) {
       return conversation.name.charAt(0).toUpperCase() + conversation.name.slice(1);
     }
     

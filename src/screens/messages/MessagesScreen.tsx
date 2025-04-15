@@ -131,9 +131,28 @@ const MessagesScreen = () => {
     // This handles user-specific name mappings and formatting automatically
     const displayName = getConversationDisplayName(conversation);
     
+    // Ensure we're passing the other participant's name, not the current user's name
+    let otherParticipantName = displayName;
+    
+    // Extra safety check - if displayName somehow still matches current user's name
+    if (currentUserEmail) {
+      const currentUserBaseName = currentUserEmail.split('@')[0].toLowerCase();
+      const currentUserDisplayName = currentUserBaseName.charAt(0).toUpperCase() + currentUserBaseName.slice(1);
+      
+      // If the displayed name is somehow still the current user's name, use the other email username
+      if (otherParticipantName === currentUserDisplayName || 
+          otherParticipantName.toLowerCase() === currentUserBaseName) {
+        
+        if (otherParticipantEmail.includes('@')) {
+          const username = otherParticipantEmail.split('@')[0];
+          otherParticipantName = username.charAt(0).toUpperCase() + username.slice(1);
+        }
+      }
+    }
+    
     console.log('[MessagesScreen] Navigating to chat with:', {
       otherParticipant: otherParticipantEmail,
-      displayName,
+      displayName: otherParticipantName,
       conversationName: conversation.name,
       // For debugging, also log user-specific name mapping if available
       nameMapping: currentUserEmail ? 
@@ -144,7 +163,7 @@ const MessagesScreen = () => {
     // Navigate to Firebase chat screen with recipient info
     navigation.navigate('FirebaseChatScreen', { 
       recipientEmail: otherParticipantEmail,
-      recipientName: displayName
+      recipientName: otherParticipantName
     });
   }, [navigation, currentUserEmail, getConversationDisplayName]);
 
