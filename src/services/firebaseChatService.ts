@@ -550,26 +550,43 @@ export const subscribeToMessages = (
     const messagesRef = collection(db, 'conversations', conversationId, 'messages');
     const q = query(messagesRef, orderBy('createdAt', 'asc'));
     
+    // Store the last processed snapshot for deduplication
+    let lastProcessedSnapshot = '';
+    
     // Use snapshot metadata to efficiently detect various update types
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       try {
+        // Skip processing if we're getting duplicate snapshots (can happen with poor connections)
+        const snapshotId = querySnapshot.metadata.hasPendingWrites ? 'pending' : 'server';
+        const currentSnapshotKey = `${snapshotId}-${querySnapshot.size}`;
+        
+        if (currentSnapshotKey === lastProcessedSnapshot && !querySnapshot.metadata.hasPendingWrites) {
+          console.log('[firebaseChatService] Skipping duplicate snapshot update');
+          return;
+        }
+        
+        lastProcessedSnapshot = currentSnapshotKey;
+        
         const messages: Message[] = [];
         let hasChanges = false;
         let hasNewMessages = false;
         
-        // Track which messages have changed to log details
-        const changedMessages: string[] = [];
-        
-        querySnapshot.docChanges().forEach(change => {
-          if (change.type === 'added' || change.type === 'modified') {
-            hasChanges = true;
-            changedMessages.push(`${change.doc.id} (${change.type})`);
+        // Don't process document changes unless we need them to optimize performance
+        if (querySnapshot.docChanges().length > 0) {
+          // Track which messages have changed to log details
+          const changedMessages: string[] = [];
+          
+          querySnapshot.docChanges().forEach(change => {
+            if (change.type === 'added' || change.type === 'modified') {
+              hasChanges = true;
+              changedMessages.push(`${change.doc.id} (${change.type})`);
+            }
+          });
+          
+          if (hasChanges) {
+            console.log(`[firebaseChatService] Detected ${changedMessages.length} changed messages:`, 
+              changedMessages.join(', '));
           }
-        });
-        
-        if (hasChanges) {
-          console.log(`[firebaseChatService] Detected ${changedMessages.length} changed messages:`, 
-            changedMessages.join(', '));
         }
         
         querySnapshot.forEach((doc) => {
@@ -622,8 +639,15 @@ export const subscribeToMessages = (
         // Return messages immediately for real-time UI update
         callback(messages);
         
-        // Handle message read status updates in the background to avoid blocking UI
-        if (messages.length > 0 && !querySnapshot.metadata.fromCache) {
+        // Only mark messages as read if:
+        // 1. There are actually messages to process
+        // 2. This is a server-side (not cached or pending) snapshot
+        // 3. There are actual changes in the messages
+        // 4. This is not a duplicate from a bad connection
+        if (messages.length > 0 && 
+            !querySnapshot.metadata.fromCache && 
+            !querySnapshot.metadata.hasPendingWrites && 
+            hasChanges) {
           setTimeout(() => {
             markMessagesAsRead(conversationId, messages).catch(error => {
               console.error('[firebaseChatService] Error marking messages as read:', error);
@@ -691,7 +715,11 @@ const markMessagesAsRead = async (
              (msg.status !== MessageStatus.READ || msg.receiptStatus !== ReceiptStatus.READ)
     );
     
-    if (messagesToUpdate.length === 0) return;
+    // Skip the database operation entirely if no messages need updates
+    if (messagesToUpdate.length === 0) {
+      console.log('[firebaseChatService] No messages need to be marked as read');
+      return;
+    }
     
     console.log('[firebaseChatService] Marking messages as read:', messagesToUpdate.length);
     

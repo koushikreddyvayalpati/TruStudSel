@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState, useLayoutEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useLayoutEffect, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -15,7 +15,8 @@ import {
   StatusBar,
   Dimensions,
   Keyboard,
-  RefreshControl
+  RefreshControl,
+  AppState
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -97,6 +98,7 @@ const FirebaseChatScreen = () => {
   const inputRef = useRef<TextInput>(null);
   const isMountedRef = useRef<boolean>(true);
   const shouldShowScrollButtonRef = useRef<boolean>(false);
+  const previousMessagesRef = useRef<Message[]>([]);
   
   // Generate avatar initials
   const getInitials = useCallback((name: string) => {
@@ -218,13 +220,18 @@ const FirebaseChatScreen = () => {
   // Cancel animations in effect cleanup for messages
   useEffect(() => {
     return () => {
-      // Clean up message subscription
+      console.log('[FirebaseChatScreen] Component unmounting, cleaning up resources');
+      // Cleanup message subscription
       if (messageSubscriptionRef.current) {
+        console.log('[FirebaseChatScreen] Unsubscribing from message updates');
         messageSubscriptionRef.current.unsubscribe();
         messageSubscriptionRef.current = null;
       }
       
-      // Ensure animations are stopped
+      // Reset state ref
+      isMountedRef.current = false;
+      
+      // Cancel any animations
       fadeAnim.stopAnimation();
       scrollButtonAnim.stopAnimation();
     };
@@ -292,51 +299,69 @@ const FirebaseChatScreen = () => {
 
   // Subscribe to new messages with improved handling for real-time updates
   const subscribeToNewMessages = useCallback((conversationId: string) => {
+    console.log(`[FirebaseChatScreen] Setting up message subscription for conversation ${conversationId}`);
+    
+    // Store previous messages in a ref to avoid dependency issues
     const subscription = subscribeToMessages(conversationId, (updatedMessages) => {
       console.log('[FirebaseChatScreen] Received updated messages:', updatedMessages.length);
       
       if (updatedMessages && updatedMessages.length > 0) {
-        // Apply updates immediately for real-time experience regardless of changes
-        setMessages(updatedMessages);
+        // Compare with previous messages to avoid unnecessary updates
+        const prevMessages = previousMessagesRef.current;
         
-        // Check if there's a new message or status change for logging only
-        const hasNewMessages = updatedMessages.length > messages.length;
+        // Check if there are actually changes worth updating
+        const hasNewMessages = updatedMessages.length > prevMessages.length;
         const newMessageExists = updatedMessages.some(
-          newMsg => !messages.some(existingMsg => existingMsg.id === newMsg.id)
+          newMsg => !prevMessages.some(existingMsg => existingMsg.id === newMsg.id)
         );
         const hasChangedMessages = updatedMessages.some((newMsg) => {
-          const existingMsg = messages.find(msg => msg.id === newMsg.id);
+          const existingMsg = prevMessages.find(msg => msg.id === newMsg.id);
           return existingMsg && 
                  (existingMsg.content !== newMsg.content || 
                   existingMsg.status !== newMsg.status || 
                   existingMsg.receiptStatus !== newMsg.receiptStatus);
         });
         
+        // Only update state if we have actual changes
         if (hasNewMessages || newMessageExists || hasChangedMessages) {
-          console.log('[FirebaseChatScreen] New or changed messages detected');
-        }
-        
-        // Cache in the background without blocking UI updates
-        setTimeout(() => {
-          cacheMessages(conversationId, updatedMessages);
-        }, 0);
-        
-        // Scroll to bottom on new messages if there are additions
-        if (hasNewMessages || newMessageExists) {
+          console.log('[FirebaseChatScreen] Detected message changes, updating UI');
+          setMessages(updatedMessages);
+          previousMessagesRef.current = [...updatedMessages];
+          
+          // Cache in the background without blocking UI updates - only when needed
           setTimeout(() => {
-            if (flatListRef.current) {
-              flatListRef.current.scrollToEnd({ animated: true });
-            }
-          }, 100);
+            cacheMessages(conversationId, updatedMessages);
+          }, 0);
+          
+          // Scroll to bottom on new messages if there are additions
+          if (hasNewMessages || newMessageExists) {
+            setTimeout(() => {
+              if (flatListRef.current) {
+                flatListRef.current.scrollToEnd({ animated: true });
+              }
+            }, 100);
+          }
+        } else {
+          console.log('[FirebaseChatScreen] No significant changes, skipping update');
         }
       } else if (updatedMessages && updatedMessages.length === 0) {
         console.warn('[FirebaseChatScreen] Received empty messages from subscription');
         setMessages([]);
+        previousMessagesRef.current = [];
       }
     });
     
     messageSubscriptionRef.current = subscription;
-  }, [messages, cacheMessages]);
+    
+    // Return cleanup function
+    return () => {
+      console.log(`[FirebaseChatScreen] Cleaning up message subscription for ${conversationId}`);
+      if (messageSubscriptionRef.current) {
+        messageSubscriptionRef.current.unsubscribe();
+        messageSubscriptionRef.current = null;
+      }
+    };
+  }, [cacheMessages]); // Only depend on cacheMessages
 
   // Cache conversation data
   const cacheConversation = useCallback(async (conversation: any) => {
@@ -553,8 +578,14 @@ const FirebaseChatScreen = () => {
                   
                   // Reset subscription with new conversation ID
                   if (messageSubscriptionRef.current) {
+                    console.log('[FirebaseChatScreen] Unsubscribing from previous conversation before resubscribing');
                     messageSubscriptionRef.current.unsubscribe();
+                    messageSubscriptionRef.current = null;
                   }
+                  
+                  // Clear the previous messages ref before resubscribing
+                  previousMessagesRef.current = [];
+                  
                   subscribeToNewMessages(newConversation.id);
                 }
               } else {
@@ -595,8 +626,17 @@ const FirebaseChatScreen = () => {
                   setMessages([]);
                   cacheConversation(newConversation);
                   
-                  // Set up subscription with new conversation ID
-                  conversation = newConversation;
+                  // Reset subscription with new conversation ID
+                  if (messageSubscriptionRef.current) {
+                    console.log('[FirebaseChatScreen] Unsubscribing from previous conversation before resubscribing');
+                    messageSubscriptionRef.current.unsubscribe();
+                    messageSubscriptionRef.current = null;
+                  }
+                  
+                  // Clear the previous messages ref before resubscribing
+                  previousMessagesRef.current = [];
+                  
+                  subscribeToNewMessages(newConversation.id);
                 }
               } else {
                 throw loadError; // Re-throw if it's a different error
@@ -614,6 +654,11 @@ const FirebaseChatScreen = () => {
         
         // Subscribe to new messages
         if (effectMounted && isMountedRef.current && conversation?.id) {
+          // Set initial values for comparison in the subscription
+          if (messages.length > 0) {
+            previousMessagesRef.current = [...messages];
+          }
+          
           subscribeToNewMessages(conversation.id);
           
           // Mark as initialized to prevent re-initialization
@@ -639,7 +684,7 @@ const FirebaseChatScreen = () => {
       
       // Don't unsubscribe from messages here - we do that in component unmount
     };
-  }, [recipientEmail, recipientName, navigation, subscribeToNewMessages, displayName, conversationId, loadCachedMessages, cacheMessages, loadCachedConversation, cacheConversation]);
+  }, [recipientEmail, recipientName, navigation, subscribeToNewMessages, displayName, conversationId, loadCachedMessages, cacheMessages, loadCachedConversation, cacheConversation, messages]);
 
   // Send a message - premium style with AsyncStorage
   const handleSendMessage = useCallback(async () => {
@@ -731,8 +776,14 @@ const FirebaseChatScreen = () => {
               
               // Subscribe to new messages with the new conversation ID
               if (messageSubscriptionRef.current) {
+                console.log('[FirebaseChatScreen] Unsubscribing from previous conversation before resubscribing');
                 messageSubscriptionRef.current.unsubscribe();
+                messageSubscriptionRef.current = null;
               }
+              
+              // Clear the previous messages ref before resubscribing
+              previousMessagesRef.current = [];
+              
               subscribeToNewMessages(newConversation.id);
               
               console.log('Successfully recreated conversation and sent message');
@@ -782,13 +833,6 @@ const FirebaseChatScreen = () => {
     const isCurrentUser = item.senderId === currentUserEmail;
     const messageTime = formatMessageTime(item.createdAt);
     const showDateHeader = shouldShowDateHeader(index);
-    
-    // Debug the message content to ensure there's data
-    console.log(`Rendering message: ${item.id}`, {
-      content: item.content,
-      isCurrentUser,
-      createdAt: item.createdAt
-    });
     
     return (
       <>
@@ -855,7 +899,7 @@ const FirebaseChatScreen = () => {
     }),
     []
   );
-  
+
   // Add pull-to-refresh functionality
   const [refreshing, setRefreshing] = useState(false);
 
@@ -879,9 +923,134 @@ const FirebaseChatScreen = () => {
       setRefreshing(false);
     }
   }, [conversationId, cacheMessages]);
-  
+
+  // Properly handle app state changes to optimize Firebase subscriptions
+  useEffect(() => {
+    // Add app state change listeners to optimize subscriptions
+    const handleAppStateChange = (nextAppState: string) => {
+      console.log('[FirebaseChatScreen] App state changed:', nextAppState);
+      
+      // When app comes to foreground, refresh messages to ensure we have latest data
+      if (nextAppState === 'active' && conversationId && isInitializedRef.current) {
+        console.log('[FirebaseChatScreen] App became active, refreshing messages');
+        handleRefresh();
+      }
+    };
+    
+    // Add app state change listener
+    const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
+    
+    return () => {
+      // Clean up app state change listener
+      appStateSubscription.remove();
+    };
+  }, [conversationId, handleRefresh]);
+
+  // Using memo to create persistent component references
+  const MessagesList = useMemo(() => {
+    return (
+      <FlatList
+        ref={flatListRef}
+        data={messages}
+        renderItem={renderMessage}
+        keyExtractor={keyExtractor}
+        contentContainerStyle={styles.messageList}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        initialNumToRender={15}
+        maxToRenderPerBatch={10}
+        windowSize={21}
+        getItemLayout={getItemLayout}
+        removeClippedSubviews={Platform.OS === 'android'}
+        extraData={[currentUserEmail, otherUserName]} // Only depend on props that affect rendering
+        maintainVisibleContentPosition={{
+          minIndexForVisible: 0,
+          autoscrollToTopThreshold: 10,
+        }}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Icon name="chatbubble-ellipses-outline" size={60} color="#ddd" />
+            <Text style={styles.emptyText}>No messages yet</Text>
+            <Text style={styles.emptySubtext}>
+              Start the conversation by sending a message
+            </Text>
+          </View>
+        }
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="#f7b305"
+            colors={['#f7b305']}
+          />
+        }
+      />
+    );
+  }, [
+    messages, 
+    renderMessage, 
+    keyExtractor, 
+    handleScroll, 
+    getItemLayout, 
+    currentUserEmail, 
+    otherUserName,
+    refreshing,
+    handleRefresh
+  ]);
+
+  // Input area component memoized
+  const ChatInputArea = useMemo(() => {
+    return (
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        style={styles.keyboardAvoidingView}
+      >
+        <View style={styles.inputContainer}>
+          <TextInput
+            ref={inputRef}
+            style={styles.input}
+            value={inputText}
+            onChangeText={(text) => {
+              setInputText(text);
+              // Simulate typing indicator
+              if (text.length > 0 && !isTyping) {
+                setIsTyping(true);
+                // In a real app, you would send typing status to Firebase here
+              } else if (text.length === 0 && isTyping) {
+                setIsTyping(false);
+                // In a real app, you would clear typing status in Firebase here
+              }
+            }}
+            placeholder="Type a message..."
+            placeholderTextColor="#999"
+            multiline
+            maxLength={500}
+            returnKeyType="default"
+            blurOnSubmit={false}
+          />
+          <TouchableOpacity 
+            style={[
+              styles.sendButton, 
+              !inputText.trim() && styles.sendButtonDisabled
+            ]}
+            onPress={handleSendMessage}
+            disabled={!inputText.trim()}
+            activeOpacity={0.7}
+          >
+            <Icon 
+              name="send" 
+              size={Platform.OS === 'android' ? 22 : 24} 
+              color={inputText.trim() ? (Platform.OS === 'android' ? "#fff" : "#ffb300") : "#ccc"} 
+            />
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    );
+  }, [inputText, isTyping, handleSendMessage]);
+
   // Modify the renderContent function to avoid animation issues
-  const renderContent = () => {
+  const renderContent = useCallback(() => {
     // Only show loading on initial load
     if (isLoading && !isInitializedRef.current) {
       return (
@@ -903,42 +1072,7 @@ const FirebaseChatScreen = () => {
           ]}
           collapsable={false}
         >
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            renderItem={renderMessage}
-            keyExtractor={keyExtractor}
-            contentContainerStyle={styles.messageList}
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
-            initialNumToRender={15}
-            maxToRenderPerBatch={10}
-            windowSize={21}
-            getItemLayout={getItemLayout}
-            removeClippedSubviews={false}
-            extraData={messages}
-            maintainVisibleContentPosition={{
-              minIndexForVisible: 0,
-              autoscrollToTopThreshold: 10,
-            }}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Icon name="chatbubble-ellipses-outline" size={60} color="#ddd" />
-                <Text style={styles.emptyText}>No messages yet</Text>
-                <Text style={styles.emptySubtext}>
-                  Start the conversation by sending a message
-                </Text>
-              </View>
-            }
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={handleRefresh}
-                tintColor="#f7b305"
-                colors={['#f7b305']}
-              />
-            }
-          />
+          {MessagesList}
           
           {/* Scroll to bottom button */}
           {showScrollButton && (
@@ -968,54 +1102,10 @@ const FirebaseChatScreen = () => {
         </Animated.View>
         
         {/* Enhanced Input Area */}
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-          style={styles.keyboardAvoidingView}
-        >
-          <View style={styles.inputContainer}>
-            <TextInput
-              ref={inputRef}
-              style={styles.input}
-              value={inputText}
-              onChangeText={(text) => {
-                setInputText(text);
-                // Simulate typing indicator
-                if (text.length > 0 && !isTyping) {
-                  setIsTyping(true);
-                  // In a real app, you would send typing status to Firebase here
-                } else if (text.length === 0 && isTyping) {
-                  setIsTyping(false);
-                  // In a real app, you would clear typing status in Firebase here
-                }
-              }}
-              placeholder="Type a message..."
-              placeholderTextColor="#999"
-              multiline
-              maxLength={500}
-              returnKeyType="default"
-              blurOnSubmit={false}
-            />
-            <TouchableOpacity 
-              style={[
-                styles.sendButton, 
-                !inputText.trim() && styles.sendButtonDisabled
-              ]}
-              onPress={handleSendMessage}
-              disabled={!inputText.trim()}
-              activeOpacity={0.7}
-            >
-              <Icon 
-                name="send" 
-                size={Platform.OS === 'android' ? 22 : 24} 
-                color={inputText.trim() ? (Platform.OS === 'android' ? "#fff" : "#ffb300") : "#ccc"} 
-              />
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
+        {ChatInputArea}
       </>
     );
-  };
+  }, [isLoading, MessagesList, showScrollButton, scrollButtonAnim, scrollToBottom, ChatInputArea]);
   
   // Clear all conversation and message cache
   const clearAllConversationCache = useCallback(async () => {
