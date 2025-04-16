@@ -580,13 +580,21 @@ export const createProductWithImageFilenames = async (
   );
   
   try {
+    // Import Auth from Amplify inside the function to avoid circular dependencies
+    const { Auth } = require('aws-amplify');
+    
+    // Get the current authenticated session to retrieve the JWT token
+    const currentSession = await Auth.currentSession();
+    const token = currentSession.getIdToken().getJwtToken();
+    
     const endpoint = `${API_URL}/api/products/with-image-filenames`;
     console.log('[API:products] Sending request to endpoint:', endpoint);
     
     const requestBody = JSON.stringify(productData);
     console.log('[API:products] Request payload size:', requestBody.length, 'bytes');
     console.log('[API:products] Request headers:', {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token.substring(0, 15)}...` // Only log part of token for security
     });
     
     // Log first 200 characters of request body for debugging
@@ -599,6 +607,7 @@ export const createProductWithImageFilenames = async (
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: requestBody
       }
@@ -625,9 +634,21 @@ export const getProductById = async (id: string): Promise<Product> => {
   console.log(`[API:products] Getting product by ID: ${id}`);
   
   try {
+    // Import Auth from Amplify inside the function to avoid circular dependencies
+    const { Auth } = require('aws-amplify');
+    
+    // Get the current authenticated session to retrieve the JWT token
+    const currentSession = await Auth.currentSession();
+    const token = currentSession.getIdToken().getJwtToken();
+    
     const response = await fetchWithTimeout(
       `${API_URL}/api/products/${encodeURIComponent(id)}`,
-      { method: 'GET' }
+      { 
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }
     );
     
     const product = await handleResponse<Product>(response);
@@ -671,7 +692,19 @@ export const getProductById = async (id: string): Promise<Product> => {
 export const fetchUserProducts = async (email: string): Promise<Product[]> => {
   try {
     console.log(`[API] Fetching products for user: ${email}`);
-    const response = await axios.get(`${API_BASE_URL}/products/user/${email}`);
+    
+    // Import Auth from Amplify inside the function to avoid circular dependencies
+    const { Auth } = require('aws-amplify');
+    
+    // Get the current authenticated session to retrieve the JWT token
+    const currentSession = await Auth.currentSession();
+    const token = currentSession.getIdToken().getJwtToken();
+    
+    const response = await axios.get(`${API_BASE_URL}/products/user/${email}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
     
     if (response.status === 200) {
       console.log(`[API] Successfully fetched ${response.data.length} products for user`);
@@ -922,12 +955,20 @@ export const updateProductStatus = async (id: string, status: string): Promise<P
       console.log(`[API:products] Making PATCH request to: ${url}`);
     }
     
+    // Import Auth from Amplify inside the function to avoid circular dependencies
+    const { Auth } = require('aws-amplify');
+    
+    // Get the current authenticated session to retrieve the JWT token
+    const currentSession = await Auth.currentSession();
+    const token = currentSession.getIdToken().getJwtToken();
+    
     // Make the API request
     const response = await fetch(url, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`
       }
       // No body needed as we're using query parameters
     });
@@ -991,6 +1032,100 @@ export const updateProductStatus = async (id: string, status: string): Promise<P
   }
 };
 
+/**
+ * Delete a product by ID
+ * @param id Product ID to delete
+ * @returns Promise resolving to true if deletion was successful
+ */
+export const deleteProduct = async (id: string): Promise<boolean> => {
+  // Start timing the request (dev only)
+  const startTime = __DEV__ ? Date.now() : 0;
+  
+  try {
+    // Verify and format the ID
+    if (!id || typeof id !== 'string') {
+      throw new Error(`Invalid product ID: ${id}. Must be a non-empty string.`);
+    }
+    
+    // Ensure the ID is properly formatted 
+    const productId = id.trim();
+    
+    // Only log in development mode
+    if (__DEV__) {
+      console.log(`[API:products] Deleting product ${productId}`);
+      console.log(`[API:products] Product ID type: ${typeof productId}, length: ${productId.length}`);
+    }
+    
+    // Make API call to delete the product
+    const url = `${API_URL}/api/products/${productId}`;
+    
+    if (__DEV__) {
+      console.log(`[API:products] Making DELETE request to: ${url}`);
+    }
+    
+    // Import Auth from Amplify inside the function to avoid circular dependencies
+    const { Auth } = require('aws-amplify');
+    
+    // Get the current authenticated session to retrieve the JWT token
+    const currentSession = await Auth.currentSession();
+    const token = currentSession.getIdToken().getJwtToken();
+    
+    // Make the API request
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (__DEV__) {
+      console.log(`[API:products] Delete response status: ${response.status}`);
+    }
+    
+    // Check for success
+    if (!response.ok) {
+      // Try to get detailed error information
+      let errorText;
+      try {
+        errorText = await response.text();
+        
+        // Only log in development mode
+        if (__DEV__) {
+          console.log(`[API:products] Error response text: ${errorText}`);
+        }
+      } catch (textError) {
+        errorText = 'Could not extract error details';
+      }
+      
+      throw new Error(`Failed to delete product: ${response.status} - ${errorText}`);
+    }
+    
+    // Only log in development mode
+    if (__DEV__) {
+      // Performance tracking
+      const endTime = Date.now();
+      console.log(`[API:products] deleteProduct took ${endTime - startTime}ms`);
+    }
+    
+    // Clear any cached data for this product
+    await clearProductCache(productId);
+    
+    return true;
+  } catch (error) {
+    console.error('[API:products] Error deleting product:', error);
+    
+    // For performance monitoring in dev mode
+    if (__DEV__) {
+      const endTime = Date.now();
+      console.log(`[API:products] deleteProduct failed after ${endTime - startTime}ms`);
+    }
+    
+    throw error;
+  }
+};
+
 export default {
   getProducts,
   getProductsByUniversity,
@@ -1004,4 +1139,5 @@ export default {
   searchProducts,
   updateProductStatus,
   clearProductCache,
+  deleteProduct,
 }; 

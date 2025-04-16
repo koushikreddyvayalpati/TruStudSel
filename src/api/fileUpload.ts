@@ -43,6 +43,25 @@ export const uploadProductImages = async (
   }
   
   try {
+    // Import Auth from Amplify inside the function to avoid circular dependencies
+    const { Auth } = require('aws-amplify');
+    
+    // Get the current authenticated session to retrieve the JWT token
+    let token;
+    try {
+      const currentSession = await Auth.currentSession();
+      token = currentSession.getIdToken().getJwtToken();
+      console.log('[API:fileUpload] Successfully obtained authentication token');
+    } catch (authError) {
+      console.error('[API:fileUpload] Failed to get authentication token:', authError);
+      throw new Error('Authentication failed. Please sign in again.');
+    }
+    
+    if (!token) {
+      console.error('[API:fileUpload] No authentication token available');
+      throw new Error('Authentication token not available. Please sign in again.');
+    }
+    
     const formData = new FormData();
     
     // Detailed logging for each image
@@ -100,7 +119,8 @@ export const uploadProductImages = async (
     
     // Log request headers
     console.log('[API:fileUpload] Request headers:', {
-      'Content-Type': 'multipart/form-data'
+      'Content-Type': 'multipart/form-data',
+      'Authorization': `Bearer ${token.substring(0, 15)}...` // Only log part of token for security
     });
     
     const response = await fetchWithTimeout(
@@ -110,6 +130,7 @@ export const uploadProductImages = async (
         body: formData,
         headers: {
           'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`
         }
       }
     );

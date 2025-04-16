@@ -35,15 +35,28 @@ const apiClient = axios.create({
 // Request interceptor for adding auth token and other headers
 apiClient.interceptors.request.use(
   async (config) => {
-    // Get token from storage (if exists)
-    const token = await AsyncStorage.getItem(API_CONFIG.TOKEN_KEY);
-    
-    // If token exists, add to headers
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    try {
+      // Try to get Cognito token directly
+      const { Auth } = require('aws-amplify');
+      const currentSession = await Auth.currentSession();
+      const token = currentSession.getIdToken().getJwtToken();
+      
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+        return config;
+      }
+    } catch (cognitoError) {
+      // If Cognito auth fails, try fallback to stored token
+      console.log('Cognito auth unavailable, trying stored token');
+      
+      // Get token from storage (if exists)
+      const token = await AsyncStorage.getItem(API_CONFIG.TOKEN_KEY);
+      
+      // If token exists, add to headers
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
-    
-    // Add any additional headers or request transformations here
     
     return config;
   },
@@ -73,26 +86,45 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
       
       try {
-        // Get refresh token from storage
-        const refreshToken = await AsyncStorage.getItem(API_CONFIG.REFRESH_TOKEN_KEY);
-        
-        if (refreshToken) {
-          // Call refresh token endpoint
-          const response = await axios.post(
-            `${API_CONFIG.API_BASE_URL}${API_CONFIG.REFRESH_TOKEN_ENDPOINT}`,
-            { refreshToken }
-          );
+        // Try refreshing Cognito session first
+        try {
+          console.log('Attempting to refresh Cognito session...');
+          const { Auth } = require('aws-amplify');
           
-          const { token } = response.data;
-          
-          // Store the new token
-          await AsyncStorage.setItem(API_CONFIG.TOKEN_KEY, token);
+          // Force refresh the session
+          await Auth.currentAuthenticatedUser({ bypassCache: true });
+          const currentSession = await Auth.currentSession();
+          const token = currentSession.getIdToken().getJwtToken();
           
           // Update the Authorization header
           originalRequest.headers.Authorization = `Bearer ${token}`;
           
           // Retry the original request
           return apiClient(originalRequest);
+        } catch (cognitoError) {
+          console.error('Failed to refresh Cognito session:', cognitoError);
+          
+          // Fall back to refresh token from AsyncStorage if Cognito fails
+          const refreshToken = await AsyncStorage.getItem(API_CONFIG.REFRESH_TOKEN_KEY);
+          
+          if (refreshToken) {
+            // Call refresh token endpoint
+            const response = await axios.post(
+              `${API_CONFIG.API_BASE_URL}${API_CONFIG.REFRESH_TOKEN_ENDPOINT}`,
+              { refreshToken }
+            );
+            
+            const { token } = response.data;
+            
+            // Store the new token
+            await AsyncStorage.setItem(API_CONFIG.TOKEN_KEY, token);
+            
+            // Update the Authorization header
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            
+            // Retry the original request
+            return apiClient(originalRequest);
+          }
         }
       } catch (refreshError) {
         console.error('Token refresh failed:', refreshError);

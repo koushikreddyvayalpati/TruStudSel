@@ -1154,9 +1154,19 @@ const styles = StyleSheet.create({
   wishlistButton: {
     padding: 8,
     marginLeft: 6,
+    width: 38,
+    height: 38,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   wishlistActiveButton: {
-    backgroundColor: '#e74c3c',
+    backgroundColor: 'rgba(231, 76, 60, 0.2)',
+    borderRadius: 20,
+    width: 38,
+    height: 38,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   sellerSection: {
     marginTop: 20,

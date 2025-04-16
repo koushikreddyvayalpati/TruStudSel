@@ -23,7 +23,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useAuth } from '../../contexts/AuthContext';
 import { ProfileScreenNavigationProp, MainStackParamList } from '../../types/navigation.types';
 import { fetchUserProfileById, updateUserProfileData } from '../../api/users';
-import { fetchUserProducts, Product, updateProductStatus, ProductStatus } from '../../api/products';
+import { fetchUserProducts, Product, updateProductStatus, ProductStatus, deleteProduct } from '../../api/products';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import the Zustand profile store
@@ -809,6 +809,51 @@ const ProfileContentView = React.memo(({
     }
   }, [userData.email, onRefresh, isViewingSeller, setActiveTab]);
 
+  // Handle deleting a product
+  const handleDeleteProduct = useCallback(async (productId: string) => {
+    try {
+      // Validate product ID
+      if (!productId || typeof productId !== 'string') {
+        console.error(`[ProfileScreen] Invalid product ID for deletion: ${productId}, type: ${typeof productId}`);
+        Alert.alert('Error', 'Invalid product ID. Please try again.');
+        return;
+      }
+      
+      // Ensure we have a clean string ID
+      const cleanProductId = productId.trim();
+      
+      // Only log in development
+      if (__DEV__) {
+        console.log(`[ProfileScreen] Deleting product: ${cleanProductId}`);
+      }
+      
+      // Track processing time for performance monitoring (dev only)
+      const startTime = __DEV__ ? Date.now() : 0;
+      
+      // Show a loading indicator to the user
+      const success = await deleteProduct(cleanProductId);
+      
+      if (__DEV__) {
+        console.log(`[ProfileScreen] Product deleted successfully:`, success);
+      }
+      
+      // Update the UI
+      Alert.alert('Success', 'Product has been deleted.');
+      
+      // Refresh the products list to reflect the change
+      onRefresh();
+      
+      // Dev performance tracking
+      if (__DEV__) {
+        const endTime = Date.now();
+        console.log(`[ProfileScreen] Delete product operation took ${endTime - startTime}ms`);
+      }
+    } catch (error) {
+      console.error('[ProfileScreen] Error deleting product:', error);
+      Alert.alert('Error', 'Failed to delete product. Please try again.');
+    }
+  }, [onRefresh]);
+
   // The item renderer for FlatList
   const renderItem = useCallback(({ item, index }: { item: Post, index: number }) => {
     const isEven = index % 2 === 0;
@@ -850,16 +895,12 @@ const ProfileContentView = React.memo(({
           item={item} 
           originalData={originalData} 
           isViewingSeller={isViewingSeller}
-          onDeleteProduct={!isViewingSeller ? (productId) => {
-            console.log('Delete product:', productId);
-            // Add actual delete functionality here
-            Alert.alert('Feature Coming Soon', 'Product deletion will be available in a future update.');
-          } : undefined}
+          onDeleteProduct={!isViewingSeller ? handleDeleteProduct : undefined}
           onMarkAsSold={!isViewingSeller ? handleMarkAsSold : undefined}
         />
       </View>
     );
-  }, [productsMap, isViewingSeller, handleMarkAsSold]);
+  }, [productsMap, isViewingSeller, handleMarkAsSold, handleDeleteProduct]);
 
   // Key extractor for the FlatList
   const keyExtractor = useCallback((item: Post) => item.id.toString(), []);

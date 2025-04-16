@@ -113,10 +113,21 @@ const WishlistScreen: React.FC = () => {
     }
     
     try {
+      // Import Auth from Amplify inside the function to avoid circular dependencies
+      const { Auth } = require('aws-amplify');
+      
+      // Get the current authenticated session to retrieve the JWT token
+      const currentSession = await Auth.currentSession();
+      const token = currentSession.getIdToken().getJwtToken();
+      
       console.log(`[WishlistScreen] Fetching wishlist for user: ${user.email}`);
       const apiUrl = `${API_BASE_URL}/api/wishlist/${user.email}`;
       
-      const response = await fetch(apiUrl);
+      const response = await fetch(apiUrl, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       
       if (!response.ok) {
         console.error(`[WishlistScreen] API error: ${response.status}`);
@@ -182,11 +193,21 @@ const WishlistScreen: React.FC = () => {
     }
     
     try {
+      // Import Auth from Amplify inside the function to avoid circular dependencies
+      const { Auth } = require('aws-amplify');
+      
+      // Get the current authenticated session to retrieve the JWT token
+      const currentSession = await Auth.currentSession();
+      const token = currentSession.getIdToken().getJwtToken();
+      
       console.log(`[WishlistScreen] Removing product ${productId} from wishlist`);
       const apiUrl = `${API_BASE_URL}/api/wishlist/${user.email}/${productId}`;
       
       const response = await fetch(apiUrl, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       
       if (response.status >= 200 && response.status < 300) {

@@ -325,11 +325,22 @@ const useProductDetailsStore = create<ProductDetailsState>((set, get) => ({
       }
       
       try {
+        // Import Auth from Amplify inside the function to avoid circular dependencies
+        const { Auth } = require('aws-amplify');
+        
+        // Get the current authenticated session to retrieve the JWT token
+        const currentSession = await Auth.currentSession();
+        const token = currentSession.getIdToken().getJwtToken();
+        
         const productIdString = productId.toString();
         const apiUrl = `${API_BASE_URL}/api/wishlist/${userEmail}/check/${productIdString}`;
         console.log(`[ProductDetailsStore] Checking wishlist status: ${apiUrl}`);
         
-        const response = await fetch(apiUrl);
+        const response = await fetch(apiUrl, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         
         if (!response.ok) {
           console.error(`[ProductDetailsStore] API error: ${response.status}`);
@@ -363,6 +374,13 @@ const useProductDetailsStore = create<ProductDetailsState>((set, get) => ({
         return false;
       }
       
+      // Import Auth from Amplify inside the function to avoid circular dependencies
+      const { Auth } = require('aws-amplify');
+      
+      // Get the current authenticated session to retrieve the JWT token
+      const currentSession = await Auth.currentSession();
+      const token = currentSession.getIdToken().getJwtToken();
+      
       const productIdString = productId.toString();
       console.log(`[ProductDetailsStore] Adding product ${productIdString} to wishlist for user ${userEmail}`);
       const apiUrl = `${API_BASE_URL}/api/wishlist/${userEmail}?productId=${productIdString}`;
@@ -372,6 +390,7 @@ const useProductDetailsStore = create<ProductDetailsState>((set, get) => ({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           }
         });
         
@@ -402,12 +421,22 @@ const useProductDetailsStore = create<ProductDetailsState>((set, get) => ({
       }
       
       try {
+        // Import Auth from Amplify inside the function to avoid circular dependencies
+        const { Auth } = require('aws-amplify');
+        
+        // Get the current authenticated session to retrieve the JWT token
+        const currentSession = await Auth.currentSession();
+        const token = currentSession.getIdToken().getJwtToken();
+        
         const productIdString = productId.toString();
         const apiUrl = `${API_BASE_URL}/api/wishlist/${userEmail}/${productIdString}`;
         console.log(`[ProductDetailsStore] Removing product from wishlist: ${apiUrl}`);
         
         const response = await fetch(apiUrl, {
           method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
         });
         
         if (response.status >= 200 && response.status < 300) {

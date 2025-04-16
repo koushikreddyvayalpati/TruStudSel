@@ -14,10 +14,18 @@ import { API_URL } from './config';
  */
 export const uploadFile = async (formData: FormData) => {
   try {
+    // Import Auth from Amplify inside the function to avoid circular dependencies
+    const { Auth } = require('aws-amplify');
+    
+    // Get the current authenticated session to retrieve the JWT token
+    const currentSession = await Auth.currentSession();
+    const token = currentSession.getIdToken().getJwtToken();
+    
     const response = await fetch(`${API_URL}/api/files/upload`, {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`
       },
       body: formData
     });
@@ -55,8 +63,20 @@ export interface UserProfileData {
  */
 export const createUserProfile = async (userData: UserProfileData) => {
   try {
-    // Using exact api path from the curl example
-    const response = await apiClient.post(`${API_URL}/api/users`, userData);
+    // Import Auth from Amplify inside the function to avoid circular dependencies
+    const { Auth } = require('aws-amplify');
+    
+    // Get the current authenticated session to retrieve the JWT token
+    const currentSession = await Auth.currentSession();
+    const token = currentSession.getIdToken().getJwtToken();
+    
+    // Using exact api path from the curl example with auth token
+    const response = await apiClient.post(`${API_URL}/api/users`, userData, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
     return response.data;
   } catch (error) {
     console.error('Failed to create user profile:', error);
@@ -70,7 +90,20 @@ export const createUserProfile = async (userData: UserProfileData) => {
  */
 export const fetchUserProfileById = async (userEmail: string) => {
   try {
-    const response = await apiClient.get(`${API_URL}/api/users/${userEmail}`);
+    // Import Auth from Amplify inside the function to avoid circular dependencies
+    const { Auth } = require('aws-amplify');
+    
+    // Get the current authenticated session to retrieve the JWT token
+    const currentSession = await Auth.currentSession();
+    const token = currentSession.getIdToken().getJwtToken();
+    
+    // Set the Authorization header with the token
+    const response = await apiClient.get(`${API_URL}/api/users/${userEmail}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
     return response.data;
   } catch (error) {
     console.error(`Failed to fetch user profile (Email: ${userEmail}):`, error);
@@ -85,7 +118,20 @@ export const fetchUserProfileById = async (userEmail: string) => {
  */
 export const updateUserProfileData = async (userEmail: string, userData: Partial<UserProfileData>) => {
   try {
-    const response = await apiClient.put(`${API_URL}/api/users/${userEmail}`, userData);
+    // Import Auth from Amplify inside the function to avoid circular dependencies
+    const { Auth } = require('aws-amplify');
+    
+    // Get the current authenticated session to retrieve the JWT token
+    const currentSession = await Auth.currentSession();
+    const token = currentSession.getIdToken().getJwtToken();
+    
+    // Update with auth token
+    const response = await apiClient.put(`${API_URL}/api/users/${userEmail}`, userData, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
     return response.data;
   } catch (error) {
     console.error(`Failed to update user profile (Email: ${userEmail}):`, error);
