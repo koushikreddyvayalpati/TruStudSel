@@ -1396,9 +1396,9 @@ const styles = StyleSheet.create({
     marginRight: 8,
     ...Platform.select({
       android: {
-        elevation: 2,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.3)',
+        elevation: 0,
+        borderWidth: 0,
+        borderColor: '',
       },
     }),
   },
@@ -1418,7 +1418,7 @@ const styles = StyleSheet.create({
     marginLeft: 'auto',
     ...Platform.select({
       android: {
-        elevation: 1,
+        elevation: 0,
       },
     }),
   },
@@ -1436,7 +1436,7 @@ const styles = StyleSheet.create({
       },
       android: {
         backgroundColor: '#fff',
-        elevation: 1,
+        elevation: 0,
         borderWidth: 0,
       }
     }),
@@ -1480,7 +1480,7 @@ const styles = StyleSheet.create({
       android: {
         backgroundColor: 'rgba(0,0,0,0.06)',
         color: '#333',
-        elevation: 1,
+        elevation: 0,
         paddingVertical: 5,
       },
     }),
