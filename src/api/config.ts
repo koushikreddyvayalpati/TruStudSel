@@ -10,10 +10,10 @@ const isDevelopment = __DEV__;
 // In development, use localhost for the emulator
 // Note: On Android emulator, localhost refers to the emulator itself, not your machine
 // Use 10.0.2.2 for Android emulator to reach your machine's localhost
-const devBaseUrl = Platform.OS === 'android' ? 'http://10.0.2.2:8080' : 'http://localhost:8080';
+const devBaseUrl = Platform.OS === 'android' ? 'http://10.0.2.2:8080' : 'https://trustudselbackedn-uannv243ua-uc.a.run.app';
 
 // API base URLs
-export const API_URL = isDevelopment ? devBaseUrl : 'https://api.trustudsel.com';
+export const API_URL = isDevelopment ? devBaseUrl : 'https://trustudselbackedn-uannv243ua-uc.a.run.app';
 
 // Log the base URL for debugging
 console.log(`[API:config] Using base API URL: ${API_URL} (${isDevelopment ? 'development' : 'production'})`);

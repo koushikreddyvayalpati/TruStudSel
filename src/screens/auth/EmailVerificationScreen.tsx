@@ -10,7 +10,8 @@ import {
   Animated,
   KeyboardAvoidingView,
   Platform,
-  ScrollView
+  ScrollView,
+  Modal
 } from 'react-native';
 import { Auth } from 'aws-amplify';
 import { EmailVerificationScreenProps } from '../../types/navigation.types';
@@ -28,6 +29,7 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   
   // Animated values
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -237,6 +239,10 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
       : [theme.colors.primary, theme.colors.primaryDark || '#007bff'];
   };
 
+  const togglePrivacyModal = () => {
+    setShowPrivacyModal(!showPrivacyModal);
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Fixed position back button */}
@@ -361,12 +367,164 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
             
             <View style={styles.legalTextContainer}>
               <Text style={styles.legalText}>
-                By continuing, you agree to our <Text style={styles.highlightedText}>Terms of Service</Text> and <Text style={styles.highlightedText}>Privacy Policy</Text>
+                By continuing, you agree to our <Text style={styles.highlightedText}>Terms of Service</Text> and <Text style={styles.highlightedText} onPress={togglePrivacyModal}>Privacy Policy</Text>
               </Text>
             </View>
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
+      
+      {/* Privacy Policy Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showPrivacyModal}
+        onRequestClose={togglePrivacyModal}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Privacy Policy</Text>
+              <TouchableOpacity onPress={togglePrivacyModal} style={styles.closeButton}>
+                <Entypo name="cross" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalScrollView}>
+              <Text style={styles.privacyTitle}>Privacy Policy</Text>
+              <Text style={styles.privacyDate}>Last updated: April 16, 2025</Text>
+              
+              <Text style={styles.privacyText}>
+                This Privacy Policy describes Our policies and procedures on the collection,
+                use and disclosure of Your information when You use the Service and tells You
+                about Your privacy rights and how the law protects You.
+              </Text>
+              
+              <Text style={styles.privacyText}>
+                We use Your Personal data to provide and improve the Service. By using the
+                Service, You agree to the collection and use of information in accordance with
+                this Privacy Policy.
+              </Text>
+              
+              <Text style={styles.privacySectionTitle}>Interpretation and Definitions</Text>
+              
+              <Text style={styles.privacySubtitle}>Interpretation</Text>
+              <Text style={styles.privacyText}>
+                The words of which the initial letter is capitalized have meanings defined
+                under the following conditions. The following definitions shall have the same
+                meaning regardless of whether they appear in singular or in plural.
+              </Text>
+              
+              <Text style={styles.privacySubtitle}>Definitions</Text>
+              <Text style={styles.privacyText}>
+                For the purposes of this Privacy Policy:
+              </Text>
+              
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Account means a unique account created for You to access our Service or parts of our Service.</Text>
+              </View>
+              
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Affiliate means an entity that controls, is controlled by or is under common control with a party, where "control" means ownership of 50% or more of the shares, equity interest or other securities entitled to vote for election of directors or other managing authority.</Text>
+              </View>
+              
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Application refers to TruStudSel, the software program provided by the Company.</Text>
+              </View>
+              
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Company (referred to as either "the Company", "We", "Us" or "Our" in this Agreement) refers to TruStudSel.</Text>
+              </View>
+              
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Country refers to: New York, United States</Text>
+              </View>
+              
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Device means any device that can access the Service such as a computer, a cellphone or a digital tablet.</Text>
+              </View>
+              
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Personal Data is any information that relates to an identified or identifiable individual.</Text>
+              </View>
+              
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Service refers to the Application.</Text>
+              </View>
+              
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Service Provider means any natural or legal person who processes the data on behalf of the Company.</Text>
+              </View>
+              
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Usage Data refers to data collected automatically, either generated by the use of the Service or from the Service infrastructure itself.</Text>
+              </View>
+              
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• You means the individual accessing or using the Service, or the company, or other legal entity on behalf of which such individual is accessing or using the Service, as applicable.</Text>
+              </View>
+              
+              <Text style={styles.privacySectionTitle}>Collecting and Using Your Personal Data</Text>
+              
+              <Text style={styles.privacySubtitle}>Types of Data Collected</Text>
+              <Text style={styles.privacySubSubtitle}>Personal Data</Text>
+              <Text style={styles.privacyText}>
+                While using Our Service, We may ask You to provide Us with certain personally
+                identifiable information that can be used to contact or identify You.
+                Personally identifiable information may include, but is not limited to:
+              </Text>
+              
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Email address</Text>
+              </View>
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• First name and last name</Text>
+              </View>
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Phone number</Text>
+              </View>
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Address, State, Province, ZIP/Postal code, City</Text>
+              </View>
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Usage Data</Text>
+              </View>
+              
+              <Text style={styles.privacySubSubtitle}>Usage Data</Text>
+              <Text style={styles.privacyText}>
+                Usage Data is collected automatically when using the Service.
+              </Text>
+              
+              <Text style={styles.privacyText}>
+                Usage Data may include information such as Your Device's Internet Protocol
+                address (e.g. IP address), browser type, browser version, the pages of our
+                Service that You visit, the time and date of Your visit, the time spent on
+                those pages, unique device identifiers and other diagnostic data.
+              </Text>
+              
+              <Text style={styles.privacyText}>
+                When You access the Service by or through a mobile device, We may collect
+                certain information automatically, including, but not limited to, the type of
+                mobile device You use, Your mobile device unique ID, the IP address of Your
+                mobile device, Your mobile operating system, the type of mobile Internet
+                browser You use, unique device identifiers and other diagnostic data.
+              </Text>
+              
+              <Text style={styles.privacyText}>
+                We may also collect information that Your browser sends whenever You visit our
+                Service or when You access the Service by or through a mobile device.
+              </Text>
+              
+              <Text style={styles.privacySectionTitle}>Contact Us</Text>
+              <Text style={styles.privacyText}>
+                If you have any questions about this Privacy Policy, You can contact us:
+              </Text>
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• By email: koushikreddyvayalpati@gmail.com</Text>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
       
       {/* Premium corner decorative elements */}
       <View style={[styles.cornerDecoration, styles.topLeftCorner]} />
@@ -609,6 +767,92 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 4,
     color: '#333',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    width: '90%',
+    height: '80%',
+    backgroundColor: 'white',
+    borderRadius: 20,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  closeButton: {
+    padding: 5,
+  },
+  modalScrollView: {
+    padding: 20,
+  },
+  privacyTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 5,
+    color: '#333',
+  },
+  privacyDate: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+  },
+  privacyText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#333',
+    marginBottom: 15,
+  },
+  privacySectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
+    marginBottom: 10,
+    color: '#333',
+  },
+  privacySubtitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 15,
+    marginBottom: 10,
+    color: '#333',
+  },
+  privacySubSubtitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    marginTop: 15,
+    marginBottom: 10,
+    color: '#333',
+  },
+  bulletPoint: {
+    flexDirection: 'row',
+    marginLeft: 10,
+    marginBottom: 5,
   },
 });
 
