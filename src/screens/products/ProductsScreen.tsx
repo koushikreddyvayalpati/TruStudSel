@@ -15,7 +15,7 @@ import {
   StatusBar,
   Platform,
   Pressable,
-  ActivityIndicator
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -25,6 +25,9 @@ import { ProductInfoScreenRouteProp, ProductInfoScreenNavigationProp } from '../
 import { useAuth } from '../../contexts'; // Add this to get user email
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import useProductDetailsStore from '../../store/productDetailsStore';
+import reviewsApi from '../../api/reviews';
+import SkeletonPlaceholder from 'react-native-skeleton-placeholder';
+import ReviewsSection from '../../components/reviews/ReviewsSection';
 
 const { width, height } = Dimensions.get('window');
 
@@ -256,6 +259,9 @@ const ProductsScreen = () => {
     isCurrentUserSeller
   } = useProductDetailsStore();
 
+  // State for reviews section
+  const [totalReviews, setTotalReviews] = useState<number>(0);
+
   // Extract product and productId from route params
   const routeParams = route.params || {};
   const productFromRoute = routeParams.product;
@@ -427,6 +433,38 @@ const ProductsScreen = () => {
   // Check if the current user is the seller of this product
   const isUserSeller = isCurrentUserSeller();
 
+  // Navigate to all reviews screen
+  const handleViewAllReviews = useCallback(() => {
+    const sellerEmail = product.email || product.seller?.email;
+    const sellerName = product.sellerName || product.seller?.name || 'Seller';
+    
+    // In the future, this would navigate to a dedicated reviews screen
+    // For now, show an alert as a placeholder
+    Alert.alert(
+      "View All Reviews",
+      `This would navigate to all ${totalReviews} reviews for ${sellerName}.`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        { 
+          text: "OK", 
+          onPress: () => {
+            console.log("Would navigate to reviews screen for:", sellerEmail);
+            // When the reviews screen is implemented, uncomment the line below
+            // navigation.navigate('SellerReviews', { sellerEmail, sellerName });
+          }
+        }
+      ]
+    );
+  }, [product.email, product.seller?.email, product.sellerName, product.seller?.name, totalReviews]);
+
+  // Update total reviews count (called from ReviewsSection)
+  const handleUpdateTotalReviews = useCallback((count: number) => {
+    setTotalReviews(count);
+  }, []);
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -591,6 +629,16 @@ const ProductsScreen = () => {
               </View>
             </View>
           )}
+          
+          {/* Seller Reviews Section */}
+          <ReviewsSection 
+            sellerEmail={product.email ?? ''}
+            sellerName={product.sellerName ?? ''}
+            productId={route.params?.productId}
+            isUserSeller={isUserSeller}
+            onViewAllReviews={handleViewAllReviews}
+            onUpdateTotalReviews={handleUpdateTotalReviews}
+          />
           
           {/* Your own product indicator - show when the current user is the seller */}
           {isUserSeller && (
@@ -996,17 +1044,22 @@ const styles = StyleSheet.create({
   reviewHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  reviewName: {
-    fontSize: 16,
+  reviewerName: {
+    fontSize: 15,
     fontWeight: 'bold',
     color: '#333',
   },
+  reviewDate: {
+    fontSize: 12,
+    color: '#888',
+    marginBottom: 8,
+  },
   reviewText: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#555',
-    lineHeight: 22,
+    lineHeight: 20,
   },
   similarProductsContainer: {
     marginTop: 24,
@@ -1303,6 +1356,289 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#2e7d32',
     fontWeight: '500',
+  },
+  reviewsSection: {
+    marginTop: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eeeeee',
+  },
+  reviewsSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  reviewsTitleContainer: {
+    flex: 1,
+  },
+  reviewMetaInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  reviewMetaText: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 6,
+  },
+  writeReviewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(247, 179, 5, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  writeReviewText: {
+    fontSize: 13,
+    color: '#f7b305',
+    fontWeight: '600',
+    marginRight: 4,
+  },
+  loadingReviewsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  loadingReviewsText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#666',
+  },
+  noReviewsContainer: {
+    backgroundColor: '#fafafa',
+    borderRadius: 12,
+    padding: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#eeeeee',
+  },
+  noReviewsText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  beFirstText: {
+    fontSize: 14,
+    color: '#f7b305',
+    marginTop: 8,
+    fontWeight: '500',
+  },
+  reviewsSummaryCard: {
+    backgroundColor: '#fafafa',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#eeeeee',
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
+  },
+  reviewAverageContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eeeeee',
+    paddingBottom: 12,
+  },
+  reviewAverageScore: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#e67e22',
+    marginRight: 12,
+  },
+  totalReviewsText: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 10,
+  },
+  reviewsScrollContainer: {
+    maxHeight: 300,
+  },
+  reviewItemCompact: {
+    padding: 16,
+    backgroundColor: 'white',
+  },
+  reviewHeaderCompact: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  reviewerInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  reviewerInitialCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f7b305',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  reviewerInitial: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  reviewerNameCompact: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  reviewDateCompact: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 2,
+  },
+  reviewTextCompact: {
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 20,
+    marginTop: 6,
+    paddingLeft: 46, // Aligns with the text next to the initial circle
+  },
+  reviewSeparator: {
+    height: 1,
+    backgroundColor: '#eeeeee',
+  },
+  seeAllReviewsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    backgroundColor: '#f8f8f8',
+    borderTopWidth: 1,
+    borderTopColor: '#eeeeee',
+  },
+  seeAllReviewsText: {
+    fontSize: 14,
+    color: '#f7b305',
+    fontWeight: '600',
+    marginRight: 4,
+  },
+  reviewFormModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  reviewFormContent: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 5,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  reviewFormHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  reviewFormTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  closeFormButton: {
+    padding: 5,
+  },
+  ratingLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 10,
+  },
+  ratingSelector: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  ratingStar: {
+    padding: 5,
+  },
+  reviewCommentLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 10,
+  },
+  reviewCommentInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    padding: 15,
+    height: 120,
+    fontSize: 16,
+    backgroundColor: '#fafafa',
+    marginBottom: 20,
+  },
+  submitReviewButton: {
+    backgroundColor: '#f7b305',
+    borderRadius: 10,
+    padding: 15,
+    alignItems: 'center',
+    marginBottom: Platform.OS === 'ios' ? 20 : 0,
+  },
+  disabledButton: {
+    backgroundColor: '#cccccc',
+  },
+  submitReviewButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  loadingMoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  loadingMoreText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#666',
+  },
+  loadMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    backgroundColor: '#f8f8f8',
+    borderTopWidth: 1,
+    borderTopColor: '#eeeeee',
+  },
+  loadMoreButtonText: {
+    fontSize: 14,
+    color: '#f7b305',
+    fontWeight: '600',
+    marginRight: 4,
   },
 });
 

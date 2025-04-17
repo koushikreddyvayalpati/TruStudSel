@@ -6,6 +6,7 @@ import authApi from './auth';
 import productsApi from './products';
 import usersApi from './users';
 import fileUploadApi from './fileUpload';
+import reviewsApi from './reviews';
 import apiClient, { addAuthHeader, removeAuthHeader, API_CONFIG } from './apiClient';
 
 // Export configuration
@@ -27,6 +28,10 @@ export { usersApi };
 export * from './fileUpload';
 export { fileUploadApi };
 
+// Export reviews API
+export * from './reviews';
+export { reviewsApi };
+
 // Export API client utilities
 export { apiClient, addAuthHeader, removeAuthHeader, API_CONFIG };
 
@@ -37,5 +42,6 @@ export default {
   products: productsApi,
   users: usersApi,
   fileUpload: fileUploadApi,
+  reviews: reviewsApi,
   client: apiClient,
 }; 

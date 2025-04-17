@@ -5,8 +5,8 @@ import { getProductById, getProductsByCategory } from '../api/products';
 
 // Add a base URL constant for API calls
 const API_BASE_URL = Platform.OS === 'android' 
-  ? 'https://trustudselbackedn-uannv243ua-uc.a.run.app' 
-  : 'https://trustudselbackedn-uannv243ua-uc.a.run.app';
+  ? 'http://10.0.2.2:8080' 
+  : 'http://localhost:8080';
 
 // Extended Product type that includes seller information
 interface ExtendedProduct {

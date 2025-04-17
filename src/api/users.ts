@@ -55,6 +55,7 @@ export interface UserProfileData {
   productsListed?: string;
   productssold?: string;
   productswishlist?: string[];
+  userRating?: string;
 }
 
 /**

@@ -441,7 +441,8 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
         city: city.trim(),
         zipcode: zipcode.trim(),
         productsCategoriesIntrested: selectedCategories,
-        state: '', // Can be filled in later
+        state: '',
+        userRating: "0", // Can be filled in later
         productsListed: "0",
         productssold: "0",
         productswishlist: [],

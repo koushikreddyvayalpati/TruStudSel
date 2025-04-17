@@ -26,8 +26,8 @@ import { StackNavigationProp } from '@react-navigation/stack';
 
 // Add API base URL
 const API_BASE_URL = Platform.OS === 'android' 
-  ? 'https://trustudselbackedn-uannv243ua-uc.a.run.app' 
-  : 'https://trustudselbackedn-uannv243ua-uc.a.run.app';
+  ? 'http://10.0.2.2:8080' 
+  : 'http://localhost:8080';
 
 // Define Product type
 interface Product {

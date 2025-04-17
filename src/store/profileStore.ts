@@ -101,6 +101,7 @@ interface BackendUserData {
   university?: string;
   userphoto?: string;
   zipcode?: string;
+  userRating?: string;
 }
 
 interface ProcessedUserData {
@@ -110,6 +111,7 @@ interface ProcessedUserData {
   photo: string | null;
   soldProducts: string;
   totalProducts: number;
+  userRating: string;
 }
 
 // Process the user data for display
@@ -120,7 +122,8 @@ const processUserData = (user: any, backendUser: BackendUserData | null): Proces
     university: backendUser?.university || user?.university || 'Unknown University',
     photo: backendUser?.userphoto || user?.photoURL || null,
     soldProducts: backendUser?.productssold || '0',
-    totalProducts: parseInt(backendUser?.productsListed || '0', 10) || 0
+    totalProducts: parseInt(backendUser?.productsListed || '0', 10) || 0,
+    userRating: backendUser?.userRating || '0'
   };
 };
 
