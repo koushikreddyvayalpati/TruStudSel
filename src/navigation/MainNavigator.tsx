@@ -6,7 +6,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 
 // Import screens from barrel files
 import { HomeScreen } from '../screens/home';
-import { ProfileScreen, EditProfileScreen } from '../screens/profile';
+import { ProfileScreen, EditProfileScreen, DeleteAccountScreen } from '../screens/profile';
 import { ProductsScreen } from '../screens/products';
 import { MessagesScreen, MessageScreen } from '../screens/messages';
 import FirebaseChatScreen from '../screens/messages/FirebaseChatScreen';
@@ -92,6 +92,10 @@ const MainStack = () => {
         component={EditProfileScreen} 
       />
       <Stack.Screen 
+        name="DeleteAccount" 
+        component={DeleteAccountScreen} 
+      />
+      <Stack.Screen 
         name="MessagesScreen" 
         component={MessagesScreen} 
         options={{ 
@@ -171,6 +175,11 @@ const MainNavigator: React.FC = () => {
           name="Profile" 
           component={ProfileScreen}
           options={{ drawerLabel: 'Profile', drawerItemStyle: { display: 'none' } }}
+        />
+        <Drawer.Screen 
+          name="Settings" 
+          component={DeleteAccountScreen}
+          options={{ drawerLabel: 'Account Settings' }}
         />
         <Drawer.Screen 
           name="MessagesScreen" 

@@ -34,6 +34,7 @@ export type MainStackParamList = {
     userphoto?: string;
     email?: string;
   };
+  DeleteAccount: undefined;
   MessagesScreen: undefined;
   MessageScreen: { conversationId: string; recipientName: string; recipientId?: string };
   FirebaseChatScreen: { recipientEmail: string; recipientName: string };
@@ -97,6 +98,7 @@ export type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, '
 
 export type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Profile'>;
 export type EditProfileScreenNavigationProp = StackNavigationProp<RootStackParamList, 'EditProfile'>;
+export type DeleteAccountScreenNavigationProp = StackNavigationProp<RootStackParamList, 'DeleteAccount'>;
 export type MessagesScreenNavigationProp = StackNavigationProp<RootStackParamList, 'MessagesScreen'>;
 export type MessageScreenNavigationProp = StackNavigationProp<RootStackParamList, 'MessageScreen'>;
 export type UserSearchScreenNavigationProp = StackNavigationProp<RootStackParamList, 'UserSearchScreen'>;

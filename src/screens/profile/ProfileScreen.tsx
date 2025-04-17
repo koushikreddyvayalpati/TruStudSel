@@ -911,7 +911,7 @@ const ProfileContentView = React.memo(({
       return (
         <View style={styles.emptyListContainer}>
           <ActivityIndicator size="large" color="#f7b305" />
-          <Text style={styles.emptyListText}>Loading products...</Text>
+          <Text style={styles.emptyStateText}>Loading products...</Text>
         </View>
       );
     }
@@ -937,7 +937,7 @@ const ProfileContentView = React.memo(({
           {activeTab === 'inMarket' ? (
             <>
               <MaterialCommunityIcons name="storefront-outline" size={56} color="#bbb" />
-              <Text style={styles.emptyListText}>
+              <Text style={styles.emptyStateText}>
                 {isViewingSeller 
                   ? "This seller doesn't have any active listings" 
                   : "You don't have any active listings"}
@@ -963,7 +963,7 @@ const ProfileContentView = React.memo(({
           ) : (
             <>
               <MaterialCommunityIcons name="archive-outline" size={56} color="#bbb" />
-              <Text style={styles.emptyListText}>
+              <Text style={styles.emptyStateText}>
                 {isViewingSeller 
                   ? "This seller doesn't have any archived items" 
                   : "You don't have any archived items"}
@@ -1959,12 +1959,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-  },
-  emptyListText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#555',
-    marginTop: 20,
   },
   emptyListErrorText: {
     fontSize: 18,
