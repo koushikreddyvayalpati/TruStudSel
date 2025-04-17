@@ -162,6 +162,9 @@ interface ProfileState {
   
   // Filtered products
   getFilteredProducts: () => Post[];
+  
+  // Product modification
+  removeProduct: (productId: string) => void;
 }
 
 // Create the Zustand store
@@ -531,6 +534,127 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       console.error('[ProfileStore] Error refreshing data:', error);
     } finally {
       set({ isRefreshing: false });
+    }
+  },
+  
+  // Add method to remove product from store
+  removeProduct: (productId: string) => {
+    console.log(`[ProfileStore] Removing product with ID: ${productId}`);
+    
+    try {
+      // Find the numeric ID from the original ID
+      let numericIdToRemove: number | undefined;
+      let foundProduct = false;
+      
+      // Try to find product by direct ID match (UUID)
+      for (const [numericId, product] of get().productsMap.entries()) {
+        if (product.id === productId) {
+          numericIdToRemove = numericId;
+          foundProduct = true;
+          console.log(`[ProfileStore] Found product with numericId: ${numericId}`);
+          break;
+        }
+      }
+      
+      // If we couldn't find by direct ID match, try with the originalId field
+      if (!foundProduct) {
+        for (const post of get().products) {
+          if (post.originalId === productId) {
+            numericIdToRemove = post.id;
+            foundProduct = true;
+            console.log(`[ProfileStore] Found product with originalId match: ${post.id}`);
+            break;
+          }
+        }
+      }
+      
+      // Create a list of IDs to remove (we might have multiple views of the same product)
+      const idsToRemove: number[] = [];
+      
+      if (numericIdToRemove !== undefined) {
+        idsToRemove.push(numericIdToRemove);
+      }
+      
+      // Search for any product with this originalId and add to removal list
+      get().products.forEach(post => {
+        if (post.originalId === productId && !idsToRemove.includes(post.id)) {
+          idsToRemove.push(post.id);
+        }
+      });
+      
+      if (idsToRemove.length === 0) {
+        console.warn(`[ProfileStore] Could not find any IDs for product ${productId}, will attempt full refresh`);
+      } else {
+        console.log(`[ProfileStore] Found ${idsToRemove.length} IDs to remove:`, idsToRemove);
+      }
+      
+      // Create a new map without the removed product
+      const newProductsMap = new Map(get().productsMap);
+      idsToRemove.forEach(id => {
+        newProductsMap.delete(id);
+        console.log(`[ProfileStore] Removed ID ${id} from productsMap`);
+      });
+      
+      // Filter out the product from products array - using ID or UUID
+      const newProducts = get().products.filter((post: Post) => {
+        // Remove if ID is in our list to remove
+        if (idsToRemove.includes(post.id)) {
+          return false;
+        }
+        
+        // Also remove if originalId matches
+        if (post.originalId === productId) {
+          return false;
+        }
+        
+        return true;
+      });
+      
+      console.log(`[ProfileStore] Filtered products from ${get().products.length} to ${newProducts.length}`);
+      
+      // Update filtered products based on active tab
+      const activeTab = get().activeTab;
+      
+      const newFilteredProducts = newProducts.filter((post: Post) => {
+        if (activeTab === 'inMarket') {
+          return post.status === 'available';
+        } else if (activeTab === 'archive') {
+          return post.status === 'archived';
+        } else if (activeTab === 'sold') {
+          return post.status === 'sold';
+        }
+        return true;
+      });
+      
+      console.log(`[ProfileStore] Filtered ${newFilteredProducts.length} products for tab ${activeTab}`);
+      
+      // Update state
+      set({
+        products: newProducts,
+        productsMap: newProductsMap,
+        filteredProducts: newFilteredProducts
+      });
+      
+      // Also update the cache to avoid reappearing products
+      if (productsCache.size > 0) {
+        for (const [email, cache] of productsCache.entries()) {
+          if (cache && cache.data) {
+            const originalLength = cache.data.length;
+            const cacheData = cache.data.filter((product: Product) => product.id !== productId);
+            
+            if (cacheData.length !== originalLength) {
+              console.log(`[ProfileStore] Updated cache for email ${email}: removed ${originalLength - cacheData.length} products`);
+              productsCache.set(email, { 
+                data: cacheData, 
+                timestamp: Date.now() 
+              });
+            }
+          }
+        }
+      }
+      
+    } catch (error) {
+      console.error('[ProfileStore] Error in removeProduct:', error);
     }
   }
 }));
