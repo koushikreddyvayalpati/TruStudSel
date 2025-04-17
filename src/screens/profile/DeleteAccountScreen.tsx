@@ -7,7 +7,8 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
-  TextInput
+  TextInput,
+  Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, DrawerActions } from '@react-navigation/native';
@@ -97,20 +98,36 @@ const DeleteAccountScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleOpenDrawer} style={styles.menuButton}>
-          <MaterialIcons name="menu" size={24} color="#000" />
+          <MaterialIcons name="menu" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Account Settings</Text>
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView style={styles.content}>
-        {/* Future account settings options could go here */}
+      <ScrollView 
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Account Settings Section */}
+        <View style={styles.settingsCard}>
+          <MaterialIcons name="settings" size={26} color="#555" style={styles.settingsIcon} />
+          <Text style={styles.settingsTitle}>Account Preferences</Text>
+          <Text style={styles.settingsDescription}>
+            Manage your account settings and preferences
+          </Text>
+        </View>
 
         {/* Account Deletion Section */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Delete Account</Text>
+          <View style={styles.sectionHeader}>
+            <MaterialIcons name="delete-forever" size={26} color="#FF3B30" />
+            <Text style={styles.sectionTitle}>Delete Account</Text>
+          </View>
+          
           <View style={styles.warningContainer}>
             <MaterialIcons name="warning" size={48} color="#FF3B30" />
             <Text style={styles.warningTitle}>Delete Your Account</Text>
@@ -118,10 +135,22 @@ const DeleteAccountScreen: React.FC = () => {
               This action is permanent and cannot be undone. When you delete your account:
             </Text>
             <View style={styles.bulletPoints}>
-              <Text style={styles.bulletPoint}>• All your personal information will be deleted</Text>
-              <Text style={styles.bulletPoint}>• Your product listings will be removed</Text>
-              <Text style={styles.bulletPoint}>• Your messages will be deleted</Text>
-              <Text style={styles.bulletPoint}>• You will lose access to purchase history</Text>
+              <View style={styles.bulletPoint}>
+                <MaterialIcons name="remove-circle" size={18} color="#FF3B30" />
+                <Text style={styles.bulletPointText}>All your personal information will be deleted</Text>
+              </View>
+              <View style={styles.bulletPoint}>
+                <MaterialIcons name="remove-circle" size={18} color="#FF3B30" />
+                <Text style={styles.bulletPointText}>Your product listings will be removed</Text>
+              </View>
+              <View style={styles.bulletPoint}>
+                <MaterialIcons name="remove-circle" size={18} color="#FF3B30" />
+                <Text style={styles.bulletPointText}>Your messages will be deleted</Text>
+              </View>
+              <View style={styles.bulletPoint}>
+                <MaterialIcons name="remove-circle" size={18} color="#FF3B30" />
+                <Text style={styles.bulletPointText}>You will lose access to purchase history</Text>
+              </View>
             </View>
           </View>
 
@@ -129,32 +158,54 @@ const DeleteAccountScreen: React.FC = () => {
             <TouchableOpacity 
               style={styles.deleteButton}
               onPress={handleDeleteAccount}
+              activeOpacity={0.8}
             >
+              <MaterialIcons name="delete-forever" size={22} color="#fff" />
               <Text style={styles.deleteButtonText}>Continue to Delete Account</Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.confirmContainer}>
-              <Text style={styles.confirmLabel}>
-                To confirm deletion, please type DELETE below:
+              <Text style={styles.confirmInstructions}>
+                To permanently delete your account, please confirm by completing the steps below:
               </Text>
-              <TextInput
-                style={styles.confirmInput}
-                value={confirmText}
-                onChangeText={setConfirmText}
-                placeholder="Type DELETE here"
-                autoCapitalize="characters"
-              />
+              
+              <View style={styles.confirmStepContainer}>
+                <View style={styles.stepNumberContainer}>
+                  <Text style={styles.stepNumber}>1</Text>
+                </View>
+                <View style={styles.stepContent}>
+                  <Text style={styles.confirmLabel}>
+                    Type DELETE in all caps:
+                  </Text>
+                  <TextInput
+                    style={styles.confirmInput}
+                    value={confirmText}
+                    onChangeText={setConfirmText}
+                    placeholder="Type DELETE here"
+                    autoCapitalize="characters"
+                    placeholderTextColor="#999"
+                  />
+                </View>
+              </View>
 
-              <Text style={styles.passwordLabel}>
-                Enter your password to verify:
-              </Text>
-              <TextInput
-                style={styles.passwordInput}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Your password"
-                secureTextEntry
-              />
+              <View style={styles.confirmStepContainer}>
+                <View style={styles.stepNumberContainer}>
+                  <Text style={styles.stepNumber}>2</Text>
+                </View>
+                <View style={styles.stepContent}>
+                  <Text style={styles.passwordLabel}>
+                    Verify your password:
+                  </Text>
+                  <TextInput
+                    style={styles.passwordInput}
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="Enter your password"
+                    secureTextEntry
+                    placeholderTextColor="#999"
+                  />
+                </View>
+              </View>
 
               <TouchableOpacity 
                 style={[
@@ -163,12 +214,24 @@ const DeleteAccountScreen: React.FC = () => {
                 ]}
                 onPress={handleDeleteAccount}
                 disabled={loading || confirmText !== 'DELETE' || !password}
+                activeOpacity={0.8}
               >
                 {loading ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color="#fff" size="small" />
                 ) : (
-                  <Text style={styles.deleteButtonText}>Delete My Account</Text>
+                  <>
+                    <MaterialIcons name="delete-forever" size={22} color="#fff" />
+                    <Text style={styles.deleteButtonText}>Delete My Account</Text>
+                  </>
                 )}
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={() => setConfirmStep(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -192,114 +255,280 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 4,
+        backgroundColor: '#fff',
+      },
+    }),
   },
   menuButton: {
-    padding: 4,
+    padding: 8,
+    borderRadius: 20,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
+    color: '#333',
   },
   placeholder: {
-    width: 24,
+    width: 40,
   },
   content: {
     flex: 1,
+  },
+  scrollContent: {
     padding: 16,
+    paddingBottom: 40,
   },
-  sectionContainer: {
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    color: '#333',
-  },
-  warningContainer: {
-    backgroundColor: '#FFF5F5',
+  settingsCard: {
+    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 20,
     marginBottom: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+        backgroundColor: '#fff',
+      },
+    }),
+  },
+  settingsIcon: {
+    marginBottom: 10,
+  },
+  settingsTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#333',
+  },
+  settingsDescription: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+  },
+  sectionContainer: {
+    marginBottom: 32,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+        backgroundColor: '#fff',
+      },
+    }),
+  },
+  sectionHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#FFCCCC',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginLeft: 10,
+    color: '#333',
+  },
+  warningContainer: {
+    backgroundColor: '#FFF8F8',
+    padding: 20,
+    alignItems: 'center',
   },
   warningTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     marginVertical: 12,
     color: '#333',
   },
   warningText: {
-    fontSize: 16,
-    color: '#333',
+    fontSize: 15,
+    color: '#555',
     textAlign: 'center',
-    marginBottom: 12,
+    lineHeight: 22,
+    marginBottom: 16,
   },
   bulletPoints: {
-    alignSelf: 'flex-start',
+    alignSelf: 'stretch',
     marginTop: 8,
   },
   bulletPoint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  bulletPointText: {
     fontSize: 15,
-    color: '#333',
-    marginBottom: 6,
+    color: '#444',
+    marginLeft: 10,
+    flex: 1,
   },
   deleteButton: {
     backgroundColor: '#FF3B30',
     borderRadius: 8,
     paddingVertical: 16,
+    marginHorizontal: 20,
+    marginVertical: 20,
     alignItems: 'center',
-    marginBottom: 40,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+    }),
   },
   deleteButtonText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+    marginLeft: 8,
   },
   confirmContainer: {
-    marginTop: 12,
+    padding: 20,
+  },
+  confirmInstructions: {
+    fontSize: 15,
+    color: '#555',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  confirmStepContainer: {
+    flexDirection: 'row',
+    marginBottom: 20,
+  },
+  stepNumberContainer: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#FF3B30',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    marginTop: 2,
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 1,
+      },
+    }),
+  },
+  stepNumber: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  stepContent: {
+    flex: 1,
   },
   confirmLabel: {
     fontSize: 16,
     marginBottom: 12,
     fontWeight: '500',
+    color: '#333',
   },
   confirmInput: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
-    padding: 12,
+    padding: 14,
     fontSize: 16,
     backgroundColor: '#fff',
-    marginBottom: 24,
+    width: '100%',
+    ...Platform.select({
+      android: {
+        elevation: 1,
+        borderColor: '#ccc',
+      },
+    }),
   },
   passwordLabel: {
     fontSize: 16,
     marginBottom: 12,
     fontWeight: '500',
+    color: '#333',
   },
   passwordInput: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
-    padding: 12,
+    padding: 14,
     fontSize: 16,
     backgroundColor: '#fff',
-    marginBottom: 24,
+    width: '100%',
+    ...Platform.select({
+      android: {
+        elevation: 1,
+        borderColor: '#ccc',
+      },
+    }),
   },
   finalDeleteButton: {
     backgroundColor: '#FF3B30',
     borderRadius: 8,
     paddingVertical: 16,
     alignItems: 'center',
-    marginBottom: 40,
+    marginTop: 16,
+    marginBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+    }),
   },
   disabledButton: {
     backgroundColor: '#ffb3b3',
     opacity: 0.7,
   },
+  cancelButton: {
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#555',
+    fontSize: 16,
+    fontWeight: '500',
+  }
 });
 
 export default DeleteAccountScreen; 
