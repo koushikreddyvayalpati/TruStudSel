@@ -1363,7 +1363,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f7b305',
     zIndex: 100,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 10),
-    paddingBottom: Platform.OS === 'android' ? 12 : 8,
+    paddingBottom: Platform.OS === 'android' ? 28 : 8,
     marginTop: Platform.OS === 'android' ? 0 : (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 50),
     ...Platform.select({
       android: {
