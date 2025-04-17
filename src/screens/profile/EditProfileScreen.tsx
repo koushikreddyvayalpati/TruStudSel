@@ -272,7 +272,7 @@ const EditProfileScreen = () => {
               style={styles.backButton}
               onPress={() => navigation.goBack()}
             >
-              <Icon name="arrow-left" size={18} color="#000" />
+              <Icon name="chevron-left" size={18} color="#000" />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Edit Profile</Text>
             <View style={{ width: 40 }} />
@@ -436,8 +436,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 30,
+    marginBottom: 20,
     paddingTop: 10,
+    ...Platform.select({
+      android: {
+        marginTop: 20,
+      }
+    })
   },
   headerTitle: {
     fontSize: 16,
@@ -448,13 +453,19 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: '',
     borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.05)',
   },
@@ -472,11 +483,17 @@ const styles = StyleSheet.create({
     borderRadius: 55,
     borderWidth: 3,
     borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
   },
   profilePicturePlaceholder: {
     width: 110,
@@ -487,11 +504,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 3,
     borderColor: '#fff',
-    shadowColor: '#f7b305',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#f7b305',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
     overflow: 'hidden',
     position: 'relative',
   },
@@ -533,24 +556,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#1b74e4',
-    shadowColor: 'rgba(0, 0, 0, 0.2)',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 4,
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(0, 0, 0, 0.2)',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
   },
   form: {
-    marginBottom: 20,
+    marginBottom: Platform.OS === 'android' ? 40 : 20,
   },
   formCard: {
     backgroundColor: '#fff',
     borderRadius: 20,
     padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
     marginBottom: 24,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.03)',
@@ -612,11 +647,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#f7b305',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
     position: 'relative',
     overflow: 'hidden',
   },
@@ -625,11 +666,17 @@ const styles = StyleSheet.create({
   },
   saveButtonHighlighted: {
     backgroundColor: '#1b74e4',
-    shadowColor: '#1b74e4',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#1b74e4',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.4,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
     transform: [{ scale: 1.02 }],
   },
   saveButtonText: {
