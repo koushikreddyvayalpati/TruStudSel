@@ -34,12 +34,8 @@ const PROFILE_BANNER_HEIGHT = 160;
 const PROFILE_IMAGE_SIZE = 100;
 const HEADER_MAX_HEIGHT = Platform.OS === 'ios' ? 60 : 56;
 const HEADER_MIN_HEIGHT = Platform.OS === 'ios' ? 60 : 56;
-const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
-const ITEM_HEIGHT = 230; // Estimated post item height for better FlatList performance
+const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;// Estimated post item height for better FlatList performance
 const { width } = Dimensions.get('window'); // Get screen width for tab slider
-
-// Add the API base URL constant
-const API_BASE_URL = 'http://localhost:8080';
 
 // Convert API product to Post interface
 const convertProductToPost = (product: Product): Post => ({

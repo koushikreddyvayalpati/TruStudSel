@@ -23,11 +23,10 @@ import { useAuth } from '../../contexts';
 import { useTheme } from '../../hooks';
 import { MainStackParamList } from '../../types/navigation.types';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { API_URL } from '../../api/config';
 
 // Add API base URL
-const API_BASE_URL = Platform.OS === 'android' 
-  ? 'http://10.0.2.2:8080' 
-  : 'http://localhost:8080';
+const API_BASE_URL = API_URL;
 
 // Define Product type
 interface Product {

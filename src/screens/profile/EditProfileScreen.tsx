@@ -11,7 +11,8 @@ import {
   Image,
   SafeAreaView,
   InteractionManager,
-  ActivityIndicator
+  ActivityIndicator,
+  LogBox
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -22,6 +23,11 @@ import { TextInput } from '../../components/common';
 import { EditProfileScreenNavigationProp, EditProfileScreenRouteProp } from '../../types/navigation.types';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { uploadFile, updateUserProfileData } from '../../api/users';
+
+// Disable yellow box warnings in production
+if (!__DEV__) {
+  LogBox.ignoreAllLogs();
+}
 
 const EditProfileScreen = () => {
   const navigation = useNavigation<EditProfileScreenNavigationProp>();

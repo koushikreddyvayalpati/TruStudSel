@@ -3,6 +3,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { MainStackParamList } from '../types/navigation.types';
 import { useRoute, useNavigation } from '@react-navigation/native';
+import { LogBox } from 'react-native';
 
 // Import screens from barrel files
 import { HomeScreen } from '../screens/home';
@@ -291,5 +292,8 @@ const CategoryProductsWithBottomNav: React.FC = () => {
     </>
   );
 };
+
+// Ignore specific warnings instead of all
+LogBox.ignoreLogs(['Warning: ...', 'NavigationContent']);
 
 export default MainNavigator; 

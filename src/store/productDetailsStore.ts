@@ -2,11 +2,9 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Share, Alert, Platform } from 'react-native';
 import { getProductById, getProductsByCategory } from '../api/products';
-
+import { API_URL } from '../api/config';
 // Add a base URL constant for API calls
-const API_BASE_URL = Platform.OS === 'android' 
-  ? 'http://10.0.2.2:8080' 
-  : 'http://localhost:8080';
+const API_BASE_URL = API_URL;
 
 // Extended Product type that includes seller information
 interface ExtendedProduct {

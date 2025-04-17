@@ -13,7 +13,7 @@ const isDevelopment = __DEV__;
 const devBaseUrl = Platform.OS === 'android' ? 'http://10.0.2.2:8080' : 'http://localhost:8080';
 
 // API base URLs
-export const API_URL = isDevelopment ? devBaseUrl : 'https://trustudselbackedn-uannv243ua-uc.a.run.app';
+export const API_URL = isDevelopment ? devBaseUrl : 'https://backendtrustudsel-uannv243ua-uc.a.run.app';
 
 // Log the base URL for debugging
 console.log(`[API:config] Using base API URL: ${API_URL} (${isDevelopment ? 'development' : 'production'})`);
