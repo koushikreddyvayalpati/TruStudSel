@@ -36,7 +36,15 @@ const OnboardingScreen2: React.FC<OnboardingScreen2Props> = ({ navigation }) => 
   }, []);
   
   const handleSkip = async () => {
-    navigation.navigate('SignIn');
+    try {
+      // If user skips, mark as having seen onboarding
+      await AsyncStorage.setItem('@has_seen_get_started', 'true');
+      await AsyncStorage.setItem('@has_seen_onboarding', 'true');
+      navigation.navigate('SignIn');
+    } catch (error) {
+      console.error('Error saving onboarding status:', error);
+      navigation.navigate('SignIn');
+    }
   };
   
   const handleNext = async () => {

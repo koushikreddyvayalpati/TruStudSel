@@ -36,11 +36,27 @@ const OnboardingScreen3: React.FC<OnboardingScreen3Props> = ({ navigation }) => 
   }, []);
   
   const handleSkip = async () => {
-    navigation.navigate('SignIn');
+    try {
+      // If user skips, still mark as having seen onboarding
+      await AsyncStorage.setItem('@has_seen_get_started', 'true');
+      await AsyncStorage.setItem('@has_seen_onboarding', 'true');
+      navigation.navigate('SignIn');
+    } catch (error) {
+      console.error('Error saving onboarding status:', error);
+      navigation.navigate('SignIn');
+    }
   };
   
   const handleNext = async () => {
-    navigation.navigate('SignIn');
+    try {
+      // Ensure both flags are set when completing onboarding
+      await AsyncStorage.setItem('@has_seen_get_started', 'true');
+      await AsyncStorage.setItem('@has_seen_onboarding', 'true');
+      navigation.navigate('SignIn');
+    } catch (error) {
+      console.error('Error saving onboarding status:', error);
+      navigation.navigate('SignIn');
+    }
   };
   
   const handleBack = async () => {
