@@ -657,14 +657,11 @@ const ProfileContentView = React.memo(({
   scrollY: Animated.Value,
   setActiveTab: (tab: TabType) => void
 }) => {
-  // State to force component refresh when needed
-  const [_, forceUpdate] = useState(0);
+  // Use a stable reference for userEmail to prevent extra renders
+  const userEmail = useMemo(() => userData?.email || '', [userData?.email]);
+  const userCity = useMemo(() => backendUserData?.city || '', [backendUserData?.city]);
+  const userUniversity = useMemo(() => backendUserData?.university || '', [backendUserData?.university]);
   
-  // Force UI update when filteredProducts change
-  useEffect(() => {
-    forceUpdate(prev => prev + 1);
-  }, [filteredProducts.length]);
-
   // Define handleMarkAsSold function inside the component
   const handleMarkAsSold = useCallback(async (productId: string) => {
     try {
@@ -688,8 +685,8 @@ const ProfileContentView = React.memo(({
       
       // Get the current sold count before making the API call (only if needed)
       let currentUserData;
-      if (!isViewingSeller && userData.email) {
-        currentUserData = await fetchUserProfileById(userData.email);
+      if (!isViewingSeller && userEmail) {
+        currentUserData = await fetchUserProfileById(userEmail);
         if (__DEV__) {
           const beforeSoldCount = parseInt(currentUserData.productssold || '0', 10);
           console.log(`[ProfileScreen] Current sold count before API call: ${beforeSoldCount}`);
@@ -708,9 +705,9 @@ const ProfileContentView = React.memo(({
         console.log(`[ProfileScreen] Product updated successfully:`, updatedProduct);
       }
       
-      if (!isViewingSeller && userData.email && currentUserData) {
+      if (!isViewingSeller && userEmail && currentUserData) {
         // Get the updated user profile after the status change
-        const updatedUserData = await fetchUserProfileById(userData.email);
+        const updatedUserData = await fetchUserProfileById(userEmail);
         const afterSoldCount = parseInt(updatedUserData.productssold || '0', 10);
         const beforeSoldCount = parseInt(currentUserData.productssold || '0', 10);
         
@@ -727,7 +724,7 @@ const ProfileContentView = React.memo(({
           const updatedSoldCount = (beforeSoldCount + 1).toString();
           
           // Update the user profile with the new count
-          await updateUserProfileData(userData.email, {
+          await updateUserProfileData(userEmail, {
             productssold: updatedSoldCount
           });
           
@@ -811,14 +808,14 @@ const ProfileContentView = React.memo(({
         ]
       );
     }
-  }, [userData.email, onRefresh, isViewingSeller, setActiveTab]);
+  }, [userEmail, onRefresh, isViewingSeller, setActiveTab]);
 
   // Handle deleting a product
   const handleDeleteProduct = useCallback(async (productId: string) => {
     try {
       // Validate product ID
       if (!productId || typeof productId !== 'string') {
-        console.error(`[ProfileScreen] Invalid product ID for deletion: ${productId}, type: ${typeof productId}`);
+        console.error(`[ProfileScreen] Invalid product ID for deletion: ${productId}`);
         Alert.alert('Error', 'Invalid product ID. Please try again.');
         return;
       }
@@ -826,79 +823,62 @@ const ProfileContentView = React.memo(({
       // Ensure we have a clean string ID
       const cleanProductId = productId.trim();
       
-      // Only log in development
+      // Start timing (dev only)
+      const startTime = __DEV__ ? Date.now() : 0;
       if (__DEV__) {
         console.log(`[ProfileScreen] Deleting product: ${cleanProductId}`);
-        console.log(`[ProfileScreen] Current active tab: ${activeTab}`);
-        console.log(`[ProfileScreen] Current filtered products count: ${filteredProducts.length}`);
       }
       
-      // Track processing time for performance monitoring (dev only)
-      const startTime = __DEV__ ? Date.now() : 0;
-      
-      // Create deletion completion flag
-      let deletionCompleted = false;
-      
-      // Update UI immediately before API call completes to prevent UI freezing
-      useProfileStore.getState().removeProduct(cleanProductId);
-      
-      // Set a timeout to force UI update if the API call takes too long
-      setTimeout(() => {
-        if (!deletionCompleted) {
-          console.log('[ProfileScreen] Forcing UI update for deletion - API call taking too long');
-          // Force a UI refresh by calling the tab change method
-          if (setActiveTab) {
-            setActiveTab(activeTab);
+      // Show confirmation dialog
+      Alert.alert(
+        'Delete Product',
+        'Are you sure you want to delete this product?',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel'
+          },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                // Immediately update UI for responsiveness
+                useProfileStore.getState().removeProduct(cleanProductId);
+                
+                // Make API call in background
+                const success = await deleteProduct(cleanProductId);
+                
+                if (__DEV__) {
+                  console.log(`[ProfileScreen] API call successful: ${success}`);
+                  const endTime = Date.now();
+                  console.log(`[ProfileScreen] Delete operation took ${endTime - startTime}ms`);
+                }
+                
+                // Only show success message after API call completes
+                Alert.alert('Success', 'Product has been deleted.');
+              } catch (error) {
+                console.error('[ProfileScreen] API error:', error);
+                Alert.alert(
+                  'Error',
+                  'The product was removed from your view, but there was an error on the server. It may reappear when you refresh.',
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => onRefresh()
+                    }
+                  ]
+                );
+              }
+            }
           }
-          forceUpdate(prev => prev + 1);
-        }
-      }, 500);
-      
-      // Show a loading indicator to the user
-      try {
-        const success = await deleteProduct(cleanProductId);
-        deletionCompleted = true;
-        
-        if (__DEV__) {
-          console.log(`[ProfileScreen] Product deleted successfully:`, success);
-        }
-      } catch (apiError) {
-        console.error('[ProfileScreen] API error deleting product:', apiError);
-        // Even if API fails, we still keep the UI updated to avoid frozen state
-        deletionCompleted = true;
-      }
-      
-      if (__DEV__) {
-        // Log the state after removal
-        const newFilteredProducts = useProfileStore.getState().filteredProducts;
-        console.log(`[ProfileScreen] After removal, filtered products count: ${newFilteredProducts.length}`);
-      }
-      
-      // Force another UI update to ensure changes are reflected
-      forceUpdate(prev => prev + 1);
-      
-      // Force a UI refresh by calling the tab change method with the current tab
-      // This ensures the UI updates even if the store's state update didn't trigger a re-render
-      if (setActiveTab) {
-        setActiveTab(activeTab);
-      }
-      
-      // Show success message
-      Alert.alert('Success', 'Product has been deleted.');
-      
-      // Dev performance tracking
-      if (__DEV__) {
-        const endTime = Date.now();
-        console.log(`[ProfileScreen] Delete product operation took ${endTime - startTime}ms`);
-      }
+        ]
+      );
     } catch (error) {
       console.error('[ProfileScreen] Error in delete handler:', error);
-      Alert.alert('Error', 'Failed to delete product. Please try again.');
-      
-      // Fallback to refresh if immediate update fails
-      onRefresh();
+      Alert.alert('Error', 'Something went wrong. Please try again.');
     }
-  }, [onRefresh, activeTab, filteredProducts.length, setActiveTab, forceUpdate]);
+  }, [onRefresh]);
 
   // The item renderer for FlatList
   const renderItem = useCallback(({ item, index }: { item: Post, index: number }) => {
@@ -993,9 +973,6 @@ const ProfileContentView = React.memo(({
                   style={styles.emptyListButton}
                   onPress={() => {
                     // Handle add listing 
-                    // Get the user's university and city
-                    const userUniversity = backendUserData?.university || '';
-                    const userCity = backendUserData?.city || '';
                     navigation.navigate('PostingScreen', {
                       userUniversity,
                       userCity
@@ -1021,7 +998,7 @@ const ProfileContentView = React.memo(({
     }
     
     return null;
-  }, [activeTab, filteredProducts.length, isLoadingProducts, productsError, onRefresh, isViewingSeller, navigation]);
+  }, [activeTab, filteredProducts.length, isLoadingProducts, productsError, onRefresh, isViewingSeller, navigation, userCity, userUniversity]);
 
   // Render the profile content using FlatList with the original styling
   return (
@@ -1116,13 +1093,16 @@ const ProfileScreen: React.FC = () => {
     refreshAllData
   } = useProfileStore();
 
-  // Add a state to trigger forced updates
-  const [forceUpdateTimestamp, setForceUpdateTimestamp] = useState(Date.now());
-  
-  // Force UI refresh when products array changes size
+  // Use a ref to track products length for optimized updates
+  const productCountRef = useRef(products.length);
+
+  // Optimized effect to detect significant state changes without triggering renders
   useEffect(() => {
-    console.log(`[ProfileScreen] Products array changed: ${products.length} items`);
-    setForceUpdateTimestamp(Date.now());
+    // Only log changes in development
+    if (__DEV__ && productCountRef.current !== products.length) {
+      console.log(`[ProfileScreen] Products count changed: ${productCountRef.current} → ${products.length}`);
+      productCountRef.current = products.length;
+    }
   }, [products.length]);
 
   // Add scrollY animated value for header animation
@@ -1140,7 +1120,7 @@ const ProfileScreen: React.FC = () => {
       default:
         return products;
     }
-  }, [activeTab, products, forceUpdateTimestamp]);
+  }, [activeTab, products]);
 
   // Handle navigation back
   const handleGoBack = useCallback(() => {
