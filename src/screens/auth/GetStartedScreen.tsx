@@ -9,6 +9,7 @@ import {
   ImageBackground,
   StatusBar,
   Platform,
+  SafeAreaView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GetStartedScreenNavigationProp } from '../../types/navigation.types';
@@ -41,7 +42,9 @@ const GetStartedScreen: React.FC<GetStartedScreenProps> = ({ navigation }) => {
     navigation.navigate('Onboarding');
   };
 
+const Container = Platform.OS === 'ios' ? View : SafeAreaView;
   return (
+    <Container style={[styles.container, { backgroundColor: theme.colors.background }]}>
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar
         barStyle="dark-content"
@@ -73,6 +76,7 @@ const GetStartedScreen: React.FC<GetStartedScreenProps> = ({ navigation }) => {
         </ImageBackground>
       </View>
     </View>
+    </Container>
   );
 };
 
@@ -123,6 +127,11 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginTop: 20,
     width: width * 0.7,
+    ...Platform.select({
+      android: {
+        marginBottom: 10,
+      },
+    }),
   },
   getStartedText: {
     fontSize: 22,

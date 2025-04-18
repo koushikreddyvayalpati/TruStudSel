@@ -153,6 +153,71 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
             Be the first to leave a review!
           </Text>
         </View>
+
+        {/* Review form modal - ensure it's included for zero reviews case */}
+        <Modal
+          visible={showReviewForm}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowReviewForm(false)}
+        >
+          <View style={styles.reviewFormModalContainer}>
+            <View style={styles.reviewFormContent}>
+              <View style={styles.reviewFormHeader}>
+                <Text style={styles.reviewFormTitle}>Write a Review</Text>
+                <TouchableOpacity
+                  style={styles.closeFormButton}
+                  onPress={() => setShowReviewForm(false)}
+                >
+                  <Ionicons name="close" size={24} color="#333" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.ratingLabel}>Rating:</Text>
+              <View style={styles.ratingSelector}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <TouchableOpacity
+                    key={`star_${star}`}
+                    onPress={() => setReviewRating(star)}
+                    style={styles.ratingStar}
+                  >
+                    <Icon
+                      name={star <= reviewRating ? 'star' : 'star-o'}
+                      size={32}
+                      color="#f7b305"
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.reviewCommentLabel}>Your Review:</Text>
+              <TextInput
+                style={styles.reviewCommentInput}
+                placeholder="Share your experience with this seller..."
+                placeholderTextColor="#999"
+                multiline
+                textAlignVertical="top"
+                value={reviewComment}
+                onChangeText={setReviewComment}
+              />
+
+              <TouchableOpacity
+                style={[
+                  styles.submitReviewButton,
+                  (!reviewComment.trim() || submittingReview) && styles.disabledButton,
+                ]}
+                onPress={handleSubmitReview}
+                disabled={!reviewComment.trim() || submittingReview}
+              >
+                {submittingReview ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.submitReviewButtonText}>Submit Review</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </View>
     );
   }

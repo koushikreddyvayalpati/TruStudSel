@@ -310,12 +310,11 @@ const EnhancedDropdown: React.FC<{
 
 // Define condition and selling type mappings for the backend
 const conditionMapping = {
-  'brand-new': 'new',
+  'brand-new': 'brand-new',
   'like-new': 'like-new',
   'very-good': 'very-good',
   'good': 'good',
   'acceptable': 'acceptable',
-  'for-parts': 'for-parts',
 };
 
 // Filter functions
@@ -351,7 +350,7 @@ const applyFiltersToProducts = (products: Product[], filters: string[]): Product
 
   // Extract condition filters
   const conditionFilters = filters.filter(filter =>
-    ['brand-new', 'like-new', 'very-good', 'good', 'acceptable', 'for-parts'].includes(filter)
+    ['brand-new', 'like-new', 'very-good', 'good', 'acceptable'].includes(filter)
   );
   console.log(`[HomeScreen] Condition filters: ${conditionFilters.join(', ')}`);
 
@@ -883,7 +882,6 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     { id: 'very-good', label: 'Very Good' },
     { id: 'good', label: 'Good' },
     { id: 'acceptable', label: 'Acceptable' },
-    { id: 'for-parts', label: 'For Parts' },
     { id: 'rent', label: 'For Rent' },
     { id: 'sell', label: 'For Sale' },
     { id: 'free', label: 'Free Items' },
@@ -892,17 +890,6 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   // Replace modal states with dropdown visibility states
   const [sortDropdownVisible, setSortDropdownVisible] = useState(false);
   const [filterDropdownVisible, setFilterDropdownVisible] = useState(false);
-
-  // Update button click handlers
-  const handleSortButtonClick = useCallback(() => {
-    setSortDropdownVisible(!sortDropdownVisible);
-    if (filterDropdownVisible) {setFilterDropdownVisible(false);}
-  }, [sortDropdownVisible, filterDropdownVisible]);
-
-  const handleFilterButtonClick = useCallback(() => {
-    setFilterDropdownVisible(!filterDropdownVisible);
-    if (sortDropdownVisible) {setSortDropdownVisible(false);}
-  }, [filterDropdownVisible, sortDropdownVisible]);
 
   // Update the handleFilterOptionSelect function
   const handleFilterOptionSelect = useCallback((optionId: string) => {

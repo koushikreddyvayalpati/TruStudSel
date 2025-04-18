@@ -7,6 +7,7 @@ import {
   Image,
   Dimensions,
   SafeAreaView,
+  Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OnboardingScreenNavigationProp } from '../../types/navigation.types';
@@ -71,8 +72,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }) => {
       <View style={styles.contentContainer}>
         <Text style={styles.title}>Choose Products</Text>
         <Text style={styles.description}>
-          choose the best and genuine products available for the student
-          our TrueStudSelling
+        Choose only the best — trusted, student-focused products on TruStudSel
         </Text>
       </View>
 
@@ -104,6 +104,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 20,
+    ...Platform.select({
+      android: {
+        marginTop: 30,
+      }
+    })
   },
   pageIndicator: {
     fontSize: 18,

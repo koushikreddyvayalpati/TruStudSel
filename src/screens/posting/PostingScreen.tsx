@@ -17,6 +17,8 @@ import {
   Alert,
   Dimensions,
   SafeAreaView,
+  Linking,
+  PermissionsAndroid,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -368,19 +370,120 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
     }
 
     try {
-      console.log('[PostingScreen] Launching image library picker');
+      console.log('[PostingScreen] Requesting permissions and launching image library picker');
+      
+      // On Android, we need to explicitly request permissions before using the image picker
+      if (Platform.OS === 'android') {
+        // For Android 13+ (API level 33+)
+        if (Platform.Version >= 33) {
+          const permission = PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES;
+          const hasPermission = await PermissionsAndroid.check(permission);
+          
+          if (!hasPermission) {
+            const status = await PermissionsAndroid.request(permission, {
+              title: "Photo Gallery Permission",
+              message: "TruStudSel needs access to your photos " +
+                "so you can upload product images.",
+              buttonNeutral: "Ask Me Later",
+              buttonNegative: "Cancel",
+              buttonPositive: "OK"
+            });
+            
+            if (status !== PermissionsAndroid.RESULTS.GRANTED) {
+              console.log('[PostingScreen] Permission denied for accessing photos');
+              Alert.alert(
+                'Permission Required',
+                'To upload photos, please allow access to your photo gallery in app settings.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { 
+                    text: 'Open Settings', 
+                    onPress: () => Linking.openSettings()
+                  }
+                ]
+              );
+              return;
+            }
+          }
+        } 
+        // For Android 12 and below
+        else {
+          const permission = PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
+          const hasPermission = await PermissionsAndroid.check(permission);
+          
+          if (!hasPermission) {
+            const status = await PermissionsAndroid.request(permission, {
+              title: "Photo Gallery Permission",
+              message: "TruStudSel needs access to your photos " +
+                "so you can upload product images.",
+              buttonNeutral: "Ask Me Later",
+              buttonNegative: "Cancel",
+              buttonPositive: "OK"
+            });
+            
+            if (status !== PermissionsAndroid.RESULTS.GRANTED) {
+              console.log('[PostingScreen] Permission denied for accessing photos');
+              Alert.alert(
+                'Permission Required',
+                'To upload photos, please allow access to your photo gallery in app settings.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { 
+                    text: 'Open Settings', 
+                    onPress: () => Linking.openSettings()
+                  }
+                ]
+              );
+              return;
+            }
+          }
+        }
+      }
+      
+      // Launch image picker with options
       const result = await launchImageLibrary({
         mediaType: 'photo',
         quality: 0.8,
         selectionLimit: 1,
         maxWidth: 1200, // Limit image dimensions
         maxHeight: 1200, // Limit image dimensions
+        includeBase64: false,
       });
 
       console.log('[PostingScreen] Image picker result:', JSON.stringify(result));
 
       if (result.didCancel) {
         console.log('[PostingScreen] Image selection canceled by user');
+        return;
+      }
+
+      // Handle permission denied case
+      if (result.errorCode === 'permission') {
+        console.log('[PostingScreen] Permission denied for accessing photos');
+        Alert.alert(
+          'Permission Required',
+          'To upload photos, please allow access to your photo library in your device settings.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Open Settings', 
+              onPress: () => {
+                // Open app settings so user can enable permissions
+                if (Platform.OS === 'ios') {
+                  Linking.openURL('app-settings:');
+                } else {
+                  Linking.openSettings();
+                }
+              } 
+            }
+          ]
+        );
+        return;
+      }
+
+      if (result.errorCode) {
+        console.error('[PostingScreen] Image picker error:', result.errorCode, result.errorMessage);
+        Alert.alert('Error', result.errorMessage || 'Failed to select image');
         return;
       }
 
@@ -1179,12 +1282,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    width: '60%',
+    width: SCREEN_WIDTH * 0.60, // Responsive width based on screen width instead of fixed percentage
   },
   photoUpgradeBadgeText: {
     color: '#ffffff',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 12,
     letterSpacing: 0.3,
     textShadowColor: 'rgba(0, 0, 0, 0.2)',
     textShadowOffset: { width: 0, height: 1 },

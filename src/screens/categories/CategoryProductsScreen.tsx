@@ -101,7 +101,6 @@ const ProductItem = React.memo<{
   // Get badge text based on product condition
   const getBadgeText = () => {
     if (item.sellingtype === 'rent') {return 'RENT';}
-    if (item.productage === 'brand-new') {return 'NEW';}
     return null;
   };
 
@@ -353,7 +352,6 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     { id: 'very-good', label: 'Very Good' },
     { id: 'good', label: 'Good' },
     { id: 'acceptable', label: 'Acceptable' },
-    { id: 'for-parts', label: 'For Parts' },
     { id: 'rent', label: 'For Rent' },
     { id: 'sell', label: 'For Sale' },
     { id: 'free', label: 'Free Items' },
@@ -728,9 +726,9 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
                   {(selectedFilters.length > 0 && selectedSortOption !== 'default') ?
                     `Clear All (${selectedFilters.length + 1})` :
                     selectedFilters.length > 0 ?
-                      `Clear Filters (${selectedFilters.length})` :
+                      `Clear (${selectedFilters.length})` :
                       selectedSortOption !== 'default' ?
-                        'Clear Sort' :
+                        '' :
                         'Clear All'}
                 </Text>
                 <MaterialIcons name="clear" size={14} color="#f7b305" />
@@ -747,11 +745,7 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
               onPress={handleSortButtonClick}
               disabled={isSorting}
             >
-              <Text style={styles.filterButtonText}>
-                {selectedSortOption !== 'default' ?
-                  `Sort: ${sortOptions.find(o => o.id === selectedSortOption)?.label || 'Custom'}` :
-                  'Sort'}
-              </Text>
+              <Text style={styles.filterButtonText}>Sort</Text>
               {isSorting ? (
                 <ActivityIndicator size="small" color="black" style={{ marginLeft: 5 }} />
               ) : (
@@ -781,10 +775,17 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
               ]}
               onPress={handleFilterButtonClick}
             >
-              <Text style={styles.filterButtonText}>
-                {selectedFilters.length > 0 ? `Filter (${selectedFilters.length})` : 'Filter'}
-              </Text>
-              <Icon name="filter" size={14} color="black" />
+              <Text style={styles.filterButtonText}>Filter</Text>
+              {selectedFilters.length > 0 && (
+                <View style={styles.filterCountBadge}>
+                  <Text style={styles.filterCountText}>{selectedFilters.length}</Text>
+                </View>
+              )}
+              {isFiltering ? (
+                <ActivityIndicator size="small" color="black" style={{ marginLeft: 5 }} />
+              ) : (
+                <Icon name="filter" size={14} color="black" />
+              )}
             </TouchableOpacity>
 
             {/* Filter dropdown */}
@@ -1178,7 +1179,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ff5757',
   },
   newBadge: {
-    backgroundColor: '#57ff57',
+    backgroundColor: 'red',
   },
   badgeText: {
     fontSize: 12,
@@ -1274,6 +1275,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 5,
     elevation: 8,
+  },
+  filterCountBadge: {
+    backgroundColor: '#e69b00',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 5,
+    marginRight: 2,
+  },
+  filterCountText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: 'white',
+    textAlign: 'center',
+    paddingHorizontal: 3,
   },
 });
 

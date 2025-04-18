@@ -7,6 +7,7 @@ import {
   Image,
   Dimensions,
   SafeAreaView,
+  Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Onboarding3ScreenNavigationProp } from '../../types/navigation.types';
@@ -123,6 +124,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 20,
+    ...Platform.select({
+      android: {
+        marginTop: 30,
+      }
+    })
   },
   pageIndicator: {
     fontSize: 18,

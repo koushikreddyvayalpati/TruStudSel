@@ -22,7 +22,7 @@ export const createFilterMaps = (products: Product[]): FilterMap => {
   const priceMap = new Map<string, Product[]>();
 
   // Create condition maps
-  ['brand-new', 'like-new', 'very-good', 'good', 'acceptable', 'for-parts'].forEach(condition => {
+  ['brand-new', 'like-new', 'very-good', 'good', 'acceptable'].forEach(condition => {
     conditionMap.set(condition, products.filter(product =>
       (product.condition?.toLowerCase() === condition) ||
       (product.productage?.toLowerCase() === condition)
@@ -81,7 +81,7 @@ export const applyOptimizedFiltering = (
 
   // Extract filter types
   const conditionFilters = filters.filter(filter =>
-    ['brand-new', 'like-new', 'very-good', 'good', 'acceptable', 'for-parts'].includes(filter)
+    ['brand-new', 'like-new', 'very-good', 'good', 'acceptable'].includes(filter)
   );
 
   const sellingTypeFilters = filters.filter(filter =>
@@ -158,7 +158,7 @@ export const convertToApiFilters = (
 
   // Extract condition filters
   const conditionFilters = filters.filter(filter =>
-    ['brand-new', 'like-new', 'very-good', 'good', 'acceptable', 'for-parts'].includes(filter)
+    ['brand-new', 'like-new', 'very-good', 'good', 'acceptable'].includes(filter)
   );
   if (conditionFilters.length > 0) {
     apiFilters.condition = conditionFilters;

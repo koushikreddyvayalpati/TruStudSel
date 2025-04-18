@@ -40,22 +40,35 @@ const ImageGallery: React.FC<{
   const scrollX = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList>(null);
 
+  // Enhanced scroll handler for better Android support
   const handleScroll = Animated.event(
     [{ nativeEvent: { contentOffset: { x: scrollX } } }],
     {
       useNativeDriver: false,
       listener: (event: any) => {
-        const index = Math.floor(event.nativeEvent.contentOffset.x / width);
-        setCurrentIndex(index);
+        const offsetX = event.nativeEvent.contentOffset.x;
+        const index = Math.round(offsetX / width);
+        if (index !== currentIndex) {
+          setCurrentIndex(index);
+        }
       },
     }
   );
 
-  const goToImage = (index: number) => {
-    if (flatListRef.current) {
-      flatListRef.current.scrollToIndex({ index, animated: true });
+  // Improved goToImage function with better error handling
+  const goToImage = useCallback((index: number) => {
+    if (flatListRef.current && index >= 0 && index < images.length) {
+      try {
+        flatListRef.current.scrollToOffset({ 
+          offset: index * width, 
+          animated: true 
+        });
+        setCurrentIndex(index);
+      } catch (error) {
+        console.log('Error scrolling to image:', error);
+      }
     }
-  };
+  }, [images.length]);
 
   // Memoized pagination component
   const renderPagination = useMemo(() => {
@@ -77,7 +90,7 @@ const ImageGallery: React.FC<{
         </View>
       </View>
     );
-  }, [currentIndex, images]);
+  }, [currentIndex, images, goToImage]);
 
   // Memoized render item
   const renderItem = useCallback(({ item, index }: { item: string, index: number }) => (
@@ -94,6 +107,20 @@ const ImageGallery: React.FC<{
     </Pressable>
   ), [onImagePress]);
 
+  // Scroll to next image
+  const scrollToNextImage = () => {
+    if (currentIndex < images.length - 1) {
+      goToImage(currentIndex + 1);
+    }
+  };
+
+  // Scroll to previous image
+  const scrollToPrevImage = () => {
+    if (currentIndex > 0) {
+      goToImage(currentIndex - 1);
+    }
+  };
+
   return (
     <View style={styles.imageGalleryContainer}>
       <FlatList
@@ -106,11 +133,49 @@ const ImageGallery: React.FC<{
         scrollEventThrottle={16}
         keyExtractor={(_, index) => `image_${index}`}
         renderItem={renderItem}
-        initialNumToRender={1}
-        maxToRenderPerBatch={2}
-        windowSize={3}
+        initialNumToRender={images.length > 2 ? 3 : images.length}
+        maxToRenderPerBatch={3}
+        windowSize={5}
+        snapToInterval={width}
+        snapToAlignment="center"
+        decelerationRate={Platform.OS === 'ios' ? 'normal' : 'fast'}
+        disableIntervalMomentum={true}
+        contentContainerStyle={{ alignItems: 'center' }}
+        getItemLayout={(_, index) => ({
+          length: width,
+          offset: width * index,
+          index,
+        })}
+        removeClippedSubviews={false}
       />
       {renderPagination}
+      
+      {/* Add invisible touch areas for improved navigation on Android */}
+      {Platform.OS === 'android' && images.length > 1 && (
+        <>
+          <TouchableOpacity
+            style={[styles.galleryNavButton, styles.galleryPrevButton]}
+            onPress={scrollToPrevImage}
+            activeOpacity={0.8}
+            disabled={currentIndex === 0}
+          >
+            {currentIndex > 0 && (
+              <Ionicons name="chevron-back" size={28} color="rgba(255,255,255,0.7)" />
+            )}
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.galleryNavButton, styles.galleryNextButton]}
+            onPress={scrollToNextImage}
+            activeOpacity={0.8}
+            disabled={currentIndex === images.length - 1}
+          >
+            {currentIndex < images.length - 1 && (
+              <Ionicons name="chevron-forward" size={28} color="rgba(255,255,255,0.7)" />
+            )}
+          </TouchableOpacity>
+        </>
+      )}
     </View>
   );
 });
@@ -1639,6 +1704,21 @@ const styles = StyleSheet.create({
     color: '#f7b305',
     fontWeight: '600',
     marginRight: 4,
+  },
+  galleryNavButton: {
+    position: 'absolute',
+    width: width / 4,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    zIndex: 2,
+  },
+  galleryPrevButton: {
+    left: 0,
+  },
+  galleryNextButton: {
+    right: 0,
   },
 });
 
