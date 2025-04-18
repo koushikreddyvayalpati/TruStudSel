@@ -13,6 +13,7 @@ import {
   Animated,
   Platform,
   KeyboardAvoidingView,
+  Keyboard,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -66,6 +67,9 @@ const MessagesScreen = () => {
     shadow: 'rgba(0, 0, 0, 0.08)',
   }), []);
 
+  // State to track keyboard visibility
+  const [_keyboardVisible, setKeyboardVisible] = React.useState(false);
+
   // Fetch current user email only once
   useEffect(() => {
     fetchCurrentUser();
@@ -89,6 +93,27 @@ const MessagesScreen = () => {
       setupConversationSubscription();
     }
   }, [currentUserEmail, setupConversationSubscription]);
+
+  // Setup keyboard listeners
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      () => {
+        setKeyboardVisible(true);
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        setKeyboardVisible(false);
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
   // Animate search bar in/out
   useEffect(() => {
@@ -121,16 +146,7 @@ const MessagesScreen = () => {
   // Toggle search mode
   const toggleSearch = useCallback(() => {
     setIsSearchActive(!isSearchActive);
-    
-    // Reset the animation value instantly when closing search
-    if (isSearchActive) {
-      Animated.timing(searchBarAnim, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [isSearchActive, setIsSearchActive, searchBarAnim]);
+  }, [isSearchActive, setIsSearchActive]);
 
   // Navigate to conversation using FirebaseChatScreen
   const goToConversation = useCallback((conversation: Conversation) => {
@@ -343,8 +359,8 @@ const MessagesScreen = () => {
       >
         <SafeAreaView style={styles.container}>
           {/* Header */}
-          <View style={styles.headerContainer}>
-            {isSearchActive ? (
+          <View style={[styles.headerContainer]}>
+            {isSearchActive && (
               <Animated.View
                 style={[
                   styles.searchHeader,
@@ -375,9 +391,12 @@ const MessagesScreen = () => {
                   autoFocus
                   returnKeyType="search"
                   clearButtonMode="while-editing"
+                  onSubmitEditing={() => Keyboard.dismiss()}
                 />
               </Animated.View>
-            ) : (
+            )}
+
+            {!isSearchActive && (
               <Animated.View
                 style={[
                   styles.normalHeader,
@@ -462,16 +481,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#f7b305',
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
-    height: Platform.OS === 'android' ? 56 : 'auto',
-    justifyContent: 'center',
     ...Platform.select({
       ios: {
         shadowColor: 'rgba(0, 0, 0, 0.08)',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.8,
         shadowRadius: 2,
+        height: 50,
       },
       android: {
+        height: 56,
         marginTop: 0,
         paddingTop: 0,
         borderBottomWidth: 0,
@@ -484,19 +503,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    height: '100%',
-    justifyContent: 'space-between',
+    ...Platform.select({
+      ios: {
+        paddingVertical: 0,
+        height: '100%',
+        justifyContent: 'space-between',
+      },
+      android: {
+        paddingVertical: 14,
+        height: '100%',
+        justifyContent: 'space-between',
+      },
+    }),
   },
   backButton: {
     padding: 8,
     marginRight: 4,
     paddingLeft: 0,
     ...Platform.select({
+      ios: {
+        marginRight: 4,
+        width: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
       android: {
+        backgroundColor: 'transparent',
         borderRadius: 20,
-        padding: 8,
-        marginLeft: 5,
+        padding: 0,
+        marginLeft: 0,
+        width: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
       },
     }),
   },
@@ -507,31 +545,61 @@ const styles = StyleSheet.create({
     color: '#333',
     textAlign: 'center',
     ...Platform.select({
+      ios: {
+        flex: 2,
+        marginHorizontal: 10,
+      },
       android: {
-        marginRight: 40, // Balance the header text when back button is visible
+        flex: 2,
+        marginHorizontal: 10,
       },
     }),
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    minWidth: 40,
-    justifyContent: 'flex-end',
+    ...Platform.select({
+      ios: {
+        width: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+      android: {
+        width: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+    }),
   },
   actionButton: {
     padding: 8,
-    height: 40,
-    width: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+      android: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 0,
+      },
+    }),
   },
   searchHeader: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    height: '100%',
+    ...Platform.select({
+      ios: {
+        paddingVertical: 5,
+        height: '100%',
+      },
+      android: {
+        paddingVertical: 10,
+        height: '100%',
+      },
+    }),
   },
   searchBackButton: {
     padding: 8,
