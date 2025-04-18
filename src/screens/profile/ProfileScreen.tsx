@@ -1261,112 +1261,97 @@ const ProfileScreen: React.FC = () => {
 
   // Render the profile screen
   return (
-    <SafeAreaView style={styles.safeAreaContainer} edges={['top']}>
+    <>
       <StatusBar
         translucent={true}
         backgroundColor="transparent"
-        barStyle="light-content"
+        barStyle="dark-content"
       />
-
-      {/* Animated Header */}
-      <Animated.View
-        style={[
-          styles.animatedHeader,
-          {
-            transform: [{
-              translateY: scrollY.interpolate({
-                inputRange: [0, HEADER_SCROLL_DISTANCE],
-                outputRange: [0, 0],
-                extrapolate: 'clamp',
-              }),
-            }],
-          },
-        ]}
-      >
-        <View style={styles.headerContent}>
+      <View style={styles.container}>
+        {/* Animated Header */}
+        <View style={styles.headerBar}>
           <TouchableOpacity
             style={styles.backButtonHeader}
             onPress={handleGoBack}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <MaterialIcons name="arrow-back" size={24} color="#FFF" />
+            <MaterialIcons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>
             {isViewingSeller ? 'Seller Profile' : 'My Profile'}
           </Text>
-          {!isViewingSeller && (
+          {!isViewingSeller ? (
             <TouchableOpacity
               style={styles.headerAction}
               onPress={handleSignOut}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <MaterialIcons name="logout" size={24} color="#FFF" />
+              <MaterialIcons name="logout" size={24} color="white" />
             </TouchableOpacity>
-          )}
-          {isViewingSeller && (
+          ) : (
             <View style={styles.headerAction} />
           )}
         </View>
-      </Animated.View>
 
-      <SafeAreaView style={styles.contentContainer} edges={['bottom', 'left', 'right']}>
-        {/* Handle loading and error states for profile data */}
-        {isLoading && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#f7b305" />
-            <Text style={styles.loadingText}>Loading profile...</Text>
-          </View>
-        )}
+        <SafeAreaView style={styles.contentContainer} edges={['bottom', 'left', 'right']}>
+          {/* Handle loading and error states for profile data */}
+          {isLoading && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#f7b305" />
+              <Text style={styles.loadingText}>Loading profile...</Text>
+            </View>
+          )}
 
-        {error && (
-          <View style={styles.errorContainer}>
-            <MaterialIcons name="error-outline" size={64} color="#e74c3c" />
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={handleRefresh}
-            >
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Show profile content when not loading or error */}
-        {!isLoading && !error && (
-          <>
-            <ProfileContentView
-              userData={userData}
-              backendUserData={backendUserData}
-              filteredProducts={filteredProducts}
-              productCount={products.length}
-              activeTab={activeTab}
-              onTabChange={handleTabChange}
-              onEditProfile={handleEditProfile}
-              isLoadingProducts={isLoadingProducts}
-              isRefreshing={isRefreshing}
-              onRefresh={handleRefresh}
-              productsError={productsError}
-              isViewingSeller={isViewingSeller}
-              navigation={navigation}
-              productsMap={productsMap}
-              scrollY={scrollY}
-              setActiveTab={setActiveTab}
-            />
-
-            {/* Add Listing FAB - only show if viewing own profile */}
-            {!isViewingSeller && (
+          {error && (
+            <View style={styles.errorContainer}>
+              <MaterialIcons name="error-outline" size={64} color="#e74c3c" />
+              <Text style={styles.errorText}>{error}</Text>
               <TouchableOpacity
-                style={styles.floatingButton}
-                onPress={handleAddListing}
-                activeOpacity={0.8}
+                style={styles.retryButton}
+                onPress={handleRefresh}
               >
-                <MaterialIcons name="add" size={30} color="white" />
+                <Text style={styles.retryButtonText}>Retry</Text>
               </TouchableOpacity>
-            )}
-          </>
-        )}
-      </SafeAreaView>
-    </SafeAreaView>
+            </View>
+          )}
+
+          {/* Show profile content when not loading or error */}
+          {!isLoading && !error && (
+            <>
+              <ProfileContentView
+                userData={userData}
+                backendUserData={backendUserData}
+                filteredProducts={filteredProducts}
+                productCount={products.length}
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
+                onEditProfile={handleEditProfile}
+                isLoadingProducts={isLoadingProducts}
+                isRefreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                productsError={productsError}
+                isViewingSeller={isViewingSeller}
+                navigation={navigation}
+                productsMap={productsMap}
+                scrollY={scrollY}
+                setActiveTab={setActiveTab}
+              />
+
+              {/* Add Listing FAB - only show if viewing own profile */}
+              {!isViewingSeller && (
+                <TouchableOpacity
+                  style={styles.floatingButton}
+                  onPress={handleAddListing}
+                  activeOpacity={0.8}
+                >
+                  <MaterialIcons name="add" size={30} color="white" />
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+        </SafeAreaView>
+      </View>
+    </>
   );
 };
 
@@ -1374,10 +1359,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
-  },
-  safeAreaContainer: {
-    flex: 1,
-    backgroundColor: '#f7b305', // Set top background color to match header
+    ...Platform.select({
+      android: {
+        paddingTop: StatusBar.currentHeight,
+      },
+      ios: {
+        paddingTop: 0,
+      },
+    }),
   },
   contentContainer: {
     flex: 1,
@@ -1389,67 +1378,52 @@ const styles = StyleSheet.create({
   columnWrapper: {
     paddingHorizontal: 12,
   },
-  animatedHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: HEADER_MAX_HEIGHT,
-    backgroundColor: '#f7b305',
-    zIndex: 100,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 10),
-    paddingBottom: Platform.OS === 'android' ? 28 : 8,
-    marginTop: Platform.OS === 'android' ? 0 : (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 50),
-    ...Platform.select({
-      android: {
-        elevation: 0,
-      },
-    }),
-  },
-  headerContent: {
-    flex: 1,
+  headerBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    marginTop: Platform.OS === 'android' ? 8 : 0,
+    height: 56,
+    backgroundColor: '#f7b305',
+    borderBottomWidth: 0,
+    borderBottomColor: '#f0f0f0',
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(0, 0, 0, 0.1)',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 1,
+        shadowRadius: 1,
+        marginTop: 60,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   backButtonHeader: {
     padding: 8,
-    backgroundColor: '#f7b305',
     borderRadius: 20,
     width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    ...Platform.select({
-      android: {
-        backgroundColor: 'transparent',
-      },
-    }),
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#FFF',
+    color: 'white',
     fontFamily: 'Montserrat',
   },
   headerAction: {
     padding: 8,
-    backgroundColor: '#f7b305',
     borderRadius: 20,
     width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    ...Platform.select({
-      android: {
-        backgroundColor: 'transparent',
-      },
-    }),
   },
   bannerContainer: {
-    height: PROFILE_BANNER_HEIGHT,
+    height: PROFILE_BANNER_HEIGHT * 0.85,
     width: '100%',
     backgroundColor: '#f7b305', // Yellow background
     ...Platform.select({
@@ -1463,7 +1437,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     padding: 16,
-    paddingTop: Platform.OS === 'android' ? 16 : StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 16,
+    paddingTop: Platform.OS === 'android' ? 1 : StatusBar.currentHeight ? StatusBar.currentHeight + 1 : 1,
   },
   profileContainer: {
     backgroundColor: '#fff',
@@ -2049,40 +2023,6 @@ const styles = StyleSheet.create({
     padding: 6,
     backgroundColor: 'rgba(0, 0, 0, 0.05)',
     borderRadius: 50,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-  },
-  backButton: {
-    padding: 8,
-    backgroundColor: '#f7b305',
-    borderRadius: 20,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  signOutButton: {
-    padding: 8,
-    backgroundColor: '#f7b305',
-    borderRadius: 20,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statValue: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#000000',
-    marginRight: 4,
   },
 });
 
