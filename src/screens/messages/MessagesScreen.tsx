@@ -15,7 +15,7 @@ import {
   KeyboardAvoidingView,
   Keyboard,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -48,6 +48,7 @@ const MessagesScreen = () => {
     handleRefresh,
     getConversationDisplayName,
     getTimeDisplay,
+    markAllConversationsAsRead,
   } = useChatStore();
 
   // Animation values
@@ -124,12 +125,28 @@ const MessagesScreen = () => {
     }).start();
   }, [isSearchActive, searchBarAnim]);
 
-  // Initial load
+  // Initial load and mark conversations as read
   useEffect(() => {
     if (currentUserEmail) {
-      fetchConversations();
+      fetchConversations().then(() => {
+        // Mark all conversations as read when screen opens
+        markAllConversationsAsRead();
+      });
     }
-  }, [fetchConversations, currentUserEmail]);
+  }, [fetchConversations, currentUserEmail, markAllConversationsAsRead]);
+
+  // Mark conversations as read when screen receives focus
+  useFocusEffect(
+    useCallback(() => {
+      if (currentUserEmail && conversations.length > 0) {
+        console.log('[MessagesScreen] Screen focused, marking conversations as read');
+        markAllConversationsAsRead();
+      }
+      return () => {
+        // Cleanup when screen loses focus (optional)
+      };
+    }, [currentUserEmail, conversations.length, markAllConversationsAsRead])
+  );
 
   // Memoize filtered conversations for performance
   const filteredConversations = useMemo(() => {

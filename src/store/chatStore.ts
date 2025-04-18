@@ -43,6 +43,7 @@ interface ChatStore extends ChatState {
   getConversationDisplayName: (conversation: Conversation) => string;
   getTimeDisplay: (timeString?: string) => string;
   clearConversationsCache: () => Promise<boolean>;
+  markAllConversationsAsRead: () => Promise<void>;
 }
 
 const useChatStore = create<ChatStore>((set, get) => ({
@@ -405,6 +406,60 @@ const useChatStore = create<ChatStore>((set, get) => ({
     } catch (error) {
       console.error('[chatStore] Error formatting time:', error, timeString);
       return '';
+    }
+  },
+
+  // Mark all conversations as read
+  markAllConversationsAsRead: async () => {
+    try {
+      const { conversations, currentUserEmail } = get();
+      
+      if (!currentUserEmail || conversations.length === 0) {
+        return;
+      }
+      
+      console.log('[chatStore] Marking all conversations as read');
+      
+      // Get conversations with unread messages
+      const unreadConversations = conversations.filter(
+        conv => (conv.unreadCount && conv.unreadCount > 0)
+      );
+      
+      if (unreadConversations.length === 0) {
+        console.log('[chatStore] No unread conversations to mark');
+        return;
+      }
+      
+      // Update each conversation to reset unread count
+      const db = (await import('../services/firebaseService')).db;
+      const { doc, writeBatch, serverTimestamp } = await import('firebase/firestore');
+      
+      const batch = writeBatch(db);
+      
+      unreadConversations.forEach(conversation => {
+        const conversationRef = doc(db, 'conversations', conversation.id);
+        const unreadCountKey = `unreadCount_${currentUserEmail.replace(/[.@]/g, '_')}`;
+        
+        batch.update(conversationRef, {
+          [unreadCountKey]: 0,
+          updatedAt: serverTimestamp(),
+        });
+      });
+      
+      await batch.commit();
+      console.log('[chatStore] Successfully marked all conversations as read');
+      
+      // Update the local state as well
+      const updatedConversations = conversations.map(conv => ({
+        ...conv,
+        unreadCount: 0,
+      }));
+      
+      set({ conversations: updatedConversations });
+      get().cacheConversations(updatedConversations);
+      
+    } catch (error) {
+      console.error('[chatStore] Error marking conversations as read:', error);
     }
   },
 }));
