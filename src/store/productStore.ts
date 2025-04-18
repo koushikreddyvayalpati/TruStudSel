@@ -143,7 +143,7 @@ const useProductStore = create<ProductState>((set, get) => ({
         })
       );
 
-      console.log(`[ProductStore] Cached ${products.length} products with key: ${cacheKey}`);
+      // console.log(`[ProductStore] Cached ${products.length} products with key: ${cacheKey}`);
 
       // Reset force refresh flag after caching if needed
       if (get().shouldForceRefresh) {
@@ -644,7 +644,7 @@ const useProductStore = create<ProductState>((set, get) => ({
       queryParams.append('size', '10');
 
       const url = `${API_URL}/api/products/category/${encodeURIComponent(category.toLowerCase())}/paginated?${queryParams}`;
-      console.log(`[ProductStore] Making API call to: ${url}`);
+      // console.log(`[ProductStore] Making API call to: ${url}`);
 
       // Make API call
       const response = await fetch(url, { method: 'GET' });
@@ -656,7 +656,7 @@ const useProductStore = create<ProductState>((set, get) => ({
       }
 
       const responseText = await response.text();
-      console.log(`[ProductStore] Raw API response (first 100 chars): ${responseText.substring(0, 100)}`);
+      // console.log(`[ProductStore] Raw API response (first 100 chars): ${responseText.substring(0, 100)}`);
 
       // Parse the JSON manually
       const data = JSON.parse(responseText);
@@ -680,7 +680,7 @@ const useProductStore = create<ProductState>((set, get) => ({
       productsList = productsList.map(product => {
         // Handle image URLs
         if (product.primaryImage && !product.primaryImage.startsWith('http')) {
-          console.log(`[ProductStore] Processing image URL: ${product.primaryImage}`);
+          // console.log(`[ProductStore] Processing image URL: ${product.primaryImage}`);
           product.primaryImage = `https://trustudsel-products.s3.amazonaws.com/${product.primaryImage}`;
         }
         return product;

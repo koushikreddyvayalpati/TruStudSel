@@ -12,6 +12,7 @@ import {
   RefreshControl,
   Animated,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -120,7 +121,16 @@ const MessagesScreen = () => {
   // Toggle search mode
   const toggleSearch = useCallback(() => {
     setIsSearchActive(!isSearchActive);
-  }, [isSearchActive, setIsSearchActive]);
+    
+    // Reset the animation value instantly when closing search
+    if (isSearchActive) {
+      Animated.timing(searchBarAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [isSearchActive, setIsSearchActive, searchBarAnim]);
 
   // Navigate to conversation using FirebaseChatScreen
   const goToConversation = useCallback((conversation: Conversation) => {
@@ -260,12 +270,12 @@ const MessagesScreen = () => {
           <Text style={styles.emptyText}>
             When you start chatting with other users, your conversations will appear here.
           </Text>
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={styles.startChatButton}
             onPress={() => navigation.navigate('UserSearchScreen')}
           >
             <Text style={styles.startChatButtonText}>Start a New Chat</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </>
       )}
 
@@ -299,7 +309,7 @@ const MessagesScreen = () => {
         </>
       )}
     </Animated.View>
-  ), [isLoading, error, searchQuery, fadeAnim, navigation, fetchConversations, setSearchQuery]);
+  ), [isLoading, error, searchQuery, fadeAnim, fetchConversations, setSearchQuery]);
 
   // Render loader at the bottom of the list
   const renderFooter = useCallback(() => {
@@ -320,112 +330,121 @@ const MessagesScreen = () => {
   }), []);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-
-      {/* Header */}
-      <View style={styles.headerContainer}>
-        {isSearchActive && (
-          <Animated.View
-            style={[
-              styles.searchHeader,
-              {
-                opacity: searchBarAnim,
-                transform: [{
-                  translateY: searchBarAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [-20, 0],
-                  }),
-                }],
-              },
-            ]}
-          >
-            <TouchableOpacity
-              onPress={toggleSearch}
-              style={styles.searchBackButton}
-            >
-              <Ionicons name="arrow-back" size={22} color="#333" />
-            </TouchableOpacity>
-
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search conversations..."
-              placeholderTextColor="#999"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoFocus
-              returnKeyType="search"
-              clearButtonMode="while-editing"
-            />
-          </Animated.View>
-        )}
-
-        {!isSearchActive && (
-          <Animated.View
-            style={[
-              styles.normalHeader,
-              {
-                opacity: searchBarAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [1, 0],
-                }),
-              },
-            ]}
-          >
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={styles.backButton}
-              testID="back-button"
-            >
-              <MaterialIcons name="arrow-back-ios-new" size={22} color="#333" />
-            </TouchableOpacity>
-
-            <Text style={styles.header}>Messages</Text>
-
-            <View style={styles.headerActions}>
-              <TouchableOpacity
-                onPress={toggleSearch}
-                style={styles.actionButton}
+    <>
+      <StatusBar 
+        barStyle="dark-content" 
+        backgroundColor="#f7b305" 
+        translucent={Platform.OS === 'android'}
+      />
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+      >
+        <SafeAreaView style={styles.container}>
+          {/* Header */}
+          <View style={styles.headerContainer}>
+            {isSearchActive ? (
+              <Animated.View
+                style={[
+                  styles.searchHeader,
+                  {
+                    opacity: searchBarAnim,
+                    transform: [{
+                      translateY: searchBarAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [-20, 0],
+                      }),
+                    }],
+                  },
+                ]}
               >
-                <Ionicons name="search" size={24} color="#333" />
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-        )}
-      </View>
+                <TouchableOpacity
+                  onPress={toggleSearch}
+                  style={styles.searchBackButton}
+                >
+                  <Ionicons name="arrow-back" size={22} color="#333" />
+                </TouchableOpacity>
 
-      {/* Message List */}
-      <Animated.View style={[styles.listWrapper, { opacity: fadeAnim }]}>
-        <FlatList
-          data={filteredConversations}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
-          contentContainerStyle={[
-            styles.listContainer,
-            filteredConversations.length === 0 && styles.emptyListContainer,
-          ]}
-          ItemSeparatorComponent={ItemSeparator}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={handleRefresh}
-              colors={[COLORS.primary]}
-              tintColor={COLORS.primary}
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search conversations..."
+                  placeholderTextColor="#999"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoFocus
+                  returnKeyType="search"
+                  clearButtonMode="while-editing"
+                />
+              </Animated.View>
+            ) : (
+              <Animated.View
+                style={[
+                  styles.normalHeader,
+                  {
+                    opacity: searchBarAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [1, 0],
+                    }),
+                  },
+                ]}
+              >
+                <TouchableOpacity
+                  onPress={() => navigation.goBack()}
+                  style={styles.backButton}
+                  testID="back-button"
+                >
+                  <MaterialIcons name="arrow-back-ios-new" size={22} color="#333" />
+                </TouchableOpacity>
+
+                <Text style={styles.header}>Messages</Text>
+
+                <View style={styles.headerActions}>
+                  <TouchableOpacity
+                    onPress={toggleSearch}
+                    style={styles.actionButton}
+                  >
+                    <Ionicons name="search" size={24} color="#333" />
+                  </TouchableOpacity>
+                </View>
+              </Animated.View>
+            )}
+          </View>
+
+          {/* Message List */}
+          <Animated.View style={[styles.listWrapper, { opacity: fadeAnim }]}>
+            <FlatList
+              data={filteredConversations}
+              renderItem={renderItem}
+              keyExtractor={keyExtractor}
+              contentContainerStyle={[
+                styles.listContainer,
+                filteredConversations.length === 0 && styles.emptyListContainer,
+              ]}
+              ItemSeparatorComponent={ItemSeparator}
+              refreshControl={
+                <RefreshControl
+                  refreshing={isRefreshing}
+                  onRefresh={handleRefresh}
+                  colors={[COLORS.primary]}
+                  tintColor={COLORS.primary}
+                />
+              }
+              ListEmptyComponent={renderEmptyComponent}
+              ListFooterComponent={renderFooter}
+              showsVerticalScrollIndicator={false}
+              getItemLayout={getItemLayout}
+              initialNumToRender={12}
+              maxToRenderPerBatch={10}
+              windowSize={21}
+              removeClippedSubviews={Platform.OS === 'android'}
+              onEndReachedThreshold={0.2}
+              extraData={currentUserEmail}
             />
-          }
-          ListEmptyComponent={renderEmptyComponent}
-          ListFooterComponent={renderFooter}
-          showsVerticalScrollIndicator={false}
-          getItemLayout={getItemLayout}
-          initialNumToRender={12}
-          maxToRenderPerBatch={10}
-          windowSize={21}
-          removeClippedSubviews={Platform.OS === 'android'}
-          onEndReachedThreshold={0.2}
-          extraData={currentUserEmail}
-        />
-      </Animated.View>
-    </SafeAreaView>
+          </Animated.View>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
+    </>
   );
 };
 
@@ -433,11 +452,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+    ...Platform.select({
+      android: {
+        paddingTop: StatusBar.currentHeight || 0,
+      },
+    }),
   },
   headerContainer: {
     backgroundColor: '#f7b305',
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+    height: Platform.OS === 'android' ? 56 : 'auto',
+    justifyContent: 'center',
     ...Platform.select({
       ios: {
         shadowColor: 'rgba(0, 0, 0, 0.08)',
@@ -447,7 +473,7 @@ const styles = StyleSheet.create({
       },
       android: {
         marginTop: 0,
-        paddingTop: 15,
+        paddingTop: 0,
         borderBottomWidth: 0,
         elevation: 4,
       },
@@ -458,7 +484,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 10,
+    height: '100%',
+    justifyContent: 'space-between',
   },
   backButton: {
     padding: 8,
@@ -466,7 +494,6 @@ const styles = StyleSheet.create({
     paddingLeft: 0,
     ...Platform.select({
       android: {
-        backgroundColor: '',
         borderRadius: 20,
         padding: 8,
         marginLeft: 5,
@@ -488,9 +515,15 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    minWidth: 40,
+    justifyContent: 'flex-end',
   },
   actionButton: {
     padding: 8,
+    height: 40,
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchHeader: {
     flex: 1,
@@ -498,6 +531,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 10,
+    height: '100%',
   },
   searchBackButton: {
     padding: 8,

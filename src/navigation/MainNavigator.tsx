@@ -9,9 +9,8 @@ import { LogBox } from 'react-native';
 import { HomeScreen } from '../screens/home';
 import { ProfileScreen, EditProfileScreen, DeleteAccountScreen } from '../screens/profile';
 import { ProductsScreen } from '../screens/products';
-import { MessagesScreen, MessageScreen } from '../screens/messages';
+import { MessagesScreen} from '../screens/messages';
 import FirebaseChatScreen from '../screens/messages/FirebaseChatScreen';
-import UserSearchScreen from '../screens/UserSearchScreen';
 import { PostingScreen } from '../screens/posting';
 import { WishlistScreen } from '../screens/wishlist';
 import { CategoryProductsScreen } from '../screens/categories';
@@ -104,22 +103,8 @@ const MainStack = () => {
         }}
       />
       <Stack.Screen
-        name="MessageScreen"
-        component={MessageScreen}
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
         name="FirebaseChatScreen"
         component={FirebaseChatScreen}
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="UserSearchScreen"
-        component={UserSearchScreen}
         options={{
           headerShown: false,
         }}

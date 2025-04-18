@@ -283,11 +283,11 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
   const routeUniversity = typeof routeParams.userUniversity === 'string' ? routeParams.userUniversity : '';
   const routeCity = typeof routeParams.userCity === 'string' ? routeParams.userCity : '';
 
-  console.log('[PostingScreen] Route params:', JSON.stringify(routeParams));
-  console.log('[PostingScreen] Route university:', routeUniversity);
-  console.log('[PostingScreen] Route city:', routeCity);
-  console.log('[PostingScreen] User university from auth:', user?.university || 'not set');
-  console.log('[PostingScreen] User city from auth:', user?.city || 'not set');
+  // console.log('[PostingScreen] Route params:', JSON.stringify(routeParams));
+  // console.log('[PostingScreen] Route university:', routeUniversity);
+  // console.log('[PostingScreen] Route city:', routeCity);
+  // console.log('[PostingScreen] User university from auth:', user?.university || 'not set');
+  // console.log('[PostingScreen] User city from auth:', user?.city || 'not set');
 
   // Use the Zustand store for state management
   const {
@@ -350,10 +350,10 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
 
   // Debug log of navigation params when component mounts
   useEffect(() => {
-    console.log('[PostingScreen] Component mounted with route params:', JSON.stringify(route.params));
-    console.log('[PostingScreen] User object available:', user ? 'yes' : 'no');
+    // console.log('[PostingScreen] Component mounted with route params:', JSON.stringify(route.params));
+    // console.log('[PostingScreen] User object available:', user ? 'yes' : 'no');
     if (user) {
-      console.log('[PostingScreen] User university from user object:', user.university || 'not set');
+      // console.log('[PostingScreen] User university from user object:', user.university || 'not set');
     }
 
     // Reset the store state when component mounts
@@ -1168,6 +1168,7 @@ const styles = StyleSheet.create({
     fontSize: SCREEN_WIDTH > 400 ? 18 : 17,
     fontWeight: '700',
     marginBottom: 6,
+    marginTop: 2,
     letterSpacing: -0.3,
   },
   sectionSubtitle: {
@@ -1181,7 +1182,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 5,
-    marginTop: 2,
+    marginTop: 4,
   },
   photoCount: {
     fontSize: 14,
@@ -1293,6 +1294,11 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
     marginRight: 10,
+    ...Platform.select({
+      ios: {
+        fontSize: 14,
+      },
+    }),
   },
   mainPhotoWrapper: {
     width: '100%',

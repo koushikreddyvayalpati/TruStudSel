@@ -505,11 +505,11 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   // Cache the University and City values for API calls
   const userUniversity = useMemo(() => {
     const university = userProfileData?.university || user?.university || '';
-    console.log('[HomeScreen] userUniversity updated:', {
-      fromProfile: userProfileData?.university || 'none',
-      fromUser: user?.university || 'none',
-      finalValue: university,
-    });
+    // console.log('[HomeScreen] userUniversity updated:', {
+    //   fromProfile: userProfileData?.university || 'none',
+    //   fromUser: user?.university || 'none',
+    //   finalValue: university,
+    // });
     return university;
   }, [userProfileData, user?.university]);
 
@@ -562,7 +562,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
       return;
     }
 
-    console.log(`[HomeScreen] Starting profile fetch for user: ${user.email}`);
+    // console.log(`[HomeScreen] Starting profile fetch for user: ${user.email}`);
     setIsLoadingUserData(true);
     setUserDataError(null);
 
@@ -583,13 +583,13 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
           if (data.city) {setUserCity(data.city);}
 
           // DETAILED DEBUG: Examine profile data structure
-          console.log('[HomeScreen] DEBUG - Full cached user profile:', JSON.stringify(data).substring(0, 300));
-          console.log('[HomeScreen] DEBUG - Profile data type:', typeof data);
+          // console.log('[HomeScreen] DEBUG - Full cached user profile:', JSON.stringify(data).substring(0, 300));
+          // console.log('[HomeScreen] DEBUG - Profile data type:', typeof data);
           console.log('[HomeScreen] DEBUG - Profile has productsCategoriesIntrested:',
             data.hasOwnProperty('productsCategoriesIntrested'));
 
           // Check all property names for possible misspellings
-          console.log('[HomeScreen] DEBUG - Available profile properties:', Object.keys(data));
+          // console.log('[HomeScreen] DEBUG - Available profile properties:', Object.keys(data));
 
           // Try alternate spellings/formats
           const possibleInterestProps = [

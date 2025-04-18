@@ -16,8 +16,8 @@ const devBaseUrl = Platform.OS === 'android' ? 'https://backendtrustudsel-uannv2
 export const API_URL = isDevelopment ? devBaseUrl : 'https://backendtrustudsel-uannv243ua-uc.a.run.app';
 
 // Log the base URL for debugging
-console.log(`[API:config] Using base API URL: ${API_URL} (${isDevelopment ? 'development' : 'production'})`);
-console.log(`[API:config] Platform: ${Platform.OS}`);
+// console.log(`[API:config] Using base API URL: ${API_URL} (${isDevelopment ? 'development' : 'production'})`);
+// console.log(`[API:config] Platform: ${Platform.OS}`);
 
 export const AUTH_API_URL = `${API_URL}/auth`;
 export const PRODUCTS_API_URL = `${API_URL}/products`;
@@ -45,7 +45,9 @@ export const fetchWithTimeout = async (url: string, options: RequestInit, timeou
   const { signal } = controller;
 
   const timeoutId = setTimeout(() => {
-    console.warn(`[API:config] Request timeout reached for ${url} after ${timeout}ms`);
+    if (__DEV__) {
+      console.warn(`[API:config] Request timeout reached for ${url} after ${timeout}ms`);
+    }
     controller.abort();
   }, timeout);
 
@@ -54,7 +56,9 @@ export const fetchWithTimeout = async (url: string, options: RequestInit, timeou
     const response = await fetch(url, { ...options, signal });
     clearTimeout(timeoutId);
 
-    console.log(`[API:config] Fetch response received with status: ${response.status} ${response.statusText}`);
+    if (__DEV__) {
+      console.log(`[API:config] Fetch response received with status: ${response.status} ${response.statusText}`);
+    }
     return response;
   } catch (error: unknown) {
     clearTimeout(timeoutId);

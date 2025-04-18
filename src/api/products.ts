@@ -153,14 +153,14 @@ export const getProducts = async (filters: ProductFilters = {}): Promise<Product
  * Get products by university with filtering
  */
 export const getProductsByUniversity = async (university: string, filters: ProductFilters = {}): Promise<ProductListResponse> => {
-  console.log(`[API:products] Getting products for university: ${university}`, { filters });
+  // console.log(`[API:products] Getting products for university: ${university}`, { filters });
 
   // Use exact same URL that worked with curl, with no query parameters
   const url = `${API_URL}/api/products/university/${encodeURIComponent(university)}`;
-
-  console.log(`[API:products] University products URL: ${url}`);
+  if (__DEV__) {
+  console.log(`[API:products] University products URL: `);
   console.log('[API:products] Using EXACT same URL that worked with curl - no query parameters');
-
+}
   // Use the same headers and approach as the successful curl command
   return new Promise<ProductListResponse>((resolve, reject) => {
     try {
@@ -184,8 +184,8 @@ export const getProductsByUniversity = async (university: string, filters: Produ
         }
       })
       .then(text => {
-        console.log(`[API:products] Got response text (${text.length} bytes)`);
-        console.log('[API:products] First 100 chars:', text.substring(0, 100));
+        // console.log(`[API:products] Got response text (${text.length} bytes)`);
+        // console.log('[API:products] First 100 chars:', text.substring(0, 100));
 
         // Manually parse as JSON
         const data = JSON.parse(text);
@@ -238,7 +238,7 @@ export const getProductsByUniversity = async (university: string, filters: Produ
  * Get products by city with filtering
  */
 export const getProductsByCity = async (city: string, filters: ProductFilters = {}): Promise<ProductListResponse> => {
-  console.log(`[API:products] Getting products for city: ${city}`, { filters });
+  // console.log(`[API:products] Getting products for city: ${city}`, { filters });
 
   // Build query string from filters
   const queryParams = new URLSearchParams();
@@ -271,10 +271,10 @@ export const getProductsByCity = async (city: string, filters: ProductFilters = 
   const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
   const url = `${API_URL}/api/products/city/${encodeURIComponent(city)}${queryString}`;
 
-  console.log(`[API:products] City products URL: ${url}`);
+  console.log(`[API:products] City products URL: `);
 
   try {
-    console.log(`[API:products] Sending request to city endpoint: ${url}`);
+    console.log(`[API:products] Sending request to city endpoint: `);
 
     // Use explicit headers matching the README example
     const fetchOptions = {
@@ -287,8 +287,8 @@ export const getProductsByCity = async (city: string, filters: ProductFilters = 
     console.log('[API:products] Request headers:', JSON.stringify(fetchOptions.headers));
     const response = await fetchWithTimeout(url, fetchOptions);
 
-    console.log('[API:products] City products response status:', response.status);
-    console.log('[API:products] Response headers:', JSON.stringify(Object.fromEntries([...response.headers.entries()])));
+    // console.log('[API:products] City products response status:', response.status);
+    // console.log('[API:products] Response headers:', JSON.stringify(Object.fromEntries([...response.headers.entries()])));
 
     // For debugging 500 errors - try to examine the response before processing
     if (response.status === 500) {
@@ -315,7 +315,7 @@ export const getProductsByCity = async (city: string, filters: ProductFilters = 
         // Clone the response for direct parsing attempt
         const responseClone = response.clone();
         const rawText = await responseClone.text();
-        console.log('[API:products] Raw response text (first 100 chars):', rawText.substring(0, 100));
+        // console.log('[API:products] Raw response text (first 100 chars):', rawText.substring(0, 100));
 
         // Try manual JSON parsing
         try {
@@ -927,18 +927,16 @@ export const updateProductStatus = async (id: string, status: string): Promise<P
     const productId = id.trim();
 
     // Only log in development mode
-    if (__DEV__) {
-      console.log(`[API:products] Updating product ${productId} status to: ${status}`);
-      console.log(`[API:products] Product ID type: ${typeof productId}, length: ${productId.length}`);
-
+    
+      // console.log(`[API:products] Updating product ${productId} status to: ${status}`);
+      // console.log(`[API:products] Product ID type: ${typeof productId}, length: ${productId.length}`);
+    
       // Log ID format to help debug UUID issues
       if (productId.includes('-')) {
         console.log(`[API:products] ID appears to be a UUID format: ${productId}`);
       } else {
         console.log(`[API:products] ID does not appear to be in UUID format: ${productId}`);
       }
-    }
-
     // Validate status
     const validStatuses = ['available', 'sold', 'archived', 'reserved', 'hidden', 'pending'];
     if (!validStatuses.includes(status.toLowerCase())) {

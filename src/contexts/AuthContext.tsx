@@ -79,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Helper to process user data from Cognito
   const processUserData = (cognitoUser: any): UserData => {
-    console.log('Processing Cognito user:', cognitoUser);
+    // console.log('Processing Cognito user:', cognitoUser);
 
     // Extract email from attributes or username if it looks like an email
     let email = cognitoUser.attributes?.email || '';
@@ -107,7 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       attributes: cognitoUser.attributes,
     };
 
-    console.log('Processed user data:', userData);
+    // console.log('Processed user data:', userData);
     return userData;
   };
 
