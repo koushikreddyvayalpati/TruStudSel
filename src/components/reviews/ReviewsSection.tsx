@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
-  Alert
+  Alert,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -67,7 +67,7 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
     reviewRating,
     reviewComment,
     submittingReview,
-    
+
     fetchSellerReviews,
     loadMoreReviews,
     setShowReviewForm,
@@ -96,9 +96,9 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
       Alert.alert('Error', 'Please enter a review comment.');
       return;
     }
-    
+
     const success = await submitReview(sellerEmail, productId);
-    
+
     if (success) {
       Alert.alert('Success', 'Your review has been submitted.');
     } else {
@@ -115,7 +115,7 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
   if (isUserSeller) {
     return null;
   }
-  
+
   // If loading, show loading indicator
   if (loadingReviews) {
     return (
@@ -128,7 +128,7 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
       </View>
     );
   }
-  
+
   // If no reviews found, show message
   if (sellerReviews.length === 0) {
     return (
@@ -143,7 +143,7 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
             <Ionicons name="create-outline" size={16} color="#f7b305" />
           </TouchableOpacity>
         </View>
-        
+
         <View style={styles.noReviewsContainer}>
           <Ionicons name="chatbubble-ellipses-outline" size={24} color="#ccc" />
           <Text style={styles.noReviewsText}>
@@ -156,13 +156,13 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
       </View>
     );
   }
-  
+
   // Determine how many reviews to display
   // Show all available reviews instead of limiting to 5 when we have multiple pages
   const displayedReviews = currentPage > 0 ? sellerReviews : sellerReviews.slice(0, Math.min(sellerReviews.length, 5));
   const hasMoreToLoad = currentPage < totalPages - 1;
   const hasMoreToShow = sellerReviews.length < totalReviews;
-  
+
   return (
     <View style={styles.reviewsSection}>
       <View style={styles.reviewsSectionHeader}>
@@ -173,8 +173,8 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
             <Text style={styles.reviewMetaText}>({totalReviews})</Text>
           </View>
         </View>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={styles.writeReviewButton}
           onPress={() => setShowReviewForm(true)}
         >
@@ -182,7 +182,7 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
           <Ionicons name="create-outline" size={16} color="#f7b305" />
         </TouchableOpacity>
       </View>
-      
+
       {/* Reviews summary card */}
       <View style={styles.reviewsSummaryCard}>
         <View style={styles.reviewAverageContainer}>
@@ -190,11 +190,11 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
           <RatingStars rating={parseFloat(averageRating)} size={20} />
           {/* <Text style={styles.totalReviewsText}>Based on {totalReviews} reviews</Text> */}
         </View>
-        
+
         {/* Reviews list */}
         <View style={currentPage > 0 || displayedReviews.length > 5 ? styles.reviewsScrollContainerLarge : styles.reviewsScrollContainer}>
-          <ScrollView 
-            nestedScrollEnabled={true} 
+          <ScrollView
+            nestedScrollEnabled={true}
             showsVerticalScrollIndicator={false}
           >
             {displayedReviews.map((item, index) => (
@@ -223,7 +223,7 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
                 {index < displayedReviews.length - 1 && <View style={styles.reviewSeparator} />}
               </React.Fragment>
             ))}
-            
+
             {/* Show loading indicator when fetching more reviews */}
             {loadingMoreReviews && (
               <View style={styles.loadingMoreContainer}>
@@ -231,7 +231,7 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
                 <Text style={styles.loadingMoreText}>Loading more reviews...</Text>
               </View>
             )}
-            
+
             {/* Show load more button if more reviews are available on the server */}
             {hasMoreToLoad && !loadingMoreReviews && (
               <TouchableOpacity
@@ -242,14 +242,14 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
                 <Ionicons name="chevron-down" size={16} color="#f7b305" />
               </TouchableOpacity>
             )}
-            
+
             {/* Show a message when all reviews are loaded */}
             {!hasMoreToLoad && currentPage > 0 && sellerReviews.length >= 10 && (
               <View style={styles.allLoadedContainer}>
                 <Text style={styles.allLoadedText}>All reviews loaded</Text>
               </View>
             )}
-            
+
             {/* Show view all button to navigate to a dedicated reviews screen */}
             {hasMoreToShow && (
               <TouchableOpacity
@@ -263,7 +263,7 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
           </ScrollView>
         </View>
       </View>
-      
+
       {/* Review form modal */}
       <Modal
         visible={showReviewForm}
@@ -282,7 +282,7 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
                 <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
             </View>
-            
+
             <Text style={styles.ratingLabel}>Rating:</Text>
             <View style={styles.ratingSelector}>
               {[1, 2, 3, 4, 5].map((star) => (
@@ -291,15 +291,15 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
                   onPress={() => setReviewRating(star)}
                   style={styles.ratingStar}
                 >
-                  <Icon 
-                    name={star <= reviewRating ? "star" : "star-o"} 
-                    size={32} 
-                    color="#f7b305" 
+                  <Icon
+                    name={star <= reviewRating ? 'star' : 'star-o'}
+                    size={32}
+                    color="#f7b305"
                   />
                 </TouchableOpacity>
               ))}
             </View>
-            
+
             <Text style={styles.reviewCommentLabel}>Your Review:</Text>
             <TextInput
               style={styles.reviewCommentInput}
@@ -310,11 +310,11 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
               value={reviewComment}
               onChangeText={setReviewComment}
             />
-            
+
             <TouchableOpacity
               style={[
                 styles.submitReviewButton,
-                (!reviewComment.trim() || submittingReview) && styles.disabledButton
+                (!reviewComment.trim() || submittingReview) && styles.disabledButton,
               ]}
               onPress={handleSubmitReview}
               disabled={!reviewComment.trim() || submittingReview}
@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
   allLoadedText: {
     fontSize: 14,
     color: '#666',
-  }
+  },
 });
 
-export default React.memo(ReviewsSection); 
+export default React.memo(ReviewsSection);

@@ -16,7 +16,7 @@ import {
   Dimensions,
   Keyboard,
   RefreshControl,
-  AppState
+  AppState,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -28,7 +28,7 @@ import {
   subscribeToMessages,
   sendMessage,
   getOrCreateConversation,
-  getCurrentUser
+  getCurrentUser,
 } from '../../services/firebaseChatService';
 import { Message, ReceiptStatus, MessageStatus } from '../../types/chat.types';
 import { formatMessageTime, formatMessageDate, isSameDay } from '../../utils/timestamp';
@@ -47,10 +47,10 @@ const CONVERSATION_STORAGE_KEY_PREFIX = '@TruStudSel_conversation_';
 const FirebaseChatScreen = () => {
   const navigation = useNavigation<FirebaseChatScreenNavigationProp>();
   const route = useRoute<FirebaseChatScreenRouteProp>();
-  
+
   // Get parameters from navigation
   const { recipientEmail, recipientName } = route.params || {};
-  
+
   // States and refs
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
@@ -62,33 +62,33 @@ const FirebaseChatScreen = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [_keyboardVisible, setKeyboardVisible] = useState(false);
-  
+
   // Format the recipient name consistently
   const getFormattedRecipientName = useCallback(() => {
-    if (!recipientEmail) return recipientName || 'Chat';
-    
+    if (!recipientEmail) {return recipientName || 'Chat';}
+
     // If we have a specific recipientName provided and it's different from the email,
     // use it (this comes from the navigation params)
-    if (recipientName && 
-        recipientName !== recipientEmail && 
+    if (recipientName &&
+        recipientName !== recipientEmail &&
         recipientName !== recipientEmail.split('@')[0] &&
         recipientName !== currentUserEmail?.split('@')[0] &&  // Make sure it's not the current user
         recipientName.toLowerCase() !== currentUserEmail?.split('@')[0].toLowerCase()) {
       return recipientName;
     }
-    
+
     // Otherwise, format the email username part
     if (recipientEmail.includes('@')) {
       const username = recipientEmail.split('@')[0];
       return username.charAt(0).toUpperCase() + username.slice(1);
     }
-    
+
     return recipientName || recipientEmail;
   }, [recipientEmail, recipientName, currentUserEmail]);
-  
+
   // Calculate the proper display name once
   const displayName = getFormattedRecipientName();
-  
+
   // Refs for tracking animation and component state
   const isInitializedRef = useRef<boolean>(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -99,7 +99,7 @@ const FirebaseChatScreen = () => {
   const isMountedRef = useRef<boolean>(true);
   const shouldShowScrollButtonRef = useRef<boolean>(false);
   const previousMessagesRef = useRef<Message[]>([]);
-  
+
   // Generate avatar initials
   const getInitials = useCallback((name: string) => {
     return name
@@ -124,7 +124,7 @@ const FirebaseChatScreen = () => {
         }, 100);
       }
     );
-    
+
     const keyboardDidHideListener = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       () => {
@@ -137,7 +137,7 @@ const FirebaseChatScreen = () => {
       keyboardDidHideListener.remove();
     };
   }, [messages.length]);
-  
+
   // Set up component mount/unmount tracking
   useEffect(() => {
     isMountedRef.current = true;
@@ -150,8 +150,8 @@ const FirebaseChatScreen = () => {
   useLayoutEffect(() => {
     if (isMountedRef.current) {
       // Start with 1 opacity instead of animating from 0 to prevent invisibility
-      fadeAnim.setValue(1); 
-      
+      fadeAnim.setValue(1);
+
       // Optional subtle fade in if desired
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -159,7 +159,7 @@ const FirebaseChatScreen = () => {
         useNativeDriver: true,
       }).start();
     }
-    
+
     return () => {
       // Make sure animations are stopped on unmount
       fadeAnim.stopAnimation();
@@ -169,23 +169,23 @@ const FirebaseChatScreen = () => {
 
   // Handle scroll events with improved animation safety
   const handleScroll = useCallback((event: any) => {
-    if (!isMountedRef.current) return;
-    
+    if (!isMountedRef.current) {return;}
+
     const offsetY = event.nativeEvent.contentOffset.y;
     const contentHeight = event.nativeEvent.contentSize.height;
     const layoutHeight = event.nativeEvent.layoutMeasurement.height;
-    
+
     // Show scroll button when not at bottom and have enough content
     const isAtBottom = offsetY >= contentHeight - layoutHeight - 100;
     const hasEnoughContent = contentHeight > layoutHeight * 1.5;
-    
+
     // Only update state and animate when there's an actual change needed
     const shouldShowButton = !isAtBottom && hasEnoughContent;
-    
+
     // Store current state in ref to avoid issues during unmount
     if (shouldShowButton !== shouldShowScrollButtonRef.current) {
       shouldShowScrollButtonRef.current = shouldShowButton;
-      
+
       if (shouldShowButton) {
         // First update state, then animate - but check if still mounted
         if (isMountedRef.current) {
@@ -227,10 +227,10 @@ const FirebaseChatScreen = () => {
         messageSubscriptionRef.current.unsubscribe();
         messageSubscriptionRef.current = null;
       }
-      
+
       // Reset state ref
       isMountedRef.current = false;
-      
+
       // Cancel any animations
       fadeAnim.stopAnimation();
       scrollButtonAnim.stopAnimation();
@@ -242,14 +242,14 @@ const FirebaseChatScreen = () => {
     try {
       const storageKey = `${MESSAGES_STORAGE_KEY_PREFIX}${conversationId}`;
       const cachedData = await AsyncStorage.getItem(storageKey);
-      
+
       if (cachedData) {
         const { messages, timestamp } = JSON.parse(cachedData);
         const cacheAge = new Date().getTime() - new Date(timestamp).getTime();
         const cacheAgeMinutes = cacheAge / (1000 * 60);
-        
+
         console.log(`[AsyncStorage] Found cached messages (${messages.length}) from ${cacheAgeMinutes.toFixed(1)} minutes ago`);
-        
+
         // Always use fresh data for better real-time experience
         // This ensures we don't miss any messages and app stays responsive
         console.log('[AsyncStorage] Cache exists, but fetching fresh data for real-time updates');
@@ -273,7 +273,7 @@ const FirebaseChatScreen = () => {
         // Only include updatedAt if it exists and is valid
         updatedAt: message.updatedAt || undefined,
         // Only include readAt if it exists and is valid
-        readAt: message.readAt || undefined
+        readAt: message.readAt || undefined,
       };
     });
   }, []);
@@ -284,7 +284,7 @@ const FirebaseChatScreen = () => {
       const storageKey = `${MESSAGES_STORAGE_KEY_PREFIX}${conversationId}`;
       // Process messages to ensure valid timestamps
       const processedMessages = processMessagesForCache(messages);
-      
+
       const dataToStore = JSON.stringify({
         messages: processedMessages,
         timestamp: new Date().toISOString(),
@@ -300,15 +300,15 @@ const FirebaseChatScreen = () => {
   // Subscribe to new messages with improved handling for real-time updates
   const subscribeToNewMessages = useCallback((conversationId: string) => {
     console.log(`[FirebaseChatScreen] Setting up message subscription for conversation ${conversationId}`);
-    
+
     // Store previous messages in a ref to avoid dependency issues
     const subscription = subscribeToMessages(conversationId, (updatedMessages) => {
       console.log('[FirebaseChatScreen] Received updated messages:', updatedMessages.length);
-      
+
       if (updatedMessages && updatedMessages.length > 0) {
         // Compare with previous messages to avoid unnecessary updates
         const prevMessages = previousMessagesRef.current;
-        
+
         // Check if there are actually changes worth updating
         const hasNewMessages = updatedMessages.length > prevMessages.length;
         const newMessageExists = updatedMessages.some(
@@ -316,23 +316,23 @@ const FirebaseChatScreen = () => {
         );
         const hasChangedMessages = updatedMessages.some((newMsg) => {
           const existingMsg = prevMessages.find(msg => msg.id === newMsg.id);
-          return existingMsg && 
-                 (existingMsg.content !== newMsg.content || 
-                  existingMsg.status !== newMsg.status || 
+          return existingMsg &&
+                 (existingMsg.content !== newMsg.content ||
+                  existingMsg.status !== newMsg.status ||
                   existingMsg.receiptStatus !== newMsg.receiptStatus);
         });
-        
+
         // Only update state if we have actual changes
         if (hasNewMessages || newMessageExists || hasChangedMessages) {
           console.log('[FirebaseChatScreen] Detected message changes, updating UI');
           setMessages(updatedMessages);
           previousMessagesRef.current = [...updatedMessages];
-          
+
           // Cache in the background without blocking UI updates - only when needed
           setTimeout(() => {
             cacheMessages(conversationId, updatedMessages);
           }, 0);
-          
+
           // Scroll to bottom on new messages if there are additions
           if (hasNewMessages || newMessageExists) {
             setTimeout(() => {
@@ -350,9 +350,9 @@ const FirebaseChatScreen = () => {
         previousMessagesRef.current = [];
       }
     });
-    
+
     messageSubscriptionRef.current = subscription;
-    
+
     // Return cleanup function
     return () => {
       console.log(`[FirebaseChatScreen] Cleaning up message subscription for ${conversationId}`);
@@ -365,8 +365,8 @@ const FirebaseChatScreen = () => {
 
   // Cache conversation data
   const cacheConversation = useCallback(async (conversation: any) => {
-    if (!conversation?.id) return;
-    
+    if (!conversation?.id) {return;}
+
     try {
       const storageKey = `${CONVERSATION_STORAGE_KEY_PREFIX}${conversation.id}`;
       await AsyncStorage.setItem(storageKey, JSON.stringify({
@@ -385,7 +385,7 @@ const FirebaseChatScreen = () => {
       // We'll scan for a conversation that contains this recipient
       const keys = await AsyncStorage.getAllKeys();
       const conversationKeys = keys.filter(k => k.startsWith(CONVERSATION_STORAGE_KEY_PREFIX));
-      
+
       for (const key of conversationKeys) {
         const data = await AsyncStorage.getItem(key);
         if (data) {
@@ -393,7 +393,7 @@ const FirebaseChatScreen = () => {
           if (conversation.participants?.includes(recipientEmail)) {
             const cacheAge = new Date().getTime() - new Date(timestamp).getTime();
             const cacheAgeMinutes = cacheAge / (1000 * 60);
-            
+
             // Only use cache if it's less than 1 hour old
             if (cacheAgeMinutes < 60) {
               return conversation;
@@ -419,38 +419,38 @@ const FirebaseChatScreen = () => {
     if (isInitializedRef.current && conversationId) {
       return;
     }
-    
+
     // Track mounted state locally within this effect
     let effectMounted = true;
-    
+
     const initializeChat = async () => {
       try {
-        if (!effectMounted || !isMountedRef.current) return;
-        
+        if (!effectMounted || !isMountedRef.current) {return;}
+
         setIsLoading(true);
-        
+
         // Get current user
         const user = await getCurrentUser();
         if (!user || !user.email) {
-          if (!effectMounted || !isMountedRef.current) return;
+          if (!effectMounted || !isMountedRef.current) {return;}
           Alert.alert('Error', 'You must be logged in to chat.');
           navigation.goBack();
           return;
         }
-        
-        if (!effectMounted || !isMountedRef.current) return;
+
+        if (!effectMounted || !isMountedRef.current) {return;}
         setCurrentUserEmail(user.email);
-        
+
         // Format current user's name
-        const formattedCurrentUserName = user.name || 
-          (user.email.includes('@') ? 
-            user.email.split('@')[0].charAt(0).toUpperCase() + user.email.split('@')[0].slice(1) : 
+        const formattedCurrentUserName = user.name ||
+          (user.email.includes('@') ?
+            user.email.split('@')[0].charAt(0).toUpperCase() + user.email.split('@')[0].slice(1) :
             user.email);
         setCurrentUserName(formattedCurrentUserName);
-        
+
         // Create or get existing conversation
         if (!recipientEmail) {
-          if (!effectMounted || !isMountedRef.current) return;
+          if (!effectMounted || !isMountedRef.current) {return;}
           Alert.alert('Error', 'Recipient email is required.');
           navigation.goBack();
           return;
@@ -464,18 +464,18 @@ const FirebaseChatScreen = () => {
         } else {
           otherUserFormattedName = recipientName || recipientEmail;
         }
-        
+
         // Set the properly formatted name for the other user
-        if (!effectMounted || !isMountedRef.current) return;
+        if (!effectMounted || !isMountedRef.current) {return;}
         setOtherUserName(otherUserFormattedName);
-        
+
         let conversation;
         let usingCachedConversation = false;
-        
+
         // Try to get cached conversation first for faster load
         try {
           const cachedConversation = await loadCachedConversation(recipientEmail);
-          
+
           if (cachedConversation) {
             console.log('[AsyncStorage] Using cached conversation');
             conversation = cachedConversation;
@@ -484,7 +484,7 @@ const FirebaseChatScreen = () => {
         } catch (cacheError) {
           console.error('[AsyncStorage] Error loading cached conversation:', cacheError);
         }
-        
+
         // If no valid cached conversation, create or get one from Firebase
         if (!conversation) {
           try {
@@ -493,60 +493,60 @@ const FirebaseChatScreen = () => {
               recipientEmail,
               displayName
             );
-            
+
             // Cache the conversation for future use
             cacheConversation(conversation);
           } catch (convError) {
             console.error('[FirebaseChatScreen] Error creating/getting conversation:', convError);
-            
-            if (!effectMounted || !isMountedRef.current) return;
+
+            if (!effectMounted || !isMountedRef.current) {return;}
             Alert.alert('Error', 'Failed to start conversation. Please try again.');
             navigation.goBack();
             return;
           }
         }
-        
+
         // Check for user-specific name mapping in the conversation
         const nameKey = `name_${user.email.replace(/[.@]/g, '_')}`;
         if (conversation[nameKey]) {
-          if (!effectMounted || !isMountedRef.current) return;
+          if (!effectMounted || !isMountedRef.current) {return;}
           setOtherUserName(conversation[nameKey]);
         }
-        
-        if (!effectMounted || !isMountedRef.current) return;
+
+        if (!effectMounted || !isMountedRef.current) {return;}
         setConversationId(conversation.id);
-        
+
         // Load messages with verification for cached conversations
         try {
           let initialMessages: Message[] = [];
           let cachedMessages = null;
-          
+
           // Only try to load cached messages if we're using a valid cached conversation
           if (usingCachedConversation) {
             cachedMessages = await loadCachedMessages(conversation.id);
           }
-          
+
           if (cachedMessages && cachedMessages.length > 0) {
             // Use cached messages for immediate display
             initialMessages = cachedMessages;
-            
-            if (!effectMounted || !isMountedRef.current) return;
+
+            if (!effectMounted || !isMountedRef.current) {return;}
             setMessages(initialMessages);
-            
+
             // Mark as initialized to prevent re-initialization
             isInitializedRef.current = true;
-            
+
             // We can set loading to false early since we have cached data
             setIsLoading(false);
-            
+
             // Verify cached conversation still exists by fetching fresh messages
             try {
               const freshMessages = await getMessages(conversation.id);
-              
+
               if (freshMessages.length >= 0) {
                 // Conversation still valid
-                if (effectMounted && isMountedRef.current && 
-                    (freshMessages.length !== initialMessages.length || 
+                if (effectMounted && isMountedRef.current &&
+                    (freshMessages.length !== initialMessages.length ||
                     JSON.stringify(freshMessages) !== JSON.stringify(initialMessages))) {
                   setMessages(freshMessages);
                   cacheMessages(conversation.id, freshMessages);
@@ -556,36 +556,36 @@ const FirebaseChatScreen = () => {
               // Handle case where cached conversation no longer exists
               if (verifyError?.message?.includes('Conversation not found')) {
                 console.log('[FirebaseChatScreen] Cached conversation no longer exists, recreating...');
-                
+
                 // Clear cached conversation and messages
                 const conversationKey = `${CONVERSATION_STORAGE_KEY_PREFIX}${conversation.id}`;
                 const messagesKey = `${MESSAGES_STORAGE_KEY_PREFIX}${conversation.id}`;
-                
+
                 await AsyncStorage.removeItem(conversationKey);
                 await AsyncStorage.removeItem(messagesKey);
-                
+
                 // Create a new conversation
                 const newConversation = await getOrCreateConversation(
                   recipientEmail,
                   displayName
                 );
-                
+
                 // Update state with new conversation
                 if (effectMounted && isMountedRef.current) {
                   setConversationId(newConversation.id);
                   setMessages([]);
                   cacheConversation(newConversation);
-                  
+
                   // Reset subscription with new conversation ID
                   if (messageSubscriptionRef.current) {
                     console.log('[FirebaseChatScreen] Unsubscribing from previous conversation before resubscribing');
                     messageSubscriptionRef.current.unsubscribe();
                     messageSubscriptionRef.current = null;
                   }
-                  
+
                   // Clear the previous messages ref before resubscribing
                   previousMessagesRef.current = [];
-                  
+
                   subscribeToNewMessages(newConversation.id);
                 }
               } else {
@@ -596,46 +596,46 @@ const FirebaseChatScreen = () => {
             // No cached messages or invalid cache, fetch from Firebase
             try {
               initialMessages = await getMessages(conversation.id);
-              
-              if (!effectMounted || !isMountedRef.current) return;
+
+              if (!effectMounted || !isMountedRef.current) {return;}
               setMessages(initialMessages);
-              
+
               // Cache the messages
               cacheMessages(conversation.id, initialMessages);
             } catch (loadError: any) {
               // Handle case where conversation doesn't exist
               if (loadError?.message?.includes('Conversation not found')) {
                 console.log('[FirebaseChatScreen] Conversation not found, recreating...');
-                
+
                 // Clear any cached data
                 const conversationKey = `${CONVERSATION_STORAGE_KEY_PREFIX}${conversation.id}`;
                 const messagesKey = `${MESSAGES_STORAGE_KEY_PREFIX}${conversation.id}`;
-                
+
                 await AsyncStorage.removeItem(conversationKey);
                 await AsyncStorage.removeItem(messagesKey);
-                
+
                 // Create a new conversation
                 const newConversation = await getOrCreateConversation(
                   recipientEmail,
                   displayName
                 );
-                
+
                 // Update state with new conversation
                 if (effectMounted && isMountedRef.current) {
                   setConversationId(newConversation.id);
                   setMessages([]);
                   cacheConversation(newConversation);
-                  
+
                   // Reset subscription with new conversation ID
                   if (messageSubscriptionRef.current) {
                     console.log('[FirebaseChatScreen] Unsubscribing from previous conversation before resubscribing');
                     messageSubscriptionRef.current.unsubscribe();
                     messageSubscriptionRef.current = null;
                   }
-                  
+
                   // Clear the previous messages ref before resubscribing
                   previousMessagesRef.current = [];
-                  
+
                   subscribeToNewMessages(newConversation.id);
                 }
               } else {
@@ -651,22 +651,22 @@ const FirebaseChatScreen = () => {
           }
           return;
         }
-        
+
         // Subscribe to new messages
         if (effectMounted && isMountedRef.current && conversation?.id) {
           // Set initial values for comparison in the subscription
           if (messages.length > 0) {
             previousMessagesRef.current = [...messages];
           }
-          
+
           subscribeToNewMessages(conversation.id);
-          
+
           // Mark as initialized to prevent re-initialization
           isInitializedRef.current = true;
         }
 
       } catch (error) {
-        if (!effectMounted || !isMountedRef.current) return;
+        if (!effectMounted || !isMountedRef.current) {return;}
         console.error('Error initializing chat:', error);
         Alert.alert('Error', 'Failed to initialize chat. Please try again.');
       } finally {
@@ -675,31 +675,31 @@ const FirebaseChatScreen = () => {
         }
       }
     };
-    
+
     initializeChat();
-    
+
     // Cleanup
     return () => {
       effectMounted = false;
-      
+
       // Don't unsubscribe from messages here - we do that in component unmount
     };
   }, [recipientEmail, recipientName, navigation, subscribeToNewMessages, displayName, conversationId, loadCachedMessages, cacheMessages, loadCachedConversation, cacheConversation, messages]);
 
   // Send a message - premium style with AsyncStorage
   const handleSendMessage = useCallback(async () => {
-    if (!inputText.trim() || !conversationId) return;
-    
+    if (!inputText.trim() || !conversationId) {return;}
+
     try {
       // Store message content before clearing
       const messageContent = inputText.trim();
-      
+
       // Clear input immediately for responsive feel
       setInputText('');
-      
+
       // Generate a unique ID for this message
       const tempId = `temp-${Date.now()}`;
-      
+
       // Optimistic update - add message locally immediately
       const tempMessage: Message = {
         id: tempId,
@@ -711,87 +711,87 @@ const FirebaseChatScreen = () => {
         receiptStatus: ReceiptStatus.SENT,
         createdAt: new Date().toISOString(),
       };
-      
+
       // Add to UI immediately
       const updatedMessages = [...messages, tempMessage];
       setMessages(updatedMessages);
-      
+
       // Update cache immediately for offline access
       cacheMessages(conversationId, updatedMessages);
-      
+
       // Scroll to bottom immediately
       setTimeout(() => {
         if (flatListRef.current) {
           flatListRef.current.scrollToEnd({ animated: true });
         }
       }, 10);
-      
+
       // Send in background without showing any loading state
       try {
         await sendMessage(conversationId, messageContent);
       } catch (error: any) {
         console.error('Error sending message:', error);
-        
+
         // Handle "Conversation not found" error specifically
         if (error?.message?.includes('Conversation not found')) {
           console.log('Conversation not found in database. Clearing cache and recreating conversation...');
-          
+
           // Clear cached conversation and messages
           try {
             const conversationKey = `${CONVERSATION_STORAGE_KEY_PREFIX}${conversationId}`;
             const messagesKey = `${MESSAGES_STORAGE_KEY_PREFIX}${conversationId}`;
-            
+
             await AsyncStorage.removeItem(conversationKey);
             await AsyncStorage.removeItem(messagesKey);
-            
+
             // Create a new conversation
             if (recipientEmail) {
               const newConversation = await getOrCreateConversation(
                 recipientEmail,
                 displayName
               );
-              
+
               // Update conversation ID
               setConversationId(newConversation.id);
-              
+
               // Cache the new conversation
               cacheConversation(newConversation);
-              
+
               // Now try to send the message again with the new conversation ID
               await sendMessage(newConversation.id, messageContent);
-              
+
               // Update temporary message with new conversation ID
               const updatedMessagesWithNewConvId = updatedMessages.map(msg => {
                 if (msg.id === tempId) {
                   return {
                     ...msg,
-                    conversationId: newConversation.id
+                    conversationId: newConversation.id,
                   };
                 }
                 return msg;
               });
-              
+
               setMessages(updatedMessagesWithNewConvId);
               cacheMessages(newConversation.id, updatedMessagesWithNewConvId);
-              
+
               // Subscribe to new messages with the new conversation ID
               if (messageSubscriptionRef.current) {
                 console.log('[FirebaseChatScreen] Unsubscribing from previous conversation before resubscribing');
                 messageSubscriptionRef.current.unsubscribe();
                 messageSubscriptionRef.current = null;
               }
-              
+
               // Clear the previous messages ref before resubscribing
               previousMessagesRef.current = [];
-              
+
               subscribeToNewMessages(newConversation.id);
-              
+
               console.log('Successfully recreated conversation and sent message');
             }
           } catch (cleanupError) {
             console.error('Error clearing cache and recreating conversation:', cleanupError);
             Alert.alert(
-              'Error', 
+              'Error',
               'Failed to send message. Please try again later.'
             );
           }
@@ -803,37 +803,37 @@ const FirebaseChatScreen = () => {
           );
         }
       }
-      
+
     } catch (error) {
       console.error('Error in message sending flow:', error);
       Alert.alert('Error', 'Failed to send message. Please try again.');
     }
-  }, [inputText, conversationId, currentUserEmail, _currentUserName, messages, cacheMessages, 
+  }, [inputText, conversationId, currentUserEmail, _currentUserName, messages, cacheMessages,
       recipientEmail, displayName, cacheConversation, subscribeToNewMessages]);
-  
+
   // Scroll to bottom
   const scrollToBottom = useCallback(() => {
     if (flatListRef.current) {
       flatListRef.current.scrollToEnd({ animated: true });
     }
   }, []);
-  
+
   // Determine if we should show date header
   const shouldShowDateHeader = useCallback((index: number) => {
-    if (index === 0) return true;
-    
+    if (index === 0) {return true;}
+
     const currentMessageDate = new Date(messages[index].createdAt);
     const previousMessageDate = new Date(messages[index - 1].createdAt);
-    
+
     return !isSameDay(currentMessageDate, previousMessageDate);
   }, [messages]);
-  
+
   // Render a message bubble
   const renderMessage = useCallback(({ item, index }: { item: Message; index: number }) => {
     const isCurrentUser = item.senderId === currentUserEmail;
     const messageTime = formatMessageTime(item.createdAt);
     const showDateHeader = shouldShowDateHeader(index);
-    
+
     return (
       <>
         {showDateHeader && (
@@ -856,7 +856,7 @@ const FirebaseChatScreen = () => {
               </Text>
             </View>
           )}
-          
+
           <View
             style={[
               styles.messageBubble,
@@ -864,11 +864,11 @@ const FirebaseChatScreen = () => {
             ]}
           >
             <Text style={styles.messageText}>
-              {item.content || ""}
+              {item.content || ''}
             </Text>
             <View style={styles.messageFooter}>
               <Text style={styles.messageTime}>{messageTime}</Text>
-              
+
               {isCurrentUser && (
                 <View style={styles.receiptStatus}>
                   {item.receiptStatus === ReceiptStatus.READ ? (
@@ -886,10 +886,10 @@ const FirebaseChatScreen = () => {
       </>
     );
   }, [currentUserEmail, otherUserName, displayName, getInitials, shouldShowDateHeader]);
-  
+
   // Key extractor for FlatList
   const keyExtractor = useCallback((item: Message) => item.id, []);
-  
+
   // Get item layout for FlatList optimization
   const getItemLayout = useCallback(
     (data: ArrayLike<Message> | null | undefined, index: number) => ({
@@ -904,14 +904,14 @@ const FirebaseChatScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRefresh = useCallback(async () => {
-    if (!conversationId) return;
-    
+    if (!conversationId) {return;}
+
     setRefreshing(true);
     try {
       console.log('[FirebaseChatScreen] Manually refreshing messages');
       // Force fetch new messages from Firebase
       const freshMessages = await getMessages(conversationId);
-      
+
       if (freshMessages.length > 0) {
         setMessages(freshMessages);
         // Update cache with latest messages
@@ -929,17 +929,17 @@ const FirebaseChatScreen = () => {
     // Add app state change listeners to optimize subscriptions
     const handleAppStateChange = (nextAppState: string) => {
       console.log('[FirebaseChatScreen] App state changed:', nextAppState);
-      
+
       // When app comes to foreground, refresh messages to ensure we have latest data
       if (nextAppState === 'active' && conversationId && isInitializedRef.current) {
         console.log('[FirebaseChatScreen] App became active, refreshing messages');
         handleRefresh();
       }
     };
-    
+
     // Add app state change listener
     const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
-    
+
     return () => {
       // Clean up app state change listener
       appStateSubscription.remove();
@@ -987,15 +987,15 @@ const FirebaseChatScreen = () => {
       />
     );
   }, [
-    messages, 
-    renderMessage, 
-    keyExtractor, 
-    handleScroll, 
-    getItemLayout, 
-    currentUserEmail, 
+    messages,
+    renderMessage,
+    keyExtractor,
+    handleScroll,
+    getItemLayout,
+    currentUserEmail,
     otherUserName,
     refreshing,
-    handleRefresh
+    handleRefresh,
   ]);
 
   // Input area component memoized
@@ -1029,19 +1029,19 @@ const FirebaseChatScreen = () => {
             returnKeyType="default"
             blurOnSubmit={false}
           />
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
-              styles.sendButton, 
-              !inputText.trim() && styles.sendButtonDisabled
+              styles.sendButton,
+              !inputText.trim() && styles.sendButtonDisabled,
             ]}
             onPress={handleSendMessage}
             disabled={!inputText.trim()}
             activeOpacity={0.7}
           >
-            <Icon 
-              name="send" 
-              size={Platform.OS === 'android' ? 22 : 24} 
-              color={inputText.trim() ? (Platform.OS === 'android' ? "#fff" : "#ffb300") : "#ccc"} 
+            <Icon
+              name="send"
+              size={Platform.OS === 'android' ? 22 : 24}
+              color={inputText.trim() ? (Platform.OS === 'android' ? '#fff' : '#ffb300') : '#ccc'}
             />
           </TouchableOpacity>
         </View>
@@ -1060,34 +1060,34 @@ const FirebaseChatScreen = () => {
         </View>
       );
     }
-    
+
     return (
       <>
         {/* Message List with optimized rendering */}
-        <Animated.View 
+        <Animated.View
           style={[
-            styles.messagesContainer, 
+            styles.messagesContainer,
             // Set opacity to 1 to ensure messages are always visible
-            { opacity: 1 }
+            { opacity: 1 },
           ]}
           collapsable={false}
         >
           {MessagesList}
-          
+
           {/* Scroll to bottom button */}
           {showScrollButton && (
-            <Animated.View 
+            <Animated.View
               style={[
-                styles.scrollToBottomButton, 
-                { 
+                styles.scrollToBottomButton,
+                {
                   opacity: scrollButtonAnim,
-                  transform: [{ 
+                  transform: [{
                     scale: scrollButtonAnim.interpolate({
                       inputRange: [0, 1],
-                      outputRange: [0.5, 1]
-                    }) 
-                  }]
-                }
+                      outputRange: [0.5, 1],
+                    }),
+                  }],
+                },
               ]}
               collapsable={false}
             >
@@ -1100,40 +1100,40 @@ const FirebaseChatScreen = () => {
             </Animated.View>
           )}
         </Animated.View>
-        
+
         {/* Enhanced Input Area */}
         {ChatInputArea}
       </>
     );
   }, [isLoading, MessagesList, showScrollButton, scrollButtonAnim, scrollToBottom, ChatInputArea]);
-  
+
   // Clear all conversation and message cache
   const clearAllConversationCache = useCallback(async () => {
     try {
       console.log('[FirebaseChatScreen] Clearing all conversation and message cache');
-      
+
       // Get all keys from AsyncStorage
       const keys = await AsyncStorage.getAllKeys();
-      
+
       // Filter for conversation and message keys
-      const conversationKeys = keys.filter(k => 
-        k.startsWith(CONVERSATION_STORAGE_KEY_PREFIX) || 
+      const conversationKeys = keys.filter(k =>
+        k.startsWith(CONVERSATION_STORAGE_KEY_PREFIX) ||
         k.startsWith(MESSAGES_STORAGE_KEY_PREFIX)
       );
-      
+
       if (conversationKeys.length > 0) {
         // Remove all matching keys
         await AsyncStorage.multiRemove(conversationKeys);
         console.log(`[FirebaseChatScreen] Cleared ${conversationKeys.length} cached items`);
       }
-      
+
       return true;
     } catch (error) {
       console.error('[FirebaseChatScreen] Error clearing conversation cache:', error);
       return false;
     }
   }, []);
-  
+
   // Update the error handler in handleSendMessage to call this function when appropriate
   useEffect(() => {
     // Add event listener for database reset detection
@@ -1145,43 +1145,43 @@ const FirebaseChatScreen = () => {
           .catch(err => console.error('[FirebaseChatScreen] Failed to clear cache:', err));
       }
     };
-    
+
     // Subscribe to conversation errors (in a real app, this would be a proper event system)
     const errorListener = { current: handleDatabaseReset };
-    
+
     return () => {
       // Clean up listener in a real event system
       errorListener.current = () => {};
     };
   }, [clearAllConversationCache]);
-  
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar 
-        barStyle={Platform.OS === 'android' ? "dark-content" : "dark-content"} 
-        backgroundColor={Platform.OS === 'android' ? "#f7b305" : "#fff"} 
+      <StatusBar
+        barStyle={Platform.OS === 'android' ? 'dark-content' : 'dark-content'}
+        backgroundColor={Platform.OS === 'android' ? '#f7b305' : '#fff'}
       />
-      
+
       {/* Enhanced Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <TouchableOpacity 
-            onPress={() => navigation.goBack()} 
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
             style={styles.backButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Icon name="arrow-back" size={24} color={Platform.OS === 'android' ? "#333" : "#000"} />
+            <Icon name="arrow-back" size={24} color={Platform.OS === 'android' ? '#333' : '#000'} />
           </TouchableOpacity>
         </View>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={styles.headerCenter}
           activeOpacity={0.7}
           onPress={() => {
             try {
               // Navigate to user profile using the recipient email
-              (navigation as any).navigate('Profile', { 
-                sellerEmail: recipientEmail 
+              (navigation as any).navigate('Profile', {
+                sellerEmail: recipientEmail,
               });
             } catch (error) {
               console.error('Navigation error when viewing profile:', error);
@@ -1202,16 +1202,16 @@ const FirebaseChatScreen = () => {
             )}
           </View>
         </TouchableOpacity>
-        
+
         <View style={styles.headerRight}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.profileButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             onPress={() => {
               try {
                 // Navigate to user profile using the recipient email
-                (navigation as any).navigate('Profile', { 
-                  sellerEmail: recipientEmail 
+                (navigation as any).navigate('Profile', {
+                  sellerEmail: recipientEmail,
                 });
               } catch (error) {
                 console.error('Navigation error when viewing profile:', error);
@@ -1222,7 +1222,7 @@ const FirebaseChatScreen = () => {
           </TouchableOpacity>
         </View>
       </View>
-      
+
       {renderContent()}
     </SafeAreaView>
   );
@@ -1261,7 +1261,7 @@ const styles = StyleSheet.create({
         shadowRadius: 3,
       },
       android: {
-        elevation: 4, 
+        elevation: 4,
         paddingTop: 40,
         paddingBottom: 15,
         backgroundColor: '#f7b305',
@@ -1355,7 +1355,7 @@ const styles = StyleSheet.create({
     ...Platform.select({
       android: {
         backgroundColor: '#f9f9f9',
-      }
+      },
     }),
   },
   messageList: {
@@ -1438,7 +1438,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         elevation: 0,
         borderWidth: 0,
-      }
+      },
     }),
   },
   messageText: {
@@ -1506,7 +1506,7 @@ const styles = StyleSheet.create({
         elevation: 4,
         shadowColor: 'transparent',
         alignItems: 'center',
-      }
+      },
     }),
     alignItems: 'flex-end',
   },
@@ -1532,7 +1532,7 @@ const styles = StyleSheet.create({
         borderRadius: 25,
         height: 48,
         paddingHorizontal: 18,
-      }
+      },
     }),
   },
   sendButton: {
@@ -1555,7 +1555,7 @@ const styles = StyleSheet.create({
         borderRadius: 25,
         marginLeft: 8,
         shadowColor: 'transparent',
-      }
+      },
     }),
   },
   sendButtonDisabled: {
@@ -1566,7 +1566,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(247, 179, 5, 0.5)',
         opacity: 0.8,
         elevation: 0,
-      }
+      },
     }),
   },
   // Empty state
@@ -1631,4 +1631,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default FirebaseChatScreen; 
+export default FirebaseChatScreen;

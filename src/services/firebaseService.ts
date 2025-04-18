@@ -5,12 +5,12 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 // Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyAYRBEbZO-bKlXdjckswIuqbXEgK-JR4m0",
-  authDomain: "trustudsel.firebaseapp.com",
-  projectId: "trustudsel",
-  storageBucket: "trustudsel.appspot.com",
-  messagingSenderId: "772246629586",
-  appId: "1:772246629586:web:8d2a8f9a0f53e5bdf975b5"
+  apiKey: 'AIzaSyAYRBEbZO-bKlXdjckswIuqbXEgK-JR4m0',
+  authDomain: 'trustudsel.firebaseapp.com',
+  projectId: 'trustudsel',
+  storageBucket: 'trustudsel.appspot.com',
+  messagingSenderId: '772246629586',
+  appId: '1:772246629586:web:8d2a8f9a0f53e5bdf975b5',
 };
 
 // Initialize Firebase
@@ -39,7 +39,7 @@ export const addUserToFirebase = async (
   try {
     // Create a document in the users collection with email as the document ID
     const userRef = doc(db, 'users', email);
-    
+
     // Prepare user data
     const userData = {
       email,
@@ -49,12 +49,12 @@ export const addUserToFirebase = async (
       updatedAt: serverTimestamp(),
       isOnline: true,
       lastSeen: serverTimestamp(),
-      ...additionalData
+      ...additionalData,
     };
-    
+
     // Add the user to Firestore
     await setDoc(userRef, userData);
-    
+
     console.log('[FirebaseService] User added successfully:', email);
     return;
   } catch (error) {
@@ -63,4 +63,4 @@ export const addUserToFirebase = async (
   }
 };
 
-export { app, db, auth }; 
+export { app, db, auth };

@@ -59,4 +59,4 @@ describe('ProfileScreen', () => {
     expect(getByText('User')).toBeTruthy(); // Should find the name
     expect(queryByText('test@example.com')).toBeTruthy(); // Should find the email
   });
-}); 
+});

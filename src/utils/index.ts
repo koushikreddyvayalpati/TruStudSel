@@ -17,4 +17,4 @@ export default {
   validation: validationUtils,
   storage: storageUtils,
   filter: filterUtils,
-}; 
+};

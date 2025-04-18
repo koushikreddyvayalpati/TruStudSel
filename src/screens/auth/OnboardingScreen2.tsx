@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  Image, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
   Dimensions,
-  SafeAreaView
+  SafeAreaView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Onboarding2ScreenNavigationProp } from '../../types/navigation.types';
@@ -20,7 +20,7 @@ interface OnboardingScreen2Props {
 
 const OnboardingScreen2: React.FC<OnboardingScreen2Props> = ({ navigation }) => {
   const { theme } = useTheme();
-  
+
   // Mark that user has seen onboarding
   useEffect(() => {
     const markAsSeen = async () => {
@@ -31,10 +31,10 @@ const OnboardingScreen2: React.FC<OnboardingScreen2Props> = ({ navigation }) => 
         console.error('Error saving onboarding status:', error);
       }
     };
-    
+
     markAsSeen();
   }, []);
-  
+
   const handleSkip = async () => {
     try {
       // If user skips, mark as having seen onboarding
@@ -46,15 +46,15 @@ const OnboardingScreen2: React.FC<OnboardingScreen2Props> = ({ navigation }) => 
       navigation.navigate('SignIn');
     }
   };
-  
+
   const handleNext = async () => {
     navigation.navigate('Onboarding3');
   };
-  
+
   const handleBack = async () => {
     navigation.navigate('Onboarding');
   };
-  
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.header}>
@@ -63,37 +63,37 @@ const OnboardingScreen2: React.FC<OnboardingScreen2Props> = ({ navigation }) => 
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
       </View>
-      
+
       <View style={styles.imageContainer}>
-        <Image 
-          source={require('../../../assets/image.jpg')} 
+        <Image
+          source={require('../../../assets/image.jpg')}
           style={styles.image}
           resizeMode="contain"
         />
       </View>
-      
+
       <View style={styles.contentContainer}>
         <Text style={styles.title}>Instant Chat</Text>
         <Text style={styles.description}>
           Message the seller directly from product listing and get the best price for your product
         </Text>
       </View>
-      
+
       <View style={styles.footer}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.backButton]}
           onPress={handleBack}
         >
           <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
-        
+
         <View style={styles.paginationDots}>
           <View style={styles.dot} />
           <View style={[styles.dot, styles.activeDot]} />
           <View style={styles.dot} />
         </View>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={[styles.nextButton]}
           onPress={handleNext}
         >
@@ -200,4 +200,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default OnboardingScreen2; 
+export default OnboardingScreen2;

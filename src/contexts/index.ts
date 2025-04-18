@@ -16,4 +16,4 @@ export type { CartContextType, CartItem } from './CartContext';
 export type { MessagingContextType, Message, Conversation, ConversationWithUser } from './MessagingContext';
 
 // Export other context providers as they are created
-// export { ProductProvider, useProducts } from './ProductContext'; 
+// export { ProductProvider, useProducts } from './ProductContext';

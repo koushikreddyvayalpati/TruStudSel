@@ -84,7 +84,7 @@ const createTextStyles = (colors: typeof lightColors) => ({
     fontWeight: fontWeight.bold,
     color: colors.text,
   } as TextStyle,
-  
+
   h2: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize['3xl'],
@@ -92,7 +92,7 @@ const createTextStyles = (colors: typeof lightColors) => ({
     fontWeight: fontWeight.bold,
     color: colors.text,
   } as TextStyle,
-  
+
   h3: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize['2xl'],
@@ -100,7 +100,7 @@ const createTextStyles = (colors: typeof lightColors) => ({
     fontWeight: fontWeight.bold,
     color: colors.text,
   } as TextStyle,
-  
+
   h4: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.xl,
@@ -108,7 +108,7 @@ const createTextStyles = (colors: typeof lightColors) => ({
     fontWeight: fontWeight.semiBold,
     color: colors.text,
   } as TextStyle,
-  
+
   h5: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.lg,
@@ -116,7 +116,7 @@ const createTextStyles = (colors: typeof lightColors) => ({
     fontWeight: fontWeight.semiBold,
     color: colors.text,
   } as TextStyle,
-  
+
   // Body text
   body1: {
     fontFamily: fontFamily.regular,
@@ -125,7 +125,7 @@ const createTextStyles = (colors: typeof lightColors) => ({
     fontWeight: fontWeight.normal,
     color: colors.text,
   } as TextStyle,
-  
+
   body2: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
@@ -133,7 +133,7 @@ const createTextStyles = (colors: typeof lightColors) => ({
     fontWeight: fontWeight.normal,
     color: colors.textSecondary,
   } as TextStyle,
-  
+
   // Button text
   button: {
     fontFamily: fontFamily.medium,
@@ -141,7 +141,7 @@ const createTextStyles = (colors: typeof lightColors) => ({
     fontWeight: fontWeight.medium,
     color: colors.buttonText,
   } as TextStyle,
-  
+
   // Caption text
   caption: {
     fontFamily: fontFamily.regular,
@@ -150,7 +150,7 @@ const createTextStyles = (colors: typeof lightColors) => ({
     fontWeight: fontWeight.normal,
     color: colors.textSecondary,
   } as TextStyle,
-  
+
   // Label text
   label: {
     fontFamily: fontFamily.medium,
@@ -159,7 +159,7 @@ const createTextStyles = (colors: typeof lightColors) => ({
     fontWeight: fontWeight.medium,
     color: colors.text,
   } as TextStyle,
-  
+
   // Brand text (for logos, etc.)
   brand: {
     fontFamily: fontFamily.brandFont,
@@ -182,4 +182,4 @@ export default {
   createTextStyles,
   light: lightTextStyles,
   dark: darkTextStyles,
-}; 
+};

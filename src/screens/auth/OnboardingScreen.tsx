@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  Image, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
   Dimensions,
-  SafeAreaView
+  SafeAreaView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OnboardingScreenNavigationProp } from '../../types/navigation.types';
@@ -20,7 +20,7 @@ interface OnboardingScreenProps {
 
 const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }) => {
   const { theme } = useTheme();
-  
+
   // Mark that user has seen onboarding
   useEffect(() => {
     const markAsSeen = async () => {
@@ -31,10 +31,10 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }) => {
         console.error('Error saving onboarding status:', error);
       }
     };
-    
+
     markAsSeen();
   }, []);
-  
+
   const handleSkip = async () => {
     try {
       // If user skips, mark as having seen onboarding
@@ -46,11 +46,11 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }) => {
       navigation.navigate('SignIn');
     }
   };
-  
+
   const handleNext = async () => {
     navigation.navigate('Onboarding2');
   };
-  
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.header}>
@@ -59,15 +59,15 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }) => {
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
       </View>
-      
+
       <View style={styles.imageContainer}>
-        <Image 
-          source={require('../../../assets/pana.png')} 
+        <Image
+          source={require('../../../assets/pana.png')}
           style={styles.image}
           resizeMode="contain"
         />
       </View>
-      
+
       <View style={styles.contentContainer}>
         <Text style={styles.title}>Choose Products</Text>
         <Text style={styles.description}>
@@ -75,15 +75,15 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }) => {
           our TrueStudSelling
         </Text>
       </View>
-      
+
       <View style={styles.footer}>
         <View style={styles.paginationDots}>
           <View style={[styles.dot, styles.activeDot]} />
           <View style={styles.dot} />
           <View style={styles.dot} />
         </View>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={[styles.nextButton]}
           onPress={handleNext}
         >
@@ -181,4 +181,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default OnboardingScreen; 
+export default OnboardingScreen;

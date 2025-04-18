@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { 
-  View, 
-  Text, 
+import {
+  View,
+  Text,
   StyleSheet,
   TouchableOpacity,
   Image,
@@ -12,7 +12,7 @@ import {
   Platform,
   Alert,
   Dimensions,
-  ScrollView
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect, useRoute, RouteProp } from '@react-navigation/native';
@@ -44,7 +44,7 @@ const convertProductToPost = (product: Product): Post => ({
   caption: product.name,
   price: `$${product.price}`,
   condition: product.productage || 'Unknown',
-  status: product.status === 'sold' ? 'sold' : (product.status === 'archived' ? 'archived' : 'available')
+  status: product.status === 'sold' ? 'sold' : (product.status === 'archived' ? 'archived' : 'available'),
 });
 
 // Post item type
@@ -79,8 +79,8 @@ interface BackendUserData {
 }
 
 // Extract profile header component for better code organization and performance
-const ProfileHeader = React.memo(({ 
-  userData, 
+const ProfileHeader = React.memo(({
+  userData,
   backendUserData,
   filteredPosts,
   activeTab,
@@ -157,8 +157,8 @@ const ProfileHeader = React.memo(({
     <View style={styles.profileContainer}>
       <View style={styles.profileImageWrapper}>
         {userData.photo ? (
-          <Image 
-            source={{ uri: userData.photo }} 
+          <Image
+            source={{ uri: userData.photo }}
             style={styles.profileImage}
           />
         ) : (
@@ -169,12 +169,12 @@ const ProfileHeader = React.memo(({
         {/* Always show the verified badge */}
         {VerifiedBadge}
       </View>
-      
+
       <View style={styles.profileDetailsContainer}>
         <View style={styles.nameRow}>
           <Text style={styles.profileName}>{userData.name}</Text>
           {!isViewingSeller && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.editProfileButton}
               onPress={onEditProfile}
               hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
@@ -183,7 +183,7 @@ const ProfileHeader = React.memo(({
             </TouchableOpacity>
           )}
         </View>
-        
+
         <View style={styles.userInfoRow}>
           <View style={[styles.userInfoItem, styles.universityItem]}>
             <View style={styles.iconContainer}>
@@ -194,7 +194,7 @@ const ProfileHeader = React.memo(({
               <Text style={styles.userInfoText}>{userData.university}</Text>
             </View>
           </View>
-          
+
           {/* Only show email if viewing own profile, not someone else's */}
           {!isViewingSeller && (
             <View style={[styles.userInfoItem, styles.emailItem]}>
@@ -207,7 +207,7 @@ const ProfileHeader = React.memo(({
               </View>
             </View>
           )}
-          
+
           {backendUserData?.city && backendUserData?.state && (
             <View style={[styles.userInfoItem, styles.locationItem]}>
               <View style={styles.iconContainer}>
@@ -224,10 +224,10 @@ const ProfileHeader = React.memo(({
         {/* Stats Card */}
         {StatsCard}
       </View>
-      
+
       {/* Tab Buttons */}
       <View style={styles.tabsContainer}>
-        <Animated.View 
+        <Animated.View
           style={[
             styles.tabSlider,
             {
@@ -235,22 +235,22 @@ const ProfileHeader = React.memo(({
                 translateX: tabPosition.interpolate({
                   inputRange: [0, 1, 2],
                   outputRange: [0, width / 3 - 3, (2 * width) / 3 - 6],
-                  extrapolate: 'clamp'
-                })
-              }]
-            }
+                  extrapolate: 'clamp',
+                }),
+              }],
+            },
           ]}
         />
         <TouchableOpacity
           style={[
             styles.tabButton,
-            activeTab === 'inMarket' && styles.activeTabButton
+            activeTab === 'inMarket' && styles.activeTabButton,
           ]}
           onPress={() => onTabChange('inMarket')}
         >
           <Text style={[
             styles.tabText,
-            activeTab === 'inMarket' && styles.activeTabText
+            activeTab === 'inMarket' && styles.activeTabText,
           ]}>
             In Market
           </Text>
@@ -258,13 +258,13 @@ const ProfileHeader = React.memo(({
         <TouchableOpacity
           style={[
             styles.tabButton,
-            activeTab === 'archive' && styles.activeTabButton
+            activeTab === 'archive' && styles.activeTabButton,
           ]}
           onPress={() => onTabChange('archive')}
         >
           <Text style={[
             styles.tabText,
-            activeTab === 'archive' && styles.activeTabText
+            activeTab === 'archive' && styles.activeTabText,
           ]}>
             Archive
           </Text>
@@ -272,13 +272,13 @@ const ProfileHeader = React.memo(({
         <TouchableOpacity
           style={[
             styles.tabButton,
-            activeTab === 'sold' && styles.activeTabButton
+            activeTab === 'sold' && styles.activeTabButton,
           ]}
           onPress={() => onTabChange('sold')}
         >
           <Text style={[
             styles.tabText,
-            activeTab === 'sold' && styles.activeTabText
+            activeTab === 'sold' && styles.activeTabText,
           ]}>
             Sold Products
           </Text>
@@ -289,45 +289,45 @@ const ProfileHeader = React.memo(({
 });
 
 // Update PostItem component to include mark as sold functionality
-const PostItem = React.memo(({ 
-  item, 
+const PostItem = React.memo(({
+  item,
   originalData,
   isViewingSeller,
   onDeleteProduct,
-  onMarkAsSold 
-}: { 
-  item: Post, 
-  originalData?: Product, 
+  onMarkAsSold,
+}: {
+  item: Post,
+  originalData?: Product,
   isViewingSeller: boolean,
   onDeleteProduct?: (productId: string) => void,
-  onMarkAsSold?: (productId: string) => void 
+  onMarkAsSold?: (productId: string) => void
 }) => {
   const navigation = useNavigation<ProfileScreenNavigationProp>();
-  
+
   // No duplicate Post interface needed here as it's already defined at the top level
-  
+
   const handleProductPress = useCallback(() => {
     console.log('[ProfileScreen] Product pressed:', item.id);
-    
+
     // If we have the original product data, use it for navigation
     if (originalData) {
-      navigation.navigate('ProductInfoPage', { 
+      navigation.navigate('ProductInfoPage', {
         product: originalData,
-        productId: originalData.id
+        productId: originalData.id,
       });
     } else {
       // If original data isn't available, navigate with the minimal data we have
       // and use originalId if available
-      navigation.navigate('ProductInfoPage', { 
+      navigation.navigate('ProductInfoPage', {
         product: {
           id: item.originalId || item.id.toString(),
           name: item.caption,
           price: item.price?.replace('$', '') || '0',
           image: item.image,
           condition: item.condition,
-          primaryImage: item.image
+          primaryImage: item.image,
         },
-        productId: item.originalId || item.id.toString()
+        productId: item.originalId || item.id.toString(),
       });
     }
   }, [item, originalData, navigation]);
@@ -336,14 +336,14 @@ const PostItem = React.memo(({
   const handleDeletePress = useCallback(() => {
     // Get the best ID to use (originalData.id, originalId, or item.id)
     const productId = originalData?.id || item.originalId || item.id.toString();
-    
+
     Alert.alert(
       'Delete Product',
       'Are you sure you want to delete this product? This action cannot be undone.',
       [
         {
           text: 'Cancel',
-          style: 'cancel'
+          style: 'cancel',
         },
         {
           text: 'Delete',
@@ -352,8 +352,8 @@ const PostItem = React.memo(({
             if (onDeleteProduct) {
               onDeleteProduct(productId);
             }
-          }
-        }
+          },
+        },
       ]
     );
   }, [item, originalData, onDeleteProduct]);
@@ -368,12 +368,12 @@ const PostItem = React.memo(({
 
     // Get the most reliable product ID available
     const productId = originalData?.id || item.originalId;
-    
+
     // Make sure we have a valid product ID
     if (!productId) {
       console.error('[ProfileScreen:PostItem] Cannot mark as sold: Missing product ID:', {
         originalData,
-        item
+        item,
       });
       Alert.alert('Error', 'Cannot mark product as sold: Missing product ID.');
       return;
@@ -385,7 +385,7 @@ const PostItem = React.memo(({
       itemCaption: item.caption,
       itemOriginalId: item.originalId,
       originalDataId: originalData?.id,
-      finalProductId: productId
+      finalProductId: productId,
     });
 
     // Verify with user that they're marking the correct item as sold
@@ -396,7 +396,7 @@ const PostItem = React.memo(({
       [
         {
           text: 'Cancel',
-          style: 'cancel'
+          style: 'cancel',
         },
         {
           text: 'Mark as Sold',
@@ -407,21 +407,21 @@ const PostItem = React.memo(({
               console.log(`[ProfileScreen:PostItem] Calling onMarkAsSold with ID: ${cleanProductId}`);
               onMarkAsSold(cleanProductId);
             }
-          }
-        }
+          },
+        },
       ]
     );
   }, [item, originalData, onMarkAsSold]);
-  
+
   return (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.postContainer}
       onPress={handleProductPress}
       activeOpacity={0.8}
     >
       <View style={styles.postImageContainer}>
-        <Image 
-          source={{ uri: item.image }} 
+        <Image
+          source={{ uri: item.image }}
           style={styles.postImage}
           resizeMode="cover"
         />
@@ -437,13 +437,13 @@ const PostItem = React.memo(({
       <View style={styles.postInfo}>
         <Text style={styles.postCaption} numberOfLines={1}>{item.caption}</Text>
         <Text style={styles.postCondition}>{item.condition}</Text>
-        
+
         {/* Action buttons - only show for own products */}
         {!isViewingSeller && (
           <View style={styles.productActionButtons}>
             {/* Mark as Sold button - only show for available products */}
             {item.status === 'available' && onMarkAsSold && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.markAsSoldButton}
                 onPress={handleMarkAsSold}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -451,10 +451,10 @@ const PostItem = React.memo(({
                 <MaterialCommunityIcons name="briefcase-edit-outline" size={16} color="black" />
               </TouchableOpacity>
             )}
-            
+
             {/* Delete button */}
             {onDeleteProduct && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.deleteButton}
                 onPress={handleDeletePress}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -480,7 +480,7 @@ const processUserData = (user: any, backendUser: BackendUserData | null) => {
     totalProducts: parseInt(backendUser?.productsListed || '0', 10),
     soldProducts: backendUser?.productssold || '0',
     wishlist: backendUser?.productswishlist || [],
-    userRating: backendUser?.userRating || '0'
+    userRating: backendUser?.userRating || '0',
   };
 };
 
@@ -496,19 +496,19 @@ function cleanupCache() {
   if (profileCache.size > MAX_CACHE_SIZE) {
     // Convert to array to sort by timestamp
     const cacheEntries = Array.from(profileCache.entries());
-    
+
     // Sort by timestamp (oldest first)
     cacheEntries.sort((a, b) => a[1].timestamp - b[1].timestamp);
-    
+
     // Remove the oldest 20% entries
     const entriesToRemove = Math.floor(profileCache.size * 0.2);
     const oldestEntries = cacheEntries.slice(0, entriesToRemove);
-    
+
     // Delete from Map
     oldestEntries.forEach(([key]) => {
       profileCache.delete(key);
     });
-    
+
     console.log(`Cache cleanup: removed ${entriesToRemove} oldest entries`);
   }
 }
@@ -531,30 +531,30 @@ async function refreshCacheInBackground(email: string) {
     // Check if we're rate-limiting this user
     const lastRequestTime = API_REQUEST_TIMESTAMPS.get(email);
     const now = Date.now();
-    
+
     if (lastRequestTime && (now - lastRequestTime < MIN_API_REQUEST_INTERVAL)) {
       console.log(`Skipping background refresh for ${email}: rate limited`);
       return;
     }
-    
+
     console.log(`Background refreshing data for ${email}`);
     API_REQUEST_TIMESTAMPS.set(email, now);
-    
+
     // Fetch fresh data from API
     const data = await fetchUserProfileById(email);
-    
+
     // Update caches
     const cacheData = {
       data,
-      timestamp: now
+      timestamp: now,
     };
-    
+
     profileCache.set(email, cacheData);
     cleanupCache();
-    
+
     const cacheKey = `${USER_PROFILE_CACHE_KEY}${email}`;
     await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
-    
+
     console.log(`Background refresh completed for ${email}`);
   } catch (error) {
     console.warn(`Background refresh failed for ${email}:`, error);
@@ -567,19 +567,19 @@ function cleanupProductsCache() {
   if (productsCache.size > MAX_CACHE_SIZE) {
     // Convert to array to sort by timestamp
     const cacheEntries = Array.from(productsCache.entries());
-    
+
     // Sort by timestamp (oldest first)
     cacheEntries.sort((a, b) => a[1].timestamp - b[1].timestamp);
-    
+
     // Remove the oldest 20% entries
     const entriesToRemove = Math.floor(productsCache.size * 0.2);
     const oldestEntries = cacheEntries.slice(0, entriesToRemove);
-    
+
     // Delete from Map
     oldestEntries.forEach(([key]) => {
       productsCache.delete(key);
     });
-    
+
     console.log(`Products cache cleanup: removed ${entriesToRemove} oldest entries`);
   }
 }
@@ -590,30 +590,30 @@ async function refreshProductsCacheInBackground(email: string) {
     // Check if we're rate-limiting this user
     const lastRequestTime = PRODUCTS_API_REQUEST_TIMESTAMPS.get(email);
     const now = Date.now();
-    
+
     if (lastRequestTime && (now - lastRequestTime < MIN_API_REQUEST_INTERVAL)) {
       console.log(`Skipping background products refresh for ${email}: rate limited`);
       return;
     }
-    
+
     console.log(`Background refreshing products for ${email}`);
     PRODUCTS_API_REQUEST_TIMESTAMPS.set(email, now);
-    
+
     // Fetch fresh data from API
     const productData = await fetchUserProducts(email);
-    
+
     // Update caches
     const cacheData = {
       data: productData,
-      timestamp: now
+      timestamp: now,
     };
-    
+
     productsCache.set(email, cacheData);
     cleanupProductsCache();
-    
+
     const cacheKey = `${USER_PRODUCTS_CACHE_KEY}${email}`;
     await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
-    
+
     console.log(`Background products refresh completed for ${email}`);
   } catch (error) {
     console.warn(`Background products refresh failed for ${email}:`, error);
@@ -638,7 +638,7 @@ const ProfileContentView = React.memo(({
   navigation,
   productsMap,
   scrollY,
-  setActiveTab
+  setActiveTab,
 }: {
   userData: any,
   backendUserData: BackendUserData | null,
@@ -661,7 +661,7 @@ const ProfileContentView = React.memo(({
   const userEmail = useMemo(() => userData?.email || '', [userData?.email]);
   const userCity = useMemo(() => backendUserData?.city || '', [backendUserData?.city]);
   const userUniversity = useMemo(() => backendUserData?.university || '', [backendUserData?.university]);
-  
+
   // Define handleMarkAsSold function inside the component
   const handleMarkAsSold = useCallback(async (productId: string) => {
     try {
@@ -671,18 +671,18 @@ const ProfileContentView = React.memo(({
         Alert.alert('Error', 'Invalid product ID. Please try again.');
         return;
       }
-      
+
       // Ensure we have a clean string ID
       const cleanProductId = productId.trim();
-      
+
       // Only log in development
       if (__DEV__) {
         console.log(`[ProfileScreen] Marking product as sold: ${cleanProductId}`);
       }
-      
+
       // Track processing time for performance monitoring (dev only)
       const startTime = __DEV__ ? Date.now() : 0;
-      
+
       // Get the current sold count before making the API call (only if needed)
       let currentUserData;
       if (!isViewingSeller && userEmail) {
@@ -692,69 +692,69 @@ const ProfileContentView = React.memo(({
           console.log(`[ProfileScreen] Current sold count before API call: ${beforeSoldCount}`);
         }
       }
-      
+
       // Update the product status to 'sold'
       if (__DEV__) {
         console.log(`[ProfileScreen] Calling updateProductStatus with ID: ${cleanProductId}`);
       }
-      
+
       // Show a loading indicator to the user
       const updatedProduct = await updateProductStatus(cleanProductId, 'sold');
-      
+
       if (__DEV__) {
-        console.log(`[ProfileScreen] Product updated successfully:`, updatedProduct);
+        console.log('[ProfileScreen] Product updated successfully:', updatedProduct);
       }
-      
+
       if (!isViewingSeller && userEmail && currentUserData) {
         // Get the updated user profile after the status change
         const updatedUserData = await fetchUserProfileById(userEmail);
         const afterSoldCount = parseInt(updatedUserData.productssold || '0', 10);
         const beforeSoldCount = parseInt(currentUserData.productssold || '0', 10);
-        
+
         if (__DEV__) {
           console.log(`[ProfileScreen] Sold count before: ${beforeSoldCount}, after: ${afterSoldCount}`);
         }
-        
+
         // Only update if the backend didn't already increment the count
         if (afterSoldCount === beforeSoldCount) {
           if (__DEV__) {
-            console.log(`[ProfileScreen] Backend did not increment count, doing it in frontend`);
+            console.log('[ProfileScreen] Backend did not increment count, doing it in frontend');
           }
-          
+
           const updatedSoldCount = (beforeSoldCount + 1).toString();
-          
+
           // Update the user profile with the new count
           await updateUserProfileData(userEmail, {
-            productssold: updatedSoldCount
+            productssold: updatedSoldCount,
           });
-          
+
           if (__DEV__) {
             console.log(`[ProfileScreen] Updated user's sold products count to: ${updatedSoldCount}`);
           }
         } else if (__DEV__) {
-          console.log(`[ProfileScreen] Backend already incremented the count, no need to update`);
+          console.log('[ProfileScreen] Backend already incremented the count, no need to update');
         }
-        
+
         // Force refresh the data to reflect all changes
         if (__DEV__) {
-          console.log(`[ProfileScreen] Refreshing data after marking product as sold`);
+          console.log('[ProfileScreen] Refreshing data after marking product as sold');
         }
-        
+
         await onRefresh();
-        
+
         // Switch to the 'sold' tab to show the sold product
         if (__DEV__) {
-          console.log(`[ProfileScreen] Switching to 'sold' tab to display newly sold product`);
+          console.log('[ProfileScreen] Switching to \'sold\' tab to display newly sold product');
         }
-        
+
         setActiveTab('sold');
-        
+
         // Performance tracking in dev mode
         if (__DEV__) {
           const endTime = Date.now();
           console.log(`[ProfileScreen] Mark as sold operation took ${endTime - startTime}ms`);
         }
-        
+
         // Show success message with congratulations
         Alert.alert(
           'Congratulations! 🎉',
@@ -762,27 +762,27 @@ const ProfileContentView = React.memo(({
           [
             {
               text: 'Great!',
-              style: 'default'
-            }
+              style: 'default',
+            },
           ]
         );
       } else {
         // For sellers or when userData is not available, still refresh
         if (__DEV__) {
-          console.log(`[ProfileScreen] Refreshing data after marking product as sold (seller view or no userData)`);
+          console.log('[ProfileScreen] Refreshing data after marking product as sold (seller view or no userData)');
         }
-        
+
         await onRefresh();
-        
+
         // Switch to the 'sold' tab to show the sold product
         setActiveTab('sold');
       }
     } catch (error: any) {
       console.error('[ProfileScreen] Error marking product as sold:', error);
-      
+
       // Extract more helpful error information
       let errorMessage = 'Failed to mark product as sold. Please try again.';
-      
+
       if (error.message) {
         if (error.message.includes('405')) {
           errorMessage = 'Server error: The API endpoint is temporarily unavailable. Our team has been notified and is working on a fix.';
@@ -796,15 +796,15 @@ const ProfileContentView = React.memo(({
           errorMessage = 'Network error: Please check your internet connection and try again.';
         }
       }
-      
+
       Alert.alert(
         'Unable to Mark as Sold',
         errorMessage,
         [
           {
             text: 'OK',
-            style: 'default'
-          }
+            style: 'default',
+          },
         ]
       );
     }
@@ -819,16 +819,16 @@ const ProfileContentView = React.memo(({
         Alert.alert('Error', 'Invalid product ID. Please try again.');
         return;
       }
-      
+
       // Ensure we have a clean string ID
       const cleanProductId = productId.trim();
-      
+
       // Start timing (dev only)
       const startTime = __DEV__ ? Date.now() : 0;
       if (__DEV__) {
         console.log(`[ProfileScreen] Deleting product: ${cleanProductId}`);
       }
-      
+
       // Show confirmation dialog
       Alert.alert(
         'Delete Product',
@@ -836,7 +836,7 @@ const ProfileContentView = React.memo(({
         [
           {
             text: 'Cancel',
-            style: 'cancel'
+            style: 'cancel',
           },
           {
             text: 'Delete',
@@ -845,16 +845,16 @@ const ProfileContentView = React.memo(({
               try {
                 // Immediately update UI for responsiveness
                 useProfileStore.getState().removeProduct(cleanProductId);
-                
+
                 // Make API call in background
                 const success = await deleteProduct(cleanProductId);
-                
+
                 if (__DEV__) {
                   console.log(`[ProfileScreen] API call successful: ${success}`);
                   const endTime = Date.now();
                   console.log(`[ProfileScreen] Delete operation took ${endTime - startTime}ms`);
                 }
-                
+
                 // Only show success message after API call completes
                 Alert.alert('Success', 'Product has been deleted.');
               } catch (error) {
@@ -865,13 +865,13 @@ const ProfileContentView = React.memo(({
                   [
                     {
                       text: 'OK',
-                      onPress: () => onRefresh()
-                    }
+                      onPress: () => onRefresh(),
+                    },
                   ]
                 );
               }
-            }
-          }
+            },
+          },
         ]
       );
     } catch (error) {
@@ -883,11 +883,11 @@ const ProfileContentView = React.memo(({
   // The item renderer for FlatList
   const renderItem = useCallback(({ item, index }: { item: Post, index: number }) => {
     const isEven = index % 2 === 0;
-    
+
     // Find the original data more reliably by using the product name as a fallback
     // but only log warnings for development purposes in case of no match
     let originalData = productsMap.get(item.id);
-    
+
     if (!originalData && item.originalId) {
       // Try using the originalId directly
       for (const product of productsMap.values()) {
@@ -897,7 +897,7 @@ const ProfileContentView = React.memo(({
         }
       }
     }
-    
+
     if (!originalData && __DEV__) {
       // Only in development mode, try matching by name as a last resort
       for (const product of productsMap.values()) {
@@ -908,18 +908,18 @@ const ProfileContentView = React.memo(({
           break;
         }
       }
-      
+
       if (!originalData) {
         // Only log in development mode
         console.log(`[ProfileScreen] Warning: No original data found for product ${item.caption}(${item.id})`);
       }
     }
-    
+
     return (
       <View style={[styles.postGridItem, isEven ? { paddingRight: 4 } : { paddingLeft: 4 }]}>
-        <PostItem 
-          item={item} 
-          originalData={originalData} 
+        <PostItem
+          item={item}
+          originalData={originalData}
           isViewingSeller={isViewingSeller}
           onDeleteProduct={!isViewingSeller ? handleDeleteProduct : undefined}
           onMarkAsSold={!isViewingSeller ? handleMarkAsSold : undefined}
@@ -941,13 +941,13 @@ const ProfileContentView = React.memo(({
         </View>
       );
     }
-    
+
     if (productsError) {
       return (
         <View style={styles.emptyListContainer}>
           <MaterialIcons name="error-outline" size={56} color="#e74c3c" />
           <Text style={styles.emptyListErrorText}>{productsError}</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.retryButton}
             onPress={onRefresh}
           >
@@ -956,7 +956,7 @@ const ProfileContentView = React.memo(({
         </View>
       );
     }
-    
+
     if (filteredProducts.length === 0) {
       return (
         <View style={styles.emptyListContainer}>
@@ -964,18 +964,18 @@ const ProfileContentView = React.memo(({
             <>
               <MaterialCommunityIcons name="storefront-outline" size={56} color="#bbb" />
               <Text style={styles.emptyStateText}>
-                {isViewingSeller 
-                  ? "This seller doesn't have any active listings" 
+                {isViewingSeller
+                  ? "This seller doesn't have any active listings"
                   : "You don't have any active listings"}
               </Text>
               {!isViewingSeller && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.emptyListButton}
                   onPress={() => {
-                    // Handle add listing 
+                    // Handle add listing
                     navigation.navigate('PostingScreen', {
                       userUniversity,
-                      userCity
+                      userCity,
                     });
                   }}
                 >
@@ -987,8 +987,8 @@ const ProfileContentView = React.memo(({
             <>
               <MaterialCommunityIcons name="archive-outline" size={56} color="#bbb" />
               <Text style={styles.emptyStateText}>
-                {isViewingSeller 
-                  ? "This seller doesn't have any archived items" 
+                {isViewingSeller
+                  ? "This seller doesn't have any archived items"
                   : "You don't have any archived items"}
               </Text>
             </>
@@ -996,7 +996,7 @@ const ProfileContentView = React.memo(({
         </View>
       );
     }
-    
+
     return null;
   }, [activeTab, filteredProducts.length, isLoadingProducts, productsError, onRefresh, isViewingSeller, navigation, userCity, userUniversity]);
 
@@ -1022,8 +1022,8 @@ const ProfileContentView = React.memo(({
               {/* Banner content without buttons */}
             </View>
           </View>
-          
-          <ProfileHeader 
+
+          <ProfileHeader
             userData={userData}
             backendUserData={backendUserData}
             filteredPosts={filteredProducts}
@@ -1057,16 +1057,16 @@ const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<ProfileScreenNavigationProp>();
   const route = useRoute<RouteProp<MainStackParamList, 'Profile'>>();
   const { signOut, user } = useAuth();
-  
+
   // Get sellerEmail from route params if available
   const sellerEmail = route.params?.sellerEmail;
-  
+
   // Determine if we're viewing another seller's profile or our own
   const isViewingSeller = useMemo(() => {
-    if (!sellerEmail || !user?.email) return false;
+    if (!sellerEmail || !user?.email) {return false;}
     return sellerEmail.toLowerCase() !== user.email.toLowerCase();
   }, [sellerEmail, user?.email]);
-  
+
   // For logging purposes
   useEffect(() => {
     if (sellerEmail) {
@@ -1074,7 +1074,7 @@ const ProfileScreen: React.FC = () => {
       console.log(`[ProfileScreen] Is viewing seller profile: ${isViewingSeller}`);
     }
   }, [sellerEmail, isViewingSeller]);
-  
+
   // Use Zustand store for state management
   const {
     backendUserData,
@@ -1090,7 +1090,7 @@ const ProfileScreen: React.FC = () => {
     setActiveTab,
     fetchUserProfile,
     fetchUserProducts,
-    refreshAllData
+    refreshAllData,
   } = useProfileStore();
 
   // Use a ref to track products length for optimized updates
@@ -1126,7 +1126,7 @@ const ProfileScreen: React.FC = () => {
   const handleGoBack = useCallback(() => {
     navigation.goBack();
   }, [navigation]);
-  
+
   // Handle sign out
   const handleSignOut = useCallback(() => {
     Alert.alert(
@@ -1134,8 +1134,8 @@ const ProfileScreen: React.FC = () => {
       'Are you sure you want to sign out?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Sign Out', 
+        {
+          text: 'Sign Out',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -1145,16 +1145,16 @@ const ProfileScreen: React.FC = () => {
               console.error('Error signing out:', error);
               Alert.alert('Error', 'Failed to sign out. Please try again.');
             }
-          }
+          },
         },
       ]
     );
   }, [signOut]);
-  
+
   // Handle edit profile navigation
   const handleEditProfile = useCallback(() => {
-    if (!backendUserData) return;
-    
+    if (!backendUserData) {return;}
+
     navigation.navigate('EditProfile', {
       name: backendUserData.name,
       university: backendUserData.university,
@@ -1162,24 +1162,24 @@ const ProfileScreen: React.FC = () => {
       mobile: backendUserData.mobile,
       zipcode: backendUserData.zipcode,
       userphoto: backendUserData.userphoto,
-      email: backendUserData.email
+      email: backendUserData.email,
     });
   }, [navigation, backendUserData]);
-  
+
   // Handle adding a new listing
   const handleAddListing = useCallback(() => {
     // Get the user's university and city to pass to PostingScreen
     const userUniversity = backendUserData?.university || '';
     const userCity = backendUserData?.city || '';
-    
+
     console.log('[ProfileScreen] Navigating to PostingScreen with params:', {
       userUniversity,
-      userCity
+      userCity,
     });
-    
+
     navigation.navigate('PostingScreen', {
       userUniversity,
-      userCity
+      userCity,
     });
   }, [navigation, backendUserData]);
 
@@ -1193,24 +1193,24 @@ const ProfileScreen: React.FC = () => {
     useCallback(() => {
       const loadData = async () => {
         const emailToFetch = sellerEmail || user?.email;
-        if (!emailToFetch) return;
-        
+        if (!emailToFetch) {return;}
+
         console.log(`[ProfileScreen] Loading data for ${emailToFetch}`);
-        
+
         // Load profile and products in parallel
         fetchUserProfile(emailToFetch);
         fetchUserProducts(emailToFetch);
       };
-      
+
       loadData();
     }, [sellerEmail, user?.email, fetchUserProfile, fetchUserProducts])
   );
-  
-  // Handle refresh 
+
+  // Handle refresh
   const handleRefresh = useCallback(async () => {
     const emailToFetch = sellerEmail || user?.email;
-    if (!emailToFetch) return;
-    
+    if (!emailToFetch) {return;}
+
     // Use the store's refresh function
     await refreshAllData(emailToFetch);
   }, [sellerEmail, user?.email, refreshAllData]);
@@ -1224,14 +1224,14 @@ const ProfileScreen: React.FC = () => {
       </SafeAreaView>
       );
     }
-    
+
   // Render error state
   if (error && !isRefreshing) {
       return (
       <SafeAreaView style={styles.errorContainer}>
         <MaterialIcons name="error-outline" size={48} color="#e74c3c" />
         <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.retryButton}
           onPress={() => {
             const emailToFetch = sellerEmail || user?.email;
@@ -1245,7 +1245,7 @@ const ProfileScreen: React.FC = () => {
       </SafeAreaView>
     );
   }
-  
+
   // Use processedUserData from the store
   const userData = processedUserData || {
     name: 'User',
@@ -1256,35 +1256,35 @@ const ProfileScreen: React.FC = () => {
     totalProducts: 0,
     city: '',
     wishlist: [],
-    userRating: '0'
+    userRating: '0',
   };
 
   // Render the profile screen
   return (
     <SafeAreaView style={styles.safeAreaContainer} edges={['top']}>
-      <StatusBar 
+      <StatusBar
         translucent={true}
         backgroundColor="transparent"
-        barStyle="light-content" 
+        barStyle="light-content"
       />
-      
+
       {/* Animated Header */}
-      <Animated.View 
+      <Animated.View
         style={[
-          styles.animatedHeader, 
-          { 
-            transform: [{ 
+          styles.animatedHeader,
+          {
+            transform: [{
               translateY: scrollY.interpolate({
                 inputRange: [0, HEADER_SCROLL_DISTANCE],
                 outputRange: [0, 0],
                 extrapolate: 'clamp',
-              })
-            }]
-          }
+              }),
+            }],
+          },
         ]}
       >
         <View style={styles.headerContent}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backButtonHeader}
             onPress={handleGoBack}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -1295,7 +1295,7 @@ const ProfileScreen: React.FC = () => {
             {isViewingSeller ? 'Seller Profile' : 'My Profile'}
           </Text>
           {!isViewingSeller && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.headerAction}
               onPress={handleSignOut}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -1308,7 +1308,7 @@ const ProfileScreen: React.FC = () => {
           )}
         </View>
       </Animated.View>
-      
+
       <SafeAreaView style={styles.contentContainer} edges={['bottom', 'left', 'right']}>
         {/* Handle loading and error states for profile data */}
         {isLoading && (
@@ -1317,12 +1317,12 @@ const ProfileScreen: React.FC = () => {
             <Text style={styles.loadingText}>Loading profile...</Text>
           </View>
         )}
-        
+
         {error && (
           <View style={styles.errorContainer}>
             <MaterialIcons name="error-outline" size={64} color="#e74c3c" />
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.retryButton}
               onPress={handleRefresh}
             >
@@ -1330,7 +1330,7 @@ const ProfileScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         )}
-        
+
         {/* Show profile content when not loading or error */}
         {!isLoading && !error && (
           <>
@@ -1352,10 +1352,10 @@ const ProfileScreen: React.FC = () => {
               scrollY={scrollY}
               setActiveTab={setActiveTab}
             />
-            
+
             {/* Add Listing FAB - only show if viewing own profile */}
             {!isViewingSeller && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.floatingButton}
                 onPress={handleAddListing}
                 activeOpacity={0.8}
@@ -1403,7 +1403,7 @@ const styles = StyleSheet.create({
     ...Platform.select({
       android: {
         elevation: 0,
-      }
+      },
     }),
   },
   headerContent: {
@@ -1425,7 +1425,7 @@ const styles = StyleSheet.create({
     ...Platform.select({
       android: {
         backgroundColor: 'transparent',
-      }
+      },
     }),
   },
   headerTitle: {
@@ -1445,7 +1445,7 @@ const styles = StyleSheet.create({
     ...Platform.select({
       android: {
         backgroundColor: 'transparent',
-      }
+      },
     }),
   },
   bannerContainer: {
@@ -1455,7 +1455,7 @@ const styles = StyleSheet.create({
     ...Platform.select({
       android: {
         elevation: 0,
-      }
+      },
     }),
   },
   bannerContent: {
@@ -1483,7 +1483,7 @@ const styles = StyleSheet.create({
         elevation: 0,
         borderTopWidth: 1,
         borderTopColor: 'rgba(0,0,0,0.1)',
-      }
+      },
     }),
   },
   profileImageWrapper: {
@@ -1506,7 +1506,7 @@ const styles = StyleSheet.create({
         borderWidth: 4,
         borderColor: '#fff',
         backgroundColor: '#fff',
-      }
+      },
     }),
   },
   profileImage: {
@@ -1520,7 +1520,7 @@ const styles = StyleSheet.create({
       },
       android: {
         borderWidth: 0,
-      }
+      },
     }),
   },
   profileImagePlaceholder: {
@@ -1537,7 +1537,7 @@ const styles = StyleSheet.create({
       },
       android: {
         borderWidth: 0,
-      }
+      },
     }),
   },
   profileInitial: {
@@ -1570,7 +1570,7 @@ const styles = StyleSheet.create({
       android: {
         elevation: 0,
         borderWidth: 3,
-      }
+      },
     }),
   },
   profileDetailsContainer: {
@@ -1613,7 +1613,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(247, 179, 5, 0.1)',
         borderWidth: 1,
         borderColor: 'rgba(27, 116, 228, 0.3)',
-      }
+      },
     }),
   },
   editButtonText: {
@@ -1650,7 +1650,7 @@ const styles = StyleSheet.create({
       android: {
         elevation: 0,
         borderColor: '#e5e5e5',
-      }
+      },
     }),
   },
   iconContainer: {
@@ -1701,7 +1701,7 @@ const styles = StyleSheet.create({
         elevation: 0,
         borderBottomWidth: 1,
         borderTopWidth: 1,
-      }
+      },
     }),
   },
   statItem: {
@@ -1775,7 +1775,7 @@ const styles = StyleSheet.create({
         elevation: 0,
         borderWidth: 1,
         borderColor: 'rgba(233, 166, 0, 0.5)',
-      }
+      },
     }),
   },
   tabText: {
@@ -1819,7 +1819,7 @@ const styles = StyleSheet.create({
         elevation: 0,
         borderWidth: 1,
         borderColor: 'rgba(0,0,0,0.08)',
-      }
+      },
     }),
   },
   postImageContainer: {
@@ -1857,7 +1857,7 @@ const styles = StyleSheet.create({
         elevation: 0,
         borderWidth: 1,
         borderColor: 'rgba(0,0,0,0.2)',
-      }
+      },
     }),
   },
   postInfo: {
@@ -1942,11 +1942,11 @@ const styles = StyleSheet.create({
         elevation: 0,
         borderWidth: 1,
         borderColor: 'rgba(0,0,0,0.1)',
-      }
+      },
     }),
   },
   bottomSpacing: {
-    height: 30
+    height: 30,
   },
   loadingContainer: {
     flex: 1,
@@ -1981,7 +1981,7 @@ const styles = StyleSheet.create({
         elevation: 0,
         borderWidth: 1,
         borderColor: 'rgba(0,0,0,0.05)',
-      }
+      },
     }),
   },
   retryButtonText: {
@@ -2010,7 +2010,7 @@ const styles = StyleSheet.create({
         elevation: 0,
         borderWidth: 1,
         borderColor: 'rgba(0,0,0,0.05)',
-      }
+      },
     }),
   },
   emptyListButtonText: {
@@ -2030,7 +2030,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   locationItem: {
-    borderLeftColor: '#f7b305', 
+    borderLeftColor: '#f7b305',
     width: '100%',
   },
   productActionButtons: {
@@ -2086,4 +2086,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default React.memo(ProfileScreen); 
+export default React.memo(ProfileScreen);

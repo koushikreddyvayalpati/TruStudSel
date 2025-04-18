@@ -1,6 +1,6 @@
 /**
  * Theme toggle component
- * 
+ *
  * A switch component for toggling between light and dark themes
  * with system theme detection support.
  */
@@ -25,16 +25,16 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({
     setUseSystemTheme,
     theme,
   } = useTheme();
-  
+
   return (
     <View style={[
       styles.container,
-      { backgroundColor: theme.colors.cardAlt }
+      { backgroundColor: theme.colors.cardAlt },
     ]}>
       <View style={styles.row}>
         <Text style={[
           styles.label,
-          { color: theme.colors.text }
+          { color: theme.colors.text },
         ]}>
           {label}
         </Text>
@@ -48,12 +48,12 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({
           }}
         />
       </View>
-      
+
       {showSystemOption && (
         <View style={styles.row}>
           <Text style={[
             styles.label,
-            { color: theme.colors.text }
+            { color: theme.colors.text },
           ]}>
             Use system theme
           </Text>
@@ -90,4 +90,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ThemeToggle; 
+export default ThemeToggle;

@@ -1,6 +1,6 @@
 /**
  * Theme system for the app
- * 
+ *
  * This module provides a cohesive theming system with:
  * - Light and dark mode support
  * - Type-safe theme values
@@ -60,4 +60,4 @@ export default {
   typography,
   spacing,
   shadows,
-}; 
+};

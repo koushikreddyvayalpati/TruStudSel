@@ -46,9 +46,9 @@ jest.mock('@react-navigation/drawer', () => {
 
 describe('Drawer Navigation', () => {
   const Drawer = createDrawerNavigator();
-  
+
   const HomeScreen = () => <div>Home Screen</div>;
-  
+
   const TestNavigator = () => (
     <NavigationContainer>
       <Drawer.Navigator
@@ -58,25 +58,25 @@ describe('Drawer Navigation', () => {
       </Drawer.Navigator>
     </NavigationContainer>
   );
-  
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
-  
+
   it('creates a drawer navigator with CustomDrawerContent', () => {
     const { getByTestId } = render(<TestNavigator />);
-    
+
     // Check if the drawer content is rendered
     expect(getByTestId('drawer-content')).toBeTruthy();
-    
+
     // Check if the screen content is rendered
     expect(getByTestId('screen-content')).toBeTruthy();
   });
-  
+
   it('renders the CustomDrawerContent properly', () => {
     const { getByTestId } = render(<TestNavigator />);
-    
+
     // Check if the drawer content scroll view is rendered
     expect(getByTestId('drawer-content-scroll-view')).toBeTruthy();
   });
-}); 
+});

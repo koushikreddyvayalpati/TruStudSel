@@ -43,11 +43,11 @@ export type MainStackParamList = {
     userCity?: string;
   };
   UserSearchScreen: undefined;
-  ProductInfoPage: { 
-    product: { 
-      id: string; 
-      name: string; 
-      price: string; 
+  ProductInfoPage: {
+    product: {
+      id: string;
+      name: string;
+      price: string;
       image?: string;
       description?: string;
       condition?: string;
@@ -70,7 +70,7 @@ export type MainStackParamList = {
     productId?: string
   };
   Wishlist: { wishlist: string[] };
-  CategoryProducts: { 
+  CategoryProducts: {
     categoryId: number;
     categoryName: string;
     userUniversity?: string;
@@ -161,4 +161,4 @@ export type EditProfileScreenProps = {
 export type CategoryProductsScreenProps = {
   navigation: CategoryProductsScreenNavigationProp;
   route: CategoryProductsScreenRouteProp;
-}; 
+};

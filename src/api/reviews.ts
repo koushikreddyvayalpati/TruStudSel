@@ -1,6 +1,6 @@
 /**
  * Reviews API Service
- * 
+ *
  * This service handles communication with the backend reviews API endpoints.
  */
 import { API_URL, handleResponse, fetchWithTimeout } from './config';
@@ -48,10 +48,10 @@ export const getSellerReviews = async (
 ): Promise<ReviewsResponse> => {
   try {
     console.log(`[API:reviews] Fetching reviews for seller: ${sellerEmail}`);
-    
+
     const url = `${REVIEWS_API_URL}/seller/${encodeURIComponent(sellerEmail)}?page=${page}&size=${size}`;
     const response = await fetchWithTimeout(url, { method: 'GET' });
-    
+
     return await handleResponse<ReviewsResponse>(response);
   } catch (error) {
     console.error('[API:reviews] Error fetching seller reviews:', error);
@@ -70,19 +70,19 @@ export const postReview = async (
 ): Promise<Review> => {
   try {
     console.log(`[API:reviews] Posting review for seller: ${reviewData.sellerEmail}`);
-    
+
     const response = await fetchWithTimeout(
       REVIEWS_API_URL,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify(reviewData)
+        body: JSON.stringify(reviewData),
       }
     );
-    
+
     return await handleResponse<Review>(response);
   } catch (error) {
     console.error('[API:reviews] Error posting review:', error);
@@ -92,5 +92,5 @@ export const postReview = async (
 
 export default {
   getSellerReviews,
-  postReview
-}; 
+  postReview,
+};

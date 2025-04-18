@@ -34,13 +34,13 @@ import { Buffer } from 'buffer';
 global.Buffer = Buffer;
 
 // Import providers
-import { 
-  AuthProvider, 
-  ThemeProvider, 
-  ProductsProvider, 
-  WishlistProvider, 
-  CartProvider, 
-  MessagingProvider 
+import {
+  AuthProvider,
+  ThemeProvider,
+  ProductsProvider,
+  WishlistProvider,
+  CartProvider,
+  MessagingProvider,
 } from './contexts';
 import { useTheme } from './hooks';
 
@@ -75,7 +75,7 @@ const App: React.FC = () => {
 const AppContent: React.FC = () => {
   // We can now use the useTheme hook here because we're inside ThemeProvider
   const { theme } = useTheme();
-  
+
   return (
     <>
       <StatusBar
@@ -87,4 +87,4 @@ const AppContent: React.FC = () => {
   );
 };
 
-export default App; 
+export default App;

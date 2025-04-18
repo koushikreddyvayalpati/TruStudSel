@@ -1,6 +1,6 @@
 /**
  * useLocalStorage hook for AsyncStorage state management
- * 
+ *
  * This hook provides a React state-like interface for AsyncStorage operations:
  * - Load and store state in AsyncStorage
  * - Type-safe interface
@@ -18,33 +18,33 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * @returns Tuple with state value and setter function
  */
 export function useLocalStorage<T>(
-  key: string, 
+  key: string,
   initialValue: T | (() => T)
 ): [T, (value: T | ((val: T) => T)) => Promise<void>, boolean, Error | null] {
   // Initialize state and loading/error indicators
   const [storedValue, setStoredValue] = useState<T>(initialValue);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  
+
   // Keep track of whether this is the first render
   const initialRender = useRef(true);
-  
+
   // Load value from AsyncStorage on mount
   useEffect(() => {
     const getStoredValue = async () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         const item = await AsyncStorage.getItem(key);
-        
+
         if (item !== null) {
           // If value exists in storage, parse it and update state
           setStoredValue(JSON.parse(item));
         } else if (initialRender.current) {
           // If no value in storage but it's the first render, initialize with initial value
           const value = initialValue instanceof Function ? initialValue() : initialValue;
-          
+
           // Store the initial value in AsyncStorage
           await AsyncStorage.setItem(key, JSON.stringify(value));
         }
@@ -55,10 +55,10 @@ export function useLocalStorage<T>(
         initialRender.current = false;
       }
     };
-    
+
     getStoredValue();
   }, [key, initialValue]);
-  
+
   // Function to update storage and state
   const setValue = useCallback(
     async (value: T | ((val: T) => T)) => {
@@ -66,10 +66,10 @@ export function useLocalStorage<T>(
         // Handle both direct values and update functions
         const valueToStore =
           value instanceof Function ? value(storedValue) : value;
-        
+
         // Update state with new value
         setStoredValue(valueToStore);
-        
+
         // Store in AsyncStorage
         await AsyncStorage.setItem(key, JSON.stringify(valueToStore));
       } catch (e) {
@@ -79,7 +79,7 @@ export function useLocalStorage<T>(
     },
     [key, storedValue]
   );
-  
+
   // Return state, setter, loading and error
   return [storedValue, setValue, loading, error];
 }
@@ -102,7 +102,7 @@ export function useLocalStorageObject<T extends object>(
   clearValue: () => Promise<void>;
 } {
   const [value, setValue, loading, error] = useLocalStorage<T>(key, initialValue);
-  
+
   // Method to update a specific property in the object
   const updateValue = useCallback(
     async <K extends keyof T>(
@@ -120,13 +120,13 @@ export function useLocalStorageObject<T extends object>(
     },
     [setValue]
   );
-  
+
   // Method to clear the stored value
   const clearValue = useCallback(async () => {
     try {
       // Remove from AsyncStorage
       await AsyncStorage.removeItem(key);
-      
+
       // Reset to initial value
       const initialValueResolved = initialValue instanceof Function ? initialValue() : initialValue;
       setValue(initialValueResolved);
@@ -134,7 +134,7 @@ export function useLocalStorageObject<T extends object>(
       throw e instanceof Error ? e : new Error(String(e));
     }
   }, [key, initialValue, setValue]);
-  
+
   // Return an object with value, setter, and helpers
   return {
     value,
@@ -163,12 +163,12 @@ export function useLocalStorageFlag(
   setFlag: (value: boolean) => Promise<void>;
 } {
   const [flag, setFlag, loading, error] = useLocalStorage<boolean>(key, initialValue);
-  
+
   // Toggle function
   const toggle = useCallback(async () => {
     setFlag((prev) => !prev);
   }, [setFlag]);
-  
+
   return {
     flag,
     loading,
@@ -176,4 +176,4 @@ export function useLocalStorageFlag(
     toggle,
     setFlag,
   };
-} 
+}

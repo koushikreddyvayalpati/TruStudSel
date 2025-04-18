@@ -33,7 +33,7 @@ export const formatDate = (
   locale = 'en-US'
 ): string => {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  
+
   return new Intl.DateTimeFormat(locale, {
     dateStyle: format,
   }).format(dateObj);
@@ -52,35 +52,35 @@ export const formatRelativeTime = (
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   const now = new Date();
   const diffInMilliseconds = now.getTime() - dateObj.getTime();
-  
+
   // Convert to seconds
   const diffInSeconds = Math.floor(diffInMilliseconds / 1000);
-  
+
   if (diffInSeconds < 60) {
     return 'just now';
   }
-  
+
   // Convert to minutes
   const diffInMinutes = Math.floor(diffInSeconds / 60);
-  
+
   if (diffInMinutes < 60) {
     return `${diffInMinutes} minute${diffInMinutes > 1 ? 's' : ''} ago`;
   }
-  
+
   // Convert to hours
   const diffInHours = Math.floor(diffInMinutes / 60);
-  
+
   if (diffInHours < 24) {
     return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
   }
-  
+
   // Convert to days
   const diffInDays = Math.floor(diffInHours / 24);
-  
+
   if (diffInDays < 7) {
     return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
   }
-  
+
   // If more than a week, use standard date format
   return formatDate(dateObj, 'medium', locale);
 };
@@ -100,7 +100,7 @@ export const truncateText = (
   if (text.length <= maxLength) {
     return text;
   }
-  
+
   return text.substring(0, maxLength).trim() + suffix;
 };
 
@@ -109,4 +109,4 @@ export default {
   formatDate,
   formatRelativeTime,
   truncateText,
-}; 
+};

@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
-import { 
-  View, 
-  TextInput, 
+import {
+  View,
+  TextInput,
   Text,
   StyleSheet,
   TouchableOpacity,
@@ -14,7 +14,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Dimensions,
-  Alert
+  Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -37,7 +37,7 @@ import {
   shouldUseClientSideFiltering,
   applyOptimizedFiltering,
   convertToApiFilters,
-  needsServerRefetch
+  needsServerRefetch,
 } from '../../utils/filterUtils';
 
 // Import user profile API
@@ -126,7 +126,7 @@ const CategoryItem: React.FC<{
   };
 
   return (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.categoryItem}
       onPress={() => onPress(item)}
     >
@@ -149,20 +149,20 @@ const ProductItem: React.FC<{
   onMessageSeller: (product: Product) => void;
 }> = ({ item, onPress, onMessageSeller, wishlist: _wishlist, onToggleWishlist: _onToggleWishlist }) => {
   // Get the appropriate image URL - primaryImage, first image from images array, or placeholder
-  const imageUrl = item.primaryImage || 
-                  (item.images && item.images.length > 0 ? item.images[0] : 
+  const imageUrl = item.primaryImage ||
+                  (item.images && item.images.length > 0 ? item.images[0] :
                   'https://via.placeholder.com/150');
 
   // Format price display
   const formattedPrice = `$${item.price}`;
-  
+
   return (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={[styles.productCard, { backgroundColor: 'white' }]}
       onPress={() => onPress(item)}
     >
-      <Image 
-        source={{ uri: imageUrl }} 
+      <Image
+        source={{ uri: imageUrl }}
         style={styles.productImagePlaceholder}
         resizeMode="cover"
       />
@@ -174,14 +174,14 @@ const ProductItem: React.FC<{
             {item.productage.replace(/-/g, ' ')}
           </Text>
         )}
-        <TouchableOpacity 
-          style={styles.messageButton} 
+        <TouchableOpacity
+          style={styles.messageButton}
           onPress={() => onMessageSeller(item)}
         >
-          <FontAwesome 
-            name="comment" 
-            size={18} 
-            color="#f7b305" 
+          <FontAwesome
+            name="comment"
+            size={18}
+            color="#f7b305"
           />
         </TouchableOpacity>
       </View>
@@ -199,15 +199,15 @@ const ProductSection: React.FC<{
   onMessageSeller: (product: Product) => void;
   onSeeAll?: () => void;
   isLoading?: boolean;
-}> = ({ 
-  title, 
-  data, 
-  wishlist, 
-  onToggleWishlist, 
+}> = ({
+  title,
+  data,
+  wishlist,
+  onToggleWishlist,
   onProductPress,
   onMessageSeller,
   onSeeAll,
-  isLoading = false
+  isLoading = false,
 }) => (
   <View>
     <SectionHeader title={title} onSeeAll={onSeeAll} />
@@ -223,10 +223,10 @@ const ProductSection: React.FC<{
       <FlatList
         data={data}
         renderItem={({ item }) => (
-          <ProductItem 
-            item={item} 
-            wishlist={wishlist} 
-            onToggleWishlist={onToggleWishlist} 
+          <ProductItem
+            item={item}
+            wishlist={wishlist}
+            onToggleWishlist={onToggleWishlist}
             onPress={onProductPress}
             onMessageSeller={onMessageSeller}
           />
@@ -278,22 +278,22 @@ const EnhancedDropdown: React.FC<{
             key={item.id}
             style={[
               styles.enhancedDropdownItem,
-              selectedItems.includes(item.id) && styles.enhancedDropdownItemSelected
+              selectedItems.includes(item.id) && styles.enhancedDropdownItemSelected,
             ]}
             onPress={() => onSelect(item.id)}
             activeOpacity={0.7}
           >
-            <Text 
+            <Text
               style={[
                 styles.enhancedDropdownItemText,
-                selectedItems.includes(item.id) && styles.enhancedDropdownItemTextSelected
+                selectedItems.includes(item.id) && styles.enhancedDropdownItemTextSelected,
               ]}
             >
               {item.label}
             </Text>
             {selectedItems.includes(item.id) && (
               <View style={styles.checkIconContainer}>
-                <MaterialIcons name={multiSelect ? "check-box" : "check-circle"} size={20} color="#f7b305" />
+                <MaterialIcons name={multiSelect ? 'check-box' : 'check-circle'} size={20} color="#f7b305" />
               </View>
             )}
             {multiSelect && !selectedItems.includes(item.id) && (
@@ -315,16 +315,16 @@ const conditionMapping = {
   'very-good': 'very-good',
   'good': 'good',
   'acceptable': 'acceptable',
-  'for-parts': 'for-parts'
+  'for-parts': 'for-parts',
 };
 
 // Filter functions
 const filterByCondition = (product: Product, conditions: string[]): boolean => {
-  if (!conditions.length) return true;
-  
+  if (!conditions.length) {return true;}
+
   // Check both condition and productage fields as they might be used inconsistently
   const productCondition = product.condition?.toLowerCase() || product.productage?.toLowerCase();
-  
+
   return conditions.some(condition => {
     // Map UI condition to backend condition if needed
     const backendCondition = conditionMapping[condition as keyof typeof conditionMapping] || condition;
@@ -333,65 +333,65 @@ const filterByCondition = (product: Product, conditions: string[]): boolean => {
 };
 
 const filterBySellingType = (product: Product, sellingTypes: string[]): boolean => {
-  if (!sellingTypes.length) return true;
-  
+  if (!sellingTypes.length) {return true;}
+
   const productSellingType = product.sellingtype?.toLowerCase();
-  
+
   // Log the selling type to help with debugging
   console.log(`[HomeScreen] Product ${product.id} selling type: ${productSellingType}`);
-  
+
   return sellingTypes.some(type => productSellingType === type);
 };
 
 // Add this function to apply front-end filtering
 const applyFiltersToProducts = (products: Product[], filters: string[]): Product[] => {
-  if (!filters.length) return products;
-  
+  if (!filters.length) {return products;}
+
   console.log(`[HomeScreen] Applying ${filters.length} filters to ${products.length} products`);
-  
+
   // Extract condition filters
-  const conditionFilters = filters.filter(filter => 
+  const conditionFilters = filters.filter(filter =>
     ['brand-new', 'like-new', 'very-good', 'good', 'acceptable', 'for-parts'].includes(filter)
   );
   console.log(`[HomeScreen] Condition filters: ${conditionFilters.join(', ')}`);
-  
+
   // Extract selling type filters
-  const sellingTypeFilters = filters.filter(filter => 
+  const sellingTypeFilters = filters.filter(filter =>
     ['rent', 'sell'].includes(filter)
   );
   console.log(`[HomeScreen] Selling type filters: ${sellingTypeFilters.join(', ')}`);
-  
+
   // Check if we need to filter for free items
   const hasFreeFilter = filters.includes('free');
   console.log(`[HomeScreen] Free filter: ${hasFreeFilter}`);
-  
+
   // Apply all filters
   const filteredProducts = products.filter(product => {
     // For debugging: log product condition and selling type
     console.log(`[HomeScreen] Checking product ${product.id}: condition=${product.condition || product.productage}, sellingtype=${product.sellingtype}, price=${product.price}`);
-    
+
     // Filter by condition
     if (!filterByCondition(product, conditionFilters)) {
       console.log(`[HomeScreen] Product ${product.id} filtered out by condition`);
       return false;
     }
-    
+
     // Filter by selling type
     if (!filterBySellingType(product, sellingTypeFilters)) {
       console.log(`[HomeScreen] Product ${product.id} filtered out by selling type`);
       return false;
     }
-    
+
     // Filter by price (free items)
     if (hasFreeFilter && parseFloat(product.price || '0') > 0) {
       console.log(`[HomeScreen] Product ${product.id} filtered out by price (not free)`);
       return false;
     }
-    
+
     console.log(`[HomeScreen] Product ${product.id} passed all filters`);
     return true;
   });
-  
+
   console.log(`[HomeScreen] Filtering complete: ${filteredProducts.length} products remain`);
   return filteredProducts;
 };
@@ -431,96 +431,96 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   const { user } = useAuth();
   const { setUserUniversity } = useUniversity();
   const { setUserCity } = useCity();
-  
+
   // User profile data state
   const [userProfileData, setUserProfileData] = useState<any>(null);
   const [isLoadingUserData, setIsLoadingUserData] = useState<boolean>(false);
   const [userDataError, setUserDataError] = useState<string | null>(null);
-  
+
   // Add stub functions for filtering until full Zustand migration is complete
   // These will eventually be removed when migration is complete
   const loadFilteredFeaturedProducts = async (filters: any) => {
     console.log('[HomeScreen] loadFilteredFeaturedProducts is now a stub - will use Zustand in the future');
     return Promise.resolve();
   };
-  
+
   const loadFilteredNewArrivals = async (filters: any) => {
     console.log('[HomeScreen] loadFilteredNewArrivals is now a stub - will use Zustand in the future');
     return Promise.resolve();
   };
-  
+
   const loadFilteredUniversityProducts = async (filters: any) => {
     console.log('[HomeScreen] loadFilteredUniversityProducts is now a stub - will use Zustand in the future');
     return Promise.resolve();
   };
-  
+
   const loadFilteredCityProducts = async (filters: any) => {
     console.log('[HomeScreen] loadFilteredCityProducts is now a stub - will use Zustand in the future');
     return Promise.resolve();
   };
-  
+
   // Add these function stubs for the missing Zustand setters that are referenced
   const setLoadingFeatured = (isLoading: boolean) => {
     console.log('[HomeScreen] setLoadingFeatured is now a stub - will use Zustand in the future');
   };
-  
+
   const setLoadingNewArrivals = (isLoading: boolean) => {
     console.log('[HomeScreen] setLoadingNewArrivals is now a stub - will use Zustand in the future');
   };
-  
+
   const setLoadingUniversity = (isLoading: boolean) => {
     console.log('[HomeScreen] setLoadingUniversity is now a stub - will use Zustand in the future');
   };
-  
+
   const setLoadingCity = (isLoading: boolean) => {
     console.log('[HomeScreen] setLoadingCity is now a stub - will use Zustand in the future');
   };
-  
+
   // Add state variables to store the processed products
   const [featuredProductsState, setFeaturedProductsState] = useState<Product[]>([]);
   const [newArrivalsProductsState, setNewArrivalsProductsState] = useState<Product[]>([]);
   const [universityProductsState, setUniversityProductsState] = useState<Product[]>([]);
   const [cityProductsState, setCityProductsState] = useState<Product[]>([]);
-  
+
   // Update setter functions to use local state
   const setFeaturedProducts = (products: Product[]) => {
     console.log('[HomeScreen] Updating featured products with', products.length, 'items');
     setFeaturedProductsState(products as any);
   };
-  
+
   const setNewArrivalsProducts = (products: Product[]) => {
     console.log('[HomeScreen] Updating new arrivals products with', products.length, 'items');
     setNewArrivalsProductsState(products as any);
   };
-  
+
   const setUniversityProducts = (products: Product[]) => {
     console.log('[HomeScreen] Updating university products with', products.length, 'items');
     setUniversityProductsState(products as any);
   };
-  
+
   const setCityProducts = (products: Product[]) => {
     console.log('[HomeScreen] Updating city products with', products.length, 'items');
     setCityProductsState(products as any);
   };
-  
+
   // Cache the University and City values for API calls
   const userUniversity = useMemo(() => {
     const university = userProfileData?.university || user?.university || '';
-    console.log(`[HomeScreen] userUniversity updated:`, {
+    console.log('[HomeScreen] userUniversity updated:', {
       fromProfile: userProfileData?.university || 'none',
       fromUser: user?.university || 'none',
-      finalValue: university
+      finalValue: university,
     });
     return university;
   }, [userProfileData, user?.university]);
-  
+
   const userCity = useMemo(() => userProfileData?.city || user?.city || '', [userProfileData, user]);
-  
+
   // Use our search hook for all search functionality
   const search = useSearch(userUniversity, userCity);
-  
+
   const [wishlist, setWishlist] = useState<string[]>([]);
-  
+
   // Use Zustand store for product state management
   const {
     // Product data from store
@@ -529,23 +529,23 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     universityProducts,
     cityProducts,
     interestedCategoryProducts,
-    
+
     // Loading states from store
     loadingFeatured,
     loadingNewArrivals,
     loadingUniversity,
     loadingCity,
     loadingInterestedCategory,
-    
+
     // Refresh state from store
     isRefreshing,
     error: productError,
     interestedCategoryError,
-    
+
     // Selected interest category
     selectedInterestCategory,
     setSelectedInterestCategory,
-    
+
     // Actions from store
     loadFeaturedProducts,
     loadNewArrivals,
@@ -553,59 +553,59 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     loadCityProducts,
     loadInterestedCategoryProducts,
     handleRefresh,
-    setError
+    setError,
   } = useProductStore();
-  
+
   // Modify the fetchUserProfile function to better log category selection
   const fetchUserProfile = useCallback(async () => {
     if (!user?.email) {
       console.log('[HomeScreen] No user email available, skipping profile fetch');
       return;
     }
-    
+
     console.log(`[HomeScreen] Starting profile fetch for user: ${user.email}`);
     setIsLoadingUserData(true);
     setUserDataError(null);
-    
+
     try {
       const cacheKey = `${USER_PROFILE_CACHE_KEY}${user.email}`;
       const cachedData = await AsyncStorage.getItem(cacheKey);
-      
+
       if (cachedData) {
         const { data, timestamp } = JSON.parse(cachedData);
         const isExpired = Date.now() - timestamp > USER_CACHE_EXPIRY_TIME;
-        
+
         if (!isExpired) {
-          console.log(`[HomeScreen] Using cached user profile`);
+          console.log('[HomeScreen] Using cached user profile');
           setUserProfileData(data);
-          
+
           // Update shared context
-          if (data.university) setUserUniversity(data.university);
-          if (data.city) setUserCity(data.city);
-          
+          if (data.university) {setUserUniversity(data.university);}
+          if (data.city) {setUserCity(data.city);}
+
           // DETAILED DEBUG: Examine profile data structure
-          console.log(`[HomeScreen] DEBUG - Full cached user profile:`, JSON.stringify(data).substring(0, 300));
-          console.log(`[HomeScreen] DEBUG - Profile data type:`, typeof data);
-          console.log(`[HomeScreen] DEBUG - Profile has productsCategoriesIntrested:`, 
+          console.log('[HomeScreen] DEBUG - Full cached user profile:', JSON.stringify(data).substring(0, 300));
+          console.log('[HomeScreen] DEBUG - Profile data type:', typeof data);
+          console.log('[HomeScreen] DEBUG - Profile has productsCategoriesIntrested:',
             data.hasOwnProperty('productsCategoriesIntrested'));
-          
+
           // Check all property names for possible misspellings
-          console.log(`[HomeScreen] DEBUG - Available profile properties:`, Object.keys(data));
-          
+          console.log('[HomeScreen] DEBUG - Available profile properties:', Object.keys(data));
+
           // Try alternate spellings/formats
           const possibleInterestProps = [
-            'productsCategoriesIntrested', 
+            'productsCategoriesIntrested',
             'productsCategories',
             'interestedCategories',
             'interests',
             'categories',
             'productCategories',
-            'categoriesInterested'
+            'categoriesInterested',
           ];
-          
+
           let interestCategories = null;
           let propName = null;
-          
+
           for (const prop of possibleInterestProps) {
             if (data[prop] && Array.isArray(data[prop]) && data[prop].length > 0) {
               console.log(`[HomeScreen] Found interests in property: ${prop}`);
@@ -614,11 +614,11 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
               break;
             }
           }
-          
+
           // If we found interests, log and use them
           if (interestCategories && interestCategories.length > 0) {
             console.log(`[HomeScreen] User interests found in '${propName}':`, interestCategories);
-            
+
             // Select a random category from user's interests
             const randomIndex = Math.floor(Math.random() * interestCategories.length);
             const selectedCategory = interestCategories[randomIndex];
@@ -626,56 +626,56 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
             setSelectedInterestCategory(selectedCategory);
           } else {
             console.log('[HomeScreen] ERROR: No interest categories found in user profile data');
-            
+
             // If we found the property but it's empty, log that
             if (data.productsCategoriesIntrested !== undefined) {
-              console.log(`[HomeScreen] productsCategoriesIntrested exists but is:`, 
+              console.log('[HomeScreen] productsCategoriesIntrested exists but is:',
                 data.productsCategoriesIntrested);
             }
-            
+
             // Fallback to a default category if needed
             console.log('[HomeScreen] Using fallback category "electronics" since no interests found');
             setSelectedInterestCategory('electronics');
           }
-          
+
           setIsLoadingUserData(false);
           return;
         }
       }
-      
-      console.log(`[HomeScreen] Fetching fresh user profile data from API`);
+
+      console.log('[HomeScreen] Fetching fresh user profile data from API');
       const userData = await fetchUserProfileById(user.email);
-      
+
       if (userData) {
-        console.log(`[HomeScreen] User profile fetched successfully from API`);
-        console.log(`[HomeScreen] DEBUG - Full API user profile:`, JSON.stringify(userData).substring(0, 300));
-        console.log(`[HomeScreen] DEBUG - API profile data type:`, typeof userData);
-        console.log(`[HomeScreen] DEBUG - API profile has productsCategoriesIntrested:`, 
+        console.log('[HomeScreen] User profile fetched successfully from API');
+        console.log('[HomeScreen] DEBUG - Full API user profile:', JSON.stringify(userData).substring(0, 300));
+        console.log('[HomeScreen] DEBUG - API profile data type:', typeof userData);
+        console.log('[HomeScreen] DEBUG - API profile has productsCategoriesIntrested:',
           userData.hasOwnProperty('productsCategoriesIntrested'));
-        
+
         // Check all property names for possible misspellings
-        console.log(`[HomeScreen] DEBUG - Available API profile properties:`, Object.keys(userData));
-        
+        console.log('[HomeScreen] DEBUG - Available API profile properties:', Object.keys(userData));
+
         setUserProfileData(userData);
-        
+
         // Update shared context
-        if (userData.university) setUserUniversity(userData.university);
-        if (userData.city) setUserCity(userData.city);
-        
+        if (userData.university) {setUserUniversity(userData.university);}
+        if (userData.city) {setUserCity(userData.city);}
+
         // Try alternate spellings/formats
         const possibleInterestProps = [
-          'productsCategoriesIntrested', 
+          'productsCategoriesIntrested',
           'productsCategories',
           'interestedCategories',
           'interests',
           'categories',
           'productCategories',
-          'categoriesInterested'
+          'categoriesInterested',
         ];
-        
+
         let interestCategories = null;
         let propName = null;
-        
+
         for (const prop of possibleInterestProps) {
           if (userData[prop] && Array.isArray(userData[prop]) && userData[prop].length > 0) {
             console.log(`[HomeScreen] Found interests in API response property: ${prop}`);
@@ -684,11 +684,11 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
             break;
           }
         }
-        
+
         // If we found interests, log and use them
         if (interestCategories && interestCategories.length > 0) {
           console.log(`[HomeScreen] User interests from API in '${propName}':`, interestCategories);
-          
+
           // Select a random category from user's interests
           const randomIndex = Math.floor(Math.random() * interestCategories.length);
           const selectedCategory = interestCategories[randomIndex];
@@ -696,24 +696,24 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
           setSelectedInterestCategory(selectedCategory);
         } else {
           console.log('[HomeScreen] ERROR: No interest categories found in API user profile data');
-          
+
           // If we found the property but it's empty, log that
           if (userData.productsCategoriesIntrested !== undefined) {
-            console.log(`[HomeScreen] productsCategoriesIntrested from API exists but is:`, 
+            console.log('[HomeScreen] productsCategoriesIntrested from API exists but is:',
               userData.productsCategoriesIntrested);
           }
-          
+
           // Fallback to a default category if needed
           console.log('[HomeScreen] Using fallback category "electronics" since no interests found in API');
           setSelectedInterestCategory('electronics');
         }
-        
+
         // Cache the user data
         await AsyncStorage.setItem(
           cacheKey,
           JSON.stringify({
             data: userData,
-            timestamp: Date.now()
+            timestamp: Date.now(),
           })
         );
       } else {
@@ -732,73 +732,73 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
       setIsLoadingUserData(false);
     }
   }, [user, setUserUniversity, setUserCity, setSelectedInterestCategory]);
-  
+
   // Add logging to useEffect
   useEffect(() => {
     if (selectedInterestCategory) {
       console.log(`[HomeScreen] useEffect triggered to load interest products for: "${selectedInterestCategory}"`);
       loadInterestedCategoryProducts(selectedInterestCategory, userUniversity, userCity);
     } else {
-      console.log(`[HomeScreen] useEffect for interest products skipped: no category selected`);
+      console.log('[HomeScreen] useEffect for interest products skipped: no category selected');
     }
   }, [selectedInterestCategory, loadInterestedCategoryProducts, userUniversity, userCity]);
-  
+
   // Load products when the component mounts
   useEffect(() => {
     fetchUserProfile();
   }, [fetchUserProfile]);
-  
+
   // We removed the duplicate useEffect here that was calling loadInterestedCategoryProducts
-  
+
   // Load products when userUniversity or userCity changes
   useEffect(() => {
     if (userUniversity || userCity) {
       loadFeaturedProducts(userUniversity, userCity);
-      
+
       if (userUniversity) {
         loadNewArrivals(userUniversity);
         loadUniversityProducts(userUniversity);
       }
-      
+
       if (userCity) {
         loadCityProducts(userCity);
       }
-      
+
       // Also reload interested category products if we have a category
       if (selectedInterestCategory) {
         loadInterestedCategoryProducts(selectedInterestCategory, userUniversity, userCity);
       }
     }
   }, [
-    userUniversity, 
-    userCity, 
-    loadFeaturedProducts, 
-    loadNewArrivals, 
-    loadUniversityProducts, 
+    userUniversity,
+    userCity,
+    loadFeaturedProducts,
+    loadNewArrivals,
+    loadUniversityProducts,
     loadCityProducts,
     selectedInterestCategory,
-    loadInterestedCategoryProducts
+    loadInterestedCategoryProducts,
   ]);
-  
+
   // Handle the refresh action with the Zustand store
   const onRefresh = useCallback(() => {
     // Call the handleRefresh function from the store
     handleRefresh(userUniversity, userCity);
-    
+
     // Also increment search refresh counter
     if (search && search.incrementSearchRefreshCount) {
       search.incrementSearchRefreshCount();
     }
-    
+
     // No need to manually refresh interested category products here,
     // since the store's handleRefresh already handles that
   }, [
-    handleRefresh, 
-    userUniversity, 
-    userCity, 
-    search
+    handleRefresh,
+    userUniversity,
+    userCity,
+    search,
   ]);
-  
+
   // Get the initial letter for the profile avatar
   const getInitial = useCallback(() => {
     if (userProfileData?.name) {
@@ -810,52 +810,52 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     }
     return 'U';
   }, [userProfileData, user]);
-  
+
   // Original products state (for filtering and sorting)
   const [_featuredProductsOriginal, setFeaturedProductsOriginal] = useState<Product[]>([]);
   const [_newArrivalsProductsOriginal, setNewArrivalsProductsOriginal] = useState<Product[]>([]);
   const [_universityProductsOriginal, setUniversityProductsOriginal] = useState<Product[]>([]);
   const [_cityProductsOriginal, setCityProductsOriginal] = useState<Product[]>([]);
-  
+
   // Advanced filtering state
   const [featuredFilterMaps, setFeaturedFilterMaps] = useState<FilterMap>({
     condition: new Map(),
     sellingType: new Map(),
-    price: new Map()
+    price: new Map(),
   });
-  
+
   const [newArrivalsFilterMaps, setNewArrivalsFilterMaps] = useState<FilterMap>({
     condition: new Map(),
     sellingType: new Map(),
-    price: new Map()
+    price: new Map(),
   });
-  
+
   const [universityFilterMaps, setUniversityFilterMaps] = useState<FilterMap>({
     condition: new Map(),
     sellingType: new Map(),
-    price: new Map()
+    price: new Map(),
   });
-  
+
   const [cityFilterMaps, setCityFilterMaps] = useState<FilterMap>({
     condition: new Map(),
     sellingType: new Map(),
-    price: new Map()
+    price: new Map(),
   });
-  
+
   // Total available product counts from server
   const [totalFeaturedCount, setTotalFeaturedCount] = useState<number>(0);
   const [totalNewArrivalsCount, _setTotalNewArrivalsCount] = useState<number>(0); // Prefix with _ to indicate unused
   const [totalUniversityCount, setTotalUniversityCount] = useState<number>(0);
   const [totalCityCount, _setTotalCityCount] = useState<number>(0); // Prefix with _ to indicate unused
-  
+
   // Track if we're using server-side filtering
   const [usingServerFiltering, setUsingServerFiltering] = useState<boolean>(false);
-  
+
   // Sort states
   const [selectedSort, setSelectedSort] = useState<string>('default');
   // Add filter states
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
-  
+
   // Category data with icon identifiers for type safety
   const categories = useMemo<Category[]>(() => [
     { id: 1, name: 'Electronics', icon: 'electronics' },
@@ -875,7 +875,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     { id: 'newest', label: 'Newest First' },
     { id: 'popularity', label: 'Popularity' },
   ], []);
-  
+
   // Define filter options with updated values matching backend values
   const filterOptions = useMemo<FilterOption[]>(() => [
     { id: 'brand-new', label: 'Brand New' },
@@ -889,95 +889,95 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     { id: 'free', label: 'Free Items' },
   ], []);
 
-  // Replace modal states with dropdown visibility states 
+  // Replace modal states with dropdown visibility states
   const [sortDropdownVisible, setSortDropdownVisible] = useState(false);
   const [filterDropdownVisible, setFilterDropdownVisible] = useState(false);
 
   // Update button click handlers
   const handleSortButtonClick = useCallback(() => {
     setSortDropdownVisible(!sortDropdownVisible);
-    if (filterDropdownVisible) setFilterDropdownVisible(false);
+    if (filterDropdownVisible) {setFilterDropdownVisible(false);}
   }, [sortDropdownVisible, filterDropdownVisible]);
 
   const handleFilterButtonClick = useCallback(() => {
     setFilterDropdownVisible(!filterDropdownVisible);
-    if (sortDropdownVisible) setSortDropdownVisible(false);
+    if (sortDropdownVisible) {setSortDropdownVisible(false);}
   }, [filterDropdownVisible, sortDropdownVisible]);
 
   // Update the handleFilterOptionSelect function
   const handleFilterOptionSelect = useCallback((optionId: string) => {
     console.log(`[HomeScreen] Filter option toggled: ${optionId}`);
-    
+
     // Toggle the filter on/off
     setSelectedFilters(prevFilters => {
       const newFilters = prevFilters.includes(optionId)
         ? prevFilters.filter(id => id !== optionId)
         : [...prevFilters, optionId];
-        
-      console.log(`[HomeScreen] Updated filters:`, newFilters);
-      
+
+      console.log('[HomeScreen] Updated filters:', newFilters);
+
       // Determine if we should use server-side filtering for any of the product sets
-      const useFeaturedServerFiltering = _featuredProductsOriginal.length > 0 && 
+      const useFeaturedServerFiltering = _featuredProductsOriginal.length > 0 &&
         !shouldUseClientSideFiltering(_featuredProductsOriginal as any, newFilters, totalFeaturedCount);
-      
-      const useNewArrivalsServerFiltering = _newArrivalsProductsOriginal.length > 0 && 
+
+      const useNewArrivalsServerFiltering = _newArrivalsProductsOriginal.length > 0 &&
         !shouldUseClientSideFiltering(_newArrivalsProductsOriginal as any, newFilters, totalNewArrivalsCount);
-      
-      const useUniversityServerFiltering = _universityProductsOriginal.length > 0 && 
+
+      const useUniversityServerFiltering = _universityProductsOriginal.length > 0 &&
         !shouldUseClientSideFiltering(_universityProductsOriginal as any, newFilters, totalUniversityCount);
-      
-      const useCityServerFiltering = _cityProductsOriginal.length > 0 && 
+
+      const useCityServerFiltering = _cityProductsOriginal.length > 0 &&
         !shouldUseClientSideFiltering(_cityProductsOriginal as any, newFilters, totalCityCount);
-      
+
       // Check if we need to do progressive loading - fetch more data from server
-      const needsProgressiveLoading = 
+      const needsProgressiveLoading =
         needsServerRefetch(newFilters, prevFilters, totalFeaturedCount, _featuredProductsOriginal as any) ||
         needsServerRefetch(newFilters, prevFilters, totalNewArrivalsCount, _newArrivalsProductsOriginal as any) ||
         needsServerRefetch(newFilters, prevFilters, totalUniversityCount, _universityProductsOriginal as any) ||
         needsServerRefetch(newFilters, prevFilters, totalCityCount, _cityProductsOriginal as any);
-      
+
       // If any product set needs server filtering or progressive loading, set the flag
-      const useServer = useFeaturedServerFiltering || 
-                      useNewArrivalsServerFiltering || 
-                      useUniversityServerFiltering || 
+      const useServer = useFeaturedServerFiltering ||
+                      useNewArrivalsServerFiltering ||
+                      useUniversityServerFiltering ||
                       useCityServerFiltering ||
                       needsProgressiveLoading;
-      
+
       setUsingServerFiltering(useServer);
-      
+
       if (useServer) {
         // Apply server-side filtering by reloading with filters
         console.log('[HomeScreen] Using server-side filtering for large datasets or progressive loading');
-        
+
         // Convert filters to API-compatible format
         const apiFilters = convertToApiFilters(newFilters, selectedSort);
-        
+
         // Set loading states
-        if (useFeaturedServerFiltering || 
+        if (useFeaturedServerFiltering ||
             (needsProgressiveLoading && _featuredProductsOriginal.length > 0)) {
           setLoadingFeatured(true);
           // Load featured products with filters
           loadFilteredFeaturedProducts(apiFilters)
             .finally(() => setLoadingFeatured(false));
         }
-        
-        if (useNewArrivalsServerFiltering || 
+
+        if (useNewArrivalsServerFiltering ||
             (needsProgressiveLoading && _newArrivalsProductsOriginal.length > 0)) {
           setLoadingNewArrivals(true);
           // Load new arrivals with filters
           loadFilteredNewArrivals(apiFilters)
             .finally(() => setLoadingNewArrivals(false));
         }
-        
-        if (useUniversityServerFiltering || 
+
+        if (useUniversityServerFiltering ||
             (needsProgressiveLoading && _universityProductsOriginal.length > 0)) {
           setLoadingUniversity(true);
           // Load university products with filters
           loadFilteredUniversityProducts(apiFilters)
             .finally(() => setLoadingUniversity(false));
         }
-        
-        if (useCityServerFiltering || 
+
+        if (useCityServerFiltering ||
             (needsProgressiveLoading && _cityProductsOriginal.length > 0)) {
           setLoadingCity(true);
           // Load city products with filters
@@ -987,60 +987,60 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
       } else {
         // Use client-side filtering for smaller datasets
         console.log('[HomeScreen] Using optimized client-side filtering');
-        
+
         // Apply filters to products in real-time with optimized filtering
         if (_featuredProductsOriginal.length > 0) {
           setFeaturedProducts(
-            _featuredProductsOriginal.length < 100 ? 
+            _featuredProductsOriginal.length < 100 ?
               applySortingAndFilters(_featuredProductsOriginal as any, selectedSort, newFilters) :
               applyOptimizedFiltering(_featuredProductsOriginal as any, newFilters, featuredFilterMaps)
           );
         }
-        
+
         if (_newArrivalsProductsOriginal.length > 0) {
           setNewArrivalsProducts(
-            _newArrivalsProductsOriginal.length < 100 ? 
+            _newArrivalsProductsOriginal.length < 100 ?
               applySortingAndFilters(_newArrivalsProductsOriginal as any, selectedSort, newFilters) :
               applyOptimizedFiltering(_newArrivalsProductsOriginal as any, newFilters, newArrivalsFilterMaps)
           );
         }
-        
+
         if (_universityProductsOriginal.length > 0) {
           setUniversityProducts(
-            _universityProductsOriginal.length < 100 ? 
+            _universityProductsOriginal.length < 100 ?
               applySortingAndFilters(_universityProductsOriginal as any, selectedSort, newFilters) :
               applyOptimizedFiltering(_universityProductsOriginal as any, newFilters, universityFilterMaps)
           );
         }
-        
+
         if (_cityProductsOriginal.length > 0) {
           setCityProducts(
-            _cityProductsOriginal.length < 100 ? 
+            _cityProductsOriginal.length < 100 ?
               applySortingAndFilters(_cityProductsOriginal as any, selectedSort, newFilters) :
               applyOptimizedFiltering(_cityProductsOriginal as any, newFilters, cityFilterMaps)
           );
         }
-        
+
         // Apply to search results if visible
         if (search.showSearchResults && search.searchResults.length > 0) {
           // For search results, re-run search with new filters instead of directly manipulating results
           search.handleSearch();
         }
       }
-      
+
       return newFilters;
     });
-    
+
     // Close dropdown if not multi-select
     if (!filterDropdownVisible) {
       setFilterDropdownVisible(false);
     }
   }, [
-    _featuredProductsOriginal, 
-    _newArrivalsProductsOriginal, 
-    _universityProductsOriginal, 
-    _cityProductsOriginal, 
-    selectedSort, 
+    _featuredProductsOriginal,
+    _newArrivalsProductsOriginal,
+    _universityProductsOriginal,
+    _cityProductsOriginal,
+    selectedSort,
     filterDropdownVisible,
     search, // Add entire search object as dependency
     totalFeaturedCount,
@@ -1054,7 +1054,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     loadFilteredFeaturedProducts,
     loadFilteredNewArrivals,
     loadFilteredUniversityProducts,
-    loadFilteredCityProducts
+    loadFilteredCityProducts,
   ]);
 
   // Update the handleSortOptionSelect function
@@ -1062,32 +1062,32 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     console.log(`[HomeScreen] Sort option selected: ${optionId}`);
     setSelectedSort(optionId);
     setSortDropdownVisible(false);
-    
+
     // Apply sorting directly using the applySortingAndFilters function
     if (_featuredProductsOriginal.length > 0) {
       setFeaturedProducts(
         applySortingAndFilters(_featuredProductsOriginal as any, optionId, selectedFilters)
       );
     }
-    
+
     if (_newArrivalsProductsOriginal.length > 0) {
       setNewArrivalsProducts(
         applySortingAndFilters(_newArrivalsProductsOriginal as any, optionId, selectedFilters)
       );
     }
-    
+
     if (_universityProductsOriginal.length > 0) {
       setUniversityProducts(
         applySortingAndFilters(_universityProductsOriginal as any, optionId, selectedFilters)
       );
     }
-    
+
     if (_cityProductsOriginal.length > 0) {
       setCityProducts(
         applySortingAndFilters(_cityProductsOriginal as any, optionId, selectedFilters)
       );
     }
-    
+
     // Apply to search results if visible
     if (search.showSearchResults && search.searchResults.length > 0) {
       // For search results, re-run search with new sort option
@@ -1099,14 +1099,14 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     _universityProductsOriginal,
     _cityProductsOriginal,
     selectedFilters,
-    search
+    search,
   ]);
 
   // Comprehensive function to apply both sorting and filtering
   const applySortingAndFilters = (products: Product[], sortOption: string, filters: string[]): Product[] => {
     // First apply filters
     let filteredProducts = filters.length > 0 ? applyFiltersToProducts(products, filters) : [...products];
-    
+
     // Then apply sorting
     switch (sortOption) {
       case 'price_low_to_high':
@@ -1131,7 +1131,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
       default:
         break;
     }
-    
+
     return filteredProducts;
   };
 
@@ -1140,37 +1140,37 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     // Reset filters and sort
     setSelectedFilters([]);
     setSelectedSort('default');
-    
+
     // Reset all products to their originals
     if (_featuredProductsOriginal.length > 0) {
       setFeaturedProducts([..._featuredProductsOriginal]);
     }
-    
+
     if (_newArrivalsProductsOriginal.length > 0) {
       setNewArrivalsProducts([..._newArrivalsProductsOriginal]);
     }
-    
+
     if (_universityProductsOriginal.length > 0) {
       setUniversityProducts([..._universityProductsOriginal]);
     }
-    
+
     if (_cityProductsOriginal.length > 0) {
       setCityProducts([..._cityProductsOriginal]);
     }
-    
+
     // Reset search results if visible
     if (search.showSearchResults && search.searchResults.length > 0) {
       // We'd need to re-run the search without filters
       search.handleSearch();
     }
-    
+
     console.log('[HomeScreen] All filters and sorting cleared');
   }, [
     _featuredProductsOriginal,
     _newArrivalsProductsOriginal,
     _universityProductsOriginal,
     _cityProductsOriginal,
-    search // Add entire search object as dependency
+    search, // Add entire search object as dependency
   ]);
 
   // Navigate to category products screen with appropriate section
@@ -1181,26 +1181,26 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
         categoryId: 0, // Using 0 for non-category specific sections
         categoryName: 'Featured Products',
         userUniversity: userUniversity,
-        userCity: userCity
+        userCity: userCity,
       });
     } else if (section === 'newArrivals') {
       nav.navigate('CategoryProducts', {
         categoryId: 0,
         categoryName: 'New Arrivals',
-        userUniversity: userUniversity
+        userUniversity: userUniversity,
       });
     } else if (section === 'university') {
       nav.navigate('CategoryProducts', {
         categoryId: 0,
         categoryName: `${userUniversity} Products`,
-        userUniversity: userUniversity
+        userUniversity: userUniversity,
       });
     } else if (section === 'city') {
       nav.navigate('CategoryProducts', {
         categoryId: 0,
         categoryName: `${userCity} Products`,
         userUniversity: userUniversity,
-        userCity: userCity
+        userCity: userCity,
       });
     }
   }, [nav, userCity, userUniversity]);
@@ -1210,7 +1210,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     // Navigate to product detail
     nav.navigate('ProductInfoPage', { product });
   }, [nav]);
-  
+
   const toggleWishlist = useCallback((id: string) => {
     // Toggle product in wishlist
     setWishlist(prev => {
@@ -1221,14 +1221,14 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
       }
     });
   }, []);
-  
+
   const handleCategoryPress = useCallback((category: Category) => {
     // Navigate to category products
     nav.navigate('CategoryProducts', {
       categoryId: category.id,
       categoryName: category.name,
       userUniversity: userUniversity,
-      userCity: userCity
+      userCity: userCity,
     });
   }, [nav, userUniversity, userCity]);
 
@@ -1237,18 +1237,18 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     // Get seller information from the product
     const sellerName = product.sellerName || (product.seller && product.seller.name) || 'Seller';
     const sellerEmail = product.email || (product.seller && (product.seller as any).email);
-    
+
     if (!sellerEmail) {
       Alert.alert('Error', 'Seller contact information is not available');
       return;
     }
-    
+
     console.log(`[HomeScreen] Messaging seller: ${sellerName} (${sellerEmail})`);
-    
+
     // Navigate to the Firebase Chat screen
-    nav.navigate('FirebaseChatScreen', { 
+    nav.navigate('FirebaseChatScreen', {
       recipientEmail: sellerEmail,
-      recipientName: sellerName
+      recipientName: sellerName,
     });
   }, [nav]);
 
@@ -1257,13 +1257,13 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     // Store the selected filters temporarily
     setSelectedFilters(prev => ({
       ...prev,
-      [filterType]: value
+      [filterType]: value,
     }));
-    
+
     // Don't immediately apply filters, wait for user to press Apply
     console.log(`[HomeScreen] Filter changed: ${filterType} = ${value} for ${sectionType}`);
   }, []);
-  
+
   // Add this close to other stub functions
   const setShowFilterModal = (show: boolean) => {
     console.log('[HomeScreen] setShowFilterModal is now a stub - will use direct state in the future');
@@ -1273,18 +1273,18 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   const applyFilters = useCallback(() => {
     // Close the filter modal - only if we're using one
     setFilterDropdownVisible(false);
-    
+
     if (Object.keys(selectedFilters).length === 0) {
       console.log('[HomeScreen] No filters to apply');
       return;
     }
-    
+
     console.log('[HomeScreen] Applying filters:', selectedFilters);
-    
+
     // Instead of using the old filtering functions, we should use the Zustand store
     // This is a stub for now - will be fully implemented later
     console.log('[HomeScreen] Filters will be handled by Zustand store in future implementation');
-    
+
   }, [selectedFilters]);
 
   // Sync original product arrays with Zustand store data
@@ -1295,33 +1295,33 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
       // Also create filter maps
       setFeaturedFilterMaps(createFilterMaps(featuredProducts as any));
     }
-    
+
     if (newArrivalsProducts.length > 0 && _newArrivalsProductsOriginal.length === 0) {
       console.log('[HomeScreen] Syncing new arrivals to original array:', newArrivalsProducts.length);
       setNewArrivalsProductsOriginal([...newArrivalsProducts] as any);
       setNewArrivalsFilterMaps(createFilterMaps(newArrivalsProducts as any));
     }
-    
+
     if (universityProducts.length > 0 && _universityProductsOriginal.length === 0) {
       console.log('[HomeScreen] Syncing university products to original array:', universityProducts.length);
       setUniversityProductsOriginal([...universityProducts] as any);
       setUniversityFilterMaps(createFilterMaps(universityProducts as any));
     }
-    
+
     if (cityProducts.length > 0 && _cityProductsOriginal.length === 0) {
       console.log('[HomeScreen] Syncing city products to original array:', cityProducts.length);
       setCityProductsOriginal([...cityProducts] as any);
       setCityFilterMaps(createFilterMaps(cityProducts as any));
     }
   }, [
-    featuredProducts, 
-    newArrivalsProducts, 
-    universityProducts, 
-    cityProducts, 
-    _featuredProductsOriginal, 
-    _newArrivalsProductsOriginal, 
-    _universityProductsOriginal, 
-    _cityProductsOriginal
+    featuredProducts,
+    newArrivalsProducts,
+    universityProducts,
+    cityProducts,
+    _featuredProductsOriginal,
+    _newArrivalsProductsOriginal,
+    _universityProductsOriginal,
+    _cityProductsOriginal,
   ]);
 
   return (
@@ -1329,8 +1329,8 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
       <View style={styles.container}>
         {/* Top navigation bar with menu and profile */}
         <View style={styles.topBar}>
-          <TouchableOpacity 
-            style={styles.menuButton} 
+          <TouchableOpacity
+            style={styles.menuButton}
             onPress={() => {
               try {
                 nav.dispatch(DrawerActions.openDrawer());
@@ -1343,15 +1343,15 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
           >
             <MaterialIcons name="menu" size={22} color="#333" />
           </TouchableOpacity>
-          
+
           <Text style={[styles.truStudSelText, { color: '#efae1a' }]}>TruStudSel</Text>
-          
+
           <View style={styles.topBarRight}>
             {isLoadingUserData && <ActivityIndicator size="small" color="#f7b305" style={{marginRight: 10}} />}
             {userDataError && <TouchableOpacity onPress={fetchUserProfile}>
               <MaterialIcons name="refresh" size={20} color="#e74c3c" style={{marginRight: 10}} />
             </TouchableOpacity>}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.profileButton}
               onPress={() => {
                 nav.navigate('Profile', {});
@@ -1359,8 +1359,8 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
               testID="profile-button"
             >
               {userProfileData?.userphoto ? (
-                <Image 
-                  source={{ uri: userProfileData.userphoto }} 
+                <Image
+                  source={{ uri: userProfileData.userphoto }}
                   style={styles.profileCircle}
                   resizeMode="cover"
                 />
@@ -1372,7 +1372,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
             </TouchableOpacity>
           </View>
         </View>
-        
+
         {/* Search Bar */}
         <View style={styles.searchContainer}>
           <View style={styles.searchInputContainer}>
@@ -1389,7 +1389,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                 } else {
                   search.setShowRecentSearches(false);
                 }
-                
+
                 // Automatically clear search results when search box is emptied
                 if (!text) {
                   search.setShowSearchResults(false);
@@ -1401,8 +1401,8 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
               placeholderTextColor="#999"
             />
             {search.searchQuery.length > 0 && (
-              <TouchableOpacity 
-                style={styles.clearButton} 
+              <TouchableOpacity
+                style={styles.clearButton}
                 onPress={search.handleClearSearch}
                 activeOpacity={0.7}
               >
@@ -1411,8 +1411,8 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
             )}
             {/* Add explicit search button */}
             {search.searchQuery.length > 0 && (
-              <TouchableOpacity 
-                style={styles.searchButton} 
+              <TouchableOpacity
+                style={styles.searchButton}
                 onPress={search.handleSearchButtonPress}
                 activeOpacity={0.7}
               >
@@ -1426,7 +1426,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
             <View style={styles.recentSearchesDropdown}>
               <Text style={styles.recentSearchesTitle}>Recent Searches</Text>
               {search.recentSearches.map((item, index) => (
-                <TouchableOpacity 
+                <TouchableOpacity
                   key={`recent-${index}`}
                   style={styles.recentSearchItem}
                   onPress={() => {
@@ -1443,7 +1443,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
             </View>
           )}
         </View>
-        
+
         {/* Row with text and buttons */}
         <View style={styles.rowContainer}>
           <Text style={styles.plainText}>
@@ -1451,11 +1451,11 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
           </Text>
           <View style={styles.buttonContainer}>
             <View style={{ position: 'relative' }}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
-                  styles.smallButton, 
+                  styles.smallButton,
                   styles.sortButton,
-                  selectedSort !== 'default' && styles.activeFilterButton
+                  selectedSort !== 'default' && styles.activeFilterButton,
                 ]}
                 onPress={() => setSortDropdownVisible(!sortDropdownVisible)}
                 activeOpacity={0.7}
@@ -1463,7 +1463,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                 <Icon name="sort" size={14} color="black" />
                 <Text style={[styles.buttonText, { color: 'black' }]}>Sort</Text>
               </TouchableOpacity>
-              
+
               {/* Sort Dropdown */}
               {sortDropdownVisible && (
                 <View style={styles.dropdownContainer}>
@@ -1477,13 +1477,13 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                 </View>
               )}
             </View>
-            
+
             <View style={{ position: 'relative' }}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
-                  styles.smallButton, 
+                  styles.smallButton,
                   styles.filterButton,
-                  selectedFilters.length > 0 && styles.activeFilterButton
+                  selectedFilters.length > 0 && styles.activeFilterButton,
                 ]}
                 onPress={() => setFilterDropdownVisible(!filterDropdownVisible)}
                 activeOpacity={0.7}
@@ -1491,7 +1491,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                 <Icon name="filter" size={14} color="black" />
                 <Text style={[styles.buttonText, { color: 'black' }]}>Filter</Text>
               </TouchableOpacity>
-              
+
               {/* Filter Dropdown */}
               {filterDropdownVisible && (
                 <View style={styles.dropdownContainer}>
@@ -1506,7 +1506,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                 </View>
               )}
             </View>
-            
+
             {/* Clear filters button */}
             {selectedFilters.length > 0 && (
               <TouchableOpacity
@@ -1519,7 +1519,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
             )}
           </View>
         </View>
-        
+
         {/* Search Results */}
         {search.showSearchResults ? (
           <View style={styles.searchResultsContainer}>
@@ -1569,7 +1569,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                 {search.searchResults.length > 0 && (
                   <View style={styles.searchStatsContainer}>
                     <Text style={styles.searchStatsText}>
-                      Showing {search.searchResults.length} results • Page {search.currentPage+1} of {search.totalPages}
+                      Showing {search.searchResults.length} results • Page {search.currentPage + 1} of {search.totalPages}
                     </Text>
                   </View>
                 )}
@@ -1584,8 +1584,8 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
               <FlatList
                 data={categories}
                 renderItem={({ item }) => (
-                  <CategoryItem 
-                    item={item} 
+                  <CategoryItem
+                    item={item}
                     onPress={handleCategoryPress}
                   />
                 )}
@@ -1594,16 +1594,16 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                 showsHorizontalScrollIndicator={false}
               />
             </View>
-            
+
             {/* Scrollable container for all product sections */}
-            <ScrollView 
+            <ScrollView
               showsVerticalScrollIndicator={false}
               refreshControl={
                 <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
               }
             >
               {/* New Arrivals Section */}
-              <ProductSection 
+              <ProductSection
                 title="New Arrivals"
                 data={(newArrivalsProductsState.length > 0 ? newArrivalsProductsState : newArrivalsProducts) as any}
                 wishlist={wishlist}
@@ -1615,7 +1615,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
               />
 
               {/* University Products Section */}
-              <ProductSection 
+              <ProductSection
                 title={`${userUniversity} Products`}
                 data={(universityProductsState.length > 0 ? universityProductsState : universityProducts) as any}
                 wishlist={wishlist}
@@ -1628,7 +1628,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
 
               {/* Interested Category Products Section */}
               {selectedInterestCategory && (
-                <ProductSection 
+                <ProductSection
                   title="Products You May Like"
                   data={interestedCategoryProducts}
                   wishlist={wishlist}
@@ -1640,7 +1640,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                       categoryId: categories.find(c => c.name.toLowerCase() === selectedInterestCategory.toLowerCase())?.id || 1,
                       categoryName: selectedInterestCategory.charAt(0).toUpperCase() + selectedInterestCategory.slice(1),
                       userUniversity: userUniversity,
-                      userCity: userCity
+                      userCity: userCity,
                     });
                   }}
                   isLoading={loadingInterestedCategory}
@@ -1649,7 +1649,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
 
               {/* City Products Section */}
               {userCity && (
-                <ProductSection 
+                <ProductSection
                   title={`${userCity} Products`}
                   data={(cityProductsState.length > 0 ? cityProductsState : cityProducts) as any}
                   wishlist={wishlist}
@@ -1660,9 +1660,9 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                   isLoading={loadingCity}
                 />
               )}
-              
+
               {/* Featured Products Section */}
-              <ProductSection 
+              <ProductSection
                 title="Featured Products"
                 data={(featuredProductsState.length > 0 ? featuredProductsState : featuredProducts) as any}
                 wishlist={wishlist}
@@ -1672,12 +1672,12 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                 onSeeAll={() => handleSeeAll('featured')}
                 isLoading={loadingFeatured}
               />
-              
+
               {/* Error display */}
               {productError && (
                 <View style={styles.errorContainer}>
                   <Text style={styles.errorText}>{productError}</Text>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.retryButton}
                     onPress={onRefresh}
                   >
@@ -1685,7 +1685,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                   </TouchableOpacity>
                 </View>
               )}
-              
+
               {/* Bottom padding to avoid content being hidden behind navigation */}
               <View style={{height: 70}} />
             </ScrollView>
@@ -1816,7 +1816,7 @@ const styles = StyleSheet.create({
       android: {
         borderWidth: 1,
         borderColor: '#e0e0e0',
-      }
+      },
     }),
   },
   sortButton: {
@@ -1865,7 +1865,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#e0e0e0',
         elevation: 0,
-      }
+      },
     }),
   },
   categoryText: {
@@ -1909,7 +1909,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#e0e0e0',
         elevation: 0,
-      }
+      },
     }),
   },
   productImagePlaceholder: {
@@ -1967,7 +1967,7 @@ const styles = StyleSheet.create({
         elevation: 3,
         borderWidth: 1,
         borderColor: '#e0e0e0',
-      }
+      },
     }),
   },
   enhancedDropdown: {
@@ -1979,7 +1979,7 @@ const styles = StyleSheet.create({
       android: {
         borderWidth: 1,
         borderColor: '#e0e0e0',
-      }
+      },
     }),
   },
   enhancedDropdownHeader: {
@@ -2173,7 +2173,7 @@ const styles = StyleSheet.create({
       },
       android: {
         elevation: 0,
-      }
+      },
     }),
   },
   recentSearchesDropdown: {
@@ -2195,7 +2195,7 @@ const styles = StyleSheet.create({
         elevation: 3,
         borderWidth: 1,
         borderColor: '#e0e0e0',
-      }
+      },
     }),
   },
   recentSearchesHeader: {
@@ -2238,4 +2238,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default HomeScreen; 
+export default HomeScreen;

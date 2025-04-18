@@ -56,7 +56,7 @@ const Drawer = createDrawerNavigator();
 const LocationProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
   const [userUniversity, setUserUniversity] = useState<string>('');
   const [userCity, setUserCity] = useState<string>('');
-  
+
   return (
     <UniversityContext.Provider value={{ userUniversity, setUserUniversity }}>
       <CityContext.Provider value={{ userCity, setUserCity }}>
@@ -80,65 +80,65 @@ const MainStack = () => {
         gestureDirection: 'horizontal',
       }}
     >
-      <Stack.Screen 
-        name="Home" 
-        component={HomeWithBottomNav} 
+      <Stack.Screen
+        name="Home"
+        component={HomeWithBottomNav}
       />
-      <Stack.Screen 
-        name="Profile" 
-        component={ProfileScreen} 
+      <Stack.Screen
+        name="Profile"
+        component={ProfileScreen}
       />
-      <Stack.Screen 
-        name="EditProfile" 
-        component={EditProfileScreen} 
+      <Stack.Screen
+        name="EditProfile"
+        component={EditProfileScreen}
       />
-      <Stack.Screen 
-        name="DeleteAccount" 
-        component={DeleteAccountScreen} 
+      <Stack.Screen
+        name="DeleteAccount"
+        component={DeleteAccountScreen}
       />
-      <Stack.Screen 
-        name="MessagesScreen" 
-        component={MessagesScreen} 
-        options={{ 
+      <Stack.Screen
+        name="MessagesScreen"
+        component={MessagesScreen}
+        options={{
           headerShown: false,
         }}
       />
-      <Stack.Screen 
-        name="MessageScreen" 
-        component={MessageScreen} 
-        options={{ 
+      <Stack.Screen
+        name="MessageScreen"
+        component={MessageScreen}
+        options={{
           headerShown: false,
         }}
       />
-      <Stack.Screen 
-        name="FirebaseChatScreen" 
-        component={FirebaseChatScreen} 
-        options={{ 
+      <Stack.Screen
+        name="FirebaseChatScreen"
+        component={FirebaseChatScreen}
+        options={{
           headerShown: false,
         }}
       />
-      <Stack.Screen 
-        name="UserSearchScreen" 
-        component={UserSearchScreen} 
-        options={{ 
+      <Stack.Screen
+        name="UserSearchScreen"
+        component={UserSearchScreen}
+        options={{
           headerShown: false,
         }}
       />
-      <Stack.Screen 
-        name="PostingScreen" 
-        component={PostingScreen} 
+      <Stack.Screen
+        name="PostingScreen"
+        component={PostingScreen}
       />
-      <Stack.Screen 
-        name="ProductInfoPage" 
-        component={ProductsScreen} 
+      <Stack.Screen
+        name="ProductInfoPage"
+        component={ProductsScreen}
       />
-      <Stack.Screen 
-        name="Wishlist" 
-        component={WishlistScreen} 
+      <Stack.Screen
+        name="Wishlist"
+        component={WishlistScreen}
       />
-      <Stack.Screen 
-        name="CategoryProducts" 
-        component={CategoryProductsWithBottomNav} 
+      <Stack.Screen
+        name="CategoryProducts"
+        component={CategoryProductsWithBottomNav}
       />
     </Stack.Navigator>
   );
@@ -167,33 +167,33 @@ const MainNavigator: React.FC = () => {
           overlayColor: 'rgba(0, 0, 0, 0.5)',
         }}
       >
-        <Drawer.Screen 
-          name="MainStack" 
+        <Drawer.Screen
+          name="MainStack"
           component={MainStack}
           options={{ drawerLabel: 'Home' }}
         />
-        <Drawer.Screen 
-          name="Profile" 
+        <Drawer.Screen
+          name="Profile"
           component={ProfileScreen}
           options={{ drawerLabel: 'Profile', drawerItemStyle: { display: 'none' } }}
         />
-        <Drawer.Screen 
-          name="Settings" 
+        <Drawer.Screen
+          name="Settings"
           component={DeleteAccountScreen}
           options={{ drawerLabel: 'Account Settings' }}
         />
-        <Drawer.Screen 
-          name="MessagesScreen" 
+        <Drawer.Screen
+          name="MessagesScreen"
           component={MessagesScreen}
           options={{ drawerLabel: 'Messages', drawerItemStyle: { display: 'none' } }}
         />
-        <Drawer.Screen 
-          name="FirebaseChatScreen" 
+        <Drawer.Screen
+          name="FirebaseChatScreen"
           component={FirebaseChatScreen}
           options={{ drawerLabel: 'Firebase Chat', drawerItemStyle: { display: 'none' } }}
         />
-        <Drawer.Screen 
-          name="Wishlist" 
+        <Drawer.Screen
+          name="Wishlist"
           component={WishlistScreen}
           options={{ drawerLabel: 'Wishlist', drawerItemStyle: { display: 'none' } }}
         />
@@ -208,7 +208,7 @@ const ModifiedHomeScreen = () => {
   const { userUniversity, setUserUniversity } = useUniversity();
   const { userCity, setUserCity } = useCity();
   const [hasInitialized, setHasInitialized] = useState(false);
-  
+
   useEffect(() => {
     // Don't override if there's already a university value in context
     if (userUniversity && userUniversity !== 'University not available') {
@@ -217,14 +217,14 @@ const ModifiedHomeScreen = () => {
       // Try to extract university data from user object
       const universityValue = user?.university || '';
       console.log('[ModifiedHomeScreen] Setting university from user context:', universityValue);
-      
+
       if (universityValue) {
         setUserUniversity(universityValue);
       } else if (!hasInitialized) {
         console.warn('[ModifiedHomeScreen] No university found in user context, will try to get it from HomeScreen');
       }
     }
-    
+
     // Don't override if there's already a city value in context
     if (userCity && userCity !== 'City not available') {
       console.log(`[ModifiedHomeScreen] Context already has city value: ${userCity}, not overriding`);
@@ -232,14 +232,14 @@ const ModifiedHomeScreen = () => {
       // Try to extract city data from user object
       const cityValue = user?.city || '';
       console.log('[ModifiedHomeScreen] Setting city from user context:', cityValue);
-      
+
       if (cityValue) {
         setUserCity(cityValue);
       } else if (!hasInitialized) {
         console.warn('[ModifiedHomeScreen] No city found in user context, will try to get it from HomeScreen');
       }
     }
-    
+
     // If we have both values or this is our first init, mark as initialized
     if ((userUniversity && userCity) || !hasInitialized) {
       // This is a last resort fallback to prevent navigation with empty values
@@ -258,7 +258,7 @@ const ModifiedHomeScreen = () => {
       return () => clearTimeout(timer);
     }
   }, [user, setUserUniversity, userUniversity, setUserCity, userCity, hasInitialized]);
-  
+
   return <HomeScreen />;
 };
 
@@ -266,7 +266,7 @@ const ModifiedHomeScreen = () => {
 const HomeWithBottomNav: React.FC = () => {
   const { userUniversity } = useUniversity();
   const { userCity } = useCity();
-  
+
   return (
     <>
       <ModifiedHomeScreen />
@@ -281,10 +281,10 @@ const CategoryProductsWithBottomNav: React.FC = () => {
   const navigation = useNavigation<CategoryProductsScreenNavigationProp>();
   const { userUniversity } = useUniversity();
   const { userCity } = useCity();
-  
+
   // Get city from route params, or fall back to context
   const cityToUse = route.params?.userCity || userCity;
-  
+
   return (
     <>
       <CategoryProductsScreen navigation={navigation} route={route} />
@@ -296,4 +296,4 @@ const CategoryProductsWithBottomNav: React.FC = () => {
 // Ignore specific warnings instead of all
 LogBox.ignoreLogs(['Warning: ...', 'NavigationContent']);
 
-export default MainNavigator; 
+export default MainNavigator;

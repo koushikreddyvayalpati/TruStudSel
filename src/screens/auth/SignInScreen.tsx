@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  StyleSheet,
   Alert,
   Pressable,
   Image,
@@ -11,7 +11,7 @@ import {
   ScrollView,
   TouchableWithoutFeedback,
   Keyboard,
-  SafeAreaView
+  SafeAreaView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SignInScreenNavigationProp } from '../../types/navigation.types';
@@ -59,52 +59,52 @@ const SignInScreen: React.FC = () => {
       Alert.alert('Error', 'Please enter both your .edu email and password');
       return;
     }
-    
+
     // 2. Validate email format (.edu)
     if (!username.includes('@') || !username.toLowerCase().endsWith('.edu')) {
       Alert.alert(
-        'Invalid Email', 
+        'Invalid Email',
         'Please use your university email address ending with .edu to sign in.'
       );
       return;
     }
-    
+
     setLoading(true);
     setLoadingStep(0);
-    
+
     try {
       // Show verifying step after a brief delay
       setTimeout(() => setLoadingStep(1), 800);
-      
+
       const user = await signIn(username, password);
       console.log('Login successful:', user);
-      
+
       // Get user attributes if available
       const userAttributes = user.attributes || {};
       console.log('User attributes:', userAttributes);
-      
+
       // Set the email as username if email is empty
       if (!userAttributes.email && username.includes('@')) {
         console.log('Setting email from username:', username);
       }
-      
+
       // Show success message briefly before continuing
       setLoadingStep(2);
       setTimeout(() => {
         setLoading(false);
       }, 800);
-      
+
     } catch (err) {
       setLoading(false);
-      
+
       // Capture error details
       let errorName = '';
       let errorMessage = '';
-      
+
       if (err && typeof err === 'object') {
         errorName = (err as any).name || '';
         errorMessage = (err as any).message || '';
-        
+
         if (!errorMessage && (err as any).toString) {
           const errString = (err as any).toString();
           if (errString !== '[object Object]') {
@@ -114,65 +114,65 @@ const SignInScreen: React.FC = () => {
       } else if (typeof err === 'string') {
         errorMessage = err;
       }
-      
+
       console.log('Login error details:', { errorName, errorMessage });
-      
+
       // Handle UserNotFoundException specifically
-      if (errorName === 'UserNotFoundException' || 
-          errorMessage.includes('User does not exist') || 
+      if (errorName === 'UserNotFoundException' ||
+          errorMessage.includes('User does not exist') ||
           errorMessage.includes('user does not exist')) {
-        
+
         // Log specifically for debugging if needed, but not as an error
         console.log('Handled UserNotFoundException - showing alert.');
-        
+
         Alert.alert(
-          'Account Not Found', 
+          'Account Not Found',
           'We couldn\'t find an account with this email. Please check your email or create a new account.',
           [
-            { 
-              text: 'Sign Up', 
+            {
+              text: 'Sign Up',
               onPress: () => {
                 console.log('Navigating to email verification...');
                 navigation.navigate('EmailVerification', { email: username });
-              }
+              },
             },
-            { text: 'Try Again', style: 'cancel' }
+            { text: 'Try Again', style: 'cancel' },
           ],
           { cancelable: true }
         );
         return; // Important: Exit after handling this specific error
       }
-      
+
       // Handle NotAuthorizedException (incorrect password)
-      if (errorName === 'NotAuthorizedException' || 
+      if (errorName === 'NotAuthorizedException' ||
           errorMessage.includes('Incorrect username or password')) {
-        
+
         console.log('Handled NotAuthorizedException - showing alert.');
-        
+
         Alert.alert(
-          'Incorrect Password', 
+          'Incorrect Password',
           'The password you entered is incorrect. Please try again or reset your password.',
           [
-            { 
-              text: 'Forgot Password', 
+            {
+              text: 'Forgot Password',
               onPress: () => {
                 console.log('Navigating to ForgotPassword...');
                 navigation.navigate('ForgotPassword');
-              }
+              },
             },
-            { text: 'Try Again', style: 'cancel' }
+            { text: 'Try Again', style: 'cancel' },
           ],
           { cancelable: true }
         );
         return; // Exit after handling this specific error
       }
-      
+
       // Only log unhandled errors with console.error
       console.error('Login error (unhandled type):', err);
-      
+
       // Generic error alert for anything else
       Alert.alert(
-        'Login Error', 
+        'Login Error',
         errorMessage || 'Failed to sign in',
         [{ text: 'OK', style: 'cancel' }],
         { cancelable: true }
@@ -182,15 +182,15 @@ const SignInScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <ScrollView 
+          <ScrollView
             contentContainerStyle={[
               styles.scrollContainer,
-              Platform.OS === 'android' && { paddingTop: 15 }
+              Platform.OS === 'android' && { paddingTop: 15 },
             ]}
             showsVerticalScrollIndicator={false}
             bounces={false}
@@ -202,20 +202,20 @@ const SignInScreen: React.FC = () => {
               currentStep={loadingStep}
               showProgressDots={true}
             />
-            
+
             <View style={[styles.logoContainer, keyboardVisible && styles.logoContainerCompressed]}>
               <Text style={styles.logoText}>TruStudSel</Text>
               <Text style={styles.tagline}>The Trusted Student Marketplace</Text>
-              
+
               {!keyboardVisible && (
-                <Image 
-                  source={require('../../../assets/Group.jpg')} 
+                <Image
+                  source={require('../../../assets/Group.jpg')}
                   style={styles.logoImage}
                   resizeMode="contain"
                 />
               )}
             </View>
-            
+
             <View style={styles.formContainer}>
               <View style={styles.inputWrapper}>
                 <TextInput
@@ -230,7 +230,7 @@ const SignInScreen: React.FC = () => {
                   placeholderTextColor="#999"
                 />
               </View>
-              
+
               <View style={styles.inputWrapper}>
                 <TextInput
                   label="Password"
@@ -243,8 +243,8 @@ const SignInScreen: React.FC = () => {
                   placeholderTextColor="#999"
                 />
               </View>
-              
-              <Text 
+
+              <Text
                 style={styles.forgotPassword}
                 onPress={() => {
                   console.log('Navigating to ForgotPassword screen');
@@ -253,31 +253,31 @@ const SignInScreen: React.FC = () => {
               >
                 Forgot Password?
               </Text>
-              
+
               <Pressable
                 onPress={handleLogin}
                 style={({ pressed }) => [
                   styles.loginButton,
                   pressed && styles.buttonPressed,
-                  loading && styles.buttonDisabled
+                  loading && styles.buttonDisabled,
                 ]}
                 android_ripple={{ color: 'rgba(255, 255, 255, 0.3)' }}
                 disabled={loading}
               >
                 <Text style={styles.buttonText}>Sign In</Text>
               </Pressable>
-              
+
               <View style={styles.dividerContainer}>
                 <View style={styles.divider} />
                 <Text style={styles.dividerText}>OR</Text>
                 <View style={styles.divider} />
               </View>
-              
+
               <Pressable
                 onPress={() => navigation.navigate('EmailVerification', { email: '' })}
                 style={({ pressed }) => [
                   styles.createAccountButton,
-                  pressed && styles.buttonPressed
+                  pressed && styles.buttonPressed,
                 ]}
                 android_ripple={{ color: 'rgba(255, 255, 255, 0.3)' }}
                 disabled={loading}
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     marginTop: 10,
-   
+
   },
   formContainer: {
     paddingHorizontal: 30,
@@ -417,4 +417,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SignInScreen; 
+export default SignInScreen;

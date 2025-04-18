@@ -177,7 +177,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Remove currency symbol and convert to number
       const priceStr = item.product.price.replace(/[^0-9.]/g, '');
       const price = parseFloat(priceStr);
-      
+
       return total + price * item.quantity;
     }, 0);
   };
@@ -217,4 +217,4 @@ export const useCart = (): CartContextType => {
   return context;
 };
 
-export default CartContext; 
+export default CartContext;

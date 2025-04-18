@@ -1,6 +1,6 @@
 /**
  * useForm hook for form handling with validation
- * 
+ *
  * This hook provides a unified way to manage form state, validation, and submission.
  * It supports:
  * - Type-safe form values
@@ -45,7 +45,7 @@ export interface UseFormReturn<Values> {
   isSubmitting: boolean;
   isValid: boolean;
   dirty: boolean;
-  
+
   // Handlers
   handleChange: <K extends keyof Values>(field: K) => (value: Values[K]) => void;
   handleBlur: <K extends keyof Values>(field: K) => () => void;
@@ -127,7 +127,7 @@ export function useForm<Values extends Record<string, any>>({
   // Update a field value
   const setFieldValue = useCallback(<K extends keyof Values>(field: K, value: Values[K]) => {
     setValues((prevValues) => ({ ...prevValues, [field]: value }));
-    
+
     if (validateOnChange) {
       const fieldError = validateField(field);
       setErrors((prevErrors) => ({
@@ -148,7 +148,7 @@ export function useForm<Values extends Record<string, any>>({
     isTouched: boolean = true
   ) => {
     setTouched((prevTouched) => ({ ...prevTouched, [field]: isTouched }));
-    
+
     if (validateOnBlur && isTouched) {
       const fieldError = validateField(field);
       setErrors((prevErrors) => ({
@@ -192,13 +192,13 @@ export function useForm<Values extends Record<string, any>>({
     if (validateOnSubmit) {
       const formErrors = validateForm();
       setErrors(formErrors);
-      
+
       // Don't proceed if there are errors
       if (Object.keys(formErrors).length > 0) {
         return;
       }
     }
-    
+
     // Process submission
     setIsSubmitting(true);
     try {
@@ -216,7 +216,7 @@ export function useForm<Values extends Record<string, any>>({
     isSubmitting,
     isValid,
     dirty,
-    
+
     // Handlers
     handleChange,
     handleBlur,
@@ -229,4 +229,4 @@ export function useForm<Values extends Record<string, any>>({
     validateForm,
     validateField,
   };
-} 
+}

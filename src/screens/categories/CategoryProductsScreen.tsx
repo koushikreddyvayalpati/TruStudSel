@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
-import { 
-  View, 
+import {
+  View,
   Text,
   StyleSheet,
   TouchableOpacity,
@@ -14,7 +14,7 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
-  Alert
+  Alert,
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -56,10 +56,10 @@ const ProductItem = React.memo<{
   onPress: (product: Product) => void;
 }>(({ item, wishlist, onToggleWishlist, onPress }) => {
   const [imageError, setImageError] = useState(false);
-  
+
   // Get the appropriate image URL - primaryImage, first image from images array, or placeholder
   let imageUrl = 'https://via.placeholder.com/150?text=No+Image';
-  
+
   if (!imageError) {
     if (item.primaryImage && item.primaryImage.startsWith('http')) {
       imageUrl = item.primaryImage;
@@ -75,55 +75,55 @@ const ProductItem = React.memo<{
       }
     }
   }
-  
+
   // Format price display
   const formattedPrice = `$${item.price}`;
-  
+
   // Memoize the wishlist status to prevent unnecessary re-renders
   const isInWishlist = wishlist.includes(item.id);
-  
+
   // Handle the wishlist toggle specifically for this item
   const handleWishlistToggle = useCallback(() => {
     onToggleWishlist(item.id);
   }, [item.id, onToggleWishlist]);
-  
+
   // Handle the product press
   const handlePress = useCallback(() => {
     onPress(item);
   }, [item, onPress]);
-  
+
   // Handle image load error
   const handleImageError = useCallback(() => {
     console.log(`[ProductItem] Image load error for ${item.id}: ${imageUrl}`);
     setImageError(true);
   }, [item.id, imageUrl]);
-  
+
   // Get badge text based on product condition
   const getBadgeText = () => {
-    if (item.sellingtype === 'rent') return 'RENT';
-    if (item.productage === 'brand-new') return 'NEW';
+    if (item.sellingtype === 'rent') {return 'RENT';}
+    if (item.productage === 'brand-new') {return 'NEW';}
     return null;
   };
-  
+
   const badgeText = getBadgeText();
-  
+
   return (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.productCard}
       onPress={handlePress}
       activeOpacity={0.7}
     >
       <View style={styles.imageContainer}>
-        <Image 
-          source={{ uri: imageUrl }} 
+        <Image
+          source={{ uri: imageUrl }}
           style={styles.productImagePlaceholder}
           resizeMode="cover"
           onError={handleImageError}
         />
         {badgeText && (
           <View style={[
-            styles.badge, 
-            badgeText === 'RENT' ? styles.rentBadge : styles.newBadge
+            styles.badge,
+            badgeText === 'RENT' ? styles.rentBadge : styles.newBadge,
           ]}>
             <Text style={styles.badgeText}>{badgeText}</Text>
           </View>
@@ -165,22 +165,22 @@ const EnhancedDropdown: React.FC<{
             key={item.id}
             style={[
               styles.enhancedDropdownItem,
-              selectedItems.includes(item.id) && styles.enhancedDropdownItemSelected
+              selectedItems.includes(item.id) && styles.enhancedDropdownItemSelected,
             ]}
             onPress={() => onSelect(item.id)}
             activeOpacity={0.7}
           >
-            <Text 
+            <Text
               style={[
                 styles.enhancedDropdownItemText,
-                selectedItems.includes(item.id) && styles.enhancedDropdownItemTextSelected
+                selectedItems.includes(item.id) && styles.enhancedDropdownItemTextSelected,
               ]}
             >
               {item.label}
             </Text>
             {selectedItems.includes(item.id) && (
               <View style={styles.checkIconContainer}>
-                <MaterialIcons name={multiSelect ? "check-box" : "check-circle"} size={20} color="#f7b305" />
+                <MaterialIcons name={multiSelect ? 'check-box' : 'check-circle'} size={20} color="#f7b305" />
               </View>
             )}
             {multiSelect && !selectedItems.includes(item.id) && (
@@ -196,9 +196,9 @@ const EnhancedDropdown: React.FC<{
 };
 
 // EmptyState component for better code organization
-const EmptyState = React.memo<{ 
-  message: string, 
-  subMessage: string 
+const EmptyState = React.memo<{
+  message: string,
+  subMessage: string
 }>(({ message, subMessage }) => (
   <View style={styles.emptyContainer}>
     <MaterialIcons name="search-off" size={64} color="#cccccc" />
@@ -243,13 +243,13 @@ const ProductsGridSkeleton = React.memo(() => {
 });
 
 // ErrorState component
-const ErrorState = React.memo<{ 
-  error: string, 
-  onRetry: () => void 
+const ErrorState = React.memo<{
+  error: string,
+  onRetry: () => void
 }>(({ error, onRetry }) => (
   <View style={styles.errorContainer}>
     <Text style={styles.errorText}>{error}</Text>
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.retryButton}
       onPress={onRetry}
     >
@@ -279,7 +279,7 @@ const SearchBar = React.memo<{
           autoCapitalize="none"
         />
         {value.length > 0 && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.clearButton}
             onPress={() => onChangeText('')}
           >
@@ -296,10 +296,10 @@ const BackToTopButton = React.memo<{
   visible: boolean;
   onPress: () => void;
 }>(({ visible, onPress }) => {
-  if (!visible) return null;
-  
+  if (!visible) {return null;}
+
   return (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.backToTopButton}
       onPress={onPress}
       activeOpacity={0.8}
@@ -311,8 +311,8 @@ const BackToTopButton = React.memo<{
 
 // Add a LoadingOverlay component for filtering and sorting operations
 const LoadingOverlay: React.FC<{ visible: boolean, message: string }> = ({ visible, message }) => {
-  if (!visible) return null;
-  
+  if (!visible) {return null;}
+
   return (
     <View style={styles.loadingOverlay}>
       <View style={styles.loadingOverlayContent}>
@@ -327,16 +327,16 @@ const LoadingOverlay: React.FC<{ visible: boolean, message: string }> = ({ visib
 const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigation, route }) => {
   const { user } = useAuth();
   const { categoryName, categoryId, userUniversity: routeUniversity, userCity: routeCity } = route.params;
-  
+
   // Determine what type of products to load based on the category name
   const isFeatured = categoryName === 'Featured Products';
   const isNewArrivals = categoryName === 'New Arrivals';
   const isUniversity = categoryName.includes('University') || categoryName.endsWith('Products');
   const isCity = !isUniversity && !isFeatured && !isNewArrivals && categoryId === 0;
-  
+
   // FlatList ref for scrolling to top
   const flatListRef = useRef<FlatList<Product>>(null);
-  
+
   // Memoize sort options to prevent recreation on each render
   const sortOptions = useMemo<SortOption[]>(() => [
     { id: 'default', label: 'Default' },
@@ -358,55 +358,55 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     { id: 'sell', label: 'For Sale' },
     { id: 'free', label: 'Free Items' },
   ], []);
-  
+
   // Use Zustand store instead of local state
   const {
     // Product data
     products,
-    
+
     // Loading states
     loading,
     loadingMoreData,
     error,
     refreshing,
-    
+
     // Pagination state
     totalCount,
     hasMoreData,
-    
+
     // Search, sort and filter states
     searchQuery,
     selectedSortOption,
     selectedFilters,
-    
+
     // UI states
     isSortDropdownVisible,
     isFilterDropdownVisible,
-    
+
     // Actions
     setSearchQuery,
     setSortDropdownVisible,
     setFilterDropdownVisible,
     setSelectedSortOption,
     setSelectedFilters,
-    
+
     // API functions
     loadCategoryProducts,
     searchProducts,
     handleRefresh: refreshProducts,
     applyFilters,
     clearFilters,
-    loadMore
+    loadMore,
   } = useCategoryStore();
-  
+
   // Local state for UI elements that don't need to be in the store
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [showBackToTop, setShowBackToTop] = useState(false);
-  
+
   // Extract user location data - prioritize route params over user context
   const userUniversity = routeUniversity || user?.university || '';
   const userCity = routeCity || user?.city || '';
-  
+
   // At the top of the CategoryProductsScreen component
   // Add a new initialLoad ref to track the first load
   const isInitialLoadRef = useRef(true);
@@ -461,11 +461,11 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
   const handleSortOptionSelect = useCallback((option: string) => {
     // Show sorting spinner
     setIsSorting(true);
-    
+
     // Update the selected option immediately
     setSelectedSortOption(option);
     setSortDropdownVisible(false);
-    
+
     // Apply filters with the new sort option
     setTimeout(() => {
       applyFilters();
@@ -484,10 +484,10 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     const newFilters = currentFilters.includes(option)
       ? currentFilters.filter(id => id !== option)
       : [...currentFilters, option];
-    
+
     // Only update the selected filters, don't apply them yet
     setSelectedFilters(newFilters);
-    
+
     // We'll only apply filters when the "Apply Filters" button is clicked
   }, [selectedFilters, setSelectedFilters]);
 
@@ -495,7 +495,7 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
   const handleApplyFilters = useCallback(() => {
     setIsFiltering(true);
     setFilterDropdownVisible(false);
-    
+
     // Apply filters after a short delay to allow UI to update
     setTimeout(() => {
       applyFilters();
@@ -507,11 +507,11 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
   const handleClearFilters = useCallback(() => {
     if (selectedFilters.length > 0 && selectedSortOption !== 'default' && searchQuery.trim() !== '') {
       Alert.alert(
-        "Clear All",
-        "Do you want to clear all filters, sorting, and search?",
+        'Clear All',
+        'Do you want to clear all filters, sorting, and search?',
         [
           {
-            text: "Clear All",
+            text: 'Clear All',
             onPress: () => {
               // Show loading spinner during clear operation
               setIsFiltering(true);
@@ -519,10 +519,10 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
                 clearFilters();
                 setIsFiltering(false);
               }, 100);
-            }
+            },
           },
           {
-            text: "Clear Filters Only",
+            text: 'Clear Filters Only',
             onPress: () => {
               setIsFiltering(true);
               setTimeout(() => {
@@ -530,10 +530,10 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
                 applyFilters(); // Apply with empty filters
                 setIsFiltering(false);
               }, 100);
-            }
+            },
           },
           {
-            text: "Clear Sort Only",
+            text: 'Clear Sort Only',
             onPress: () => {
               setIsSorting(true);
               setTimeout(() => {
@@ -541,12 +541,12 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
                 applyFilters(); // Apply with default sort
                 setIsSorting(false);
               }, 100);
-            }
+            },
           },
           {
-            text: "Cancel",
-            style: "cancel"
-          }
+            text: 'Cancel',
+            style: 'cancel',
+          },
         ]
       );
     } else {
@@ -558,7 +558,7 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
       } else {
         setIsFiltering(true);
       }
-      
+
       setTimeout(() => {
         clearFilters();
         setIsFiltering(false);
@@ -569,13 +569,13 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
 
   // Initial data load on mount
   useEffect(() => {
-    console.log(`[CategoryProducts] Initial useEffect mount - triggering load`);
+    console.log('[CategoryProducts] Initial useEffect mount - triggering load');
     // Force immediate load on mount
     const loadInitialData = async () => {
       try {
         // Set the current category context first
         setCurrentCategory(categoryName, categoryId, userUniversity, userCity);
-        
+
         // Then load the products
         await loadCategoryProducts(categoryName, categoryId, userUniversity, userCity, 0, false);
         isInitialLoadRef.current = false;
@@ -583,7 +583,7 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
         console.error('[CategoryProducts] Error in initial load:', error);
       }
     };
-    
+
     loadInitialData();
     // Only run this on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -591,10 +591,10 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
 
   // Memoize renderItem function to optimize FlatList performance
   const renderItem = useCallback(({ item }: { item: Product }) => (
-    <ProductItem 
-      item={item} 
-      wishlist={wishlist} 
-      onToggleWishlist={toggleWishlist} 
+    <ProductItem
+      item={item}
+      wishlist={wishlist}
+      onToggleWishlist={toggleWishlist}
       onPress={handleProductPress}
     />
   ), [wishlist, toggleWishlist, handleProductPress]);
@@ -604,8 +604,8 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
 
   // Memoize refreshControl to prevent recreating on each render
   const refreshControl = useMemo(() => (
-    <RefreshControl 
-      refreshing={refreshing} 
+    <RefreshControl
+      refreshing={refreshing}
       onRefresh={handleRefresh}
       colors={['#f7b305']}
       tintColor="#f7b305"
@@ -620,7 +620,7 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     const offsetY = event.nativeEvent.contentOffset.y;
     setShowBackToTop(offsetY > 300); // Show button when scrolled down 300px
   }, []);
-  
+
   // Scroll to top function
   const scrollToTop = useCallback(() => {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
@@ -637,10 +637,10 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
           </Text>
         </View>
       )}
-      
+
       {products.length > 0 && !loadingMoreData && (
         <Text style={{ color: '#888', fontSize: 12, marginTop: 10 }}>
-          {hasMoreData 
+          {hasMoreData
             ? `Showing ${products.length} of ${totalCount} products`
             : `Showing all ${products.length} products`}
         </Text>
@@ -655,7 +655,7 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     // The store's loadMore function needs to pass the right parameters to loadCategoryProducts
     // so we could enhance it if needed
   }, [loadMore]);
-  
+
   // We might need to keep an effect for handling searchQuery changes
   useEffect(() => {
     // Only run this effect for search query changes
@@ -686,8 +686,8 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton} 
+          <TouchableOpacity
+            style={styles.backButton}
             onPress={handleBackPress}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
@@ -698,7 +698,7 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
         </View>
 
         {/* Search bar component */}
-        <SearchBar 
+        <SearchBar
           value={searchQuery}
           onChangeText={handleSearchChange}
           onSubmitEditing={handleSearchSubmit}
@@ -712,44 +712,44 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
               {totalCount > 0 ? `${totalCount} products` : 'No products'}
             </Text>
           )}
-          
+
           <View style={styles.filterButtonsContainer}>
             {/* Clear filters button - only visible if filters are applied */}
             {(selectedFilters.length > 0 || selectedSortOption !== 'default' || searchQuery.trim() !== '') && (
               <TouchableOpacity
                 style={[
                   styles.clearFiltersButton,
-                  (selectedFilters.length > 3 || selectedSortOption !== 'default') && styles.emphasizedClearButton
+                  (selectedFilters.length > 3 || selectedSortOption !== 'default') && styles.emphasizedClearButton,
                 ]}
                 onPress={handleClearFilters}
                 disabled={isSorting || isFiltering}
               >
                 <Text style={styles.clearFiltersText}>
-                  {(selectedFilters.length > 0 && selectedSortOption !== 'default') ? 
-                    `Clear All (${selectedFilters.length + 1})` : 
-                    selectedFilters.length > 0 ? 
-                      `Clear Filters (${selectedFilters.length})` : 
-                      selectedSortOption !== 'default' ? 
-                        'Clear Sort' : 
+                  {(selectedFilters.length > 0 && selectedSortOption !== 'default') ?
+                    `Clear All (${selectedFilters.length + 1})` :
+                    selectedFilters.length > 0 ?
+                      `Clear Filters (${selectedFilters.length})` :
+                      selectedSortOption !== 'default' ?
+                        'Clear Sort' :
                         'Clear All'}
                 </Text>
                 <MaterialIcons name="clear" size={14} color="#f7b305" />
               </TouchableOpacity>
             )}
-            
+
             <TouchableOpacity
               style={[
-                styles.filterButton, 
+                styles.filterButton,
                 isSortDropdownVisible && styles.activeFilterButton,
                 { backgroundColor: '#f7b305', borderColor: '#ddd' },
-                selectedSortOption !== 'default' && styles.activeFilterButton
+                selectedSortOption !== 'default' && styles.activeFilterButton,
               ]}
               onPress={handleSortButtonClick}
               disabled={isSorting}
             >
               <Text style={styles.filterButtonText}>
-                {selectedSortOption !== 'default' ? 
-                  `Sort: ${sortOptions.find(o => o.id === selectedSortOption)?.label || 'Custom'}` : 
+                {selectedSortOption !== 'default' ?
+                  `Sort: ${sortOptions.find(o => o.id === selectedSortOption)?.label || 'Custom'}` :
                   'Sort'}
               </Text>
               {isSorting ? (
@@ -758,7 +758,7 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
                 <Icon name="sort" size={14} color="black" />
               )}
             </TouchableOpacity>
-            
+
             {/* Sort dropdown */}
             {isSortDropdownVisible && (
               <View style={styles.sortDropdownContainer}>
@@ -771,13 +771,13 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
                 />
               </View>
             )}
-            
+
             <TouchableOpacity
               style={[
-                styles.filterButton, 
+                styles.filterButton,
                 isFilterDropdownVisible && styles.activeFilterButton,
                 { backgroundColor: '#f7b305', borderColor: '#ddd' },
-                selectedFilters.length > 0 && styles.activeFilterButton
+                selectedFilters.length > 0 && styles.activeFilterButton,
               ]}
               onPress={handleFilterButtonClick}
             >
@@ -786,7 +786,7 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
               </Text>
               <Icon name="filter" size={14} color="black" />
             </TouchableOpacity>
-            
+
             {/* Filter dropdown */}
             {isFilterDropdownVisible && (
               <View style={styles.filterDropdownContainer}>
@@ -798,7 +798,7 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
                   title="Filter By"
                   onClose={() => setFilterDropdownVisible(false)}
                 />
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.applyFiltersButton}
                   onPress={handleApplyFilters}
                 >
@@ -813,14 +813,14 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
         {loading && !refreshing ? (
           <ProductsGridSkeleton />
         ) : error ? (
-          <EmptyState 
-            message="Error loading products" 
-            subMessage={error} 
+          <EmptyState
+            message="Error loading products"
+            subMessage={error}
           />
         ) : products.length === 0 ? (
-          <EmptyState 
-            message="No products found" 
-            subMessage={searchQuery ? "Try a different search term or filter" : "Try a different category"} 
+          <EmptyState
+            message="No products found"
+            subMessage={searchQuery ? 'Try a different search term or filter' : 'Try a different category'}
           />
         ) : (
           <FlatList
@@ -839,11 +839,11 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
             ListFooterComponent={ListFooterComponent}
           />
         )}
-        
+
         {/* Back to top button */}
         {showBackToTop && (
-          <TouchableOpacity 
-            style={styles.backToTopButton} 
+          <TouchableOpacity
+            style={styles.backToTopButton}
             onPress={scrollToTop}
             activeOpacity={0.8}
           >
@@ -852,9 +852,9 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
         )}
 
         {/* Loading overlay for filtering and sorting */}
-        <LoadingOverlay 
-          visible={isSorting || isFiltering} 
-          message={isSorting ? "Sorting products..." : "Applying filters..."}
+        <LoadingOverlay
+          visible={isSorting || isFiltering}
+          message={isSorting ? 'Sorting products...' : 'Applying filters...'}
         />
       </View>
     </SafeAreaView>
@@ -1145,7 +1145,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     backgroundColor: 'rgba(247, 179, 5, 0.08)',
     borderRadius: 5,
-    borderWidth: 1, 
+    borderWidth: 1,
     borderColor: '#f7b305',
   },
   clearFiltersText: {
@@ -1277,4 +1277,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default React.memo(CategoryProductsScreen); 
+export default React.memo(CategoryProductsScreen);

@@ -40,7 +40,7 @@ export const ROUTES = {
   OTP_INPUT: 'OtpInput',
   PROFILE_FILLING: 'ProfileFillingPage',
   FORGOT_PASSWORD: 'ForgotPassword',
-  
+
   // Main app routes
   HOME: 'Home',
   PROFILE: 'Profile',
@@ -60,4 +60,4 @@ export default {
   FEATURES,
   AUTH,
   ROUTES,
-}; 
+};

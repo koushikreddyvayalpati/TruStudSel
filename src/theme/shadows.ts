@@ -17,7 +17,7 @@ export type Shadow = {
 // Create shadow styles for a theme
 const createShadows = (colors: typeof lightColors) => {
   const shadowColor = Platform.OS === 'ios' ? colors.shadow : '#000000';
-  
+
   return {
     // No shadow
     none: {
@@ -27,7 +27,7 @@ const createShadows = (colors: typeof lightColors) => {
       shadowRadius: 0,
       elevation: 0,
     } as Shadow,
-    
+
     // Extra small shadow (subtle highlight)
     xs: {
       shadowColor,
@@ -36,7 +36,7 @@ const createShadows = (colors: typeof lightColors) => {
       shadowRadius: 1,
       elevation: 1,
     } as Shadow,
-    
+
     // Small shadow (cards, buttons)
     sm: {
       shadowColor,
@@ -45,7 +45,7 @@ const createShadows = (colors: typeof lightColors) => {
       shadowRadius: 2,
       elevation: 2,
     } as Shadow,
-    
+
     // Medium shadow (floating elements)
     md: {
       shadowColor,
@@ -54,7 +54,7 @@ const createShadows = (colors: typeof lightColors) => {
       shadowRadius: 4,
       elevation: 4,
     } as Shadow,
-    
+
     // Large shadow (modals, dialogs)
     lg: {
       shadowColor,
@@ -63,7 +63,7 @@ const createShadows = (colors: typeof lightColors) => {
       shadowRadius: 8,
       elevation: 8,
     } as Shadow,
-    
+
     // Extra large shadow (high priority elements)
     xl: {
       shadowColor,
@@ -81,13 +81,13 @@ export const darkShadows = createShadows(darkColors);
 
 // Helper to apply a shadow to a style object
 export const applyShadow = (
-  style: ViewStyle, 
+  style: ViewStyle,
   shadowKey: keyof typeof lightShadows,
   isDark = false
 ): ViewStyle => {
   const shadows = isDark ? darkShadows : lightShadows;
   const shadow = shadows[shadowKey];
-  
+
   return {
     ...style,
     ...shadow,
@@ -98,4 +98,4 @@ export default {
   light: lightShadows,
   dark: darkShadows,
   applyShadow,
-}; 
+};

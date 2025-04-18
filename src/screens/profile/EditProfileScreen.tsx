@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  StyleSheet,
   TouchableOpacity,
   Alert,
   KeyboardAvoidingView,
@@ -12,7 +12,7 @@ import {
   SafeAreaView,
   InteractionManager,
   ActivityIndicator,
-  LogBox
+  LogBox,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -33,13 +33,13 @@ const EditProfileScreen = () => {
   const navigation = useNavigation<EditProfileScreenNavigationProp>();
   const route = useRoute<EditProfileScreenRouteProp>();
   const { user, updateUserInfo } = useAuth();
-  
+
   // Get data from route params or use defaults
   const routeParams = useMemo(() => route.params || {}, [route.params]);
-  
+
   // Debug log to check the received profile image URL
   console.log('Received userphoto from route params:', routeParams.userphoto);
-  
+
   const [name, setName] = useState(routeParams.name || user?.name || '');
   const [university, _setUniversity] = useState(routeParams.university || user?.university || '');
   const [city, setCity] = useState(routeParams.city || '');
@@ -49,20 +49,20 @@ const EditProfileScreen = () => {
   const [profilePicture, setProfilePicture] = useState<string | null>(routeParams.userphoto || user?.profileImage || null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  
+
   // Add cleanup for any animation-related operations
   useEffect(() => {
     // Defer non-critical operations to avoid animation warnings
     const interactionPromise = InteractionManager.runAfterInteractions(() => {
       // Any animations or heavy operations should be started here
     });
-    
+
     return () => {
       // Cleanup any subscriptions or pending interactions
       interactionPromise.cancel();
     };
   }, []);
-  
+
   // Add effect to detect changes in profile data
   useEffect(() => {
     // Function to check if current values differ from initial values
@@ -71,62 +71,62 @@ const EditProfileScreen = () => {
       const initialCity = routeParams.city || '';
       const initialZipcode = routeParams.zipcode || '';
       const initialPhoto = routeParams.userphoto || user?.profileImage || null;
-      
+
       // Check if any values have changed
-      const hasChanged = 
+      const hasChanged =
         name !== initialName ||
         city !== initialCity ||
         zipcode !== initialZipcode ||
         profilePicture !== initialPhoto;
-      
+
       setHasUnsavedChanges(hasChanged);
     };
-    
+
     checkForChanges();
   }, [name, city, zipcode, profilePicture, routeParams, user]);
-  
+
   // Add a ref to store the selected image for upload on save
   const selectedImageRef = React.useRef<any>(null);
-  
+
   // Function to handle profile update
   const handleUpdateProfile = async () => {
     if (!name.trim()) {
       Alert.alert('Error', 'Please enter your name');
       return;
     }
-    
+
     setLoading(true);
-    
+
     try {
       const email = routeParams.email || user?.email;
-      
+
       if (!email) {
         Alert.alert('Error', 'Email is required for updating profile');
         setLoading(false);
         return;
       }
-      
+
       // Check if we have a new image to upload
       let imageUrl = routeParams.userphoto || user?.profileImage || '';
-      
+
       // If we have a selected image that needs to be uploaded
       if (selectedImageRef.current) {
         let uploadResponse: any = null;
         try {
           console.log('Uploading new image to server...');
-          
+
           // Create form data for upload
           const formData = new FormData();
           formData.append('file', {
             uri: selectedImageRef.current.uri,
             type: selectedImageRef.current.type || 'image/jpeg',
-            name: selectedImageRef.current.fileName || 'profile_image.jpg'
+            name: selectedImageRef.current.fileName || 'profile_image.jpg',
           } as any);
-          
+
           // Upload the image to get the filename
           uploadResponse = await uploadFile(formData);
           console.log('Upload response:', uploadResponse);
-          
+
           if (uploadResponse && uploadResponse.fileName) {
             // Construct the full image URL
             imageUrl = `https://trustedproductimages.s3.us-east-2.amazonaws.com/${uploadResponse.fileName}`;
@@ -136,57 +136,57 @@ const EditProfileScreen = () => {
           }
         } catch (uploadError) {
           console.error('Failed to upload image:', uploadError);
-          
+
           // Ask user if they want to continue without the image
           return new Promise<void>((resolve, reject) => {
             Alert.alert(
               'Image Upload Failed',
               'Could not upload profile image. Do you want to continue updating other profile information?',
               [
-                { 
-                  text: 'Cancel', 
+                {
+                  text: 'Cancel',
                   style: 'cancel',
                   onPress: () => {
                     setLoading(false);
                     reject(new Error('Image upload cancelled'));
-                  }
+                  },
                 },
-                { 
-                  text: 'Continue', 
+                {
+                  text: 'Continue',
                   onPress: () => {
                     console.log('Continuing without image update');
                     resolve();
-                  }
-                }
+                  },
+                },
               ]
             );
           });
         }
       }
-      
+
       // Now prepare the data with the new image URL if we have one
       const updateData = {
         name: name.trim(),
         city: city.trim(),
         zipcode: zipcode.trim(),
-        userphoto: imageUrl
+        userphoto: imageUrl,
       };
-      
+
       console.log('Updating profile with data:', updateData);
-      
+
       // Now call the PUT API to update the profile with all data including image URL
       await updateUserProfileData(email, updateData);
-      
+
       // Clear the selected image ref after successful upload
       selectedImageRef.current = null;
-      
+
       // Also update local user info in Auth context
       updateUserInfo({
         name: name.trim(),
         university: university.trim(),
-        profileImage: imageUrl
+        profileImage: imageUrl,
       });
-      
+
       Alert.alert('Success', 'Profile updated successfully');
       navigation.goBack();
     } catch (error) {
@@ -196,13 +196,13 @@ const EditProfileScreen = () => {
       setLoading(false);
     }
   };
-  
+
   // Function to handle profile picture upload - now only stores the image locally
   const handleUploadProfilePicture = async () => {
-    if (uploadingImage) return;
-    
+    if (uploadingImage) {return;}
+
     setUploadingImage(true);
-    
+
     try {
       const result = await launchImageLibrary({
         mediaType: 'photo',
@@ -210,37 +210,37 @@ const EditProfileScreen = () => {
         maxWidth: 500,
         maxHeight: 500,
       });
-      
+
       if (result.didCancel) {
         console.log('User cancelled image picker');
         setUploadingImage(false);
         return;
       }
-      
+
       if (result.errorCode) {
         console.error('ImagePicker Error:', result.errorMessage);
         Alert.alert('Error', result.errorMessage || 'Failed to pick image');
         setUploadingImage(false);
         return;
       }
-      
+
       if (!result.assets || result.assets.length === 0 || !result.assets[0].uri) {
         Alert.alert('Error', 'No image selected');
         setUploadingImage(false);
         return;
       }
-      
+
       // Get the selected image and store it temporarily for display
       const selectedImage = result.assets[0];
       console.log('Selected image locally:', selectedImage.uri);
-      
+
       // Just store the local image URI in state - no upload yet
       // We'll upload it only when the Save button is clicked
       setProfilePicture(selectedImage.uri || null);
-      
+
       // Store the selected image in a ref for later upload
       selectedImageRef.current = selectedImage;
-      
+
       // Notify user they need to save changes
       Alert.alert(
         'Image Selected',
@@ -254,7 +254,7 @@ const EditProfileScreen = () => {
       setUploadingImage(false);
     }
   };
-  
+
   // Get the first letter of the user's name for the profile circle
   const getInitial = () => {
     if (name) {
@@ -265,16 +265,16 @@ const EditProfileScreen = () => {
     }
     return 'U'; // Default if no name is available
   };
-  
+
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.backButton}
               onPress={() => navigation.goBack()}
             >
@@ -283,13 +283,13 @@ const EditProfileScreen = () => {
             <Text style={styles.headerTitle}>Edit Profile</Text>
             <View style={{ width: 40 }} />
           </View>
-          
+
           <View style={styles.profileSection}>
             <View style={styles.profilePictureContainer}>
               {profilePicture ? (
-                <Image 
-                  source={{ uri: profilePicture }} 
-                  style={styles.profilePicture} 
+                <Image
+                  source={{ uri: profilePicture }}
+                  style={styles.profilePicture}
                 />
               ) : (
                 <View style={styles.profilePicturePlaceholder}>
@@ -297,8 +297,8 @@ const EditProfileScreen = () => {
                   <Text style={styles.profileInitial}>{getInitial()}</Text>
                 </View>
               )}
-              
-              <TouchableOpacity 
+
+              <TouchableOpacity
                 style={styles.uploadPictureButton}
                 onPress={handleUploadProfilePicture}
                 disabled={uploadingImage}
@@ -310,11 +310,11 @@ const EditProfileScreen = () => {
                 )}
               </TouchableOpacity>
             </View>
-            
+
             <Text style={styles.namePreview}>{name || 'Your Name'}</Text>
             <Text style={styles.universityPreview}>{university || 'University'}</Text>
           </View>
-          
+
           <View style={styles.form}>
             <View style={styles.formCard}>
               <View style={styles.fieldGroup}>
@@ -327,7 +327,7 @@ const EditProfileScreen = () => {
                   leftIcon={<MaterialIcons name="account-outline" size={22} color="#222" />}
                 />
               </View>
-              
+
               <View style={styles.divider} />
 
               <View style={styles.fieldGroup}>
@@ -340,7 +340,7 @@ const EditProfileScreen = () => {
                   </View>
                 </View>
               </View>
-              
+
               <View style={styles.divider} />
 
               <View style={styles.fieldGroup}>
@@ -353,9 +353,9 @@ const EditProfileScreen = () => {
                   </View>
                 </View>
               </View>
-              
+
               <View style={styles.divider} />
-              
+
               <View style={styles.fieldGroup}>
                 <Text style={styles.fieldLabel}>PHONE NUMBER</Text>
                 <View style={styles.disabledField}>
@@ -366,9 +366,9 @@ const EditProfileScreen = () => {
                   </View>
                 </View>
               </View>
-              
+
               <View style={styles.divider} />
-              
+
               <View style={styles.fieldGroup}>
                 <Text style={styles.fieldLabel}>CITY</Text>
                 <TextInput
@@ -379,9 +379,9 @@ const EditProfileScreen = () => {
                   leftIcon={<FontAwesome5 name="city" size={18} color="#222" />}
                 />
               </View>
-              
+
               <View style={styles.divider} />
-              
+
               <View style={styles.fieldGroup}>
                 <Text style={styles.fieldLabel}>ZIPCODE</Text>
                 <TextInput
@@ -394,12 +394,12 @@ const EditProfileScreen = () => {
                 />
               </View>
             </View>
-            
+
             <TouchableOpacity
               style={[
-                styles.saveButton, 
+                styles.saveButton,
                 (loading || uploadingImage) && styles.saveButtonLoading,
-                hasUnsavedChanges && !loading && !uploadingImage && styles.saveButtonHighlighted
+                hasUnsavedChanges && !loading && !uploadingImage && styles.saveButtonHighlighted,
               ]}
               onPress={handleUpdateProfile}
               disabled={loading || uploadingImage}
@@ -414,8 +414,8 @@ const EditProfileScreen = () => {
                 <Text style={styles.saveButtonText}>UPLOADING IMAGE...</Text>
               ) : hasUnsavedChanges ? (
                 <Text style={styles.saveButtonText}>
-                  {profilePicture !== (routeParams.userphoto || user?.profileImage) 
-                    ? 'SAVE PROFILE & IMAGE' 
+                  {profilePicture !== (routeParams.userphoto || user?.profileImage)
+                    ? 'SAVE PROFILE & IMAGE'
                     : 'SAVE CHANGES'}
                 </Text>
               ) : (
@@ -447,8 +447,8 @@ const styles = StyleSheet.create({
     ...Platform.select({
       android: {
         marginTop: 20,
-      }
-    })
+      },
+    }),
   },
   headerTitle: {
     fontSize: 16,
@@ -712,4 +712,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default EditProfileScreen; 
+export default EditProfileScreen;

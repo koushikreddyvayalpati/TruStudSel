@@ -37,10 +37,10 @@ jest.mock('@react-navigation/drawer', () => ({
   createDrawerNavigator: jest.fn().mockReturnValue({
     Navigator: ({ children, drawerContent }) => (
       <div data-testid="drawer-navigator">
-        {drawerContent && drawerContent({ 
-          navigation: { navigate: jest.fn() }, 
-          state: { routes: [], index: 0 }, 
-          descriptors: {} 
+        {drawerContent && drawerContent({
+          navigation: { navigate: jest.fn() },
+          state: { routes: [], index: 0 },
+          descriptors: {},
         })}
         {children}
       </div>
@@ -67,10 +67,10 @@ describe('DrawerNavigation and BottomNavigation Integration', () => {
       </div>
     );
   };
-  
+
   const TestApp = () => {
     const Drawer = createDrawerNavigator();
-    
+
     return (
       <NavigationContainer>
         <Drawer.Navigator
@@ -81,23 +81,23 @@ describe('DrawerNavigation and BottomNavigation Integration', () => {
       </NavigationContainer>
     );
   };
-  
+
   it('renders both drawer and bottom navigation', () => {
     const { getByTestId } = render(<TestApp />);
-    
+
     // Check if drawer navigator is rendered
     expect(getByTestId('drawer-navigator')).toBeTruthy();
-    
+
     // Check if home screen with bottom navigation is rendered
     expect(getByTestId('home-screen')).toBeTruthy();
-    
+
     // Check if drawer content is rendered
     expect(getByTestId('drawer-content-scroll-view')).toBeTruthy();
   });
-  
+
   it('has correct navigation items in drawer', () => {
     const { getByTestId } = render(<TestApp />);
-    
+
     // Check if drawer items are rendered
     expect(getByTestId('drawer-item-Home')).toBeTruthy();
     expect(getByTestId('drawer-item-Profile')).toBeTruthy();
@@ -105,19 +105,19 @@ describe('DrawerNavigation and BottomNavigation Integration', () => {
     expect(getByTestId('drawer-item-Wishlist')).toBeTruthy();
     expect(getByTestId('drawer-item-Sign Out')).toBeTruthy();
   });
-  
+
   it('navigates when drawer items are clicked', () => {
     const { getByTestId } = render(<TestApp />);
-    
+
     // Get the drawer items
     const homeItem = getByTestId('drawer-item-Home');
     const profileItem = getByTestId('drawer-item-Profile');
-    
+
     // Click on items
     fireEvent.click(homeItem);
     fireEvent.click(profileItem);
-    
+
     // Note: Since we're using mock functions, we can't directly test
     // if navigation occurred, but this tests that clicking doesn't crash
   });
-}); 
+});

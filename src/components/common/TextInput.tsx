@@ -65,7 +65,7 @@ const TextInput: React.FC<TextInputProps> = ({
   return (
     <View style={[styles.container, containerStyle]}>
       {label && <Text style={[styles.label, labelStyle]}>{label}</Text>}
-      
+
       <View style={[
         styles.inputContainer,
         isFocused && styles.focusedInputContainer,
@@ -73,7 +73,7 @@ const TextInput: React.FC<TextInputProps> = ({
         inputStyle,
       ]}>
         {leftIcon && <View style={styles.leftIcon}>{leftIcon}</View>}
-        
+
         <RNTextInput
           style={[
             styles.input,
@@ -86,23 +86,23 @@ const TextInput: React.FC<TextInputProps> = ({
           secureTextEntry={isPassword ? !showPassword : secureTextEntry}
           {...rest}
         />
-        
+
         {isPassword && (
           <TouchableOpacity
             style={styles.rightIcon}
             onPress={togglePasswordVisibility}
           >
-            <Entypo 
-              name={showPassword ?  "eye":  "eye-with-line" } 
-              size={20} 
+            <Entypo
+              name={showPassword ?  'eye' :  'eye-with-line' }
+              size={20}
               color={colors.secondary}
             />
           </TouchableOpacity>
         )}
-        
+
         {rightIcon && !isPassword && <View style={styles.rightIcon}>{rightIcon}</View>}
       </View>
-      
+
       {hasError && <Text style={[styles.errorText, errorStyle]}>{error}</Text>}
     </View>
   );
@@ -168,4 +168,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default TextInput; 
+export default TextInput;

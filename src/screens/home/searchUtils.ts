@@ -24,12 +24,12 @@ export const generateCacheKey = (
   const normalizedParams = {
     ...params,
     filters: filters ? [...filters].sort() : [],
-    sort: sort || 'default'
+    sort: sort || 'default',
   };
-  
+
   // Convert to stable string
   const paramsStr = JSON.stringify(normalizedParams, Object.keys(normalizedParams).sort());
-  
+
   // Use a simple hash function for the string
   let hash = 0;
   for (let i = 0; i < paramsStr.length; i++) {
@@ -37,7 +37,7 @@ export const generateCacheKey = (
     hash = ((hash << 5) - hash) + char;
     hash = hash & hash; // Convert to 32bit integer
   }
-  
+
   return `${prefix}${hash}`;
 };
 
@@ -49,20 +49,20 @@ export const saveRecentSearch = async (searchTerm: string): Promise<void> => {
     // Get existing recent searches
     const cachedSearchesJSON = await AsyncStorage.getItem(SEARCH_CACHE_KEY);
     let recentSearches: string[] = [];
-    
+
     if (cachedSearchesJSON) {
       recentSearches = JSON.parse(cachedSearchesJSON);
     }
-    
+
     // Add the new search term to the front (if it doesn't exist)
     if (!recentSearches.includes(searchTerm)) {
       recentSearches.unshift(searchTerm);
-      
+
       // Limit to MAX_RECENT_SEARCHES items
       if (recentSearches.length > MAX_RECENT_SEARCHES) {
         recentSearches = recentSearches.slice(0, MAX_RECENT_SEARCHES);
       }
-      
+
       // Save back to cache
       await AsyncStorage.setItem(SEARCH_CACHE_KEY, JSON.stringify(recentSearches));
     } else {
@@ -82,11 +82,11 @@ export const saveRecentSearch = async (searchTerm: string): Promise<void> => {
 export const loadRecentSearches = async (): Promise<string[]> => {
   try {
     const cachedSearchesJSON = await AsyncStorage.getItem(SEARCH_CACHE_KEY);
-    
+
     if (cachedSearchesJSON) {
       return JSON.parse(cachedSearchesJSON);
     }
-    
+
     return [];
   } catch (error) {
     console.warn('[SearchUtils] Error loading recent searches:', error);
@@ -103,16 +103,16 @@ export const loadRecentSearches = async (): Promise<string[]> => {
  * @param expiryTime Optional custom expiry time in milliseconds
  */
 export const cacheSearchResults = async (
-  searchParams: any, 
-  result: any, 
-  filters: string[], 
+  searchParams: any,
+  result: any,
+  filters: string[],
   sort: string,
   expiryTime?: number
 ): Promise<void> => {
   try {
     // Generate cache key using the updated function
     const cacheKey = generateCacheKey(SEARCH_CACHE_RESULTS_KEY, searchParams, filters, sort);
-    
+
     // Save to cache with timestamp
     await AsyncStorage.setItem(
       cacheKey,
@@ -121,10 +121,10 @@ export const cacheSearchResults = async (
         timestamp: Date.now(),
         filters,
         sort,
-        expiryTime: expiryTime || SEARCH_CACHE_EXPIRY_TIME
+        expiryTime: expiryTime || SEARCH_CACHE_EXPIRY_TIME,
       })
     );
-    
+
     console.log(`[searchUtils] Cached search results with key: ${cacheKey}`);
   } catch (error) {
     console.error('Failed to cache search results:', error);
@@ -140,29 +140,29 @@ export const cacheSearchResults = async (
  * @returns Cached search results if found and not expired, null otherwise
  */
 export const getCachedSearchResults = async (
-  searchParams: any, 
-  filters: string[], 
+  searchParams: any,
+  filters: string[],
   sort: string,
   expiryTime?: number
 ): Promise<any | null> => {
   try {
     // Generate cache key using the updated function
     const cacheKey = generateCacheKey(SEARCH_CACHE_RESULTS_KEY, searchParams, filters, sort);
-    
+
     // Try to get from cache
     const cachedItem = await AsyncStorage.getItem(cacheKey);
-    
+
     if (cachedItem) {
       const { data, timestamp, filters: cachedFilters, sort: cachedSort, expiryTime: cachedExpiryTime } = JSON.parse(cachedItem);
-      
+
       // Check if filters and sort match
       const filtersMatch = JSON.stringify(filters.sort()) === JSON.stringify(cachedFilters.sort());
       const sortMatch = sort === cachedSort;
-      
+
       // Use provided expiry time, cached expiry time, or default
       const actualExpiryTime = expiryTime || cachedExpiryTime || SEARCH_CACHE_EXPIRY_TIME;
       const isExpired = Date.now() - timestamp > actualExpiryTime;
-      
+
       if (!isExpired && filtersMatch && sortMatch) {
         console.log(`[searchUtils] Using cached search results for key: ${cacheKey}`);
         return data;
@@ -170,10 +170,10 @@ export const getCachedSearchResults = async (
         console.log(`[searchUtils] Cached search results expired or filters/sort changed for key: ${cacheKey}`);
       }
     }
-    
+
     return null;
   } catch (error) {
     console.error('Failed to get cached search results:', error);
     return null;
   }
-}; 
+};

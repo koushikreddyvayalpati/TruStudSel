@@ -1,13 +1,13 @@
 import React from 'react';
-import { 
-  TouchableOpacity, 
-  Text, 
-  StyleSheet, 
-  ActivityIndicator, 
-  TouchableOpacityProps, 
-  StyleProp, 
-  ViewStyle, 
-  TextStyle 
+import {
+  TouchableOpacity,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacityProps,
+  StyleProp,
+  ViewStyle,
+  TextStyle,
 } from 'react-native';
 import { colors } from '../../constants';
 
@@ -34,7 +34,7 @@ const Button: React.FC<ButtonProps> = ({
   // Determine button styles based on variant and size
   const getButtonStyles = (): StyleProp<ViewStyle> => {
     let variantStyle: StyleProp<ViewStyle> = {};
-    
+
     // Variant styles
     switch (variant) {
       case 'primary':
@@ -50,7 +50,7 @@ const Button: React.FC<ButtonProps> = ({
         variantStyle = styles.textButton;
         break;
     }
-    
+
     // Size styles
     let sizeStyle: StyleProp<ViewStyle> = {};
     switch (size) {
@@ -64,16 +64,16 @@ const Button: React.FC<ButtonProps> = ({
         sizeStyle = styles.largeButton;
         break;
     }
-    
+
     const disabledStyle = disabled ? styles.disabledButton : {};
-    
+
     return [styles.button, variantStyle, sizeStyle, disabledStyle, style];
   };
-  
+
   // Determine text styles based on variant
   const getTextStyles = (): StyleProp<TextStyle> => {
     let variantTextStyle: StyleProp<TextStyle> = {};
-    
+
     switch (variant) {
       case 'primary':
         variantTextStyle = styles.primaryText;
@@ -88,9 +88,9 @@ const Button: React.FC<ButtonProps> = ({
         variantTextStyle = styles.textButtonText;
         break;
     }
-    
+
     const disabledTextStyle = disabled ? styles.disabledText : {};
-    
+
     switch (size) {
       case 'small':
         return [styles.text, variantTextStyle, styles.smallText, disabledTextStyle, textStyle];
@@ -102,7 +102,7 @@ const Button: React.FC<ButtonProps> = ({
         return [styles.text, variantTextStyle, disabledTextStyle, textStyle];
     }
   };
-  
+
   return (
     <TouchableOpacity
       style={getButtonStyles()}
@@ -111,9 +111,9 @@ const Button: React.FC<ButtonProps> = ({
       {...rest}
     >
       {loading ? (
-        <ActivityIndicator 
-          size="small" 
-          color={variant === 'outline' || variant === 'text' ? colors.primary : colors.white} 
+        <ActivityIndicator
+          size="small"
+          color={variant === 'outline' || variant === 'text' ? colors.primary : colors.white}
         />
       ) : (
         <Text style={getTextStyles()}>{title}</Text>
@@ -196,4 +196,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default Button; 
+export default Button;

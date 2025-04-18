@@ -12,8 +12,8 @@ jest.mock('react-native-gesture-handler', () => {
       RIGHT: 1,
       LEFT: 2,
       UP: 4,
-      DOWN: 8
-    }
+      DOWN: 8,
+    },
   };
 });
 
@@ -21,7 +21,7 @@ jest.mock('react-native-gesture-handler', () => {
 jest.mock('@react-native-community/netinfo', () => {
   return {
     addEventListener: jest.fn(),
-    fetch: jest.fn(() => Promise.resolve({ isConnected: true }))
+    fetch: jest.fn(() => Promise.resolve({ isConnected: true })),
   };
 });
 

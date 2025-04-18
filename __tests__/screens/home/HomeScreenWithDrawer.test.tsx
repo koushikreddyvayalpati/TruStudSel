@@ -35,7 +35,7 @@ describe('HomeScreen with Drawer Navigation', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Setup default mocks
     (useNavigation as jest.Mock).mockReturnValue(mockNavigation);
     (useAuth as jest.Mock).mockReturnValue({
@@ -45,27 +45,27 @@ describe('HomeScreen with Drawer Navigation', () => {
 
   it('renders correctly with drawer menu button', () => {
     const { getByTestId } = render(<HomeScreen />);
-    
+
     // Check if menu button exists
     expect(getByTestId('menu-button')).toBeTruthy();
   });
 
   it('opens the drawer when menu button is pressed', () => {
     const { getByTestId } = render(<HomeScreen />);
-    
+
     // Press the menu button
     fireEvent.press(getByTestId('menu-button'));
-    
+
     // Check if dispatch was called with openDrawer action
     expect(mockDispatch).toHaveBeenCalledWith(DrawerActions.openDrawer());
   });
 
   it('navigates to profile when profile button is pressed', () => {
     const { getByTestId } = render(<HomeScreen />);
-    
+
     // Press the profile button
     fireEvent.press(getByTestId('profile-button'));
-    
+
     // Check if navigate was called with correct screen
     expect(mockNavigate).toHaveBeenCalledWith('Profile');
   });
@@ -74,9 +74,9 @@ describe('HomeScreen with Drawer Navigation', () => {
     (useAuth as jest.Mock).mockReturnValue({
       user: { name: 'John Doe' },
     });
-    
+
     const { getByText } = render(<HomeScreen />);
-    
+
     // Check if the first letter of user name is displayed
     expect(getByText('J')).toBeTruthy();
   });
@@ -85,9 +85,9 @@ describe('HomeScreen with Drawer Navigation', () => {
     (useAuth as jest.Mock).mockReturnValue({
       user: { username: 'jdoe', name: undefined },
     });
-    
+
     const { getByText } = render(<HomeScreen />);
-    
+
     // Check if the first letter of username is displayed
     expect(getByText('J')).toBeTruthy();
   });
@@ -96,10 +96,10 @@ describe('HomeScreen with Drawer Navigation', () => {
     (useAuth as jest.Mock).mockReturnValue({
       user: { },
     });
-    
+
     const { getByText } = render(<HomeScreen />);
-    
+
     // Check if default initial is displayed
     expect(getByText('U')).toBeTruthy();
   });
-}); 
+});

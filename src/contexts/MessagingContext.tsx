@@ -201,7 +201,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       try {
         // In a real app, you'd fetch this from a server or AsyncStorage
         await new Promise(resolve => setTimeout(resolve, 500)); // Simulate loading delay
-        
+
         setState(prev => ({
           ...prev,
           conversations: sampleConversations,
@@ -233,17 +233,17 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       // In a real app, you'd send this to a server
       const conversation = state.conversations.find(c => c.id === conversationId);
-      
+
       if (!conversation) {
         throw new Error(`Conversation with ID ${conversationId} not found`);
       }
-      
+
       const receiverId = conversation.participantIds.find(id => id !== sampleCurrentUserId);
-      
+
       if (!receiverId) {
         throw new Error('Receiver not found in conversation');
       }
-      
+
       const newMessage: Message = {
         id: `msg${Date.now()}`,
         senderId: sampleCurrentUserId,
@@ -252,7 +252,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         timestamp: new Date().toISOString(),
         isRead: false,
       };
-      
+
       // Update messages for this conversation
       const updatedMessages = {
         ...state.messages,
@@ -261,9 +261,9 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           newMessage,
         ],
       };
-      
+
       // Update last message in conversation
-      const updatedConversations = state.conversations.map(c => 
+      const updatedConversations = state.conversations.map(c =>
         c.id === conversationId
           ? {
               ...c,
@@ -272,7 +272,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             }
           : c
       ).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-      
+
       setState(prev => ({
         ...prev,
         conversations: updatedConversations,
@@ -291,16 +291,16 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       // Update the message's isRead status
       const conversationMessages = state.messages[conversationId] || [];
-      
+
       const updatedMessages = {
         ...state.messages,
-        [conversationId]: conversationMessages.map(message => 
+        [conversationId]: conversationMessages.map(message =>
           message.id === messageId
             ? { ...message, isRead: true }
             : message
         ),
       };
-      
+
       // If it was the last message, update the conversation too
       const updatedConversations = state.conversations.map(c => {
         if (c.id === conversationId && c.lastMessage.id === messageId) {
@@ -314,7 +314,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
         return c;
       });
-      
+
       setState(prev => ({
         ...prev,
         conversations: updatedConversations,
@@ -336,12 +336,12 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (state.messages[conversationId]) {
         return; // Already loaded
       }
-      
+
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 300));
-      
+
       const messages = sampleMessages[conversationId] || [];
-      
+
       setState(prev => ({
         ...prev,
         messages: {
@@ -365,10 +365,10 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         ...prev,
         loading: true,
       }));
-      
+
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       setState(prev => ({
         ...prev,
         conversations: sampleConversations,
@@ -387,26 +387,26 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const createConversation = async (participantId: string, initialMessage: string): Promise<string> => {
     try {
       // In a real app, you'd send this to a server
-      const existingConversation = state.conversations.find(c => 
-        c.participantIds.includes(sampleCurrentUserId) && 
+      const existingConversation = state.conversations.find(c =>
+        c.participantIds.includes(sampleCurrentUserId) &&
         c.participantIds.includes(participantId)
       );
-      
+
       if (existingConversation) {
         // If conversation already exists, just send a message
         await sendMessage(existingConversation.id, initialMessage);
         return existingConversation.id;
       }
-      
+
       // Create a new conversation
       const newConversationId = `conv${Date.now()}`;
-      
+
       const participant = sampleUsers[participantId] || {
         id: participantId,
         name: `User ${participantId}`,
         status: 'offline',
       };
-      
+
       const newMessage: Message = {
         id: `msg${Date.now()}`,
         senderId: sampleCurrentUserId,
@@ -415,7 +415,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         timestamp: new Date().toISOString(),
         isRead: false,
       };
-      
+
       const newConversation: ConversationWithUser = {
         id: newConversationId,
         participantIds: [sampleCurrentUserId, participantId],
@@ -423,7 +423,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         updatedAt: newMessage.timestamp,
         participant: participant as ConversationWithUser['participant'],
       };
-      
+
       // Update state
       setState(prev => ({
         ...prev,
@@ -434,7 +434,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         },
         currentConversation: newConversationId,
       }));
-      
+
       return newConversationId;
     } catch (error) {
       setState(prev => ({
@@ -480,4 +480,4 @@ export const useMessaging = (): MessagingContextType => {
   return context;
 };
 
-export default MessagingContext; 
+export default MessagingContext;

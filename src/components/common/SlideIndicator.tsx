@@ -77,4 +77,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SlideIndicator; 
+export default SlideIndicator;

@@ -1,13 +1,13 @@
 import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Image, 
-  Dimensions, 
-  TouchableOpacity, 
-  ScrollView, 
-  Animated, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  Dimensions,
+  TouchableOpacity,
+  ScrollView,
+  Animated,
   SafeAreaView,
   Alert,
   FlatList,
@@ -42,12 +42,12 @@ const ImageGallery: React.FC<{
 
   const handleScroll = Animated.event(
     [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-    { 
+    {
       useNativeDriver: false,
       listener: (event: any) => {
         const index = Math.floor(event.nativeEvent.contentOffset.x / width);
         setCurrentIndex(index);
-      }
+      },
     }
   );
 
@@ -59,18 +59,18 @@ const ImageGallery: React.FC<{
 
   // Memoized pagination component
   const renderPagination = useMemo(() => {
-    if (images.length <= 1) return null;
-    
+    if (images.length <= 1) {return null;}
+
     return (
       <View style={styles.paginationContainer}>
         <View style={styles.paginationDots}>
           {images.map((_, index) => (
-            <TouchableOpacity 
-              key={index} 
+            <TouchableOpacity
+              key={index}
               style={[
                 styles.paginationDot,
-                { backgroundColor: index === currentIndex ? '#f7b305' : '#ccc' }
-              ]} 
+                { backgroundColor: index === currentIndex ? '#f7b305' : '#ccc' },
+              ]}
               onPress={() => goToImage(index)}
             />
           ))}
@@ -81,12 +81,12 @@ const ImageGallery: React.FC<{
 
   // Memoized render item
   const renderItem = useCallback(({ item, index }: { item: string, index: number }) => (
-    <Pressable 
+    <Pressable
       style={styles.imageContainer}
       onPress={() => onImagePress(index)}
     >
-      <Image 
-        source={{ uri: typeof item === 'string' && item.trim() !== '' ? item : 'https://via.placeholder.com/300' }} 
+      <Image
+        source={{ uri: typeof item === 'string' && item.trim() !== '' ? item : 'https://via.placeholder.com/300' }}
         style={styles.productImage}
         resizeMode="cover"
         {...(Platform.OS === 'ios' ? { defaultSource: { uri: 'https://via.placeholder.com/300' } } : {})}
@@ -145,19 +145,19 @@ const SimilarProducts: React.FC<{
 }> = React.memo(({ products, onProductPress }) => {
   // Memoized render item function
   const renderItem = useCallback(({ item }: { item: any }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.similarProductItem}
       onPress={() => onProductPress(item)}
     >
-      <Image 
-        source={{ uri: item.image && item.image.trim() !== '' ? item.image : 'https://via.placeholder.com/150' }} 
+      <Image
+        source={{ uri: item.image && item.image.trim() !== '' ? item.image : 'https://via.placeholder.com/150' }}
         style={styles.similarProductImage}
         resizeMode="cover"
         {...(Platform.OS === 'ios' ? { defaultSource: { uri: 'https://via.placeholder.com/150' } } : {})}
       />
       <View style={styles.similarProductInfo}>
         <Text style={styles.similarProductName} numberOfLines={1}>{item.name}</Text>
-        
+
         {/* Property status tags (condition and selling type) */}
         <View style={styles.similarTagsRow}>
           {/* Show condition if available */}
@@ -166,7 +166,7 @@ const SimilarProducts: React.FC<{
               <Text style={styles.similarConditionText}>{item.condition}</Text>
             </View>
           )}
-          
+
           {/* Show selling type if available */}
           {item.sellingtype && (
             <View style={styles.similarSellingTypeTag}>
@@ -176,7 +176,7 @@ const SimilarProducts: React.FC<{
             </View>
           )}
         </View>
-        
+
         {/* Price tag */}
         <View style={styles.similarProductPriceContainer}>
           <Text style={styles.similarProductPrice}>{item.price}</Text>
@@ -218,7 +218,7 @@ const ImageZoomModal: React.FC<{
         <TouchableOpacity style={styles.closeButton} onPress={onClose}>
           <Ionicons name="close" size={24} color="white" />
         </TouchableOpacity>
-        
+
         <Image
           source={{ uri: imageUri && imageUri.trim() !== '' ? imageUri : 'https://via.placeholder.com/300' }}
           style={styles.zoomedImage}
@@ -234,7 +234,7 @@ const ProductsScreen = () => {
   const navigation = useNavigation<ProductInfoScreenNavigationProp>();
   const route = useRoute<ProductInfoScreenRouteProp>();
   const { user } = useAuth();
-  
+
   // Use the product details store
   const {
     isLoading,
@@ -246,7 +246,7 @@ const ProductsScreen = () => {
     productImages,
     similarProductsData,
     loadingSimilarProducts,
-    
+
     setProductFromRoute,
     setUserEmail,
     handleImagePress,
@@ -256,7 +256,7 @@ const ProductsScreen = () => {
     checkWishlistStatus,
     refreshWishlistCache,
     handleShare,
-    isCurrentUserSeller
+    isCurrentUserSeller,
   } = useProductDetailsStore();
 
   // State for reviews section
@@ -266,24 +266,24 @@ const ProductsScreen = () => {
   const routeParams = route.params || {};
   const productFromRoute = routeParams.product;
   const productId = routeParams.productId;
-  
+
   // Set user email from context
   useEffect(() => {
     if (user?.email) {
       setUserEmail(user.email);
     }
   }, [user?.email, setUserEmail]);
-  
+
   // Initialize product from route params or id
   useEffect(() => {
     setProductFromRoute(productFromRoute, productId);
   }, [setProductFromRoute, productFromRoute, productId]);
-  
+
   // Check wishlist status when product changes
   useEffect(() => {
     checkWishlistStatus();
   }, [checkWishlistStatus]);
-  
+
   // Refresh wishlist cache when component mounts
   useEffect(() => {
     refreshWishlistCache();
@@ -296,20 +296,20 @@ const ProductsScreen = () => {
         // Get seller info from product attributes
         const sellerName = product.sellerName || product.seller?.name || 'Seller';
         const sellerEmail = product.email || product.seller?.email;
-        
+
         if (!sellerEmail) {
           console.warn('[ProductsScreen] No seller email available for chat');
           Alert.alert('Error', 'Could not start chat - seller email not available.');
           return;
         }
-        
+
         console.log('[ProductsScreen] Navigating to Firebase chat with seller:', sellerName, sellerEmail);
-        
+
         // Navigate to the Firebase Chat screen instead of MessageScreen
         // Use the 'any' type to avoid TypeScript issues with the navigation
-        (navigation as any).navigate('FirebaseChatScreen', { 
+        (navigation as any).navigate('FirebaseChatScreen', {
           recipientEmail: sellerEmail,
-          recipientName: sellerName
+          recipientName: sellerName,
         });
       } catch (error) {
         console.error('Navigation error:', error);
@@ -329,18 +329,18 @@ const ProductsScreen = () => {
     try {
       // Get seller email from product
       const sellerEmail = product.email || product.seller?.email;
-      
+
       if (!sellerEmail) {
         console.warn('[ProductsScreen] No seller email available for navigation');
         Alert.alert('Error', 'Could not view seller profile - email not available.');
         return;
       }
-      
+
       console.log('[ProductsScreen] Navigating to seller profile with email:', sellerEmail);
-      
+
       // Navigate to the ProfileScreen with the seller's email
-      navigation.navigate('Profile', { 
-        sellerEmail: sellerEmail 
+      navigation.navigate('Profile', {
+        sellerEmail: sellerEmail,
       });
     } catch (error) {
       console.error('[ProductsScreen] Navigation error:', error);
@@ -353,26 +353,26 @@ const ProductsScreen = () => {
     <View style={styles.descriptionContainer}>
       <Text style={styles.sectionTitle}>Description</Text>
       <View style={[
-        styles.descriptionBox, 
+        styles.descriptionBox,
         expandDescription && styles.expandedDescriptionBox,
-        !product.description && styles.noDescriptionBox
+        !product.description && styles.noDescriptionBox,
       ]}>
         {product.description ? (
           <>
-            <Text 
+            <Text
               style={[
                 styles.descriptionText,
-                product.description.length < 80 && styles.shortDescriptionText
+                product.description.length < 80 && styles.shortDescriptionText,
               ]}
               numberOfLines={expandDescription ? undefined : 4}
             >
               {product.description}
             </Text>
             {product.description.length > 120 && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
                   styles.readMoreButton,
-                  expandDescription && styles.readLessButton
+                  expandDescription && styles.readLessButton,
                 ]}
                 onPress={toggleExpandDescription}
               >
@@ -414,16 +414,16 @@ const ProductsScreen = () => {
         </View>
       );
     }
-    
+
     // If no similar products found and not loading, don't show the section
     if (similarProductsData.length === 0) {
       return null;
     }
-    
+
     // Otherwise show the similar products list
     return (
       // @ts-ignore - Type safety is handled within the component
-      <SimilarProducts 
+      <SimilarProducts
         products={similarProductsData}
         onProductPress={handleSimilarProductPress}
       />
@@ -437,25 +437,25 @@ const ProductsScreen = () => {
   const handleViewAllReviews = useCallback(() => {
     const sellerEmail = product.email || product.seller?.email;
     const sellerName = product.sellerName || product.seller?.name || 'Seller';
-    
+
     // In the future, this would navigate to a dedicated reviews screen
     // For now, show an alert as a placeholder
     Alert.alert(
-      "View All Reviews",
+      'View All Reviews',
       `This would navigate to all ${totalReviews} reviews for ${sellerName}.`,
       [
         {
-          text: "Cancel",
-          style: "cancel"
+          text: 'Cancel',
+          style: 'cancel',
         },
-        { 
-          text: "OK", 
+        {
+          text: 'OK',
           onPress: () => {
-            console.log("Would navigate to reviews screen for:", sellerEmail);
+            console.log('Would navigate to reviews screen for:', sellerEmail);
             // When the reviews screen is implemented, uncomment the line below
             // navigation.navigate('SellerReviews', { sellerEmail, sellerName });
-          }
-        }
+          },
+        },
       ]
     );
   }, [product.email, product.seller?.email, product.sellerName, product.seller?.name, totalReviews]);
@@ -477,27 +477,27 @@ const ProductsScreen = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar backgroundColor="white" barStyle="dark-content" />
-      
+
       {/* Header with back button */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        
+
         <Text style={styles.headerTitle}>Product Details</Text>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={styles.headerRight}
           onPress={() => Alert.alert(
-            'Report Item', 
+            'Report Item',
             'Do you want to report this item?',
             [
               {text: 'Cancel', style: 'cancel'},
-              {text: 'Report', style: 'destructive'}
+              {text: 'Report', style: 'destructive'},
             ]
           )}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -505,17 +505,17 @@ const ProductsScreen = () => {
           <MaterialIcons name="report-problem" size={22} color="#e74c3c" />
         </TouchableOpacity>
       </View>
-      
-      <ScrollView 
+
+      <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
         {/* Image Gallery */}
-        <ImageGallery 
-          images={productImages} 
+        <ImageGallery
+          images={productImages}
           onImagePress={handleImagePress}
         />
-        
+
         {/* Product Info */}
         <View style={styles.productInfoContainer}>
           {/* Title with Share option */}
@@ -528,7 +528,7 @@ const ProductsScreen = () => {
               <MaterialIcons name="share" size={22} color="#333" />
             </TouchableOpacity>
           </View>
-          
+
           {/* Price and tags in one row - with price on the left and wishlist on the right */}
           <View style={styles.priceAndTagsRow}>
             <Text style={styles.productPrice}>${product.price}</Text>
@@ -538,7 +538,7 @@ const ProductsScreen = () => {
                   <Text style={styles.tagText}>{product.condition}</Text>
                 </View>
               )}
-              
+
               {product.sellingtype && (
                 <View style={[styles.tagItem, styles.sellingTypeTag]}>
                   <Text style={styles.tagText}>
@@ -547,35 +547,35 @@ const ProductsScreen = () => {
                 </View>
               )}
             </View>
-            
+
             {/* Wishlist heart button */}
             {!isUserSeller && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.wishlistButton, isInWishlist && styles.wishlistActiveButton]}
                 onPress={toggleWishlist}
               >
-                <FontAwesome 
-                  name={isInWishlist ? "heart" : "heart-o"}
-                  size={22} 
-                  color={isInWishlist ? "#e74c3c" : "#666"} 
+                <FontAwesome
+                  name={isInWishlist ? 'heart' : 'heart-o'}
+                  size={22}
+                  color={isInWishlist ? '#e74c3c' : '#666'}
                 />
               </TouchableOpacity>
             )}
           </View>
-          
+
           {/* Description */}
           {renderDescriptionSection}
-          
+
           {/* Seller Profile - Only show if the current user is not the seller */}
           {!isUserSeller && (
             <View style={styles.sellerSection}>
               <Text style={styles.sectionTitle}>Seller Information</Text>
-              
+
               <View style={styles.sellerProfileContainer}>
                 {/* Top row with profile and details */}
                 <View style={styles.sellerInfoContainer}>
                   <View style={styles.profileImageWrapper}>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={styles.profileCircle}
                       onPress={handleViewSellerProfile}
                     >
@@ -588,7 +588,7 @@ const ProductsScreen = () => {
                       </Text>
                     </TouchableOpacity>
                   </View>
-                  
+
                   <View style={styles.sellerDetails}>
                     <Text style={styles.sellerName}>
                       {product.sellerName || product.seller?.name || 'Unknown Seller'}
@@ -608,8 +608,8 @@ const ProductsScreen = () => {
                       </View>
                     </View>
                   </View>
-                  
-                  <TouchableOpacity 
+
+                  <TouchableOpacity
                     style={styles.viewProfileButton}
                     onPress={handleViewSellerProfile}
                   >
@@ -617,9 +617,9 @@ const ProductsScreen = () => {
                     <Ionicons name="chevron-forward" size={16} color="#f7b305" />
                   </TouchableOpacity>
                 </View>
-                
+
                 {/* Contact button with gradient-like effect */}
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.contactSellerButton}
                   onPress={() => handleContactSeller('message')}
                 >
@@ -629,9 +629,9 @@ const ProductsScreen = () => {
               </View>
             </View>
           )}
-          
+
           {/* Seller Reviews Section */}
-          <ReviewsSection 
+          <ReviewsSection
             sellerEmail={product.email ?? ''}
             sellerName={product.sellerName ?? ''}
             productId={route.params?.productId}
@@ -639,7 +639,7 @@ const ProductsScreen = () => {
             onViewAllReviews={handleViewAllReviews}
             onUpdateTotalReviews={handleUpdateTotalReviews}
           />
-          
+
           {/* Your own product indicator - show when the current user is the seller */}
           {isUserSeller && (
             <View style={styles.ownProductContainer}>
@@ -647,20 +647,20 @@ const ProductsScreen = () => {
               <Text style={styles.ownProductText}>This is your product listing</Text>
             </View>
           )}
-          
+
           {/* Similar Products */}
           {renderSimilarProductsSection}
-          
+
           {/* Debug Info - Hidden in Production */}
           {renderDebugSection}
-          
+
           {/* Bottom padding */}
           <View style={styles.bottomPadding} />
         </View>
       </ScrollView>
-      
+
       {/* Image Zoom Modal */}
-      <ImageZoomModal 
+      <ImageZoomModal
         visible={zoomVisible}
         imageUri={selectedImage}
         onClose={closeZoom}
@@ -787,7 +787,7 @@ const styles = StyleSheet.create({
   },
   productInfoContainer: {
     paddingHorizontal: 20,
-    
+
     backgroundColor: 'white',
   },
   titleContainer: {
@@ -945,7 +945,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
   },
-  
+
   sellerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1642,4 +1642,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ProductsScreen; 
+export default ProductsScreen;

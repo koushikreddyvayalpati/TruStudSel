@@ -21,4 +21,4 @@ export * from './messages';
 export * from './posting';
 
 // Wishlist screens
-export * from './wishlist'; 
+export * from './wishlist';

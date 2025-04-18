@@ -37,11 +37,11 @@ jest.mock('react-native-vector-icons/MaterialIcons', () => ({
 
 // Helper function to extract styles from StyleSheet objects
 const extractStyleValue = (styleObj, propertyName) => {
-  if (!styleObj) return null;
+  if (!styleObj) {return null;}
   if (Array.isArray(styleObj)) {
     for (const style of styleObj) {
       const value = extractStyleValue(style, propertyName);
-      if (value !== null) return value;
+      if (value !== null) {return value;}
     }
     return null;
   }
@@ -52,22 +52,22 @@ describe('Drawer Styling', () => {
   it('uses correct brand color for header title', () => {
     // Get the component's style object
     const { getByText } = render(
-      <CustomDrawerContent 
+      <CustomDrawerContent
         navigation={mockNavigation as any}
         state={{ routes: [], index: 0 }}
         descriptors={{}}
       />
     );
-    
+
     // Check that the "Menu" title has the correct color
     const titleElement = getByText('Menu');
-    
+
     // In a real test with jest-native, you could do:
     // expect(titleElement).toHaveStyle({ color: '#f7b305' });
-    
+
     // Here we're just asserting it exists
     expect(titleElement).toBeTruthy();
-    
+
     // Get the styles from the component
     const styles = StyleSheet.create({
       headerTitle: {
@@ -76,20 +76,20 @@ describe('Drawer Styling', () => {
         color: '#f7b305',
       },
     });
-    
+
     // Check the color value in the StyleSheet
     expect(extractStyleValue(styles.headerTitle, 'color')).toBe('#f7b305');
   });
-  
+
   it('applies consistent styling to all drawer items', () => {
     render(
-      <CustomDrawerContent 
+      <CustomDrawerContent
         navigation={mockNavigation as any}
         state={{ routes: [], index: 0 }}
         descriptors={{}}
       />
     );
-    
+
     // Get the styles from the component
     const styles = StyleSheet.create({
       drawerItem: {
@@ -102,11 +102,11 @@ describe('Drawer Styling', () => {
         color: '#333333',
       },
     });
-    
+
     // Check the values in the StyleSheet
     expect(extractStyleValue(styles.drawerItem, 'borderRadius')).toBe(10);
     expect(extractStyleValue(styles.drawerLabel, 'fontSize')).toBe(16);
     expect(extractStyleValue(styles.drawerLabel, 'fontWeight')).toBe('bold');
     expect(extractStyleValue(styles.drawerLabel, 'color')).toBe('#333333');
   });
-}); 
+});

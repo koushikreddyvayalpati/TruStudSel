@@ -1,6 +1,8 @@
 package com.trustudsel
 
 import android.app.Application
+import android.content.Context
+import androidx.multidex.MultiDex
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
@@ -40,5 +42,11 @@ class MainApplication : Application(), ReactApplication {
       // If you opted-in for the New Architecture, we load the native entry point for this app.
       load()
     }
+  }
+
+  // Add multidex support
+  override fun attachBaseContext(base: Context) {
+    super.attachBaseContext(base)
+    MultiDex.install(this)
   }
 }

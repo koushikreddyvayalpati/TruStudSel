@@ -1,6 +1,6 @@
 /**
  * Image URL Helper Utilities
- * 
+ *
  * Functions to standardize image URL handling throughout the app.
  */
 import { S3_BASE_URL } from '../api/fileUpload';
@@ -9,34 +9,34 @@ import { manipulateAsync, SaveFormat } from 'react-native-image-manipulator';
 
 /**
  * Get the full S3 URL for an image filename
- * 
+ *
  * @param filename The image filename returned from the backend
  * @returns The full S3 URL to the image
  */
 export const getFullImageUrl = (filename: string): string => {
   // If the filename is already a full URL, return it as is
-  if (!filename) return '';
-  if (filename.startsWith('http')) return filename;
-  
+  if (!filename) {return '';}
+  if (filename.startsWith('http')) {return filename;}
+
   // Otherwise, append it to the S3 base URL
   return `${S3_BASE_URL}${filename}`;
 };
 
 /**
  * Convert an array of image filenames to full S3 URLs
- * 
+ *
  * @param filenames Array of image filenames
  * @returns Array of full S3 URLs
  */
 export const getFullImageUrls = (filenames: string[]): string[] => {
-  if (!filenames || !Array.isArray(filenames)) return [];
-  
+  if (!filenames || !Array.isArray(filenames)) {return [];}
+
   return filenames.map(filename => getFullImageUrl(filename));
 };
 
 /**
  * Resize and compress an image to make it suitable for upload
- * 
+ *
  * @param imageUri URI of the image to resize
  * @param maxWidth Maximum width of the resized image (default: 1000)
  * @param quality JPEG quality (0-1) (default: 0.7)
@@ -48,15 +48,15 @@ export const resizeImageForUpload = async (
   quality: number = 0.7
 ): Promise<string> => {
   console.log(`[imageHelpers] Resizing image: ${imageUri}`);
-  
+
   try {
     // Get original image dimensions
     return new Promise((resolve, reject) => {
       Image.getSize(
-        imageUri, 
+        imageUri,
         async (width, height) => {
           console.log(`[imageHelpers] Original image size: ${width}x${height}`);
-          
+
           // If image is already smaller than maxWidth, just compress it
           if (width <= maxWidth) {
             try {
@@ -76,7 +76,7 @@ export const resizeImageForUpload = async (
             // Calculate new height to maintain aspect ratio
             const newHeight = Math.floor((height / width) * maxWidth);
             console.log(`[imageHelpers] Resizing to: ${maxWidth}x${newHeight}`);
-            
+
             try {
               const result = await manipulateAsync(
                 imageUri,
@@ -107,7 +107,7 @@ export const resizeImageForUpload = async (
 
 /**
  * Process multiple images for upload (resize and compress)
- * 
+ *
  * @param images Array of image objects with uri, type, and name
  * @returns Promise resolving to processed images array
  */
@@ -115,14 +115,14 @@ export const processImagesForUpload = async (
   images: Array<{ uri: string; type: string; name: string }>
 ): Promise<Array<{ uri: string; type: string; name: string }>> => {
   console.log(`[imageHelpers] Processing ${images.length} images for upload`);
-  
+
   try {
     const processedImages = await Promise.all(
       images.map(async (image) => {
         try {
           // Resize and compress the image
           const resizedUri = await resizeImageForUpload(image.uri);
-          
+
           return {
             uri: resizedUri,
             type: image.type || 'image/jpeg',
@@ -135,7 +135,7 @@ export const processImagesForUpload = async (
         }
       })
     );
-    
+
     console.log(`[imageHelpers] Finished processing ${processedImages.length} images`);
     return processedImages;
   } catch (error) {
@@ -147,40 +147,40 @@ export const processImagesForUpload = async (
 
 /**
  * Process a product to ensure all image properties have full URLs
- * 
+ *
  * @param product The product object from the API
  * @returns Product with updated image URLs
  */
 export const processProductImages = (product: any): any => {
-  if (!product) return product;
-  
+  if (!product) {return product;}
+
   const processedProduct = { ...product };
-  
+
   // Process main image property if it exists
   if (product.image) {
     processedProduct.image = getFullImageUrl(product.image);
   }
-  
+
   // Process primaryImage if it exists
   if (product.primaryImage) {
     processedProduct.primaryImage = getFullImageUrl(product.primaryImage);
   }
-  
+
   // Process images array if it exists
   if (product.images && Array.isArray(product.images)) {
     processedProduct.images = getFullImageUrls(product.images);
   }
-  
+
   // Process additionalImages array if it exists
   if (product.additionalImages && Array.isArray(product.additionalImages)) {
     processedProduct.additionalImages = getFullImageUrls(product.additionalImages);
   }
-  
+
   // Add an imageUrls property with all full URLs for convenience
   if (product.images && Array.isArray(product.images)) {
     processedProduct.imageUrls = getFullImageUrls(product.images);
   }
-  
+
   return processedProduct;
 };
 
@@ -189,5 +189,5 @@ export default {
   getFullImageUrls,
   processProductImages,
   resizeImageForUpload,
-  processImagesForUpload
-}; 
+  processImagesForUpload,
+};

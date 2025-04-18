@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  StyleSheet,
   Alert,
   SafeAreaView,
   TouchableOpacity,
@@ -11,7 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Modal
+  Modal,
 } from 'react-native';
 import { Auth } from 'aws-amplify';
 import { EmailVerificationScreenProps } from '../../types/navigation.types';
@@ -30,7 +30,7 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
-  
+
   // Animated values
   const progressAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -54,9 +54,9 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
         toValue: 30,
         duration: 1200,
         useNativeDriver: false,
-      })
+      }),
     ]).start();
-    
+
     return () => {
       progressAnim.setValue(0);
       fadeAnim.setValue(0);
@@ -75,46 +75,46 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
 
   const handleContinue = async () => {
     logDebug('Continue button pressed');
-    
+
     if (!name.trim()) {
       Alert.alert('Error', 'Please enter your full name');
       return;
     }
-    
+
     // Check if email is a .edu email
     const emailRegex = /^[^\s@]+@[^\s@]+\.edu$/i;
     if (!emailRegex.test(email)) {
       Alert.alert('Error', 'Please enter a valid .edu email address');
       return;
     }
-    
+
     // Validate phone number (10-15 digits, with optional + prefix)
     const phoneRegex = /^\+?\d{10,15}$/;
     if (!phoneRegex.test(phoneNumber)) {
       Alert.alert('Error', 'Please enter a valid phone number (10-15 digits)');
       return;
     }
-    
+
     setLoading(true);
     logDebug('Processing signup');
-    
+
     // Animate progress to 50%
     Animated.timing(progressAnim, {
       toValue: 50,
       duration: 600,
       useNativeDriver: false,
     }).start();
-    
+
     try {
       // Format phone number with + prefix if not already present
       const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
-      
+
       // Generate a temporary password for the initial sign-up
       const tempPassword = Math.random().toString(36).slice(-8) + 'Aa1!';
-      
+
       // Simulate some delay for visual feedback (remove in production)
       await new Promise(resolve => setTimeout(resolve, 800));
-      
+
       // Sign up the user with Cognito
       const signUpResponse = await Auth.signUp({
         username: email,
@@ -122,91 +122,91 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
         attributes: {
           email,
           phone_number: formattedPhone,
-          name
-        }
+          name,
+        },
       });
-      
+
       // Animate progress to 80%
       Animated.timing(progressAnim, {
         toValue: 80,
         duration: 600,
         useNativeDriver: false,
       }).start();
-      
+
       // Simulate some delay for visual feedback (remove in production)
       await new Promise(resolve => setTimeout(resolve, 800));
-      
+
       // Animate to 100% complete
       Animated.timing(progressAnim, {
         toValue: 100,
         duration: 600,
         useNativeDriver: false,
       }).start();
-      
+
       logDebug('Sign up successful, verification code sent:', signUpResponse);
-      
+
       // Short delay before navigating
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       // Navigate to OTP screen with all required parameters
       navigation.navigate('OtpInput', {
         email,
         tempPassword,
         name,
-        phoneNumber: formattedPhone
+        phoneNumber: formattedPhone,
       });
-      
+
     } catch (error: any) {
       logDebug('Error during signup:', error);
-      
+
       // Reset progress on error
       Animated.timing(progressAnim, {
         toValue: 30,
         duration: 300,
         useNativeDriver: false,
       }).start();
-      
+
       // Handle specific error cases
       if (error.code === 'UsernameExistsException') {
         Alert.alert(
-          'Account Exists', 
+          'Account Exists',
           'An account with this email already exists. Would you like to resend the verification code?',
           [
             {
               text: 'Cancel',
-              style: 'cancel'
+              style: 'cancel',
             },
             {
               text: 'Resend',
               onPress: async () => {
                 try {
                   setLoading(true);
-                  
+
                   Animated.timing(progressAnim, {
                     toValue: 50,
                     duration: 600,
                     useNativeDriver: false,
                   }).start();
-                  
+
                   await Auth.resendSignUp(email);
-                  
+
                   Animated.timing(progressAnim, {
                     toValue: 100,
                     duration: 600,
                     useNativeDriver: false,
                   }).start();
-                  
+
                   await new Promise(resolve => setTimeout(resolve, 800));
-                  
+
                   Alert.alert('Success', 'Verification code has been resent');
-                  navigation.navigate('OtpInput', { 
+                  navigation.navigate('OtpInput', {
                     email,
                     name,
-                    phoneNumber: phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`
+                    phoneNumber: phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`,
                   });
                 } catch (resendError: any) {
                   Alert.alert('Error', resendError.message || 'Failed to resend verification code');
-                  
+
                   // Reset progress on error
                   Animated.timing(progressAnim, {
                     toValue: 30,
@@ -216,8 +216,8 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
                 } finally {
                   setLoading(false);
                 }
-              }
-            }
+              },
+            },
           ]
         );
       } else {
@@ -234,7 +234,7 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
   });
 
   const getButtonGradient = () => {
-    return loading 
+    return loading
       ? ['rgba(150,150,150,0.5)', 'rgba(120,120,120,0.8)']
       : [theme.colors.primary, theme.colors.primaryDark || '#007bff'];
   };
@@ -246,7 +246,7 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Fixed position back button */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.fixedBackButton}
         onPress={() => navigation.navigate('SignIn')}
         activeOpacity={0.7}
@@ -259,44 +259,44 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
           </View>
         )}
       </TouchableOpacity>
-      
-      <KeyboardAvoidingView 
+
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoidingView}
       >
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={[
             styles.scrollContainer,
-            Platform.OS === 'android' ? { paddingTop: 15 } : {}
+            Platform.OS === 'android' ? { paddingTop: 15 } : {},
           ]}
           showsVerticalScrollIndicator={false}
         >
-          
-          
-          <Animated.View 
+
+
+          <Animated.View
             style={[
               styles.contentContainer,
-              { 
+              {
                 opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }]
-              }
+                transform: [{ translateY: slideAnim }],
+              },
             ]}
           >
             <Text style={[styles.title, { color: theme.colors.secondary }]}>Create</Text>
             <Text style={[styles.title, { color: theme.colors.secondary }]}>Account</Text>
-            
+
             <View style={styles.imageContainer}>
-              <Image 
-                source={require('../../../assets/amico.png')} 
+              <Image
+                source={require('../../../assets/amico.png')}
                 style={styles.image}
                 resizeMode="contain"
               />
             </View>
-            
+
             {/* <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
               Please fill in your details
             </Text> */}
-            
+
             <View style={styles.formContainer}>
               <TextInput
                 label="Full Name"
@@ -305,9 +305,9 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
                 placeholder="Enter your full name"
                 autoCapitalize="words"
                 containerStyle={styles.inputContainer}
-                leftIcon={<Entypo name="user" size={20} color={"#888"} />}
+                leftIcon={<Entypo name="user" size={20} color={'#888'} />}
               />
-              
+
               <TextInput
                 label="Email (.edu only)"
                 value={email}
@@ -316,9 +316,9 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
                 keyboardType="email-address"
                 autoCapitalize="none"
                 containerStyle={styles.inputContainer}
-                leftIcon={<Entypo name="mail" size={20} color={"#888"} />}
+                leftIcon={<Entypo name="mail" size={20} color={'#888'} />}
               />
-              
+
               <TextInput
                 label="Phone Number"
                 value={phoneNumber}
@@ -326,10 +326,10 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
                 placeholder="Enter with country code (e.g., +1...)"
                 keyboardType="phone-pad"
                 containerStyle={styles.inputContainer}
-                leftIcon={<Entypo name="phone" size={20} color={"#888"} />}
+                leftIcon={<Entypo name="phone" size={20} color={'#888'} />}
               />
             </View>
-            
+
             <View style={styles.buttonContainer}>
               <TouchableOpacity
                 style={styles.continueButtonWrapper}
@@ -344,27 +344,27 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
                   style={styles.continueButton}
                 >
                   <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
-                    {loading ? "Processing..." : "Continue"}
+                    {loading ? 'Processing...' : 'Continue'}
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
-            
+
             {/* Progress indicator - with custom styling */}
             <View style={styles.progressContainer}>
               <View style={styles.progressTrack}>
-                <Animated.View 
+                <Animated.View
                   style={[
-                    styles.progressBar, 
-                    { 
+                    styles.progressBar,
+                    {
                       width: progressWidth,
                       backgroundColor: loading ? '#FFB347' : theme.colors.primary,
-                    }
-                  ]} 
+                    },
+                  ]}
                 />
               </View>
             </View>
-            
+
             <View style={styles.legalTextContainer}>
               <Text style={styles.legalText}>
                 By continuing, you agree to our <Text style={styles.highlightedText}>Terms of Service</Text> and <Text style={styles.highlightedText} onPress={togglePrivacyModal}>Privacy Policy</Text>
@@ -373,7 +373,7 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
-      
+
       {/* Privacy Policy Modal */}
       <Modal
         animationType="slide"
@@ -392,79 +392,79 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
             <ScrollView style={styles.modalScrollView}>
               <Text style={styles.privacyTitle}>Privacy Policy</Text>
               <Text style={styles.privacyDate}>Last updated: April 16, 2025</Text>
-              
+
               <Text style={styles.privacyText}>
                 This Privacy Policy describes Our policies and procedures on the collection,
                 use and disclosure of Your information when You use the Service and tells You
                 about Your privacy rights and how the law protects You.
               </Text>
-              
+
               <Text style={styles.privacyText}>
                 We use Your Personal data to provide and improve the Service. By using the
                 Service, You agree to the collection and use of information in accordance with
                 this Privacy Policy.
               </Text>
-              
+
               <Text style={styles.privacySectionTitle}>Interpretation and Definitions</Text>
-              
+
               <Text style={styles.privacySubtitle}>Interpretation</Text>
               <Text style={styles.privacyText}>
                 The words of which the initial letter is capitalized have meanings defined
                 under the following conditions. The following definitions shall have the same
                 meaning regardless of whether they appear in singular or in plural.
               </Text>
-              
+
               <Text style={styles.privacySubtitle}>Definitions</Text>
               <Text style={styles.privacyText}>
                 For the purposes of this Privacy Policy:
               </Text>
-              
+
               <View style={styles.bulletPoint}>
                 <Text style={styles.privacyText}>• Account means a unique account created for You to access our Service or parts of our Service.</Text>
               </View>
-              
+
               <View style={styles.bulletPoint}>
                 <Text style={styles.privacyText}>• Affiliate means an entity that controls, is controlled by or is under common control with a party, where "control" means ownership of 50% or more of the shares, equity interest or other securities entitled to vote for election of directors or other managing authority.</Text>
               </View>
-              
+
               <View style={styles.bulletPoint}>
                 <Text style={styles.privacyText}>• Application refers to TruStudSel, the software program provided by the Company.</Text>
               </View>
-              
+
               <View style={styles.bulletPoint}>
                 <Text style={styles.privacyText}>• Company (referred to as either "the Company", "We", "Us" or "Our" in this Agreement) refers to TruStudSel.</Text>
               </View>
-              
+
               <View style={styles.bulletPoint}>
                 <Text style={styles.privacyText}>• Country refers to: New York, United States</Text>
               </View>
-              
+
               <View style={styles.bulletPoint}>
                 <Text style={styles.privacyText}>• Device means any device that can access the Service such as a computer, a cellphone or a digital tablet.</Text>
               </View>
-              
+
               <View style={styles.bulletPoint}>
                 <Text style={styles.privacyText}>• Personal Data is any information that relates to an identified or identifiable individual.</Text>
               </View>
-              
+
               <View style={styles.bulletPoint}>
                 <Text style={styles.privacyText}>• Service refers to the Application.</Text>
               </View>
-              
+
               <View style={styles.bulletPoint}>
                 <Text style={styles.privacyText}>• Service Provider means any natural or legal person who processes the data on behalf of the Company.</Text>
               </View>
-              
+
               <View style={styles.bulletPoint}>
                 <Text style={styles.privacyText}>• Usage Data refers to data collected automatically, either generated by the use of the Service or from the Service infrastructure itself.</Text>
               </View>
-              
+
               <View style={styles.bulletPoint}>
                 <Text style={styles.privacyText}>• You means the individual accessing or using the Service, or the company, or other legal entity on behalf of which such individual is accessing or using the Service, as applicable.</Text>
               </View>
-              
+
               <Text style={styles.privacySectionTitle}>Collecting and Using Your Personal Data</Text>
-              
+
               <Text style={styles.privacySubtitle}>Types of Data Collected</Text>
               <Text style={styles.privacySubSubtitle}>Personal Data</Text>
               <Text style={styles.privacyText}>
@@ -472,7 +472,7 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
                 identifiable information that can be used to contact or identify You.
                 Personally identifiable information may include, but is not limited to:
               </Text>
-              
+
               <View style={styles.bulletPoint}>
                 <Text style={styles.privacyText}>• Email address</Text>
               </View>
@@ -488,19 +488,19 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
               <View style={styles.bulletPoint}>
                 <Text style={styles.privacyText}>• Usage Data</Text>
               </View>
-              
+
               <Text style={styles.privacySubSubtitle}>Usage Data</Text>
               <Text style={styles.privacyText}>
                 Usage Data is collected automatically when using the Service.
               </Text>
-              
+
               <Text style={styles.privacyText}>
                 Usage Data may include information such as Your Device's Internet Protocol
                 address (e.g. IP address), browser type, browser version, the pages of our
                 Service that You visit, the time and date of Your visit, the time spent on
                 those pages, unique device identifiers and other diagnostic data.
               </Text>
-              
+
               <Text style={styles.privacyText}>
                 When You access the Service by or through a mobile device, We may collect
                 certain information automatically, including, but not limited to, the type of
@@ -508,12 +508,12 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
                 mobile device, Your mobile operating system, the type of mobile Internet
                 browser You use, unique device identifiers and other diagnostic data.
               </Text>
-              
+
               <Text style={styles.privacyText}>
                 We may also collect information that Your browser sends whenever You visit our
                 Service or when You access the Service by or through a mobile device.
               </Text>
-              
+
               <Text style={styles.privacySectionTitle}>Contact Us</Text>
               <Text style={styles.privacyText}>
                 If you have any questions about this Privacy Policy, You can contact us:
@@ -525,7 +525,7 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
           </View>
         </View>
       </Modal>
-      
+
       {/* Premium corner decorative elements */}
       <View style={[styles.cornerDecoration, styles.topLeftCorner]} />
       <View style={[styles.cornerDecoration, styles.bottomRightCorner]} />
@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
     ...Platform.select({
       android: {
         paddingBottom: 20,
-      }
+      },
     }),
   },
   header: {
@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
       android: {
         marginTop: 20,
         paddingTop: 0,
-      }
+      },
     }),
   },
   backButtonWrapper: {
@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
     ...Platform.select({
       android: {
         marginTop: 0,
-      }
+      },
     }),
   },
   backButton: {
@@ -759,7 +759,7 @@ const styles = StyleSheet.create({
         marginTop: 16,
         borderRadius: 30,
         elevation: 0,
-      }
+      },
     }),
   },
   fixedBackButtonText: {
@@ -856,4 +856,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default EmailVerificationScreen; 
+export default EmailVerificationScreen;

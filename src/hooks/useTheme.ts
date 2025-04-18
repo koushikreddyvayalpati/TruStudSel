@@ -1,6 +1,6 @@
 /**
  * Extended theme hook with additional utilities
- * 
+ *
  * This hook provides the theme context plus additional helper functions
  * for working with themes and styling.
  */
@@ -17,13 +17,13 @@ import { Theme } from '../theme';
  */
 export const useTheme = () => {
   const themeContext = useContext(ThemeContext);
-  
+
   if (!themeContext) {
     throw new Error('useTheme must be used within a ThemeProvider');
   }
-  
+
   const { theme, isDark } = themeContext;
-  
+
   /**
    * Create styles with the current theme
    * @param styleCreator - Function that creates styles with the theme
@@ -34,7 +34,7 @@ export const useTheme = () => {
   ) => {
     return StyleSheet.create(styleCreator(theme));
   };
-  
+
   /**
    * Apply a shadow to a style object using the current theme
    * @param style - The base style object
@@ -44,7 +44,7 @@ export const useTheme = () => {
   const applyThemeShadow = (style: any, shadowKey: keyof typeof theme.shadows) => {
     return applyShadow(style, shadowKey, isDark);
   };
-  
+
   /**
    * Get a themed color value with optional opacity
    * @param colorKey - The color key from theme.colors
@@ -53,7 +53,7 @@ export const useTheme = () => {
    */
   const getColor = (colorKey: keyof typeof theme.colors, opacity?: number) => {
     const color = theme.colors[colorKey];
-    
+
     if (opacity !== undefined && opacity >= 0 && opacity <= 1) {
       // Convert hex to rgba if opacity is provided
       if (color.startsWith('#')) {
@@ -62,21 +62,21 @@ export const useTheme = () => {
         const b = parseInt(color.slice(5, 7), 16);
         return `rgba(${r}, ${g}, ${b}, ${opacity})`;
       }
-      
+
       // Handle rgba
       if (color.startsWith('rgba')) {
         return color.replace(/[\d\.]+\)$/, `${opacity})`);
       }
-      
+
       // Handle rgb
       if (color.startsWith('rgb')) {
         return color.replace('rgb', 'rgba').replace(')', `, ${opacity})`);
       }
     }
-    
+
     return color;
   };
-  
+
   return {
     ...themeContext,
     createThemedStyles,
@@ -85,4 +85,4 @@ export const useTheme = () => {
   };
 };
 
-export default useTheme; 
+export default useTheme;

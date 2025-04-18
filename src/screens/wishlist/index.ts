@@ -1,1 +1,1 @@
-export { default as WishlistScreen } from './WishlistScreen'; 
+export { default as WishlistScreen } from './WishlistScreen';

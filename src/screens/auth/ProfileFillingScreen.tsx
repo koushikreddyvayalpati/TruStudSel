@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  StyleSheet,
   TouchableOpacity,
   Alert,
   KeyboardAvoidingView,
@@ -41,17 +41,17 @@ interface CustomTextInputProps {
   keyboardType?: 'default' | 'number-pad' | 'decimal-pad' | 'numeric' | 'email-address' | 'phone-pad';
 }
 
-const TextInput: React.FC<CustomTextInputProps> = ({ 
-  label, 
-  value, 
-  onChangeText, 
-  placeholder, 
-  editable = true, 
+const TextInput: React.FC<CustomTextInputProps> = ({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  editable = true,
   containerStyle = {},
-  keyboardType = 'default'
+  keyboardType = 'default',
 }) => {
   const { theme } = useTheme();
-  
+
   return (
     <View style={[textInputStyles.inputContainer, containerStyle]}>
       {label && (
@@ -60,18 +60,18 @@ const TextInput: React.FC<CustomTextInputProps> = ({
         </Text>
       )}
       <View style={[
-        textInputStyles.inputWrapper, 
-        { 
+        textInputStyles.inputWrapper,
+        {
           borderColor: theme.colors.border,
-          backgroundColor: editable ? theme.colors.background : 'rgba(240,240,240,0.3)'
-        }
+          backgroundColor: editable ? theme.colors.background : 'rgba(240,240,240,0.3)',
+        },
       ]}>
         <RNTextInput
           style={[
             textInputStyles.input,
-            { 
+            {
               color: theme.colors.text,
-            }
+            },
           ]}
           value={value}
           onChangeText={onChangeText || (() => {})}
@@ -132,13 +132,13 @@ const LoadingOverlay: React.FC<{
   showProgressDots?: boolean;
 }> = ({ visible, steps = [], currentStep = 0 }) => {
   const { theme } = useTheme();
-  
-  if (!visible) return null;
-  
+
+  if (!visible) {return null;}
+
   const currentMessage = steps.length > 0 && currentStep < steps.length
     ? steps[currentStep].message
     : 'Loading...';
-  
+
   return (
     <Modal
       visible={visible}
@@ -151,19 +151,19 @@ const LoadingOverlay: React.FC<{
           <Text style={[styles.loadingModalText, { color: theme.colors.text }]}>
             {currentMessage}
           </Text>
-          
+
           {steps.length > 1 && (
             <View style={styles.progressDotsContainer}>
               {steps.map((_, index) => (
-                <View 
-                  key={index} 
+                <View
+                  key={index}
                   style={[
                     styles.progressDot,
-                    { 
-                      backgroundColor: index <= currentStep 
-                        ? theme.colors.primary 
+                    {
+                      backgroundColor: index <= currentStep
+                        ? theme.colors.primary
                         : 'rgba(200,200,200,0.5)',
-                    }
+                    },
                   ]}
                 />
               ))}
@@ -183,14 +183,14 @@ const PRODUCT_CATEGORIES = [
   { id: '4', name: 'Fashion', icon: 'fashion' },
   { id: '5', name: 'Sports', icon: 'sports' },
   { id: '6', name: 'Stationery', icon: 'stationery' },
-  { id: '7', name: 'EventPass', icon: 'eventpass' }
+  { id: '7', name: 'EventPass', icon: 'eventpass' },
 ];
 
 const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navigation }) => {
   const { theme } = useTheme();
   const { refreshSession, updateUserInfo, isAuthenticated } = useAuth();
   const { email, username, phoneNumber, isAuthenticated: wasAuthenticated } = route.params;
-  
+
   // State for form data
   const [fullName, _setFullName] = useState<string>(username || '');
   const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -204,14 +204,14 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
   const [loading, setLoading] = useState<boolean>(false);
   const [navigating, setNavigating] = useState<boolean>(false);
   const [loadingStep, setLoadingStep] = useState<number>(0);
-  
+
   // New state for university dropdown - changed to use modal approach
   const [showUniversityModal, setShowUniversityModal] = useState<boolean>(false);
   const [filteredUniversities, setFilteredUniversities] = useState<string[]>([]);
-  
+
   // Constants for progress tracking and UI
   const minCategoriesRequired = 3;
-  
+
   // State to track field completions
   const [_completionFlags, setCompletionFlags] = useState({
     university: false,
@@ -224,7 +224,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
   const scrollIndicatorY = useRef(new Animated.Value(0)).current;
   const scrollOpacity = useRef(new Animated.Value(1)).current;
   const [showScrollIndicator, setShowScrollIndicator] = useState(true);
-  
+
   // Setup scroll indicator animation
   useEffect(() => {
     if (showScrollIndicator) {
@@ -246,18 +246,18 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
         ])
       ).start();
     }
-    
+
     return () => {
       scrollIndicatorY.stopAnimation();
     };
   }, [showScrollIndicator, scrollIndicatorY]);
-  
+
   // Function to handle scroll events
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const scrollOffset = event.nativeEvent.contentOffset.y;
     const contentHeight = event.nativeEvent.contentSize.height;
     const scrollViewHeight = event.nativeEvent.layoutMeasurement.height;
-    
+
     // If user scrolled close to the bottom, hide the indicator
     if (scrollOffset + scrollViewHeight > contentHeight - 100) {
       setShowScrollIndicator(false);
@@ -281,19 +281,19 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
   // Modify the filter universities effect
   useEffect(() => {
     if (university.trim().length > 0) {
-      const filtered = collegeData.college_names.filter(name => 
+      const filtered = collegeData.college_names.filter(name =>
         name.toLowerCase().includes(university.toLowerCase())
       ).slice(0, 10); // Limit to 10 results for performance
-      
+
       // Add "Other" option if it's not already in the filtered list
-      if (filtered.length === 0 || !filtered.includes("Other")) {
-        setFilteredUniversities([...filtered, "Other"]);
+      if (filtered.length === 0 || !filtered.includes('Other')) {
+        setFilteredUniversities([...filtered, 'Other']);
       } else {
         setFilteredUniversities(filtered);
       }
     } else {
       // Show some popular/suggested universities when input is empty
-      setFilteredUniversities([...collegeData.college_names.slice(0, 9), "Other"]);
+      setFilteredUniversities([...collegeData.college_names.slice(0, 9), 'Other']);
     }
   }, [university]);
 
@@ -303,25 +303,25 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
       university: !!university.trim(),
       city: !!city.trim(),
       zipcode: !!zipcode.trim(),
-      categories: selectedCategories.length > 0
+      categories: selectedCategories.length > 0,
     });
   }, [university, city, zipcode, selectedCategories]);
 
   // Function to calculate completion percentage
   const calculateCompletionPercentage = () => {
     let progress = 0;
-    
+
     // Profile image adds 20%
-    if (profileImage) progress += 20;
-    
+    if (profileImage) {progress += 20;}
+
     // Location fields add 30% total
-    if (university) progress += 10;
-    if (city) progress += 10;
-    if (zipcode) progress += 10;
-    
+    if (university) {progress += 10;}
+    if (city) {progress += 10;}
+    if (zipcode) {progress += 10;}
+
     // Categories add up to 50%
     progress += Math.min(selectedCategories.length, minCategoriesRequired) / minCategoriesRequired * 50;
-    
+
     return Math.min(progress, 100);
   };
 
@@ -343,22 +343,22 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
     { id: 'updating', message: 'Updating your profile...' },
     { id: 'success', message: 'Profile saved successfully!' },
     { id: 'preparing', message: 'Preparing your account...' },
-    { id: 'navigating', message: 'Taking you to home screen...' }
+    { id: 'navigating', message: 'Taking you to home screen...' },
   ], []);
-  
+
   // Define gradient colors for progress bar
-  const progressGradientColors = useMemo(() => 
-    Platform.OS === 'android' 
+  const progressGradientColors = useMemo(() =>
+    Platform.OS === 'android'
       ? ['#f7b305', '#f7b305'] // Use solid color on Android
       : ['#f7b305', '#f59000'], // Use consistent branding gradient on iOS
   []);
-  
+
   // Log initial state for debugging
   useEffect(() => {
     console.log('ProfileFillingScreen mounted');
     console.log('Authentication state:', { isAuthenticated, wasAuthenticated });
     console.log('Route params:', { email, username });
-    
+
     // Verify current authentication state
     const checkAuth = async () => {
       try {
@@ -368,21 +368,21 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
         console.log('No authenticated user found');
       }
     };
-    
+
     checkAuth();
   }, [isAuthenticated, wasAuthenticated, email, username]);
- 
+
   // Update loading message based on step
   useEffect(() => {
     if (navigating && loadingStep < loadingSteps.length - 1) {
       const timer = setTimeout(() => {
         setLoadingStep(prev => prev + 1);
       }, 800); // Change message every 800ms
-      
+
       return () => clearTimeout(timer);
     }
   }, [navigating, loadingStep, loadingSteps.length]);
-  
+
   // Block hardware back button to prevent navigation issues
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -391,7 +391,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
       }
       return false;
     });
-    
+
     return () => backHandler.remove();
   }, [isAuthenticated]);
 
@@ -423,16 +423,16 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
       Alert.alert('Error', 'Please select at least one product category');
       return;
     }
-    
+
     setLoading(true);
     setLoadingStep(0);
     try {
       // Just updating the name attribute in Cognito
       const user = await Auth.currentAuthenticatedUser();
       await Auth.updateUserAttributes(user, {
-        'name': fullName.trim()
+        'name': fullName.trim(),
       });
-      
+
       // Prepare profile data for API
       const profileData: UserProfileData = {
         email,
@@ -442,23 +442,23 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
         zipcode: zipcode.trim(),
         productsCategoriesIntrested: selectedCategories,
         state: '',
-        userRating: "0", // Can be filled in later
-        productsListed: "0",
-        productssold: "0",
+        userRating: '0', // Can be filled in later
+        productsListed: '0',
+        productssold: '0',
         productswishlist: [],
         mobile: phoneNumber,
-        userphoto: profileImage || undefined
+        userphoto: profileImage || undefined,
       };
-      
+
       console.log('Sending profile data to API:', profileData);
-      
+
       // Update user info in the auth context
       updateUserInfo({
         name: fullName.trim(),
         university: university.trim(),
-        email
+        email,
       });
-      
+
       // Make API call to save profile data
       try {
         const response = await createUserProfile(profileData);
@@ -468,7 +468,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
         // Continue with app flow even if API fails - we can sync later
         // But log the error for tracking
       }
-      
+
       // Explicitly set auth state to authenticated
       await refreshSession();
       // Show loading indicator and navigate to home
@@ -505,7 +505,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
             }, 600);
           }, 800);
         }, 100);
-        
+
       } catch (error) {
         console.error('Navigation error:', error);
         setNavigating(false);
@@ -514,7 +514,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
           'Please restart the app to go to the home screen.'
         );
       }
-      
+
     } catch (error: any) {
       console.log('Error updating profile:', error);
       setLoading(false);
@@ -523,11 +523,11 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
   };
 
   const handleUploadProfilePicture = () => {
-    if (uploadingImage) return;
-    
+    if (uploadingImage) {return;}
+
     setUploadingImage(true);
     console.log('Starting image picker');
-    
+
     const options = {
       mediaType: 'photo' as const,
       maxWidth: 500,
@@ -594,11 +594,11 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
   const toggleCategorySelection = (categoryId: string) => {
     // Find the category by ID
     const category = PRODUCT_CATEGORIES.find(cat => cat.id === categoryId);
-    if (!category) return;
-    
+    if (!category) {return;}
+
     // Use the category name in lowercase for the API
     const categoryNameLowerCase = category.name.toLowerCase();
-    
+
     setSelectedCategories(prevSelected => {
       // Check if the category name is already in the array
       if (prevSelected.includes(categoryNameLowerCase)) {
@@ -612,16 +612,16 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
   const renderCategoryItem = ({ item }: { item: typeof PRODUCT_CATEGORIES[0] }) => {
     // Check if this category name (in lowercase) is in selectedCategories
     const isSelected = selectedCategories.includes(item.name.toLowerCase());
-    
+
     return (
       <TouchableOpacity
         style={[
           styles.categoryItem,
           {
-            borderColor: isSelected ? 
-              Platform.OS === 'ios' ? theme.colors.primary : 'rgba(247, 179, 5, 0.3)' 
+            borderColor: isSelected ?
+              Platform.OS === 'ios' ? theme.colors.primary : 'rgba(247, 179, 5, 0.3)'
               : Platform.OS === 'ios' ? theme.colors.border : 'rgba(220, 220, 220, 0.5)',
-            backgroundColor: isSelected ? 
+            backgroundColor: isSelected ?
               Platform.OS === 'ios' ? `${theme.colors.primary}10` : 'rgba(247, 179, 5, 0.05)'
               : theme.colors.background,
             transform: [{ scale: isSelected ? (Platform.OS === 'ios' ? 1.02 : 1.0) : 1 }],
@@ -630,33 +630,33 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
         onPress={() => toggleCategorySelection(item.id)}
         activeOpacity={0.7}
       >
-        <View 
+        <View
           style={styles.categoryIconContainer}
         >
-          <View 
+          <View
             style={[
               styles.categoryIconCircle,
-              { backgroundColor: isSelected ? theme.colors.primary : '#f0f0f0' }
+              { backgroundColor: isSelected ? theme.colors.primary : '#f0f0f0' },
             ]}
           >
-            <Entypo 
-              name={getCategoryIcon(item.icon)} 
-              size={16} 
-              color={isSelected ? '#fff' : theme.colors.secondary} 
+            <Entypo
+              name={getCategoryIcon(item.icon)}
+              size={16}
+              color={isSelected ? '#fff' : theme.colors.secondary}
             />
           </View>
         </View>
-        
-        <Text 
+
+        <Text
           style={[
-            styles.categoryText, 
-            { color: isSelected ? theme.colors.primary : theme.colors.text }
+            styles.categoryText,
+            { color: isSelected ? theme.colors.primary : theme.colors.text },
           ]}
           numberOfLines={2}
         >
           {item.name}
         </Text>
-        
+
         {isSelected && (
           <View style={styles.selectedIndicator}>
             <Entypo name="check" size={14} color={theme.colors.primary} />
@@ -666,7 +666,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
     );
   };
 
-  const getCategoryIcon = (iconName: string): string => {    
+  const getCategoryIcon = (iconName: string): string => {
     switch (iconName) {
       case 'electronics':
         return 'modern-mic';
@@ -689,7 +689,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
 
   const renderGradientButton = (text: string, onPress: () => void, disabled: boolean = false) => {
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.buttonWrapper}
         onPress={onPress}
         disabled={disabled}
@@ -697,8 +697,8 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
       >
         <LinearGradient
           colors={
-            disabled 
-              ? ['rgba(150,150,150,0.5)', 'rgba(120,120,120,0.8)'] 
+            disabled
+              ? ['rgba(150,150,150,0.5)', 'rgba(120,120,120,0.8)']
               : [theme.colors.primary, theme.colors.primaryDark || '#0055b3']
           }
           start={{ x: 0, y: 0 }}
@@ -714,7 +714,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
   };
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
@@ -726,9 +726,9 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
         currentStep={loadingStep}
         showProgressDots={true}
       />
-      
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -740,13 +740,13 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
               Complete your profile to personalize your experience
             </Text>
           </View>
-          
+
           <View style={styles.profilePicContainer}>
             <View style={styles.profileImageWrapper}>
               {profileImage ? (
-                <Image 
-                  source={{ uri: profileImage }} 
-                  style={styles.profileImage} 
+                <Image
+                  source={{ uri: profileImage }}
+                  style={styles.profileImage}
                   resizeMode="cover"
                 />
               ) : (
@@ -764,8 +764,8 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
                   </View>
                 )
               )}
-              
-              <TouchableOpacity 
+
+              <TouchableOpacity
                 style={styles.cameraIconContainer}
                 onPress={handleUploadProfilePicture}
                 disabled={uploadingImage}
@@ -775,8 +775,8 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
                 </View>
               </TouchableOpacity>
             </View>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={[styles.uploadButton, {
                 backgroundColor: '#f7b305',
                 paddingVertical: 6,
@@ -792,21 +792,21 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
                   },
                   android: {
                     elevation: 3,
-                  }
-                })
+                  },
+                }),
               }]}
               onPress={handleUploadProfilePicture}
               disabled={uploadingImage}
             >
-              <Text style={[styles.uploadButtonText, { 
+              <Text style={[styles.uploadButtonText, {
                 color: '#fff',
                 fontWeight: '700',
-                fontSize: 12
+                fontSize: 12,
               }]}>
                 {uploadingImage ? 'Uploading...' : 'Add Profile Picture'}
               </Text>
             </TouchableOpacity>
-            
+
             <View style={styles.userInfoContainer}>
               <View style={styles.userInfoItem}>
                 <Entypo name="mail" size={16} color={theme.colors.secondary} style={styles.userInfoIcon} />
@@ -818,10 +818,10 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
               </View>
             </View>
           </View>
-          
+
           <View style={styles.formSection}>
             <Text style={styles.formSectionTitle}>Location Information</Text>
-            
+
             <View style={styles.inputRow}>
               <View style={styles.inputIconContainer}>
                 <View style={[styles.inputIcon, { backgroundColor: university ? theme.colors.primary : 'rgba(0,0,0,0.05)' }]}>
@@ -843,14 +843,14 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
                       editable={false} // Make input non-editable
                       onTouchStart={() => setShowUniversityModal(true)} // Show dropdown on touch
                     />
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={styles.universityDropdownButton}
                       onPress={() => setShowUniversityModal(true)}
                     >
                       <Entypo name="chevron-down" size={18} color={theme.colors.textSecondary} />
                     </TouchableOpacity>
                   </View>
-                  
+
                   {/* Simple dropdown list that appears beneath the input */}
                   {showUniversityModal && (
                     <View style={[styles.simpleSuggestionsList, { backgroundColor: theme.colors.background }]}>
@@ -864,9 +864,9 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
                           autoFocus={true}
                         />
                       </View>
-                      
+
                       {filteredUniversities.length > 0 ? (
-                        <ScrollView 
+                        <ScrollView
                           nestedScrollEnabled={true}
                           style={{maxHeight: 250}}
                           keyboardShouldPersistTaps="handled"
@@ -893,7 +893,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
                 </View>
               </View>
             </View>
-            
+
             <View style={styles.inputRow}>
               <View style={styles.inputIconContainer}>
                 <View style={[styles.inputIcon, { backgroundColor: city ? theme.colors.primary : 'rgba(0,0,0,0.05)' }]}>
@@ -910,7 +910,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
                 />
               </View>
             </View>
-            
+
             <View style={styles.inputRow}>
               <View style={styles.inputIconContainer}>
                 <View style={[styles.inputIcon, { backgroundColor: zipcode ? theme.colors.primary : 'rgba(0,0,0,0.05)' }]}>
@@ -929,13 +929,13 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
               </View>
             </View>
           </View>
-          
+
           <View style={styles.formSection}>
             <Text style={styles.formSectionTitle}>Your Interests</Text>
             <Text style={styles.helperText}>
               Select categories that interest you to personalize your experience
             </Text>
-            
+
             <View style={styles.categoriesContainer}>
               <View style={styles.categoriesGrid}>
                 {PRODUCT_CATEGORIES.map((item) => (
@@ -945,7 +945,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
                 ))}
               </View>
             </View>
-            
+
             <View style={styles.progressContainer}>
               <View style={styles.progressTrack}>
                 <LinearGradient
@@ -954,41 +954,41 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
                   end={{ x: 1, y: 0 }}
                   style={[
                     styles.progressBar,
-                    { width: `${calculateCompletionPercentage()}%` }
+                    { width: `${calculateCompletionPercentage()}%` },
                   ]}
                 />
               </View>
               <Text style={styles.helperText}>
-                {selectedCategories.length < minCategoriesRequired 
-                  ? `Select at least ${minCategoriesRequired} categories to continue` 
+                {selectedCategories.length < minCategoriesRequired
+                  ? `Select at least ${minCategoriesRequired} categories to continue`
                   : `${selectedCategories.length} categories selected`}
               </Text>
             </View>
           </View>
-          
+
           {renderGradientButton(
-            loading ? 'Processing...' : 'Complete Profile', 
-            handleSubmit, 
+            loading ? 'Processing...' : 'Complete Profile',
+            handleSubmit,
             loading || navigating
           )}
         </View>
       </ScrollView>
-      
+
       {/* Scroll indicator */}
-      <Animated.View 
+      <Animated.View
         style={[
-          styles.scrollIndicator, 
-          { 
+          styles.scrollIndicator,
+          {
             transform: [{ translateY: scrollIndicatorY }],
-            opacity: scrollOpacity
-          }
+            opacity: scrollOpacity,
+          },
         ]}
       >
         <View style={styles.scrollIndicatorLine} />
         <Text style={styles.scrollIndicatorText}>Scroll for more</Text>
         <Entypo name="chevron-down" size={20} color="#666" />
       </Animated.View>
-      
+
       {/* Premium corner decorative elements */}
       <View style={[styles.cornerDecoration, styles.topLeftCorner]} />
       <View style={[styles.cornerDecoration, styles.bottomRightCorner]} />
@@ -1563,4 +1563,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ProfileFillingScreen; 
+export default ProfileFillingScreen;

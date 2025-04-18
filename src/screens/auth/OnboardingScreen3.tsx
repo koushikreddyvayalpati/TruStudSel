@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  Image, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
   Dimensions,
-  SafeAreaView
+  SafeAreaView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Onboarding3ScreenNavigationProp } from '../../types/navigation.types';
@@ -20,7 +20,7 @@ interface OnboardingScreen3Props {
 
 const OnboardingScreen3: React.FC<OnboardingScreen3Props> = ({ navigation }) => {
   const { theme } = useTheme();
-  
+
   // Mark that user has seen onboarding
   useEffect(() => {
     const markAsSeen = async () => {
@@ -31,10 +31,10 @@ const OnboardingScreen3: React.FC<OnboardingScreen3Props> = ({ navigation }) => 
         console.error('Error saving onboarding status:', error);
       }
     };
-    
+
     markAsSeen();
   }, []);
-  
+
   const handleSkip = async () => {
     try {
       // If user skips, still mark as having seen onboarding
@@ -46,7 +46,7 @@ const OnboardingScreen3: React.FC<OnboardingScreen3Props> = ({ navigation }) => 
       navigation.navigate('SignIn');
     }
   };
-  
+
   const handleNext = async () => {
     try {
       // Ensure both flags are set when completing onboarding
@@ -58,11 +58,11 @@ const OnboardingScreen3: React.FC<OnboardingScreen3Props> = ({ navigation }) => 
       navigation.navigate('SignIn');
     }
   };
-  
+
   const handleBack = async () => {
     navigation.navigate('Onboarding2');
   };
-  
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.header}>
@@ -71,15 +71,15 @@ const OnboardingScreen3: React.FC<OnboardingScreen3Props> = ({ navigation }) => 
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
       </View>
-      
+
       <View style={styles.imageContainer}>
-        <Image 
-          source={require('../../../assets/onboard3.jpg')} 
+        <Image
+          source={require('../../../assets/onboard3.jpg')}
           style={styles.image}
           resizeMode="contain"
         />
       </View>
-      
+
       <View style={styles.contentContainer}>
         <Text style={styles.title}>Meet in Safe Zones</Text>
         <Text style={styles.description}>
@@ -87,22 +87,22 @@ const OnboardingScreen3: React.FC<OnboardingScreen3Props> = ({ navigation }) => 
           for a secure buying and selling experience
         </Text>
       </View>
-      
+
       <View style={styles.footer}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.backButton]}
           onPress={handleBack}
         >
           <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
-        
+
         <View style={styles.paginationDots}>
           <View style={styles.dot} />
           <View style={styles.dot} />
           <View style={[styles.dot, styles.activeDot]} />
         </View>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={[styles.nextButton]}
           onPress={handleNext}
         >
@@ -209,4 +209,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default OnboardingScreen3; 
+export default OnboardingScreen3;

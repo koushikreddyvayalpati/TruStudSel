@@ -48,17 +48,17 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 // Add a Message Item component for optimized rendering
-const MessageItem = memo(({ 
-  item, 
-  index, 
-  messages, 
-  currentUserId, 
+const MessageItem = memo(({
+  item,
+  index,
+  messages,
+  currentUserId,
   formatMessageTime,
   formatDateHeader,
   isDateEqual,
-  recipientInitials
-}: { 
-  item: Message, 
+  recipientInitials,
+}: {
+  item: Message,
   index: number,
   messages: Message[],
   currentUserId: string | null,
@@ -68,9 +68,9 @@ const MessageItem = memo(({
   recipientInitials: string
 }) => {
   const isUser = currentUserId === item.senderId;
-  const showDate = index === 0 || 
+  const showDate = index === 0 ||
     !isDateEqual(new Date(item.createdAt), new Date(messages[index - 1].createdAt));
-  
+
   return (
     <View style={styles.messageWrapper}>
       {showDate && (
@@ -78,29 +78,29 @@ const MessageItem = memo(({
           <Text style={styles.dateText}>{formatDateHeader(item.createdAt)}</Text>
         </View>
       )}
-      
+
       <View style={[
         styles.messageRow,
-        isUser ? { justifyContent: 'flex-end' } : { justifyContent: 'flex-start' }
+        isUser ? { justifyContent: 'flex-end' } : { justifyContent: 'flex-start' },
       ]}>
         {!isUser && (
           <View style={{
             marginRight: 8,
             alignSelf: 'flex-end',
-            marginBottom: 2
+            marginBottom: 2,
           }}>
             <View style={styles.recipientInitialsContainer}>
               <Text style={styles.avatarText}>{recipientInitials}</Text>
             </View>
           </View>
         )}
-        
+
         <View style={[
-          { maxWidth: '65%' }
+          { maxWidth: '65%' },
         ]}>
           <View style={[
             styles.messageBubble,
-            isUser ? styles.userBubble : styles.otherBubble
+            isUser ? styles.userBubble : styles.otherBubble,
           ]}>
             <Text style={[
               styles.messageText,
@@ -108,33 +108,33 @@ const MessageItem = memo(({
             ]}>
               {item.content}
             </Text>
-            
+
             <View style={styles.messageFooter}>
               <Text style={[
                 styles.timeText,
-                isUser ? styles.userTimeText : styles.otherTimeText
+                isUser ? styles.userTimeText : styles.otherTimeText,
               ]}>
                 {formatMessageTime(item.createdAt)}
               </Text>
-              
+
               {isUser && item.status && (
                 <View style={styles.statusContainer}>
-                  {item.status === MessageStatus.SENT && 
+                  {item.status === MessageStatus.SENT &&
                     <Ionicons name="checkmark" size={14} color="rgba(255, 255, 255, 0.7)" />}
-                  {item.status === MessageStatus.DELIVERED && 
+                  {item.status === MessageStatus.DELIVERED &&
                     <Ionicons name="checkmark-done" size={14} color="rgba(255, 255, 255, 0.7)" />}
-                  {item.status === MessageStatus.READ && 
+                  {item.status === MessageStatus.READ &&
                     <Ionicons name="checkmark-done" size={14} color="#fff" />}
                 </View>
               )}
             </View>
           </View>
         </View>
-        
+
         {isUser && (
           <View style={{
             marginLeft: 8,
-            alignSelf: 'flex-end'
+            alignSelf: 'flex-end',
           }}>
             <View style={styles.userInitialsContainer}>
               <Text style={styles.avatarText}>KR</Text>
@@ -150,10 +150,10 @@ const MessageScreen = () => {
   const navigation = useNavigation<MessageScreenNavigationProp>();
   const route = useRoute<MessageScreenRouteProp>();
   const insets = useSafeAreaInsets();
-  
+
   // Get parameters from navigation
   const { conversationId: routeConversationId, recipientName, recipientId } = route.params || {};
-  
+
   // State for messages and input
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
@@ -165,33 +165,33 @@ const MessageScreen = () => {
     routeConversationId !== 'new' ? routeConversationId : null
   );
   const [_conversation, setConversation] = useState<Conversation | null>(null);
-  
+
   // Refs
   const flatListRef = useRef<FlatList<Message>>(null);
   const inputRef = useRef<TextInput>(null);
   const messageSubscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
-  
+
   // Animation refs for header only
   const headerHeightJS = useRef(new Animated.Value(60)).current; // JS-driven for layout
   const headerOpacityNative = useRef(new Animated.Value(1)).current; // Native-driven for opacity
-  
+
   // State for recipient initials (for avatar)
   const [recipientInitials, setRecipientInitials] = useState('');
   const [_userInitials, setUserInitials] = useState('');
-  
+
   // Function to scroll to bottom of messages
   const scrollToBottom = useCallback(() => {
     if (flatListRef.current && messages.length > 0) {
       flatListRef.current.scrollToEnd({ animated: true });
     }
   }, [messages.length]);
-  
+
   // Render Avatar Component
   const renderAvatar = useCallback((initials: string, isUser = false) => {
-    const colors = isUser 
+    const colors = isUser
       ? ['#2D2D2D', '#000000'] // Black gradient for user
       : ['#f7b305', '#f9a825']; // Gold gradient for recipient
-    
+
     return (
       <View style={styles.avatarShadowContainer}>
         <LinearGradient
@@ -205,12 +205,12 @@ const MessageScreen = () => {
       </View>
     );
   }, []);
-  
+
   // Format message time
   const formatMessageTime = useCallback((dateString: string) => {
     try {
       const date = new Date(dateString);
-      
+
       if (isToday(date)) {
         return format(date, 'h:mm a');
       } else if (isYesterday(date)) {
@@ -222,7 +222,7 @@ const MessageScreen = () => {
       return dateString;
     }
   }, []);
-  
+
   // Use useMemo for static values to prevent unnecessary rerenders
   const isDateEqual = useMemo(() => {
     return (date1: Date, date2: Date) => {
@@ -233,13 +233,13 @@ const MessageScreen = () => {
       );
     };
   }, []);
-  
+
   // Format date header with useMemo
   const formatDateHeader = useMemo(() => {
     return (dateString: string) => {
       try {
         const date = new Date(dateString);
-        
+
         if (isToday(date)) {
           return 'Today';
         } else if (isYesterday(date)) {
@@ -252,23 +252,23 @@ const MessageScreen = () => {
       }
     };
   }, []);
-  
+
   // Enhanced message sending with animation
   const handleSend = useCallback(async () => {
-    if (!inputText.trim() || !actualConversationId) return;
-    
+    if (!inputText.trim() || !actualConversationId) {return;}
+
     Keyboard.dismiss();
-    
+
     // Clear input before sending to make UI feel more responsive
     const messageText = inputText.trim();
     setInputText('');
-    
+
     // Show typing indicator briefly for visual feedback
     setIsLoading(true);
-    
+
     // Apply layout animation for smooth UI updates
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    
+
     try {
       // Send message
       await sendMessage(actualConversationId, messageText);
@@ -282,7 +282,7 @@ const MessageScreen = () => {
       setIsLoading(false);
     }
   }, [inputText, actualConversationId]);
-  
+
   // Effect to get current user
   useEffect(() => {
     const loadUser = async () => {
@@ -291,10 +291,10 @@ const MessageScreen = () => {
         setCurrentUserId(user.id);
       }
     };
-    
+
     loadUser();
   }, []);
-  
+
   // Effect to handle new conversation creation
   useEffect(() => {
     // Only run this if we need to create a new conversation
@@ -304,15 +304,15 @@ const MessageScreen = () => {
           console.log('[MessageScreen] Creating new conversation:', {
             recipientName,
             recipientId,
-            currentUserId
+            currentUserId,
           });
-          
+
           // Check if recipientId is an email and try to find the user ID
           let effectiveRecipientId = recipientId;
           if (recipientId.includes('@')) {
             // This is probably an email, we should try to find the actual user ID if available
             console.log('[MessageScreen] Recipient ID appears to be an email, trying to map to user ID');
-            
+
             try {
               // You could also check the route params to see if user ID was provided
               if (route.params.recipientUserId) {
@@ -325,18 +325,18 @@ const MessageScreen = () => {
               console.warn('[MessageScreen] Error looking up user ID from email:', err);
             }
           }
-          
+
           const newConversation = await getOrCreateConversation(
             effectiveRecipientId,
             recipientName
           );
-          
+
           console.log('[MessageScreen] New conversation created:', {
             id: newConversation.id,
             participants: newConversation.participants,
-            name: newConversation.name
+            name: newConversation.name,
           });
-          
+
           setActualConversationId(newConversation.id);
           setConversation(newConversation);
           setError(null);
@@ -345,15 +345,15 @@ const MessageScreen = () => {
           setError('Failed to create conversation. Please try again.');
         }
       };
-      
+
       createNewConversation();
     }
   }, [routeConversationId, recipientId, recipientName, currentUserId, route.params]);
-  
+
   // Effect to load conversation messages
   useEffect(() => {
-    if (!actualConversationId) return;
-    
+    if (!actualConversationId) {return;}
+
     const loadMessages = async () => {
       try {
         console.log('[MessageScreen] Loading messages for conversation:', actualConversationId);
@@ -364,8 +364,8 @@ const MessageScreen = () => {
           messages: fetchedMessages.map(m => ({
             id: m.id,
             senderId: m.senderId,
-            content: m.content
-          }))
+            content: m.content,
+          })),
         });
         setMessages(fetchedMessages);
         setError(null);
@@ -376,35 +376,35 @@ const MessageScreen = () => {
         setIsLoading(false);
       }
     };
-    
+
     loadMessages();
   }, [actualConversationId]);
-  
+
   // Set up real-time subscription
   useEffect(() => {
-    if (!actualConversationId) return;
-    
+    if (!actualConversationId) {return;}
+
     // Subscribe to new messages
     const subscription = subscribeToMessages(actualConversationId, (newMessage) => {
       setMessages(prevMessages => {
         // Check if we already have this message
         const exists = prevMessages.some(msg => msg.id === newMessage.id);
-        if (exists) return prevMessages;
-        
+        if (exists) {return prevMessages;}
+
         // If it's from the other user, mark it as read
         if (currentUserId && newMessage.senderId !== currentUserId) {
           updateMessageStatus(newMessage.id, actualConversationId, MessageStatus.READ);
         }
-        
+
         return [...prevMessages, newMessage];
       });
-      
+
       // Show typing indicator and then hide it
       setIsTyping(false);
     });
-    
+
     messageSubscriptionRef.current = subscription;
-    
+
     // Clean up subscription on unmount
     return () => {
       if (messageSubscriptionRef.current) {
@@ -412,16 +412,16 @@ const MessageScreen = () => {
       }
     };
   }, [actualConversationId, currentUserId]);
-  
+
   // Effect to scroll to bottom on load and when new messages arrive
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       scrollToBottom();
     }, 100);
-    
+
     return () => clearTimeout(timeoutId);
   }, [messages, scrollToBottom]);
-  
+
   // Determine initials for avatar display
   useEffect(() => {
     if (recipientName) {
@@ -429,7 +429,7 @@ const MessageScreen = () => {
       const initials = nameArr.map((name: string) => name.charAt(0).toUpperCase()).slice(0, 2).join('');
       setRecipientInitials(initials);
     }
-    
+
     // Get current user's initials
     const getUserInitials = async () => {
       const user = await getCurrentUser();
@@ -441,14 +441,14 @@ const MessageScreen = () => {
         setUserInitials('ME');
       }
     };
-    
+
     getUserInitials();
   }, [recipientName]);
-  
+
   // Render item function for FlatList
   const renderItem = useCallback(({ item, index }: { item: Message; index: number }) => {
     return (
-      <MessageItem 
+      <MessageItem
         item={item}
         index={index}
         messages={messages}
@@ -460,21 +460,21 @@ const MessageScreen = () => {
       />
     );
   }, [messages, currentUserId, formatMessageTime, recipientInitials, formatDateHeader, isDateEqual]);
-  
+
   // Add optimized window size parameters for FlatList
   const getItemLayout = useCallback((data: ArrayLike<Message> | null | undefined, index: number) => ({
     length: 80, // approximate height of a message
     offset: 80 * index,
     index,
   }), []);
-  
+
   // Update the keyboardAvoidingView to be more responsive
   const keyboardVerticalOffset = useMemo(() => Platform.OS === 'ios' ? 90 : 0, []);
-  
+
   // Enhanced typing indicator with smoother animation
   const renderTypingIndicator = useCallback(() => {
-    if (!isTyping) return null;
-    
+    if (!isTyping) {return null;}
+
     return (
       <View style={styles.typingContainer}>
         <View style={styles.typingBubble}>
@@ -485,15 +485,15 @@ const MessageScreen = () => {
       </View>
     );
   }, [isTyping]);
-  
+
   // Enhanced error message without animation
   const renderErrorMessage = useCallback(() => {
-    if (!error) return null;
-    
+    if (!error) {return null;}
+
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => setError(null)}
         >
           <Text style={styles.dismissText}>Dismiss</Text>
@@ -501,23 +501,23 @@ const MessageScreen = () => {
       </View>
     );
   }, [error]);
-  
+
   // Enhanced loading state
   if ((isLoading && messages.length === 0) || (routeConversationId === 'new' && !actualConversationId)) {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#fff" />
         <View style={{ height: insets.top, backgroundColor: '#fff' }} />
-        
+
         <Animated.View style={[
           styles.header,
-          { 
+          {
             height: headerHeightJS,
-            opacity: headerOpacityNative 
-          }
+            opacity: headerOpacityNative,
+          },
         ]}>
-          <TouchableOpacity 
-            style={styles.backButton} 
+          <TouchableOpacity
+            style={styles.backButton}
             onPress={() => navigation.goBack()}
             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
           >
@@ -528,36 +528,36 @@ const MessageScreen = () => {
             <Text style={styles.headerTitle}>{recipientName}</Text>
           </View>
         </Animated.View>
-        
+
         <View style={styles.loadingContainer}>
           <MaterialIcons name="chat" size={48} color="#f7b305" />
           <Text style={styles.loadingText}>
-            {routeConversationId === 'new' && !actualConversationId 
-              ? 'Setting up conversation...' 
+            {routeConversationId === 'new' && !actualConversationId
+              ? 'Setting up conversation...'
               : 'Loading messages...'}
           </Text>
         </View>
       </View>
     );
   }
-  
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <View style={{ height: insets.top, backgroundColor: '#fff' }} />
-      
+
       {/* Header with animation */}
-      <Animated.View 
+      <Animated.View
         style={[
           styles.header,
-          { 
+          {
             height: headerHeightJS,
-            opacity: headerOpacityNative 
-          }
+            opacity: headerOpacityNative,
+          },
         ]}
       >
-        <TouchableOpacity 
-          style={styles.backButton} 
+        <TouchableOpacity
+          style={styles.backButton}
           onPress={() => {
             // Simple navigation without animation
             navigation.goBack();
@@ -569,7 +569,7 @@ const MessageScreen = () => {
         >
           <MaterialIcons name="arrow-back-ios-new" size={22} color="#333" />
         </TouchableOpacity>
-        
+
         <View style={styles.headerTitleContainer}>
           {renderAvatar(recipientInitials)}
           <Text style={styles.headerTitle} numberOfLines={1}>
@@ -577,11 +577,11 @@ const MessageScreen = () => {
           </Text>
         </View>
       </Animated.View>
-      
+
       {renderErrorMessage()}
-      
+
       {/* Messages */}
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         style={styles.keyboardAvoidView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={keyboardVerticalOffset}
@@ -594,7 +594,7 @@ const MessageScreen = () => {
             keyExtractor={item => item.id}
             contentContainerStyle={[
               styles.messagesList,
-              { paddingBottom: 30, paddingTop: 10 }
+              { paddingBottom: 30, paddingTop: 10 },
             ]}
             showsVerticalScrollIndicator={false}
             inverted={false}
@@ -614,10 +614,10 @@ const MessageScreen = () => {
             onEndReached={scrollToBottom}
             onEndReachedThreshold={0.1}
           />
-          
+
           {renderTypingIndicator()}
         </View>
-        
+
         {/* Input Bar without animation */}
         <View style={styles.inputContainer}>
           <View style={styles.inputWrapper}>
@@ -639,26 +639,26 @@ const MessageScreen = () => {
                 onSubmitEditing={inputText.trim() ? handleSend : undefined}
               />
             </View>
-            
+
             <View style={{
               position: 'absolute',
               right: 10,
-              bottom: 5
+              bottom: 5,
             }}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
                   styles.sendButton,
-                  !inputText.trim() && styles.sendButtonDisabled
+                  !inputText.trim() && styles.sendButtonDisabled,
                 ]}
                 onPress={handleSend}
                 disabled={!inputText.trim()}
                 accessibilityLabel="Send message"
                 accessibilityRole="button"
               >
-                <Ionicons 
-                  name="send" 
-                  size={20} 
-                  color={inputText.trim() ? "#FFFFFF" : "#CCCCCC"} 
+                <Ionicons
+                  name="send"
+                  size={20}
+                  color={inputText.trim() ? '#FFFFFF' : '#CCCCCC'}
                 />
               </TouchableOpacity>
             </View>
@@ -961,7 +961,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     shadowColor: 'rgba(211, 47, 47, 0.15)',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 1, 
+    shadowOpacity: 1,
     shadowRadius: 5,
     elevation: 4,
     zIndex: 5,
@@ -976,7 +976,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 10,
     fontSize: 14,
-  }
+  },
 });
 
-export default MessageScreen; 
+export default MessageScreen;

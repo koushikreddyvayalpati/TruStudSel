@@ -1,1 +1,1 @@
-export { default as PostingScreen } from './PostingScreen'; 
+export { default as PostingScreen } from './PostingScreen';

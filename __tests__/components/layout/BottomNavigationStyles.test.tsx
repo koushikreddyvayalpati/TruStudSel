@@ -23,11 +23,11 @@ jest.mock('react-native-vector-icons/Ionicons', () => ({
 
 // Helper function to extract styles from StyleSheet objects
 const extractStyleValue = (styleObj, propertyName) => {
-  if (!styleObj) return null;
+  if (!styleObj) {return null;}
   if (Array.isArray(styleObj)) {
     for (const style of styleObj) {
       const value = extractStyleValue(style, propertyName);
-      if (value !== null) return value;
+      if (value !== null) {return value;}
     }
     return null;
   }
@@ -37,7 +37,7 @@ const extractStyleValue = (styleObj, propertyName) => {
 describe('BottomNavigation Styling', () => {
   it('renders with the correct background color', () => {
     render(<BottomNavigation />);
-    
+
     // Get the styles from the component
     const styles = StyleSheet.create({
       container: {
@@ -55,7 +55,7 @@ describe('BottomNavigation Styling', () => {
         paddingBottom: 10,
       },
     });
-    
+
     // Check the background color in the StyleSheet
     expect(extractStyleValue(styles.container, 'backgroundColor')).toBe('#f7b305');
     expect(extractStyleValue(styles.container, 'height')).toBe(70);
@@ -63,7 +63,7 @@ describe('BottomNavigation Styling', () => {
 
   it('applies correct styling to center circle button', () => {
     render(<BottomNavigation />);
-    
+
     // Get the styles from the component
     const styles = StyleSheet.create({
       centerCircle: {
@@ -76,7 +76,7 @@ describe('BottomNavigation Styling', () => {
         backgroundColor: '#f7b305',
       },
     });
-    
+
     // Check the style values in the StyleSheet
     expect(extractStyleValue(styles.centerCircle, 'width')).toBe(50);
     expect(extractStyleValue(styles.centerCircle, 'height')).toBe(50);
@@ -86,7 +86,7 @@ describe('BottomNavigation Styling', () => {
 
   it('applies correct styling to navigation buttons and text', () => {
     render(<BottomNavigation />);
-    
+
     // Get the styles from the component
     const styles = StyleSheet.create({
       navButton: {
@@ -100,11 +100,11 @@ describe('BottomNavigation Styling', () => {
         color: 'black',
       },
     });
-    
+
     // Check the style values in the StyleSheet
     expect(extractStyleValue(styles.navButton, 'alignItems')).toBe('center');
     expect(extractStyleValue(styles.navButton, 'justifyContent')).toBe('center');
     expect(extractStyleValue(styles.navText, 'fontSize')).toBe(12);
     expect(extractStyleValue(styles.navText, 'color')).toBe('black');
   });
-}); 
+});

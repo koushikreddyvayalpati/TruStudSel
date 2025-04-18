@@ -51,4 +51,4 @@ export interface ChatState {
   messages: Record<string, Message[]>;
   loading: boolean;
   error?: string;
-} 
+}

@@ -1,14 +1,14 @@
 import React, { useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  Image, 
-  Dimensions, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  Dimensions,
   ImageBackground,
   StatusBar,
-  Platform
+  Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GetStartedScreenNavigationProp } from '../../types/navigation.types';
@@ -22,7 +22,7 @@ interface GetStartedScreenProps {
 
 const GetStartedScreen: React.FC<GetStartedScreenProps> = ({ navigation }) => {
   const { theme } = useTheme();
-  
+
   // Mark that user has seen get started screen when they view it
   useEffect(() => {
     const markAsSeen = async () => {
@@ -32,15 +32,15 @@ const GetStartedScreen: React.FC<GetStartedScreenProps> = ({ navigation }) => {
         console.error('Error saving onboarding status:', error);
       }
     };
-    
+
     markAsSeen();
   }, []);
-  
+
   const handleGetStarted = async () => {
     // Navigate to the next screen
     navigation.navigate('Onboarding');
   };
-  
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar
@@ -51,12 +51,12 @@ const GetStartedScreen: React.FC<GetStartedScreenProps> = ({ navigation }) => {
       <View style={styles.contentContainer}>
         <Text style={[styles.title, { color: theme.colors.primary }]}>TruStudSel</Text>
         <Text style={[styles.subtitle, { color: theme.colors.text }]}>Welcome's You</Text>
-        <Image 
+        <Image
           source={require('../../../assets/intro.jpg')} // Update with your image path
           style={styles.image}
           resizeMode="cover"
         />
-        <ImageBackground 
+        <ImageBackground
           //source={require('../../../assets/Yellow.png')}
           style={styles.trustContainer}
           resizeMode="cover"
@@ -64,7 +64,7 @@ const GetStartedScreen: React.FC<GetStartedScreenProps> = ({ navigation }) => {
           <Text style={styles.trustText}>True</Text>
           <Text style={styles.trustText}>Student</Text>
           <Text style={styles.trustText}>Sell</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.getStartedButton, { backgroundColor: theme.colors.secondaryDark }]}
             onPress={handleGetStarted}
           >
@@ -132,4 +132,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default GetStartedScreen; 
+export default GetStartedScreen;

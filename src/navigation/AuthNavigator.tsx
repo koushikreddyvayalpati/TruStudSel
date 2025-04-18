@@ -5,16 +5,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityIndicator, View } from 'react-native';
 
 // Import auth screens
-import { 
-  SignInScreen, 
-  GetStartedScreen, 
+import {
+  SignInScreen,
+  GetStartedScreen,
   OnboardingScreen,
   OnboardingScreen2,
   OnboardingScreen3,
   EmailVerificationScreen,
   OtpInputScreen,
   ProfileFillingScreen,
-  ForgotPasswordScreen
+  ForgotPasswordScreen,
 } from '../screens/auth';
 
 const Stack = createStackNavigator<AuthStackParamList>();
@@ -32,7 +32,7 @@ const AuthNavigator: React.FC = () => {
       try {
         const hasSeenGetStarted = await AsyncStorage.getItem('@has_seen_get_started');
         const hasSeenOnboarding = await AsyncStorage.getItem('@has_seen_onboarding');
-        
+
         if (hasSeenGetStarted === 'true' && hasSeenOnboarding === 'true') {
           // User has seen all onboarding screens, go directly to sign in
           setInitialRoute('SignIn');
@@ -65,39 +65,39 @@ const AuthNavigator: React.FC = () => {
       initialRouteName={initialRoute}
       screenOptions={{ headerShown: false }}
     >
-      <Stack.Screen 
+      <Stack.Screen
         name="GetStarted"
-        component={GetStartedScreen} 
+        component={GetStartedScreen}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="Onboarding"
         component={OnboardingScreen}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="Onboarding2"
         component={OnboardingScreen2}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="Onboarding3"
         component={OnboardingScreen3}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="SignIn"
         component={SignInScreen}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="EmailVerification"
         component={EmailVerificationScreen}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="OtpInput"
         component={OtpInputScreen}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="ProfileFillingPage"
         component={ProfileFillingScreen}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="ForgotPassword"
         component={ForgotPasswordScreen}
       />

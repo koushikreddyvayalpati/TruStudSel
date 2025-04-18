@@ -98,3 +98,6 @@ amplifytools.xcconfig
 # Firebase config
 src/services/firebaseService.ts
 
+# Keystore environment variables
+android/keystore-env.sh
+

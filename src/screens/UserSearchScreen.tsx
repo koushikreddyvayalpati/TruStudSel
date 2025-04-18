@@ -26,8 +26,8 @@ const UserSearchScreen: React.FC = () => {
 
   // Define handleSearch as a useCallback to include it in the useEffect dependency array
   const handleSearch = useCallback(async () => {
-    if (searchTerm.length < 3) return;
-    
+    if (searchTerm.length < 3) {return;}
+
     console.log('Starting search for:', searchTerm);
     setLoading(true);
     try {
@@ -77,11 +77,11 @@ const UserSearchScreen: React.FC = () => {
         user.username, // Using username as user ID for demo
         user.name || user.username
       );
-      
+
       // Navigate to chat screen with the selected conversation
-      navigation.navigate('MessageScreen', { 
+      navigation.navigate('MessageScreen', {
         conversationId: conversation.id,
-        recipientName: user.name || user.username
+        recipientName: user.name || user.username,
       });
     } catch (error) {
       console.error('Error starting conversation:', error);
@@ -91,7 +91,7 @@ const UserSearchScreen: React.FC = () => {
   };
 
   const renderUserItem = ({ item }: { item: UserData }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.userItem}
       onPress={() => startConversation(item)}
     >
@@ -121,8 +121,8 @@ const UserSearchScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.headerContainer}>
-        <TouchableOpacity 
-          onPress={() => navigation.goBack()} 
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
           style={styles.backButton}
           testID="back-button"
         >
@@ -304,4 +304,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default UserSearchScreen; 
+export default UserSearchScreen;

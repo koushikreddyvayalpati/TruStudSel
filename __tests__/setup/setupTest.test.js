@@ -15,4 +15,4 @@ describe('Setup Jest', () => {
     expect(AsyncStorage.setItem).toBeDefined();
     expect(AsyncStorage.getItem).toBeDefined();
   });
-}); 
+});

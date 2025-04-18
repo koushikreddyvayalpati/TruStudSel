@@ -1,6 +1,6 @@
 /**
  * SVG Mock
- * 
+ *
  * This file mocks SVG imports for Jest tests.
  * This is NOT a test file - tests for this mock should be in svgMock.test.js
  */
@@ -12,8 +12,8 @@ const svgMock = 'SvgMock';
 svgMock.ReactComponent = function(props) {
   return {
     ...props,
-    testID: props.testID || 'svg-mock'
+    testID: props.testID || 'svg-mock',
   };
 };
 
-module.exports = svgMock; 
+module.exports = svgMock;

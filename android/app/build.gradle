@@ -58,7 +58,7 @@ react {
 /**
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
  */
-def enableProguardInReleaseBuilds = false
+def enableProguardInReleaseBuilds = true
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
@@ -83,8 +83,14 @@ android {
         applicationId "com.trustudsel"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 10001
+        versionName "1.0.1"
+        
+        // Add multidex support for large apps
+        multiDexEnabled true
+        
+        // Add resource optimization
+        resConfigs "en", "xxhdpi"
     }
     signingConfigs {
         debug {
@@ -93,23 +99,63 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            storeFile file('trustudsel-keystore.keystore')
+            storePassword System.getenv("TRUSTUDSEL_STORE_PASSWORD")
+            keyAlias "trustudsel-key"
+            keyPassword System.getenv("TRUSTUDSEL_KEY_PASSWORD")
+            // For local builds, set these environment variables or configure in your CI/CD system
+            // For security reasons, we're removing the hardcoded fallback passwords
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            // Use release signing config instead of debug
+            signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            
+            // Enable R8 optimization
+            shrinkResources true
         }
     }
     
     kotlinOptions {
         jvmTarget = "17"
         languageVersion = "2.0"
+    }
+    
+    bundle {
+        language {
+            enableSplit = true
+        }
+        density {
+            enableSplit = true
+        }
+        abi {
+            enableSplit = true
+        }
+    }
+
+    // Replace the previous exclude section with this more targeted approach
+    android.applicationVariants.all { variant ->
+        variant.mergeResourcesProvider.configure { mergeResourcesTask ->
+            mergeResourcesTask.doFirst {
+                // Add AAPT options to help with problematic resource files
+                println "Adding AAPT options for resource processing"
+                android.aaptOptions.cruncherEnabled = false
+                android.aaptOptions.useNewCruncher = false
+            }
+        }
+    }
+
+    // Add additional AAPT options
+    aaptOptions {
+        cruncherEnabled false
+        useNewCruncher false
     }
 }
 
@@ -120,6 +166,9 @@ dependencies {
     // Add Firebase dependencies
     implementation platform('com.google.firebase:firebase-bom:32.7.4')
     implementation 'com.google.firebase:firebase-analytics'
+    
+    // Add multidex support
+    implementation "androidx.multidex:multidex:2.0.1"
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")

@@ -1,1 +1,1 @@
-export { default as CategoryProductsScreen } from './CategoryProductsScreen'; 
+export { default as CategoryProductsScreen } from './CategoryProductsScreen';

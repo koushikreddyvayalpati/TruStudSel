@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
   Alert,
   ActivityIndicator,
   ScrollView,
   TextInput,
-  Platform
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, DrawerActions } from '@react-navigation/native';
@@ -52,7 +52,7 @@ const DeleteAccountScreen: React.FC = () => {
     try {
       // Sign in again to verify credentials
       await Auth.signIn(user?.email || '', password);
-      
+
       // Delete the user
       const currentUser = await Auth.currentAuthenticatedUser();
       await currentUser.deleteUser((err: any, _result: any) => {
@@ -76,21 +76,21 @@ const DeleteAccountScreen: React.FC = () => {
               onPress: async () => {
                 // Sign out and navigate to auth screen
                 await signOut();
-              }
-            }
+              },
+            },
           ]
         );
       });
     } catch (error) {
       console.error('Error during account deletion:', error);
-      
+
       let errorMessage = 'There was a problem deleting your account. Please try again later.';
       if (error instanceof Error) {
         if (error.name === 'NotAuthorizedException') {
           errorMessage = 'Incorrect password. Please try again.';
         }
       }
-      
+
       Alert.alert('Error', errorMessage);
       setLoading(false);
     }
@@ -107,7 +107,7 @@ const DeleteAccountScreen: React.FC = () => {
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -127,7 +127,7 @@ const DeleteAccountScreen: React.FC = () => {
             <MaterialIcons name="delete-forever" size={26} color="#FF3B30" />
             <Text style={styles.sectionTitle}>Delete Account</Text>
           </View>
-          
+
           <View style={styles.warningContainer}>
             <MaterialIcons name="warning" size={48} color="#FF3B30" />
             <Text style={styles.warningTitle}>Delete Your Account</Text>
@@ -155,7 +155,7 @@ const DeleteAccountScreen: React.FC = () => {
           </View>
 
           {!confirmStep ? (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.deleteButton}
               onPress={handleDeleteAccount}
               activeOpacity={0.8}
@@ -168,7 +168,7 @@ const DeleteAccountScreen: React.FC = () => {
               <Text style={styles.confirmInstructions}>
                 To permanently delete your account, please confirm by completing the steps below:
               </Text>
-              
+
               <View style={styles.confirmStepContainer}>
                 <View style={styles.stepNumberContainer}>
                   <Text style={styles.stepNumber}>1</Text>
@@ -207,10 +207,10 @@ const DeleteAccountScreen: React.FC = () => {
                 </View>
               </View>
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
                   styles.finalDeleteButton,
-                  (confirmText !== 'DELETE' || !password) && styles.disabledButton
+                  (confirmText !== 'DELETE' || !password) && styles.disabledButton,
                 ]}
                 onPress={handleDeleteAccount}
                 disabled={loading || confirmText !== 'DELETE' || !password}
@@ -226,7 +226,7 @@ const DeleteAccountScreen: React.FC = () => {
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.cancelButton}
                 onPress={() => setConfirmStep(false)}
                 activeOpacity={0.7}
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
     color: '#555',
     fontSize: 16,
     fontWeight: '500',
-  }
+  },
 });
 
-export default DeleteAccountScreen; 
+export default DeleteAccountScreen;

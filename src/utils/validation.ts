@@ -27,27 +27,27 @@ export const isValidPassword = (
   if (password.length < minLength) {
     return false;
   }
-  
+
   // Check if it contains at least one number
   if (!/\d/.test(password)) {
     return false;
   }
-  
+
   // Check if it contains at least one uppercase letter
   if (!/[A-Z]/.test(password)) {
     return false;
   }
-  
+
   // Check if it contains at least one lowercase letter
   if (!/[a-z]/.test(password)) {
     return false;
   }
-  
+
   // Check if it contains at least one special character
   if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
     return false;
   }
-  
+
   return true;
 };
 
@@ -59,7 +59,7 @@ export const isValidPassword = (
 export const isValidPhone = (phone: string): boolean => {
   // Remove any non-digit characters
   const digitsOnly = phone.replace(/\D/g, '');
-  
+
   // Check if it has at least 10 digits (US phone number format)
   return digitsOnly.length >= 10;
 };
@@ -81,11 +81,11 @@ export const getEmailValidationError = (email: string): string => {
   if (!email) {
     return 'Email is required';
   }
-  
+
   if (!isValidEmail(email)) {
     return 'Please enter a valid email address';
   }
-  
+
   return '';
 };
 
@@ -98,27 +98,27 @@ export const getPasswordValidationError = (password: string): string => {
   if (!password) {
     return 'Password is required';
   }
-  
+
   if (password.length < AUTH.MIN_PASSWORD_LENGTH) {
     return `Password must be at least ${AUTH.MIN_PASSWORD_LENGTH} characters`;
   }
-  
+
   if (!/\d/.test(password)) {
     return 'Password must include at least one number';
   }
-  
+
   if (!/[A-Z]/.test(password)) {
     return 'Password must include at least one uppercase letter';
   }
-  
+
   if (!/[a-z]/.test(password)) {
     return 'Password must include at least one lowercase letter';
   }
-  
+
   if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
     return 'Password must include at least one special character';
   }
-  
+
   return '';
 };
 
@@ -131,11 +131,11 @@ export const getPhoneValidationError = (phone: string): string => {
   if (!phone) {
     return 'Phone number is required';
   }
-  
+
   if (!isValidPhone(phone)) {
     return 'Please enter a valid phone number';
   }
-  
+
   return '';
 };
 
@@ -147,4 +147,4 @@ export default {
   getEmailValidationError,
   getPasswordValidationError,
   getPhoneValidationError,
-}; 
+};

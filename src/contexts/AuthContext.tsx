@@ -73,26 +73,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...prev,
       ...newState,
       // Ensure error is never undefined
-      error: newState.error === undefined ? prev.error : newState.error
+      error: newState.error === undefined ? prev.error : newState.error,
     }));
   };
 
   // Helper to process user data from Cognito
   const processUserData = (cognitoUser: any): UserData => {
     console.log('Processing Cognito user:', cognitoUser);
-    
+
     // Extract email from attributes or username if it looks like an email
     let email = cognitoUser.attributes?.email || '';
     if (!email && cognitoUser.username && cognitoUser.username.includes('@')) {
       email = cognitoUser.username;
       console.log('Using username as email:', email);
     }
-    
+
     const userData = {
       username: cognitoUser.username,
       email: email,
-      name: cognitoUser.attributes?.name || 
-            cognitoUser.attributes?.['custom:name'] || 
+      name: cognitoUser.attributes?.name ||
+            cognitoUser.attributes?.['custom:name'] ||
             cognitoUser.username,
       university: cognitoUser.attributes?.['custom:university'] || '',
       city: cognitoUser.attributes?.city || '',
@@ -102,11 +102,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       profileImage: cognitoUser.attributes?.picture || null,
       stats: {
         sold: 0, // Default values, replace with actual data if available
-        purchased: 0
+        purchased: 0,
       },
       attributes: cognitoUser.attributes,
     };
-    
+
     console.log('Processed user data:', userData);
     return userData;
   };
@@ -114,11 +114,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Check if user is already signed in
   const checkAuthState = useCallback(async () => {
     updateState({ loading: true, error: null });
-    
+
     try {
       const cognitoUser = await Auth.currentAuthenticatedUser();
       const userData = processUserData(cognitoUser);
-      
+
       updateState({
         isAuthenticated: true,
         user: userData,
@@ -145,10 +145,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Remove global loading state updates for the sign-in attempt
     // updateState({ loading: true, error: null });
     updateState({ error: null }); // Clear previous error
-    
+
     try {
       const cognitoUser = await Auth.signIn(username, password);
-      
+
       // If username looks like an email and there's no email in attributes, add it
       if (username.includes('@') && (!cognitoUser.attributes || !cognitoUser.attributes.email)) {
         console.log('Adding email from username to attributes:', username);
@@ -157,9 +157,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         cognitoUser.attributes.email = username;
       }
-      
+
       const userData = processUserData(cognitoUser);
-      
+
       // Update state on successful sign-in
       updateState({
         isAuthenticated: true,
@@ -167,11 +167,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // loading: false, // Don't change global loading here
         error: null,
       });
-      
+
       return cognitoUser;
     } catch (error) {
       // Update only the error state on failure
-      updateState({ 
+      updateState({
         // loading: false, // Don't change global loading here
         error: error instanceof Error ? error : new Error('Failed to sign in'),
         isAuthenticated: false, // Ensure isAuthenticated is false on error
@@ -184,7 +184,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sign up function
   const signUp = async (email: string, password: string, attributes: Record<string, string>) => {
     updateState({ loading: true, error: null });
-    
+
     try {
       const result = await Auth.signUp({
         username: email,
@@ -194,12 +194,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ...attributes,
         },
       });
-      
+
       updateState({ loading: false });
       return result;
     } catch (error) {
-      updateState({ 
-        loading: false, 
+      updateState({
+        loading: false,
         error: error instanceof Error ? error : new Error('Failed to sign up'),
       });
       throw error;
@@ -209,14 +209,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Confirm sign up function
   const confirmSignUp = async (username: string, code: string) => {
     updateState({ loading: true, error: null });
-    
+
     try {
       const result = await Auth.confirmSignUp(username, code);
       updateState({ loading: false });
       return result;
     } catch (error) {
-      updateState({ 
-        loading: false, 
+      updateState({
+        loading: false,
         error: error instanceof Error ? error : new Error('Failed to confirm sign up'),
       });
       throw error;
@@ -226,14 +226,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Resend confirmation code
   const resendConfirmationCode = async (username: string) => {
     updateState({ loading: true, error: null });
-    
+
     try {
       const result = await Auth.resendSignUp(username);
       updateState({ loading: false });
       return result;
     } catch (error) {
-      updateState({ 
-        loading: false, 
+      updateState({
+        loading: false,
         error: error instanceof Error ? error : new Error('Failed to resend code'),
       });
       throw error;
@@ -243,14 +243,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Forgot password
   const forgotPassword = async (username: string) => {
     updateState({ loading: true, error: null });
-    
+
     try {
       const result = await Auth.forgotPassword(username);
       updateState({ loading: false });
       return result;
     } catch (error) {
-      updateState({ 
-        loading: false, 
+      updateState({
+        loading: false,
         error: error instanceof Error ? error : new Error('Failed to initiate password reset'),
       });
       throw error;
@@ -260,14 +260,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Submit new password
   const forgotPasswordSubmit = async (username: string, code: string, newPassword: string) => {
     updateState({ loading: true, error: null });
-    
+
     try {
       const result = await Auth.forgotPasswordSubmit(username, code, newPassword);
       updateState({ loading: false });
       return result;
     } catch (error) {
-      updateState({ 
-        loading: false, 
+      updateState({
+        loading: false,
         error: error instanceof Error ? error : new Error('Failed to reset password'),
       });
       throw error;
@@ -277,7 +277,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sign out function
   const signOut = async () => {
     updateState({ loading: true, error: null });
-    
+
     try {
       await Auth.signOut();
       updateState({
@@ -287,8 +287,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         error: null,
       });
     } catch (error) {
-      updateState({ 
-        loading: false, 
+      updateState({
+        loading: false,
         error: error instanceof Error ? error : new Error('Failed to sign out'),
       });
       console.error('Error signing out:', error);
@@ -308,18 +308,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Update user attributes in Cognito
   const updateUserAttributes = async (attributes: Record<string, string>) => {
     updateState({ loading: true, error: null });
-    
+
     try {
       const user = await Auth.currentAuthenticatedUser();
       const result = await Auth.updateUserAttributes(user, attributes);
-      
+
       // Update local state with new attributes
       checkAuthState();
-      
+
       return result;
     } catch (error) {
-      updateState({ 
-        loading: false, 
+      updateState({
+        loading: false,
         error: error instanceof Error ? error : new Error('Failed to update attributes'),
       });
       throw error;
@@ -329,22 +329,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Refresh session
   const refreshSession = async () => {
     updateState({ loading: true, error: null });
-    
+
     try {
       await Auth.currentAuthenticatedUser();
       const currentSession = await Auth.currentSession();
-      
+
       updateState({ loading: false });
-      
+
       // If session is valid, do nothing
       if (currentSession.isValid()) {
         return;
       }
-      
+
       // Otherwise refresh the session
       const refreshedSession = await Auth.currentAuthenticatedUser({ bypassCache: true });
       const userData = processUserData(refreshedSession);
-      
+
       updateState({
         isAuthenticated: true,
         user: userData,
@@ -382,7 +382,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateUserAttributes,
     refreshSession,
   };
-  
+
   // Check if context is properly formed before providing it
   // This is defensive programming to avoid the "Property 'error' doesn't exist" error
   if (typeof authContextValue.error === 'undefined') {
@@ -390,7 +390,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.warn('Auth context error was undefined, initializing with null');
     authContextValue.error = null;
   }
-  
+
   return (
     <AuthContext.Provider value={authContextValue}>
       {children}
@@ -404,11 +404,11 @@ export const useAuth = () => {
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
-  
+
   // Ensure error is never undefined
   if (typeof context.error === 'undefined') {
     context.error = null;
   }
-  
+
   return context;
-}; 
+};

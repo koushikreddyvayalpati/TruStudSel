@@ -43,11 +43,11 @@ const BridgelessButton: React.FC<BridgelessButtonProps> = ({
 }) => {
   // For iOS in Bridgeless mode, use a different approach to touch handling
   const [isPressed, setIsPressed] = useState(false);
-  
+
   // Add a debounce to prevent multiple rapid presses
   const [lastPressTime, setLastPressTime] = useState(0);
   const DEBOUNCE_TIME = 300; // ms
-  
+
   // For debugging touch events
   const [touchDebug, setTouchDebug] = useState('');
 
@@ -55,7 +55,7 @@ const BridgelessButton: React.FC<BridgelessButtonProps> = ({
   useEffect(() => {
     // Log initial mount
     console.log(`[BridgelessButton] Button "${title}" mounted`);
-    
+
     return () => {
       console.log(`[BridgelessButton] Button "${title}" unmounted`);
     };
@@ -63,33 +63,33 @@ const BridgelessButton: React.FC<BridgelessButtonProps> = ({
 
   // Handle press with debounce to prevent multiple accidental clicks
   const handlePress = () => {
-    if (disabled || isLoading) return;
-    
+    if (disabled || isLoading) {return;}
+
     const now = Date.now();
     if (now - lastPressTime < DEBOUNCE_TIME) {
       console.log(`[BridgelessButton] Ignoring rapid press: ${title}`);
       return;
     }
-    
+
     console.log(`[BridgelessButton] '${title}' pressed`);
     setLastPressTime(now);
-    
+
     try {
       onPress();
     } catch (error) {
-      console.error(`[BridgelessButton] Error in button press:`, error);
+      console.error('[BridgelessButton] Error in button press:', error);
     }
   };
 
   // Direct touch handlers
   const handlePressIn = (e: GestureResponderEvent) => {
-    if (disabled || isLoading) return;
+    if (disabled || isLoading) {return;}
     setIsPressed(true);
     setTouchDebug(`Press detected at: ${e.nativeEvent.locationX.toFixed(1)}, ${e.nativeEvent.locationY.toFixed(1)}`);
   };
 
   const handlePressOut = () => {
-    if (disabled || isLoading) return;
+    if (disabled || isLoading) {return;}
     setIsPressed(false);
   };
 
@@ -111,7 +111,7 @@ const BridgelessButton: React.FC<BridgelessButtonProps> = ({
             buttonStyle,
             disabled && styles.disabledButton,
             pressed && styles.pressedButton,
-            isPressed && styles.pressedButton
+            isPressed && styles.pressedButton,
           ]}
           hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
           {...rest}
@@ -131,21 +131,21 @@ const BridgelessButton: React.FC<BridgelessButtonProps> = ({
             )}
           </View>
         </Pressable>
-        
+
         {/* Overlay for additional touch handling - critical for Bridgeless mode */}
-        <TouchableWithoutFeedback 
+        <TouchableWithoutFeedback
           onPress={handlePress}
           disabled={disabled || isLoading}
         >
           <View style={[
-            StyleSheet.absoluteFill, 
-            styles.touchOverlay
+            StyleSheet.absoluteFill,
+            styles.touchOverlay,
           ]} />
         </TouchableWithoutFeedback>
       </View>
     );
   }
-  
+
   // For Android, use TouchableOpacity as it works well there
   return (
     <TouchableOpacity
@@ -219,4 +219,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default BridgelessButton; 
+export default BridgelessButton;

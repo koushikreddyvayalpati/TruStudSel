@@ -91,7 +91,7 @@ const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
   useTransparentBackground = false,
 }) => {
   const { theme } = useTheme();
-  
+
   // Memoize static styles for performance
   const overlayStyle = useMemo(() => ({
     ...styles.loadingOverlay,
@@ -99,7 +99,7 @@ const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
       ? 'transparent'
       : `rgba(0,0,0,${backgroundOpacity})`,
   }), [backgroundOpacity, useTransparentBackground]);
-  
+
   // Get current message based on steps or direct message
   const currentMessage = useMemo(() => {
     if (steps.length > 0 && currentStep < steps.length) {
@@ -107,17 +107,17 @@ const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
     }
     return message || 'Loading...';
   }, [steps, currentStep, message]);
-  
+
   // Handle modal close
   const handleRequestClose = useCallback(() => {
     if (dismissable && onDismiss) {
       onDismiss();
     }
   }, [dismissable, onDismiss]);
-  
+
   // Performance optimization - only render when visible
-  if (!visible) return null;
-  
+  if (!visible) {return null;}
+
   return (
     <Modal
       visible={visible}
@@ -128,30 +128,30 @@ const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
     >
       <View style={overlayStyle}>
         <View style={[styles.loadingContainer, containerStyle]}>
-          <ActivityIndicator 
-            size={spinnerSize} 
-            color={spinnerColor || theme.colors.primary} 
+          <ActivityIndicator
+            size={spinnerSize}
+            color={spinnerColor || theme.colors.primary}
           />
-          
+
           <Text style={[styles.loadingText, { color: theme.colors.text }, textStyle]}>
             {currentMessage}
           </Text>
-          
+
           {/* Progress dots for multi-step loading */}
           {showProgressDots && steps.length > 1 && (
             <View style={styles.progressDotsContainer}>
               {steps.map((_, index) => (
-                <View 
-                  key={_.id || index} 
+                <View
+                  key={_.id || index}
                   style={[
                     styles.progressDot,
-                    { 
-                      backgroundColor: index <= currentStep 
-                        ? theme.colors.primary 
+                    {
+                      backgroundColor: index <= currentStep
+                        ? theme.colors.primary
                         : 'rgba(200,200,200,0.5)',
                       width: index === currentStep ? 12 : 10,
                       height: index === currentStep ? 12 : 10,
-                    }
+                    },
                   ]}
                 />
               ))}
@@ -180,10 +180,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 3
+      height: 3,
     },
     shadowOpacity: 0.27,
     shadowRadius: 4.65,
@@ -213,4 +213,4 @@ const styles = StyleSheet.create({
 });
 
 // Optimize with memo to prevent unnecessary re-renders
-export default memo(LoadingOverlay); 
+export default memo(LoadingOverlay);

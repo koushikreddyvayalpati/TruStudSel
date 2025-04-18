@@ -1,13 +1,13 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Product } from '../types/product';
-import { 
+import {
   getProductsByCategory,
-  getProductsByUniversity, 
+  getProductsByUniversity,
   getProductsByCity,
   getFeaturedProducts,
   getNewArrivals,
-  ProductFilters
+  ProductFilters,
 } from '../api/products';
 
 // Cache constants
@@ -19,28 +19,28 @@ interface CategoryState {
   // Product data
   products: Product[];
   productsOriginal: Product[];
-  
+
   // Loading states
   loading: boolean;
   loadingMoreData: boolean;
   error: string | null;
   refreshing: boolean;
-  
+
   // Pagination state
   currentPage: number;
   totalPages: number;
   totalCount: number;
   hasMoreData: boolean;
-  
+
   // Search, sort and filter states
   searchQuery: string;
   selectedSortOption: string;
   selectedFilters: string[];
-  
+
   // UI states
   isSortDropdownVisible: boolean;
   isFilterDropdownVisible: boolean;
-  
+
   // Current category context
   currentCategory: {
     name: string;
@@ -48,10 +48,10 @@ interface CategoryState {
     university: string;
     city: string;
   };
-  
+
   // Set current category context
   setCurrentCategory: (name: string, id: number, university: string, city: string) => void;
-  
+
   // Actions
   setError: (error: string | null) => void;
   setSearchQuery: (query: string) => void;
@@ -60,7 +60,7 @@ interface CategoryState {
   setFilterDropdownVisible: (isVisible: boolean) => void;
   setSelectedSortOption: (option: string) => void;
   setSelectedFilters: (filters: string[]) => void;
-  
+
   // Load category products, supporting both initial load and pagination
   loadCategoryProducts: (
     categoryName: string,
@@ -70,24 +70,24 @@ interface CategoryState {
     page?: number,
     shouldAppend?: boolean
   ) => Promise<void>;
-  
+
   // Handle search
   searchProducts: (query: string) => Promise<void>;
-  
+
   // Handle refresh
   handleRefresh: () => Promise<void>;
-  
+
   // Handle filters
   applyFilters: () => void;
   clearFilters: () => void;
-  
+
   // Handle load more
   loadMore: () => Promise<void>;
-  
+
   // Helper function for caching
   cacheProducts: (categoryName: string, userParams: any, products: Product[], paginationData: any) => Promise<void>;
   getCachedProducts: (categoryName: string, userParams: any) => Promise<any>;
-  
+
   // Generate a hash for cache keys
   generateCacheKey: (categoryName: string, params: any) => string;
 }
@@ -108,35 +108,35 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
   // Initial state
   products: [],
   productsOriginal: [],
-  
+
   loading: false,
   loadingMoreData: false,
   error: null,
   refreshing: false,
-  
+
   currentPage: 0,
   totalPages: 1,
   totalCount: 0,
   hasMoreData: false,
-  
+
   searchQuery: '',
   selectedSortOption: 'default',
   selectedFilters: [],
-  
+
   isSortDropdownVisible: false,
   isFilterDropdownVisible: false,
-  
+
   // Current category context
   currentCategory: {
     name: '',
     id: 0,
     university: '',
-    city: ''
+    city: '',
   },
-  
+
   // Set current category context
   setCurrentCategory: (name, id, university, city) => set({ currentCategory: { name, id, university, city } }),
-  
+
   // Actions
   setError: (error) => set({ error }),
   setSearchQuery: (query) => set({ searchQuery: query }),
@@ -145,7 +145,7 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
   setFilterDropdownVisible: (isVisible) => set({ isFilterDropdownVisible: isVisible }),
   setSelectedSortOption: (option) => set({ selectedSortOption: option }),
   setSelectedFilters: (filters) => set({ selectedFilters: filters }),
-  
+
   // Helper function to generate cache key
   generateCacheKey: (categoryName, params) => {
     const filterString = JSON.stringify({
@@ -154,11 +154,11 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
       city: params.userCity || undefined,
       categoryId: params.categoryId,
       categoryName: categoryName,
-      page: params.page || 0
+      page: params.page || 0,
     });
     return `${CATEGORY_PRODUCTS_CACHE_KEY}${categoryName}_${simpleHash(filterString)}`;
   },
-  
+
   // Helper function to cache products
   cacheProducts: async (categoryName, userParams, products, paginationData) => {
     try {
@@ -169,27 +169,27 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
           data: products,
           timestamp: Date.now(),
           totalPages: paginationData.totalPages || 1,
-          totalCount: paginationData.totalCount || products.length
+          totalCount: paginationData.totalCount || products.length,
         })
       );
-      
+
       console.log(`[CategoryStore] Cached ${products.length} products with key: ${cacheKey}`);
     } catch (error) {
-      console.error(`[CategoryStore] Error caching products:`, error);
+      console.error('[CategoryStore] Error caching products:', error);
     }
   },
-  
+
   // Helper function to get products from cache
   getCachedProducts: async (categoryName, userParams) => {
     try {
       const cacheKey = get().generateCacheKey(categoryName, userParams);
       const cachedData = await AsyncStorage.getItem(cacheKey);
-      
+
       if (cachedData) {
         const parsedData = JSON.parse(cachedData);
         const { data, timestamp, totalPages, totalCount } = parsedData;
         const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
-        
+
         if (!isExpired && Array.isArray(data) && data.length > 0) {
           console.log(`[CategoryStore] Using cached products from: ${cacheKey}`);
           return { data, totalPages, totalCount };
@@ -199,11 +199,11 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
       }
       return null;
     } catch (error) {
-      console.error(`[CategoryStore] Error retrieving cached products:`, error);
+      console.error('[CategoryStore] Error retrieving cached products:', error);
       return null;
     }
   },
-  
+
   // Load category products
   loadCategoryProducts: async (categoryName, categoryId, userUniversity, userCity, page = 0, shouldAppend = false) => {
     // Don't set loading true if we're loading more data (pagination)
@@ -214,10 +214,10 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
       console.log(`[CategoryStore] Loading more products for ${categoryName}, page ${page}`);
       set({ loadingMoreData: true, error: null });
     }
-    
+
     const currentState = get();
     const searchQuery = currentState.searchQuery;
-    
+
     try {
       // Create user params object for cache key generation
       const userParams = {
@@ -225,16 +225,16 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
         userCity,
         categoryId,
         searchQuery,
-        page
+        page,
       };
-      
+
       // Only check cache for first page and when no search query is provided
-      const cachedData = page === 0 && !searchQuery ? 
+      const cachedData = page === 0 && !searchQuery ?
         await get().getCachedProducts(categoryName, userParams) : null;
-      
+
       if (cachedData && !shouldAppend) {
         const { data, totalPages, totalCount } = cachedData;
-        
+
         set({
           products: data,
           productsOriginal: data,
@@ -243,29 +243,29 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
           hasMoreData: page < (totalPages - 1 || 0),
           currentPage: page,
           loading: false,
-          loadingMoreData: false
+          loadingMoreData: false,
         });
         return;
       }
-      
+
       // Create API filters including pagination
       const apiSearchFilters: ProductFilters = {
         page: page,
         size: 10, // Number of items per page
       };
-      
+
       // Add search query if present
       if (searchQuery) {
         // @ts-ignore - API might accept 'query' even if not in type definition
         apiSearchFilters.query = searchQuery;
       }
-      
+
       // Determine if this is a featured, new arrivals, university, city or regular category
       const isFeatured = categoryName === 'Featured Products';
       const isNewArrivals = categoryName === 'New Arrivals';
       const isUniversity = categoryName.includes('University') || categoryName.endsWith('Products');
       const isCity = !isUniversity && !isFeatured && !isNewArrivals && categoryId === 0;
-      
+
       let result;
       // Determine which API to call based on the type
       if (isFeatured) {
@@ -287,16 +287,16 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
         console.log(`[CategoryStore] Fetching category products with pagination, page ${page}`);
         result = await getProductsByCategory(categoryName.toLowerCase(), apiSearchFilters);
       }
-      
+
       // Handle different response formats from different APIs
       let productsList: Product[] = [];
       let totalItems = 0;
       let pagesTotal = 1;
-      
-      console.log(`[CategoryStore] Result type: ${typeof result}`, 
+
+      console.log(`[CategoryStore] Result type: ${typeof result}`,
                   `isArray: ${Array.isArray(result)}`,
                   `hasProducts: ${result && typeof result === 'object' && 'products' in result}`);
-      
+
       if (Array.isArray(result)) {
         // Legacy API response (array of products)
         console.log(`[CategoryStore] Processing array response with ${result.length} items`);
@@ -312,8 +312,8 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
           pagesTotal = result.totalPages || 1;
         } else {
           // Handle unexpected object format - attempt to extract products
-          console.warn(`[CategoryStore] Unexpected object response format:`, JSON.stringify(result).substring(0, 200));
-          
+          console.warn('[CategoryStore] Unexpected object response format:', JSON.stringify(result).substring(0, 200));
+
           // Try to extract any product-like objects
           if ((result as any).data && Array.isArray((result as any).data)) {
             console.log(`[CategoryStore] Found products in result.data (${(result as any).data.length} items)`);
@@ -330,16 +330,16 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
               totalItems = 1;
               pagesTotal = 1;
             } else {
-              console.error(`[CategoryStore] Could not extract products from response:`, JSON.stringify(result).substring(0, 200));
+              console.error('[CategoryStore] Could not extract products from response:', JSON.stringify(result).substring(0, 200));
             }
           }
         }
       } else {
-        console.error(`[CategoryStore] Invalid response format - received:`, result);
+        console.error('[CategoryStore] Invalid response format - received:', result);
       }
-      
-      console.log(`[CategoryStore] Loaded ${productsList.length} products, page ${page}/${pagesTotal-1}, total: ${totalItems}`);
-      
+
+      console.log(`[CategoryStore] Loaded ${productsList.length} products, page ${page}/${pagesTotal - 1}, total: ${totalItems}`);
+
       // Update store state
       if (shouldAppend) {
         // Append new products to existing list for pagination
@@ -351,7 +351,7 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
           currentPage: page,
           hasMoreData: page < pagesTotal - 1,
           loading: false,
-          loadingMoreData: false
+          loadingMoreData: false,
         }));
       } else {
         // Replace products for initial load or refresh
@@ -363,15 +363,15 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
           currentPage: page,
           hasMoreData: page < pagesTotal - 1,
           loading: false,
-          loadingMoreData: false
+          loadingMoreData: false,
         });
       }
-      
+
       // Save to cache (only first page)
       if (page === 0) {
         await get().cacheProducts(categoryName, userParams, productsList, {
           totalPages: pagesTotal,
-          totalCount: totalItems
+          totalCount: totalItems,
         });
       }
     } catch (err: any) {
@@ -379,29 +379,29 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
       set({
         error: err?.message || 'Failed to load products',
         loading: false,
-        loadingMoreData: false
+        loadingMoreData: false,
       });
-      
+
       if (!shouldAppend) {
         // Only clear products on initial load error
         set({
           products: [],
           productsOriginal: [],
           totalCount: 0,
-          hasMoreData: false
+          hasMoreData: false,
         });
       }
     }
   },
-  
+
   // Handle search
   searchProducts: async (query) => {
     set({ searchQuery: query });
     const currentState = get();
-    
+
     // Restart from page 0 when searching
     await currentState.loadCategoryProducts(
-      currentState.searchQuery, 
+      currentState.searchQuery,
       0, // categoryId not used for search
       '', // userUniversity not used for search
       '', // userCity not used for search
@@ -409,60 +409,60 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
       false // Replace existing products, don't append
     );
   },
-  
+
   // Handle refresh
   handleRefresh: async () => {
     set({ refreshing: true });
     const currentState = get();
     const { currentCategory } = currentState;
-    
+
     // Reload the current category from page 0
     await currentState.loadCategoryProducts(
-      currentCategory.name, 
-      currentCategory.id, 
-      currentCategory.university, 
-      currentCategory.city, 
+      currentCategory.name,
+      currentCategory.id,
+      currentCategory.university,
+      currentCategory.city,
       0, // Restart from page 0
       false // Replace existing, don't append
     );
-    
+
     set({ refreshing: false });
   },
-  
+
   // Apply sort and filters to the original products
   applyFilters: () => {
     const state = get();
-    
+
     // Skip if no original products
-    if (state.productsOriginal.length === 0) return;
-    
+    if (state.productsOriginal.length === 0) {return;}
+
     // Start with a fresh copy of the original products
     let filteredProducts = [...state.productsOriginal];
-    
+
     // Track if any operations were applied
     let operationsApplied = false;
-    
+
     // Apply filters first
     if (state.selectedFilters.length > 0) {
       operationsApplied = true;
-      
+
       // Pre-process filter arrays for faster lookups
       const conditionFilters = new Set(
-        state.selectedFilters.filter(filter => 
+        state.selectedFilters.filter(filter =>
           ['brand-new', 'like-new', 'very-good', 'good', 'acceptable', 'for-parts'].includes(filter)
         )
       );
-      
+
       const sellingTypeFilters = new Set(
-        state.selectedFilters.filter(filter => 
+        state.selectedFilters.filter(filter =>
           ['rent', 'sell', 'free'].includes(filter)
         )
       );
-      
+
       const hasFreeFilter = sellingTypeFilters.has('free');
       const hasConditionFilters = conditionFilters.size > 0;
       const hasSellingTypeFilters = sellingTypeFilters.size > 0;
-      
+
       // Apply all filters in a single pass
       filteredProducts = filteredProducts.filter(product => {
         // Check condition filters if needed
@@ -472,35 +472,35 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
             return false;
           }
         }
-        
+
         // Check selling type filters if needed
         if (hasSellingTypeFilters) {
           const productSellingType = product.sellingtype || '';
           const isFree = parseFloat(product.price) === 0;
-          
+
           // Special case for free items
           if (hasFreeFilter && isFree) {
             return true;
           }
-          
+
           // Regular selling type checks
-          if ((sellingTypeFilters.has('rent') && productSellingType === 'rent') || 
+          if ((sellingTypeFilters.has('rent') && productSellingType === 'rent') ||
               (sellingTypeFilters.has('sell') && productSellingType === 'sell')) {
             return true;
           }
-          
+
           // If we have selling type filters but nothing matched, filter out
           return false;
         }
-        
+
         return true;
       });
     }
-    
+
     // Then apply sorting
     if (state.selectedSortOption !== 'default') {
       operationsApplied = true;
-      
+
       // Use more efficient sorting algorithms
       switch (state.selectedSortOption) {
         case 'price_low_high':
@@ -521,19 +521,19 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
         case 'newest':
           // Cache date objects for better performance
           const getDateValue = (product: any) => {
-            if (!product.postingdate) return 0;
+            if (!product.postingdate) {return 0;}
             // Use a simple timestamp number instead of Date object for better performance
             return new Date(product.postingdate).getTime();
           };
-          
+
           // Create a cache of computed values
           const dateCache = new Map<string, number>();
-          
+
           // Populate cache
           filteredProducts.forEach(product => {
             dateCache.set(product.id, getDateValue(product));
           });
-          
+
           // Sort using cache
           filteredProducts.sort((a, b) => {
             const dateA = dateCache.get(a.id) || 0;
@@ -549,22 +549,22 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
           break;
       }
     }
-    
+
     // Only update the state if changes were made
     if (operationsApplied) {
       // Update the products state with filtered and sorted products
       set({ products: filteredProducts });
     }
   },
-  
+
   // Clear all filters and sorting
   clearFilters: () => {
     console.log('[CategoryStore] Clearing all filters and restoring original products');
-    
+
     set(state => {
       // Create a deep copy of the original products to avoid reference issues
       const restoredProducts = [...state.productsOriginal];
-      
+
       return {
         selectedFilters: [],
         selectedSortOption: 'default',
@@ -573,35 +573,35 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
         products: restoredProducts,
         // Close any open dropdowns
         isSortDropdownVisible: false,
-        isFilterDropdownVisible: false
+        isFilterDropdownVisible: false,
       };
     });
   },
-  
+
   // Load more products (pagination)
   loadMore: async () => {
     const state = get();
-    
+
     // Skip if already loading, no more data, or refreshing
     if (state.loadingMoreData || !state.hasMoreData || state.loading || state.refreshing) {
       return;
     }
-    
+
     const nextPage = state.currentPage + 1;
     const { currentCategory } = state;
-    
+
     console.log(`[CategoryStore] Loading more products for ${currentCategory.name}, page ${nextPage}`);
-    
+
     // Call loadCategoryProducts with the next page number and append=true
     await state.loadCategoryProducts(
       currentCategory.name,
-      currentCategory.id, 
-      currentCategory.university, 
-      currentCategory.city, 
+      currentCategory.id,
+      currentCategory.university,
+      currentCategory.city,
       nextPage,
       true // Append to existing products
     );
-  }
+  },
 }));
 
-export default useCategoryStore; 
+export default useCategoryStore;

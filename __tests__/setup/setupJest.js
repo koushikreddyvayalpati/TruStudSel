@@ -40,10 +40,10 @@ jest.spyOn(console, 'error').mockImplementation((...args) => {
   ) {
     return;
   }
-  // eslint-disable-next-line no-console
+
   console.warn(...args);
 });
 
 // Reset all mocks initially
 jest.clearAllMocks();
-global.fetch.mockClear(); 
+global.fetch.mockClear();

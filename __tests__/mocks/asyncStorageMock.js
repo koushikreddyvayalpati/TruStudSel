@@ -61,4 +61,4 @@ asyncStorageMock.__resetMockState = () => {
   });
 };
 
-module.exports = asyncStorageMock; 
+module.exports = asyncStorageMock;

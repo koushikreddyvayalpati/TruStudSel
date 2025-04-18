@@ -35,4 +35,4 @@ declare module 'react-native-vector-icons/EvilIcons' {
 declare module 'react-native-vector-icons/Entypo' {
   import { Icon } from 'react-native-vector-icons';
   export default Icon;
-} 
+}

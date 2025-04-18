@@ -8,10 +8,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { 
-  DrawerContentScrollView, 
+import {
+  DrawerContentScrollView,
   DrawerItem,
-  DrawerContentComponentProps 
+  DrawerContentComponentProps,
 } from '@react-navigation/drawer';
 import { useAuth } from '../../hooks';
 
@@ -31,7 +31,7 @@ type DrawerNavigationItem = {
 const CustomDrawerContent = (props: DrawerContentComponentProps) => {
   const { navigation } = props;
   const { signOut} = useAuth();
-  
+
   // Memoize the sign out handler to prevent unnecessary re-renders
   const handleSignOut = useCallback(async () => {
     try {
@@ -49,33 +49,33 @@ const CustomDrawerContent = (props: DrawerContentComponentProps) => {
       key: 'home',
       label: 'Home',
       icon: 'home',
-      navigateTo: 'MainStack'
+      navigateTo: 'MainStack',
     },
     {
       key: 'profile',
       label: 'Profile',
       icon: 'person',
-      navigateTo: 'Profile'
+      navigateTo: 'Profile',
     },
     {
       key: 'messages',
       label: 'Messages',
       icon: 'message',
-      navigateTo: 'MessagesScreen'
+      navigateTo: 'MessagesScreen',
     },
     {
       key: 'wishlist',
       label: 'Wishlist',
       icon: 'favorite',
       navigateTo: 'Wishlist',
-      params: { wishlist: [] }
-    }, 
+      params: { wishlist: [] },
+    },
     {
       key: 'settings',
       label: 'Account Settings',
       icon: 'settings',
-      navigateTo: 'Settings'
-    }
+      navigateTo: 'Settings',
+    },
   ], []);
 
   // Additional items (like sign out) that need special handling
@@ -84,8 +84,8 @@ const CustomDrawerContent = (props: DrawerContentComponentProps) => {
       key: 'signout',
       label: 'Sign Out',
       icon: 'exit-to-app',
-      onPress: handleSignOut
-    }
+      onPress: handleSignOut,
+    },
   ], [handleSignOut]);
 
   // Memoize the rendering of navigation items for performance
@@ -97,18 +97,18 @@ const CustomDrawerContent = (props: DrawerContentComponentProps) => {
         try {
           // First try to navigate directly to the screen
           navigation.navigate(item.navigateTo, item.params);
-          
+
           // Close drawer after navigation
           navigation.closeDrawer();
         } catch (error) {
           // If that fails, try to navigate through the main stack
           console.error(`Error navigating to ${item.navigateTo}:`, error);
-          
+
           // Fallback to nested navigation
           try {
             navigation.navigate('MainStack', {
               screen: item.navigateTo,
-              params: item.params
+              params: item.params,
             });
             navigation.closeDrawer();
           } catch (nestedError) {
@@ -142,22 +142,22 @@ const CustomDrawerContent = (props: DrawerContentComponentProps) => {
   return (
     <SafeAreaView style={styles.safeArea} edges={['right', 'bottom']}>
       <View style={styles.statusBarFill} />
-      <DrawerContentScrollView 
-        {...props} 
+      <DrawerContentScrollView
+        {...props}
         contentContainerStyle={styles.drawerContent}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Menu</Text>
         </View>
-        
+
         {/* Main navigation items */}
         <View style={styles.navigationSection}>
           {navigationItems.map(renderNavigationItem)}
         </View>
-        
+
         <View style={styles.separator} />
-        
+
         {/* Additional items like sign out */}
         <View style={styles.additionalSection}>
           {additionalItems.map(renderNavigationItem)}
@@ -218,4 +218,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default React.memo(CustomDrawerContent); 
+export default React.memo(CustomDrawerContent);

@@ -35,4 +35,4 @@ describe('MessagesScreen', () => {
     expect(getByText('I will do the voice over')).toBeTruthy();
     expect(getByText('just open la')).toBeTruthy();
   });
-}); 
+});

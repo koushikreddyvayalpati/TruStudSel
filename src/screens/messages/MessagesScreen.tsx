@@ -26,7 +26,7 @@ type MessagesScreenNavigationProp = StackNavigationProp<MainStackParamList, 'Mes
 
 const MessagesScreen = () => {
   const navigation = useNavigation<MessagesScreenNavigationProp>();
-  
+
   // Get state and actions from Zustand store
   const {
     conversations,
@@ -36,7 +36,7 @@ const MessagesScreen = () => {
     isLoading,
     error,
     currentUserEmail,
-    
+
     setIsSearchActive,
     setSearchQuery,
     fetchCurrentUser,
@@ -47,41 +47,41 @@ const MessagesScreen = () => {
     getConversationDisplayName,
     getTimeDisplay,
   } = useChatStore();
-  
+
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const searchBarAnim = useRef(new Animated.Value(0)).current;
-  
+
   // App theme colors - memoized to prevent re-renders
   const COLORS = useMemo(() => ({
     primary: '#ffb300',
     primaryDark: '#f57c00',
     background: '#fff',
     surface: '#ffffff',
-    text: '#333333', 
+    text: '#333333',
     textSecondary: '#666666',
     textLight: '#888888',
     border: '#f0f0f0',
-    shadow: 'rgba(0, 0, 0, 0.08)'
+    shadow: 'rgba(0, 0, 0, 0.08)',
   }), []);
-  
+
   // Fetch current user email only once
   useEffect(() => {
     fetchCurrentUser();
-    
+
     // Trigger fade-in animation on mount
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 300,
       useNativeDriver: true,
     }).start();
-    
+
     // Cleanup subscription on unmount
     return () => {
       cleanupConversationSubscription();
     };
   }, [fetchCurrentUser, fadeAnim, cleanupConversationSubscription]);
-  
+
   // Set up real-time subscription when user email is available
   useEffect(() => {
     if (currentUserEmail) {
@@ -107,12 +107,12 @@ const MessagesScreen = () => {
 
   // Memoize filtered conversations for performance
   const filteredConversations = useMemo(() => {
-    if (!searchQuery.trim()) return conversations;
-    
+    if (!searchQuery.trim()) {return conversations;}
+
     const normalizedQuery = searchQuery.toLowerCase();
     return conversations.filter(
-      conversation => 
-        conversation.name?.toLowerCase().includes(normalizedQuery) || 
+      conversation =>
+        conversation.name?.toLowerCase().includes(normalizedQuery) ||
         conversation.lastMessageContent?.toLowerCase().includes(normalizedQuery)
     );
   }, [searchQuery, conversations]);
@@ -121,49 +121,49 @@ const MessagesScreen = () => {
   const toggleSearch = useCallback(() => {
     setIsSearchActive(!isSearchActive);
   }, [isSearchActive, setIsSearchActive]);
-  
+
   // Navigate to conversation using FirebaseChatScreen
   const goToConversation = useCallback((conversation: Conversation) => {
     // Find the other participant in the conversation (not the current user)
     const otherParticipantEmail = conversation.participants.find(p => p !== currentUserEmail) || '';
-    
+
     // Get the name from conversation using our helper function
     // This handles user-specific name mappings and formatting automatically
     const displayName = getConversationDisplayName(conversation);
-    
+
     // Ensure we're passing the other participant's name, not the current user's name
     let otherParticipantName = displayName;
-    
+
     // Extra safety check - if displayName somehow still matches current user's name
     if (currentUserEmail) {
       const currentUserBaseName = currentUserEmail.split('@')[0].toLowerCase();
       const currentUserDisplayName = currentUserBaseName.charAt(0).toUpperCase() + currentUserBaseName.slice(1);
-      
+
       // If the displayed name is somehow still the current user's name, use the other email username
-      if (otherParticipantName === currentUserDisplayName || 
+      if (otherParticipantName === currentUserDisplayName ||
           otherParticipantName.toLowerCase() === currentUserBaseName) {
-        
+
         if (otherParticipantEmail.includes('@')) {
           const username = otherParticipantEmail.split('@')[0];
           otherParticipantName = username.charAt(0).toUpperCase() + username.slice(1);
         }
       }
     }
-    
+
     console.log('[MessagesScreen] Navigating to chat with:', {
       otherParticipant: otherParticipantEmail,
       displayName: otherParticipantName,
       conversationName: conversation.name,
       // For debugging, also log user-specific name mapping if available
-      nameMapping: currentUserEmail ? 
-        conversation[`name_${currentUserEmail.replace(/[.@]/g, '_')}`] : 
-        undefined
+      nameMapping: currentUserEmail ?
+        conversation[`name_${currentUserEmail.replace(/[.@]/g, '_')}`] :
+        undefined,
     });
-    
+
     // Navigate to Firebase chat screen with recipient info
-    navigation.navigate('FirebaseChatScreen', { 
+    navigation.navigate('FirebaseChatScreen', {
       recipientEmail: otherParticipantEmail,
-      recipientName: otherParticipantName
+      recipientName: otherParticipantName,
     });
   }, [navigation, currentUserEmail, getConversationDisplayName]);
 
@@ -179,12 +179,12 @@ const MessagesScreen = () => {
   const renderItem = useCallback(({ item }: { item: Conversation }) => {
     const displayName = getConversationDisplayName(item);
     const timeDisplay = getTimeDisplay(item.lastMessageTime);
-    
+
     const lastMessage = item.lastMessageContent || 'No messages yet';
-    const truncatedMessage = lastMessage.length > 40 
-      ? `${lastMessage.substring(0, 40)}...` 
+    const truncatedMessage = lastMessage.length > 40
+      ? `${lastMessage.substring(0, 40)}...`
       : lastMessage;
-    
+
     // Generate initials for avatar
     const initials = displayName
       .split(' ')
@@ -192,26 +192,26 @@ const MessagesScreen = () => {
       .slice(0, 2)
       .join('')
       .toUpperCase();
-    
+
     // Check if this conversation has unread messages
     const hasUnreadMessages = !!(item.unreadCount && item.unreadCount > 0);
-    
+
     return (
       <TouchableOpacity
         style={[
           styles.conversationItem,
-          hasUnreadMessages && styles.unreadConversationItem
+          hasUnreadMessages && styles.unreadConversationItem,
         ]}
         onPress={() => goToConversation(item)}
         activeOpacity={0.7}
       >
         {/* Unread indicator */}
         {hasUnreadMessages && <View style={styles.unreadIndicator} />}
-        
+
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{initials}</Text>
         </View>
-        
+
         <View style={styles.conversationContent}>
           <View style={styles.conversationHeader}>
             <Text style={[styles.conversationName, hasUnreadMessages && styles.unreadText]}>
@@ -223,11 +223,11 @@ const MessagesScreen = () => {
             </Text>
           </View>
           <View style={styles.conversationPreview}>
-            <Text 
+            <Text
               style={[
-                styles.conversationMessage, 
-                hasUnreadMessages && styles.unreadText
-              ]} 
+                styles.conversationMessage,
+                hasUnreadMessages && styles.unreadText,
+              ]}
               numberOfLines={2}
             >
               {truncatedMessage}
@@ -247,10 +247,10 @@ const MessagesScreen = () => {
 
   // Empty state component
   const renderEmptyComponent = useCallback(() => (
-    <Animated.View 
+    <Animated.View
       style={[
-        styles.emptyContainer, 
-        { opacity: fadeAnim }
+        styles.emptyContainer,
+        { opacity: fadeAnim },
       ]}
     >
       {!isLoading && !error && searchQuery.trim() === '' && (
@@ -260,7 +260,7 @@ const MessagesScreen = () => {
           <Text style={styles.emptyText}>
             When you start chatting with other users, your conversations will appear here.
           </Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.startChatButton}
             onPress={() => navigation.navigate('UserSearchScreen')}
           >
@@ -268,7 +268,7 @@ const MessagesScreen = () => {
           </TouchableOpacity>
         </>
       )}
-      
+
       {!isLoading && !error && searchQuery.trim() !== '' && (
         <>
           <Ionicons name="search-outline" size={60} color="#ccc" />
@@ -276,7 +276,7 @@ const MessagesScreen = () => {
           <Text style={styles.emptyText}>
             We couldn't find any conversations matching "{searchQuery}".
           </Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.clearButton}
             onPress={() => setSearchQuery('')}
           >
@@ -284,13 +284,13 @@ const MessagesScreen = () => {
           </TouchableOpacity>
         </>
       )}
-      
+
       {!isLoading && error && (
         <>
           <Ionicons name="alert-circle-outline" size={60} color="#e74c3c" />
           <Text style={styles.errorTitle}>Something Went Wrong</Text>
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.retryButton}
             onPress={fetchConversations}
           >
@@ -303,8 +303,8 @@ const MessagesScreen = () => {
 
   // Render loader at the bottom of the list
   const renderFooter = useCallback(() => {
-    if (!isLoading || isRefreshing) return null;
-    
+    if (!isLoading || isRefreshing) {return null;}
+
     return (
       <View style={styles.loaderFooter}>
         <ActivityIndicator size="small" color={COLORS.primary} />
@@ -322,31 +322,31 @@ const MessagesScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      
+
       {/* Header */}
       <View style={styles.headerContainer}>
         {isSearchActive && (
-          <Animated.View 
+          <Animated.View
             style={[
               styles.searchHeader,
               {
                 opacity: searchBarAnim,
-                transform: [{ 
+                transform: [{
                   translateY: searchBarAnim.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [-20, 0]
-                  })
-                }]
-              }
+                    outputRange: [-20, 0],
+                  }),
+                }],
+              },
             ]}
           >
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={toggleSearch}
               style={styles.searchBackButton}
             >
               <Ionicons name="arrow-back" size={22} color="#333" />
             </TouchableOpacity>
-            
+
             <TextInput
               style={styles.searchInput}
               placeholder="Search conversations..."
@@ -359,31 +359,31 @@ const MessagesScreen = () => {
             />
           </Animated.View>
         )}
-        
+
         {!isSearchActive && (
-          <Animated.View 
+          <Animated.View
             style={[
               styles.normalHeader,
               {
                 opacity: searchBarAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [1, 0]
-                })
-              }
+                  outputRange: [1, 0],
+                }),
+              },
             ]}
           >
-            <TouchableOpacity 
-              onPress={() => navigation.goBack()} 
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
               style={styles.backButton}
               testID="back-button"
             >
               <MaterialIcons name="arrow-back-ios-new" size={22} color="#333" />
             </TouchableOpacity>
-            
+
             <Text style={styles.header}>Messages</Text>
-            
+
             <View style={styles.headerActions}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={toggleSearch}
                 style={styles.actionButton}
               >
@@ -393,7 +393,7 @@ const MessagesScreen = () => {
           </Animated.View>
         )}
       </View>
-      
+
       {/* Message List */}
       <Animated.View style={[styles.listWrapper, { opacity: fadeAnim }]}>
         <FlatList
@@ -402,7 +402,7 @@ const MessagesScreen = () => {
           keyExtractor={keyExtractor}
           contentContainerStyle={[
             styles.listContainer,
-            filteredConversations.length === 0 && styles.emptyListContainer
+            filteredConversations.length === 0 && styles.emptyListContainer,
           ]}
           ItemSeparatorComponent={ItemSeparator}
           refreshControl={
@@ -707,7 +707,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   errorTitle: {
-    fontSize: 20, 
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#e74c3c',
     marginTop: 10,

@@ -31,7 +31,7 @@ export const getConversations = async (): Promise<Conversation[]> => {
   try {
     console.log('API configuration:', API.configure);
     const user = await getCurrentUser();
-    if (!user) throw new Error('User not authenticated');
+    if (!user) {throw new Error('User not authenticated');}
 
     console.log('Current user:', user);
 
@@ -40,8 +40,8 @@ export const getConversations = async (): Promise<Conversation[]> => {
     const filter = {
       or: [
         { participants: { contains: user.id } },
-        ...(user.email ? [{ id: { contains: user.email } }] : [])
-      ]
+        ...(user.email ? [{ id: { contains: user.email } }] : []),
+      ],
     };
 
     console.log('[chatService] getConversations - Executing GraphQL query with filter:', filter);
@@ -49,13 +49,13 @@ export const getConversations = async (): Promise<Conversation[]> => {
     if (user.email) {
       console.log('[chatService] getConversations - Also searching for email in ID:', user.email);
     }
-    
+
     const result = await API.graphql(
       graphqlOperation(queries.listConversations, { filter })
     );
-    
+
     console.log('[chatService] getConversations - Query result:', JSON.stringify(result, null, 2));
-    
+
     // Log the items structure
     if (result && result.data && result.data.listConversations) {
       const items = result.data.listConversations.items;
@@ -65,15 +65,15 @@ export const getConversations = async (): Promise<Conversation[]> => {
           id: conversation.id,
           name: conversation.name,
           participants: conversation.participants,
-          lastMessageTime: conversation.lastMessageTime
+          lastMessageTime: conversation.lastMessageTime,
         });
       });
-      
+
       // Deduplicate conversations - if we have multiple conversations with the same person
       // (due to email vs ID issues), keep only the most recent one
       const deduplicatedItems = dedupConversationsByParticipant(items, user.id, user.email);
       console.log('[chatService] getConversations - After deduplication:', deduplicatedItems.length);
-      
+
       // @ts-ignore - API.graphql return type is complex
       return deduplicatedItems;
     } else {
@@ -93,53 +93,53 @@ export const getConversations = async (): Promise<Conversation[]> => {
  * This helps when we have conversations both by user ID and email
  */
 function dedupConversationsByParticipant(
-  conversations: Conversation[], 
-  userId: string, 
+  conversations: Conversation[],
+  userId: string,
   userEmail?: string
 ): Conversation[] {
   // Map to track other participants and their most recent conversation
-  const otherParticipantMap = new Map<string, { 
-    conversation: Conversation, 
-    lastMessageTime: number 
+  const otherParticipantMap = new Map<string, {
+    conversation: Conversation,
+    lastMessageTime: number
   }>();
-  
+
   // Process each conversation
   conversations.forEach(conversation => {
     // Find the other participant (not the current user)
     const otherParticipants = conversation.participants.filter(
       p => p !== userId && (userEmail ? p !== userEmail : true)
     );
-    
+
     if (otherParticipants.length === 0) {
       // This might be a conversation with self or a group chat
       return;
     }
-    
+
     // Use the first other participant as the key
     const otherParticipant = otherParticipants[0];
-    const lastMessageTime = conversation.lastMessageTime 
-      ? new Date(conversation.lastMessageTime).getTime() 
+    const lastMessageTime = conversation.lastMessageTime
+      ? new Date(conversation.lastMessageTime).getTime()
       : 0;
-    
+
     console.log(`[chatService] Checking conversation with ${otherParticipant}:`, {
       id: conversation.id,
-      lastMessageTime
+      lastMessageTime,
     });
-    
+
     // If we haven't seen this participant before, or if this conversation is more recent
     const existing = otherParticipantMap.get(otherParticipant);
     if (!existing || lastMessageTime > existing.lastMessageTime) {
-      otherParticipantMap.set(otherParticipant, { 
-        conversation, 
-        lastMessageTime 
+      otherParticipantMap.set(otherParticipant, {
+        conversation,
+        lastMessageTime,
       });
       console.log(`[chatService] Using conversation ${conversation.id} for ${otherParticipant}`);
     }
   });
-  
+
   // Extract the most recent conversations
   const deduplicatedConversations = Array.from(otherParticipantMap.values()).map(v => v.conversation);
-  
+
   // Special case: if no other participants found (self conversations or problematic data)
   // just return the original array
   return deduplicatedConversations.length > 0 ? deduplicatedConversations : conversations;
@@ -173,24 +173,24 @@ export const getOrCreateConversation = async (
 ): Promise<Conversation> => {
   try {
     const currentUser = await getCurrentUser();
-    if (!currentUser) throw new Error('User not authenticated');
+    if (!currentUser) {throw new Error('User not authenticated');}
 
     console.log('[chatService] getOrCreateConversation - Parameters:', {
       currentUserId: currentUser.id,
       otherUserId,
       otherUserName,
       productId,
-      productName
+      productName,
     });
 
     // Check if otherUserId looks like an email - if so, we need to try to lookup the user ID
     let actualOtherUserId = otherUserId;
     if (otherUserId.includes('@')) {
       console.log('[chatService] getOrCreateConversation - otherUserId appears to be an email, searching for existing conversations with this email...');
-      
+
       // Look for existing conversations where this email is a participant
       const existingConversations = await getConversations();
-      
+
       // Try to find a conversation where the other participant matches this email or has it in the ID
       const matchingConversation = existingConversations.find(conv => {
         // Find the other participant (not the current user)
@@ -198,7 +198,7 @@ export const getOrCreateConversation = async (
         return otherParticipant === otherUserId || // Exact match
                conv.id.includes(otherUserId); // ID contains the email
       });
-      
+
       if (matchingConversation) {
         console.log('[chatService] getOrCreateConversation - Found existing conversation with this email:', matchingConversation.id);
         const extractedOtherId = matchingConversation.participants.find(p => p !== currentUser.id);
@@ -215,10 +215,10 @@ export const getOrCreateConversation = async (
     // - Ensure current user is represented by ID (not email)
     // - If other user's ID is known, use it; otherwise use email
     const normalizedParticipants = [currentUser.id];
-    
+
     // Add the other participant - either their ID or email
     normalizedParticipants.push(actualOtherUserId);
-    
+
     // Sort participants to ensure consistent conversation ID
     const participants = normalizedParticipants.sort();
     const conversationId = participants.join('_');
@@ -228,12 +228,12 @@ export const getOrCreateConversation = async (
     // Try to fetch existing conversation
     console.log('[chatService] getOrCreateConversation - Checking if conversation exists...');
     const existingConversation = await getConversation(conversationId);
-    
+
     if (existingConversation) {
       console.log('[chatService] getOrCreateConversation - Found existing conversation:', {
         id: existingConversation.id,
         name: existingConversation.name,
-        participants: existingConversation.participants
+        participants: existingConversation.participants,
       });
       return existingConversation;
     }
@@ -252,7 +252,7 @@ export const getOrCreateConversation = async (
     };
 
     console.log('[chatService] getOrCreateConversation - Creating with input:', conversationInput);
-    
+
     const result = await API.graphql(
       graphqlOperation(mutations.createConversation, { input: conversationInput })
     );
@@ -273,7 +273,7 @@ export const getOrCreateConversation = async (
 export const getMessages = async (conversationId: string): Promise<Message[]> => {
   try {
     console.log('[chatService] Fetching messages for conversation:', conversationId);
-    
+
     const result = await API.graphql(
       graphqlOperation(queries.messagesByConversationIdAndCreatedAt, {
         conversationId,
@@ -301,13 +301,13 @@ export const sendMessage = async (
 ): Promise<Message | null> => {
   try {
     const currentUser = await getCurrentUser();
-    if (!currentUser) throw new Error('User not authenticated');
+    if (!currentUser) {throw new Error('User not authenticated');}
 
     console.log('[chatService] Sending message:', {
       conversationId,
       senderId: currentUser.id,
       senderName: currentUser.name,
-      content
+      content,
     });
 
     const messageInput = {
@@ -317,7 +317,7 @@ export const sendMessage = async (
       senderName: currentUser.name,
       content,
       status: MessageStatus.SENT,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     };
 
     const result = await API.graphql(
@@ -334,15 +334,15 @@ export const sendMessage = async (
             id: conversationId,
             lastMessageContent: content,
             lastMessageTime: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          }
+            updatedAt: new Date().toISOString(),
+          },
         })
       );
     } catch (updateError) {
       // This is expected for recipients (non-owners) of conversations
       // For now, we'll log it but continue - the message was still sent successfully
       console.log('[chatService] Note: Could not update conversation metadata (normal for recipients):', updateError);
-      
+
       // In a production app, we could implement a lambda trigger or server function
       // to allow both parties to update conversation metadata regardless of ownership
     }
@@ -370,8 +370,8 @@ export const updateMessageStatus = async (
           id: messageId,
           conversationId,
           status,
-          updatedAt: new Date().toISOString()
-        }
+          updatedAt: new Date().toISOString(),
+        },
       })
     );
     return true;
@@ -414,4 +414,4 @@ export const subscribeToMessages = (
       unsubscribe: () => {},
     };
   }
-}; 
+};

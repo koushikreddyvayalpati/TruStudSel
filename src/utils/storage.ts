@@ -111,4 +111,4 @@ export default {
   storeToken,
   getToken,
   removeToken,
-}; 
+};

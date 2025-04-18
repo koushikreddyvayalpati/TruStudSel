@@ -10,28 +10,28 @@ const ZustandExample = ({ university, city }: { university: string; city: string
     loadingFeatured,
     error,
     loadFeaturedProducts,
-    handleRefresh
+    handleRefresh,
   } = useProductStore();
-  
+
   // Load featured products when component mounts
   useEffect(() => {
     if (university && city) {
       loadFeaturedProducts(university, city);
     }
   }, [university, city, loadFeaturedProducts]);
-  
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Featured Products (Zustand)</Text>
-      
+
       {loadingFeatured ? (
         <ActivityIndicator size="large" color="#f7b305" />
       ) : error ? (
         <View>
           <Text style={styles.error}>{error}</Text>
-          <Button 
-            title="Retry" 
-            onPress={() => loadFeaturedProducts(university, city)} 
+          <Button
+            title="Retry"
+            onPress={() => loadFeaturedProducts(university, city)}
           />
         </View>
       ) : (
@@ -39,9 +39,9 @@ const ZustandExample = ({ university, city }: { university: string; city: string
           <Text style={styles.count}>
             {featuredProducts.length} products loaded
           </Text>
-          <Button 
-            title="Refresh All" 
-            onPress={() => handleRefresh(university, city)} 
+          <Button
+            title="Refresh All"
+            onPress={() => handleRefresh(university, city)}
           />
         </View>
       )}
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
   error: {
     color: 'red',
     marginBottom: 12,
-  }
+  },
 });
 
-export default ZustandExample; 
+export default ZustandExample;

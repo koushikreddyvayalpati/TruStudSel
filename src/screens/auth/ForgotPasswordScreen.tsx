@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -12,7 +12,7 @@ import {
   Image,
   Animated,
   Keyboard,
-  StatusBar
+  StatusBar,
 } from 'react-native';
 import { Auth } from 'aws-amplify';
 import { useNavigation } from '@react-navigation/native';
@@ -44,7 +44,7 @@ const ForgotPasswordScreen: React.FC = () => {
   // Animated values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
-  
+
   // Keyboard listeners
   useEffect(() => {
     const keyboardWillShowListener = Keyboard.addListener(
@@ -67,7 +67,7 @@ const ForgotPasswordScreen: React.FC = () => {
         toValue: 0,
         duration: 800,
         useNativeDriver: true,
-      })
+      }),
     ]).start();
 
     return () => {
@@ -81,12 +81,12 @@ const ForgotPasswordScreen: React.FC = () => {
   // Define loading steps for each process
   const sendCodeLoadingSteps = useMemo(() => [
     { id: 'sending', message: 'Sending verification code...' },
-    { id: 'success', message: 'Code sent successfully!' }
+    { id: 'success', message: 'Code sent successfully!' },
   ], []);
-  
+
   const resetPasswordLoadingSteps = useMemo(() => [
     { id: 'resetting', message: 'Resetting your password...' },
-    { id: 'success', message: 'Password reset successful!' }
+    { id: 'success', message: 'Password reset successful!' },
   ], []);
 
   // Function to log important actions for easier debugging
@@ -108,25 +108,25 @@ const ForgotPasswordScreen: React.FC = () => {
       setEmailError('Email is required');
       return false;
     }
-    
+
     // Check for .edu email
     if (!email.includes('@') || !email.toLowerCase().endsWith('.edu')) {
       setEmailError('Please use your university email address ending with .edu');
       return false;
     }
-    
+
     setEmailError('');
     return true;
   };
 
   const validatePasswordReset = (): boolean => {
     let isValid = true;
-    
+
     if (!code) {
       Alert.alert('Error', 'Please enter the verification code');
       return false;
     }
-    
+
     // Password validation
     const passwordValidationError = validation.getPasswordValidationError(newPassword);
     if (passwordValidationError) {
@@ -135,7 +135,7 @@ const ForgotPasswordScreen: React.FC = () => {
     } else {
       setPasswordError('');
     }
-    
+
     // Confirm password validation
     if (newPassword !== confirmPassword) {
       setConfirmPasswordError('Passwords do not match');
@@ -143,7 +143,7 @@ const ForgotPasswordScreen: React.FC = () => {
     } else {
       setConfirmPasswordError('');
     }
-    
+
     return isValid;
   };
 
@@ -152,21 +152,21 @@ const ForgotPasswordScreen: React.FC = () => {
     if (!validateEmail()) {
       return;
     }
-    
+
     setLoading(true);
     setLoadingStep(0);
-    
+
     try {
       await Auth.forgotPassword(email);
       logDebug('Verification code sent successfully');
-      
+
       // Show success message briefly
       setLoadingStep(1);
       setTimeout(() => {
         setLoading(false);
         setStep(2);
       }, 1000);
-      
+
     } catch (error: any) {
       logDebug('Error sending verification code', error);
       setLoading(false);
@@ -179,23 +179,23 @@ const ForgotPasswordScreen: React.FC = () => {
     if (!validatePasswordReset()) {
       return;
     }
-    
+
     setLoading(true);
     setLoadingStep(0);
-    
+
     try {
       await Auth.forgotPasswordSubmit(email, code, newPassword);
       logDebug('Password reset successfully');
-      
+
       // Show success message briefly
       setLoadingStep(1);
       setTimeout(() => {
         setLoading(false);
         Alert.alert('Success', 'Password reset successfully', [
-          { text: 'OK', onPress: () => navigation.navigate('SignIn') }
+          { text: 'OK', onPress: () => navigation.navigate('SignIn') },
         ]);
       }, 1000);
-      
+
     } catch (error: any) {
       logDebug('Error resetting password', error);
       setLoading(false);
@@ -205,14 +205,14 @@ const ForgotPasswordScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoidingView}
       >
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={[
             styles.scrollContainer,
-            Platform.OS === 'android' && { paddingTop: StatusBar.currentHeight || 0 }
+            Platform.OS === 'android' && { paddingTop: StatusBar.currentHeight || 0 },
           ]}
           showsVerticalScrollIndicator={false}
         >
@@ -223,17 +223,17 @@ const ForgotPasswordScreen: React.FC = () => {
             currentStep={loadingStep}
             showProgressDots={true}
           />
-          
+
           <LoadingOverlay
             visible={loading && step === 2}
             steps={resetPasswordLoadingSteps}
             currentStep={loadingStep}
             showProgressDots={true}
           />
-          
+
           {/* Back button header */}
           <View style={styles.header}>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => {
                 logDebug('Back button pressed');
                 if (step !== 1) {
@@ -256,17 +256,17 @@ const ForgotPasswordScreen: React.FC = () => {
               hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
             >
                 <Entypo name="chevron-left" size={28} color={theme.colors.secondary} />
-             
+
             </TouchableOpacity>
           </View>
-          
-          <Animated.View 
+
+          <Animated.View
             style={[
               styles.contentContainer,
-              { 
+              {
                 opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }]
-              }
+                transform: [{ translateY: slideAnim }],
+              },
             ]}
           >
             <Text style={[styles.title, { color: theme.colors.secondary }]}>
@@ -275,17 +275,17 @@ const ForgotPasswordScreen: React.FC = () => {
             <Text style={[styles.title, { color: theme.colors.secondary }]}>
               {step === 1 ? 'Password' : 'Password'}
             </Text>
-            
+
             {!keyboardVisible && (
               <View style={styles.imageContainer}>
-                <Image 
-                  source={require('../../../assets/password.png')} 
+                <Image
+                  source={require('../../../assets/password.png')}
                   style={styles.image}
                   resizeMode="contain"
                 />
               </View>
             )}
-            
+
             {step === 1 ? (
               <>
                 <View style={styles.formContainer}>
@@ -294,7 +294,7 @@ const ForgotPasswordScreen: React.FC = () => {
                     value={email}
                     onChangeText={(text) => {
                       setEmail(text);
-                      if (emailError) setEmailError('');
+                      if (emailError) {setEmailError('');}
                     }}
                     placeholder="Enter your .edu email"
                     keyboardType="email-address"
@@ -303,7 +303,7 @@ const ForgotPasswordScreen: React.FC = () => {
                     touched={!!emailError}
                     leftIcon={<Entypo name="mail" size={20} color={theme.colors.secondary} />}
                   />
-                  
+
                   <View style={styles.buttonContainer}>
                     <TouchableOpacity
                       onPress={handleSendCode}
@@ -334,13 +334,13 @@ const ForgotPasswordScreen: React.FC = () => {
                     keyboardType="number-pad"
                     leftIcon={<Entypo name="key" size={20} color={theme.colors.secondary} />}
                   />
-                  
+
                   <TextInput
                     label="New Password"
                     value={newPassword}
                     onChangeText={(text) => {
                       setNewPassword(text);
-                      if (passwordError) setPasswordError('');
+                      if (passwordError) {setPasswordError('');}
                       if (confirmPasswordError && text === confirmPassword) {
                         setConfirmPasswordError('');
                       }
@@ -352,7 +352,7 @@ const ForgotPasswordScreen: React.FC = () => {
                     touched={!!passwordError}
                     leftIcon={<Entypo name="lock" size={20} color={theme.colors.secondary} />}
                   />
-                  
+
                   <TextInput
                     label="Confirm Password"
                     value={confirmPassword}
@@ -369,7 +369,7 @@ const ForgotPasswordScreen: React.FC = () => {
                     touched={!!confirmPasswordError}
                     leftIcon={<Entypo name="lock" size={20} color={theme.colors.secondary} />}
                   />
-                  
+
                   <View style={styles.buttonContainer}>
                     <TouchableOpacity
                       onPress={handleResetPassword}
@@ -391,7 +391,7 @@ const ForgotPasswordScreen: React.FC = () => {
               </>
             )}
           </Animated.View>
-          
+
           {/* Corner decorations for visual appeal */}
           <View style={[styles.cornerDecoration, styles.topLeftCorner]} />
           <View style={[styles.cornerDecoration, styles.bottomRightCorner]} />
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
       android: {
         paddingTop: 16,
         height: 75,
-      }
+      },
     }),
   },
   backButton: {
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
         padding: 8,
         marginLeft: 0,
         marginTop: 0,
-      }
+      },
     }),
   },
   contentContainer: {
@@ -517,4 +517,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ForgotPasswordScreen; 
+export default ForgotPasswordScreen;

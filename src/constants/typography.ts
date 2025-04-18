@@ -78,7 +78,7 @@ export const textStyles = {
     fontWeight: fontWeight.bold,
     color: colors.textPrimary,
   } as TextStyle,
-  
+
   h2: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize['3xl'],
@@ -86,7 +86,7 @@ export const textStyles = {
     fontWeight: fontWeight.bold,
     color: colors.textPrimary,
   } as TextStyle,
-  
+
   h3: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize['2xl'],
@@ -94,7 +94,7 @@ export const textStyles = {
     fontWeight: fontWeight.bold,
     color: colors.textPrimary,
   } as TextStyle,
-  
+
   h4: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.xl,
@@ -102,7 +102,7 @@ export const textStyles = {
     fontWeight: fontWeight.semiBold,
     color: colors.textPrimary,
   } as TextStyle,
-  
+
   h5: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.lg,
@@ -110,7 +110,7 @@ export const textStyles = {
     fontWeight: fontWeight.semiBold,
     color: colors.textPrimary,
   } as TextStyle,
-  
+
   // Body text
   body1: {
     fontFamily: fontFamily.regular,
@@ -119,7 +119,7 @@ export const textStyles = {
     fontWeight: fontWeight.normal,
     color: colors.textPrimary,
   } as TextStyle,
-  
+
   body2: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
@@ -127,7 +127,7 @@ export const textStyles = {
     fontWeight: fontWeight.normal,
     color: colors.textSecondary,
   } as TextStyle,
-  
+
   // Button text
   button: {
     fontFamily: fontFamily.medium,
@@ -135,7 +135,7 @@ export const textStyles = {
     fontWeight: fontWeight.medium,
     color: colors.white,
   } as TextStyle,
-  
+
   // Caption text
   caption: {
     fontFamily: fontFamily.regular,
@@ -144,7 +144,7 @@ export const textStyles = {
     fontWeight: fontWeight.normal,
     color: colors.textSecondary,
   } as TextStyle,
-  
+
   // Label text
   label: {
     fontFamily: fontFamily.medium,
@@ -153,7 +153,7 @@ export const textStyles = {
     fontWeight: fontWeight.medium,
     color: colors.textPrimary,
   } as TextStyle,
-  
+
   // Brand text (for logos, etc.)
   brand: {
     fontFamily: fontFamily.brandFont,
@@ -168,4 +168,4 @@ export default {
   lineHeight,
   fontWeight,
   textStyles,
-}; 
+};

@@ -24,7 +24,7 @@ interface ReviewsState {
   reviewRating: number;
   reviewComment: string;
   submittingReview: boolean;
-  
+
   // Actions
   fetchSellerReviews: (sellerEmail: string, page?: number) => Promise<void>;
   loadMoreReviews: (sellerEmail: string) => Promise<void>;
@@ -53,30 +53,30 @@ const useReviewsStore = create<ReviewsState>((set, get) => ({
       console.warn('[reviewsStore] No seller email provided for fetching reviews');
       return;
     }
-    
+
     if (page === 0) {
       set({ loadingReviews: true });
     } else {
       set({ loadingMoreReviews: true });
     }
-    
+
     try {
       const response = await reviewsApi.getSellerReviews(sellerEmail, page, 10);
-      
+
       if (page === 0) {
-        set({ 
+        set({
           sellerReviews: response.reviews || [],
           averageRating: response.averageRating || '0',
           totalReviews: response.totalItems || 0,
           currentPage: response.currentPage || 0,
-          totalPages: response.totalPages || 0
+          totalPages: response.totalPages || 0,
         });
       } else {
         // Append new reviews to existing ones for pagination
-        set(state => ({ 
+        set(state => ({
           sellerReviews: [...state.sellerReviews, ...(response.reviews || [])],
           currentPage: response.currentPage || 0,
-          totalPages: response.totalPages || 0
+          totalPages: response.totalPages || 0,
         }));
       }
     } catch (error) {
@@ -113,50 +113,50 @@ const useReviewsStore = create<ReviewsState>((set, get) => ({
     set({
       reviewRating: 5,
       reviewComment: '',
-      showReviewForm: false
+      showReviewForm: false,
     });
   },
 
   submitReview: async (sellerEmail: string, productId?: string) => {
     const { reviewRating, reviewComment } = get();
-    
+
     if (!sellerEmail) {
       console.warn('[reviewsStore] No seller email provided for submitting review');
       return false;
     }
-    
+
     if (!reviewComment.trim()) {
       return false;
     }
-    
+
     set({ submittingReview: true });
-    
+
     try {
       // Get the authentication token using Auth from aws-amplify
       try {
         const { Auth } = require('aws-amplify');
         const currentSession = await Auth.currentSession();
         const token = currentSession.getIdToken().getJwtToken();
-        
+
         if (!token) {
           console.error('[reviewsStore] Authentication token not available');
           return false;
         }
-        
+
         // Use the reviews API module
         await reviewsApi.postReview(
           {
             sellerEmail: sellerEmail,
             rating: reviewRating,
             comment: reviewComment,
-            productId: productId || ''
+            productId: productId || '',
           },
           token
         );
-        
+
         // Reset form
         get().resetReviewForm();
-        
+
         // Refresh reviews
         await get().fetchSellerReviews(sellerEmail, 0);
         return true;
@@ -170,7 +170,7 @@ const useReviewsStore = create<ReviewsState>((set, get) => ({
     } finally {
       set({ submittingReview: false });
     }
-  }
+  },
 }));
 
-export default useReviewsStore; 
+export default useReviewsStore;

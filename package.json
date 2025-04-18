@@ -7,7 +7,10 @@
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",
-    "test": "jest"
+    "test": "jest",
+    "android-clean": "cd android && ./gradlew clean && cd ..",
+    "android-build-release": "cd android && ./gradlew assembleRelease && cd ..",
+    "android-build-bundle": "cd android && ./gradlew bundleRelease && cd .."
   },
   "dependencies": {
     "@azure/core-asynciterator-polyfill": "^1.0.2",

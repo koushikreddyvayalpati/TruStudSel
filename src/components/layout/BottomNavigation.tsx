@@ -33,13 +33,13 @@ interface BottomNavigationProps {
  */
 const BottomNavigation: React.FC<BottomNavigationProps> = ({ userUniversity, userCity = '' }) => {
   const navigation = useNavigation<NavigationProp>();
-  
+
   // Log university and city values
   useEffect(() => {
     console.log('[BottomNavigation] Received university:', userUniversity || 'not set');
     console.log('[BottomNavigation] Received city:', userCity || 'not set');
   }, [userUniversity, userCity]);
-  
+
   // Memoize navigation items for better performance
   const navigationItems = useMemo<BottomNavItem[]>(() => [
     {
@@ -76,18 +76,18 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({ userUniversity, use
         // Add more debug logging to track userUniversity during navigation
         console.log('[BottomNavigation] Navigating to PostingScreen with university:', userUniversity || 'not set');
         console.log('[BottomNavigation] Navigating to PostingScreen with city:', userCity || 'not set');
-        
+
         // Only navigate with params if we have values
         if (userUniversity) {
-          navigation.navigate('PostingScreen', { 
+          navigation.navigate('PostingScreen', {
             userUniversity,
-            userCity
+            userCity,
           });
         } else {
           console.warn('[BottomNavigation] Warning: Navigating to PostingScreen without university data');
-          navigation.navigate('PostingScreen', { 
+          navigation.navigate('PostingScreen', {
             userUniversity: '',
-            userCity: userCity || ''
+            userCity: userCity || '',
           });
         }
       },
@@ -115,14 +115,14 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({ userUniversity, use
       onPress: () => navigation.navigate('MessagesScreen'),
     },
   ], [navigation, userUniversity, userCity]);
-  
+
   // Memoize the render function to prevent unnecessary re-renders
   const renderNavItem = useCallback((item: BottomNavItem) => {
     if (item.isCenter) {
       return (
-        <TouchableOpacity 
+        <TouchableOpacity
           key={item.key}
-          style={styles.centerNavButton} 
+          style={styles.centerNavButton}
           onPress={item.onPress}
           accessibilityLabel={item.label || 'Post'}
         >
@@ -132,11 +132,11 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({ userUniversity, use
         </TouchableOpacity>
       );
     }
-    
+
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         key={item.key}
-        style={styles.navButton} 
+        style={styles.navButton}
         onPress={item.onPress}
         accessibilityLabel={item.label}
       >
@@ -145,7 +145,7 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({ userUniversity, use
       </TouchableOpacity>
     );
   }, []);
-  
+
   return (
     <View style={styles.container}>
       {navigationItems.map(renderNavItem)}
@@ -194,4 +194,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default React.memo(BottomNavigation); 
+export default React.memo(BottomNavigation);

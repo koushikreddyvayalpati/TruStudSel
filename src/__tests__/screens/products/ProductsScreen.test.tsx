@@ -36,4 +36,4 @@ describe('ProductsScreen', () => {
     expect(getByText('Is it available?')).toBeTruthy();
     expect(getByText('Top Reviews of the Seller')).toBeTruthy();
   });
-}); 
+});

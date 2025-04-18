@@ -1,12 +1,12 @@
 /**
- * Import statements 
+ * Import statements
  */
 import React, { useCallback, memo, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -16,7 +16,7 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
-  SafeAreaView
+  SafeAreaView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -39,110 +39,110 @@ const MAIN_PHOTO_HEIGHT = SCREEN_WIDTH * 0.5;
 // Updated product types with main categories matching ProductsScreen and using consistent icons
 const PRODUCT_TYPES: ProductType[] = [
   {
-    id: "electronics",
-    name: "Electronics",
-    icon: "game-controller",
-    iconType: "entypo",
-    color: "#f7b305",
-    subcategories: ["Laptops", "Phones", "Tablets", "Accessories", "Audio", "Other"]
+    id: 'electronics',
+    name: 'Electronics',
+    icon: 'game-controller',
+    iconType: 'entypo',
+    color: '#f7b305',
+    subcategories: ['Laptops', 'Phones', 'Tablets', 'Accessories', 'Audio', 'Other'],
   },
   {
-    id: "furniture",
-    name: "Furniture",
-    icon: "bed",
-    iconType: "fontawesome",
-    color: "#f7b305",
-    subcategories: ["Desks", "Chairs", "Storage", "Lamps", "Bedroom", "Other"]
+    id: 'furniture',
+    name: 'Furniture',
+    icon: 'bed',
+    iconType: 'fontawesome',
+    color: '#f7b305',
+    subcategories: ['Desks', 'Chairs', 'Storage', 'Lamps', 'Bedroom', 'Other'],
   },
   {
-    id: "auto",
-    name: "Auto",
-    icon: "directions-car",
-    iconType: "material",
-    color: "#f7b305",
-    subcategories: ["Parts", "Accessories", "Tools", "Other"]
+    id: 'auto',
+    name: 'Auto',
+    icon: 'directions-car',
+    iconType: 'material',
+    color: '#f7b305',
+    subcategories: ['Parts', 'Accessories', 'Tools', 'Other'],
   },
   {
-    id: "fashion",
-    name: "Fashion",
-    icon: "shopping-bag",
-    iconType: "fontawesome",
-    color: "#f7b305",
-    subcategories: ["Tops", "Bottoms", "Outerwear", "Shoes", "Accessories", "Other"]
+    id: 'fashion',
+    name: 'Fashion',
+    icon: 'shopping-bag',
+    iconType: 'fontawesome',
+    color: '#f7b305',
+    subcategories: ['Tops', 'Bottoms', 'Outerwear', 'Shoes', 'Accessories', 'Other'],
   },
   {
-    id: "sports",
-    name: "Sports",
-    icon: "sports-cricket",
-    iconType: "material",
-    color: "#f7b305",
-    subcategories: ["Fitness", "Team Sports", "Outdoor", "Other"]
+    id: 'sports',
+    name: 'Sports',
+    icon: 'sports-cricket',
+    iconType: 'material',
+    color: '#f7b305',
+    subcategories: ['Fitness', 'Team Sports', 'Outdoor', 'Other'],
   },
   {
-    id: "stationery",
-    name: "Stationery",
-    icon: "book",
-    iconType: "material",
-    color: "#f7b305",
-    subcategories: ["Notebooks", "Writing Tools", "Organization", "Art Supplies", "Other"]
+    id: 'stationery',
+    name: 'Stationery',
+    icon: 'book',
+    iconType: 'material',
+    color: '#f7b305',
+    subcategories: ['Notebooks', 'Writing Tools', 'Organization', 'Art Supplies', 'Other'],
   },
   {
-    id: "eventpass",
-    name: "Event Pass",
-    icon: "ticket",
-    iconType: "fontawesome",
-    color: "#f7b305",
-    subcategories: ["Sports", "Concerts", "Campus Events", "Other"]
+    id: 'eventpass',
+    name: 'Event Pass',
+    icon: 'ticket',
+    iconType: 'fontawesome',
+    color: '#f7b305',
+    subcategories: ['Sports', 'Concerts', 'Campus Events', 'Other'],
   },
   {
-    id: "textbooks",
-    name: "Textbooks",
-    icon: "book",
-    iconType: "material",
-    color: "#f7b305",
-    subcategories: ["Science & Math", "Humanities", "Business", "Engineering", "Other"]
+    id: 'textbooks',
+    name: 'Textbooks',
+    icon: 'book',
+    iconType: 'material',
+    color: '#f7b305',
+    subcategories: ['Science & Math', 'Humanities', 'Business', 'Engineering', 'Other'],
   },
   {
-    id: "other",
-    name: "Other",
-    icon: "question",
-    iconType: "fontawesome",
-    color: "#f7b305"
-  }
+    id: 'other',
+    name: 'Other',
+    icon: 'question',
+    iconType: 'fontawesome',
+    color: '#f7b305',
+  },
 ];
 
 // Enhanced product conditions with descriptions for better user guidance
 const PRODUCT_CONDITIONS: ProductCondition[] = [
   {
-    id: "brand-new",
-    name: "Brand New",
-    description: "Unused, with original packaging or tags"
+    id: 'brand-new',
+    name: 'Brand New',
+    description: 'Unused, with original packaging or tags',
   },
   {
-    id: "like-new",
-    name: "Like New",
-    description: "Used once or twice, in perfect condition"
+    id: 'like-new',
+    name: 'Like New',
+    description: 'Used once or twice, in perfect condition',
   },
   {
-    id: "very-good",
-    name: "Very Good",
-    description: "Light use with minor signs of wear"
+    id: 'very-good',
+    name: 'Very Good',
+    description: 'Light use with minor signs of wear',
   },
   {
-    id: "good",
-    name: "Good",
-    description: "Some signs of wear but functions perfectly"
+    id: 'good',
+    name: 'Good',
+    description: 'Some signs of wear but functions perfectly',
   },
   {
-    id: "acceptable",
-    name: "Acceptable",
-    description: "Noticeable wear but fully functional"
+    id: 'acceptable',
+    name: 'Acceptable',
+    description: 'Noticeable wear but fully functional',
   },
   {
-    id: "for-parts",
-    name: "For Parts",
-    description: "Not fully functional, for repair or parts only"
-  }
+    id: 'for-parts',
+    name: 'For Parts',
+    description: 'Not fully functional, for repair or parts only',
+  },
 ];
 
 // Type definition for photo placeholder props
@@ -188,11 +188,11 @@ const PhotoTips = memo(() => (
 ));
 
 const MainPhotoPlaceholder = memo(({ onPress, theme }: PhotoPlaceholderProps) => (
-  <TouchableOpacity 
-    style={[styles.mainPhotoButton, { 
+  <TouchableOpacity
+    style={[styles.mainPhotoButton, {
       borderColor: 'rgba(247, 179, 5, 0.4)',
-      backgroundColor: 'rgba(247, 179, 5, 0.05)', 
-    }]} 
+      backgroundColor: 'rgba(247, 179, 5, 0.05)',
+    }]}
     onPress={onPress}
     activeOpacity={0.7}
     accessible={true}
@@ -228,15 +228,15 @@ const MainPhotoPlaceholder = memo(({ onPress, theme }: PhotoPlaceholderProps) =>
 
 const MainPhoto = memo(({ uri, onRemove }: PhotoProps) => (
   <View style={styles.mainPhotoWrapper}>
-    <Image 
-      source={{ uri }} 
-      style={styles.mainPhoto} 
+    <Image
+      source={{ uri }}
+      style={styles.mainPhoto}
       resizeMode="cover"
       resizeMethod="resize"
       accessible={true}
       accessibilityLabel="Main product photo"
     />
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.removeMainPhotoButton}
       onPress={onRemove}
       hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
@@ -253,14 +253,14 @@ const MainPhoto = memo(({ uri, onRemove }: PhotoProps) => (
 
 const ThumbnailPhoto = memo(({ uri, onRemove }: PhotoProps) => (
   <View style={styles.thumbnailWrapper}>
-    <Image 
-      source={{ uri }} 
-      style={styles.thumbnailImage} 
+    <Image
+      source={{ uri }}
+      style={styles.thumbnailImage}
       resizeMethod="resize"
       accessible={true}
-      accessibilityLabel="Product photo thumbnail" 
+      accessibilityLabel="Product photo thumbnail"
     />
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.removeThumbnailButton}
       onPress={onRemove}
       hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
@@ -275,12 +275,12 @@ const ThumbnailPhoto = memo(({ uri, onRemove }: PhotoProps) => (
 const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
   const { theme } = useTheme();
   const { user } = useAuth();
-  
+
   // Get userUniversity from route params with enhanced validation
   const routeParams = route.params || {};
   const routeUniversity = typeof routeParams.userUniversity === 'string' ? routeParams.userUniversity : '';
   const routeCity = typeof routeParams.userCity === 'string' ? routeParams.userCity : '';
-  
+
   console.log('[PostingScreen] Route params:', JSON.stringify(routeParams));
   console.log('[PostingScreen] Route university:', routeUniversity);
   console.log('[PostingScreen] Route city:', routeCity);
@@ -302,20 +302,20 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
     isLoading,
     uploadProgress,
     errors,
-    
+
     // UI state
     typeModalVisible,
     subcategoryModalVisible,
     conditionModalVisible,
-    
+
     // Computed values
-  
+
     displayCondition,
-    
+
     // Context
     setUniversityToUse,
     setCityToUse,
-    
+
     // Actions
     setTitle,
     setSelectedType,
@@ -324,28 +324,28 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
     setPrice,
     setSelectedCondition,
     setIsSell,
-    
+
     // Modal actions
     setTypeModalVisible,
     setSubcategoryModalVisible,
     setConditionModalVisible,
-    
+
     // Image handling
     addImage,
     removeImage,
-    
+
     // Posting functionality
     postItem,
-    
+
     // Reset state
-    resetState
-  } = usePostingStore();  
+    resetState,
+  } = usePostingStore();
   // Set university and city from route params
   useEffect(() => {
     setUniversityToUse(routeUniversity || 'University not provided');
     setCityToUse(routeCity || 'City not provided');
   }, [routeUniversity, routeCity, setUniversityToUse, setCityToUse]);
-  
+
   // Debug log of navigation params when component mounts
   useEffect(() => {
     console.log('[PostingScreen] Component mounted with route params:', JSON.stringify(route.params));
@@ -353,11 +353,11 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
     if (user) {
       console.log('[PostingScreen] User university from user object:', user.university || 'not set');
     }
-    
+
     // Reset the store state when component mounts
     resetState();
   }, [route.params, user, resetState]);
-  
+
   // Real image picker implementation - now uses the store's addImage function
   const handleImageUpload = useCallback(async () => {
     console.log('[PostingScreen] Starting image selection process');
@@ -366,7 +366,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
       Alert.alert('Maximum Images', 'You can upload up to 5 images');
       return;
     }
-    
+
     try {
       console.log('[PostingScreen] Launching image library picker');
       const result = await launchImageLibrary({
@@ -376,27 +376,27 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
         maxWidth: 1200, // Limit image dimensions
         maxHeight: 1200, // Limit image dimensions
       });
-      
+
       console.log('[PostingScreen] Image picker result:', JSON.stringify(result));
-      
+
       if (result.didCancel) {
         console.log('[PostingScreen] Image selection canceled by user');
         return;
       }
-      
+
       if (!result.assets || result.assets.length === 0) {
         console.log('[PostingScreen] No assets returned from picker');
         return;
       }
-      
+
       const selected = result.assets[0];
       console.log('[PostingScreen] Selected image:', JSON.stringify({
         uri: selected.uri,
         type: selected.type,
         name: selected.fileName,
-        fileSize: selected.fileSize
+        fileSize: selected.fileSize,
       }));
-      
+
       if (!selected.uri) {
         console.error('[PostingScreen] Selected image has no URI');
         Alert.alert('Error', 'Failed to get image');
@@ -411,23 +411,23 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
           'Image Too Large',
           'The selected image exceeds the 5MB size limit. Please choose a smaller image or compress this one.',
           [
-            { text: 'OK', style: 'default' }
+            { text: 'OK', style: 'default' },
           ]
         );
         return;
       }
-      
+
       // Add the image to the store
       const newImage = {
         uri: selected.uri,
         type: selected.type || 'image/jpeg',
         name: selected.fileName || `image_${Date.now()}.jpg`,
-        fileSize: selected.fileSize
+        fileSize: selected.fileSize,
       };
-      
+
       console.log('[PostingScreen] Adding new image to store:', JSON.stringify(newImage));
       addImage(newImage);
-      
+
     } catch (error) {
       console.error('[PostingScreen] Error selecting image:', error);
       Alert.alert('Error', 'Failed to select image');
@@ -474,17 +474,17 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
 
   // Render individual type option with icon
   const renderTypeOptionItem = ({ item }: { item: ProductType }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={[
-        styles.optionItem, 
+        styles.optionItem,
         selectedType?.id === item.id && styles.selectedOption,
-        { backgroundColor: selectedType?.id === item.id ? `${item.color}20` : theme.colors.surface }
+        { backgroundColor: selectedType?.id === item.id ? `${item.color}20` : theme.colors.surface },
       ]}
       onPress={() => selectType(item)}
     >
       <View style={[
-        styles.iconContainer, 
-        { 
+        styles.iconContainer,
+        {
           backgroundColor: item.color,
           borderRadius: 27.5,
           padding: 8,
@@ -505,16 +505,16 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
               borderColor: '#e0e0e0',
             },
           }),
-        }
+        },
       ]}>
         {item.iconType === 'material' && <MaterialIcons name={item.icon} size={24} color="black" />}
         {item.iconType === 'fontawesome' && <Icon name={item.icon} size={24} color="black" />}
         {item.iconType === 'entypo' && <Entypoicon name={item.icon} size={24} color="black" />}
       </View>
       <Text style={[
-        styles.optionText, 
+        styles.optionText,
         { color: theme.colors.text },
-        selectedType?.id === item.id && { fontWeight: 'bold' }
+        selectedType?.id === item.id && { fontWeight: 'bold' },
       ]}>
         {item.name}
       </Text>
@@ -542,13 +542,13 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
 
   // Move PostButton component outside renderPhotoGallery
   const PostButton = useCallback(() => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={[
-        styles.button, 
-        { 
+        styles.button,
+        {
           backgroundColor: isLoading ? 'rgba(247, 179, 5, 0.7)' : '#f7b305',
-          opacity: isLoading ? 0.8 : 1
-        }
+          opacity: isLoading ? 0.8 : 1,
+        },
       ]}
       activeOpacity={0.7}
       onPress={handlePostItem}
@@ -558,8 +558,8 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
         <View style={styles.uploadProgressContainer}>
           <ActivityIndicator color="#FFFFFF" size="small" style={styles.uploadingIndicator} />
           <Text style={[styles.uploadingText, { color: '#FFFFFF' }]}>
-            {uploadProgress < 50 ? "Uploading images..." : 
-             uploadProgress < 90 ? "Creating listing..." : "Almost done..."}
+            {uploadProgress < 50 ? 'Uploading images...' :
+             uploadProgress < 90 ? 'Creating listing...' : 'Almost done...'}
           </Text>
         </View>
       ) : (
@@ -582,27 +582,27 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
       ) : (
         <MainPhoto uri={localImageUris[0]} onRemove={() => handleRemoveImage(0)} />
       )}
-      
+
       {/* Additional photos row */}
-      <ScrollView 
-        horizontal 
+      <ScrollView
+        horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.additionalPhotosContainer}
       >
         {localImageUris.slice(1).map((imageUri, index) => (
-          <ThumbnailPhoto 
-            key={`thumb-${index}`} 
-            uri={imageUri} 
-            onRemove={() => handleRemoveImage(index + 1)} 
+          <ThumbnailPhoto
+            key={`thumb-${index}`}
+            uri={imageUri}
+            onRemove={() => handleRemoveImage(index + 1)}
           />
         ))}
-        
+
         {images.length > 0 && images.length < 5 && (
-          <TouchableOpacity 
-            style={[styles.addThumbnailButton, { 
+          <TouchableOpacity
+            style={[styles.addThumbnailButton, {
               borderColor: 'rgba(247, 179, 5, 0.3)',
-              backgroundColor: 'rgba(247, 179, 5, 0.05)'
-            }]} 
+              backgroundColor: 'rgba(247, 179, 5, 0.05)',
+            }]}
             onPress={handleImageUpload}
             activeOpacity={0.7}
           >
@@ -610,20 +610,20 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
           </TouchableOpacity>
         )}
       </ScrollView>
-      
+
       {/* Photo upload tips */}
       {images.length === 0 && <PhotoTips />}
     </View>
   ), [localImageUris, images.length, theme, handleImageUpload, handleRemoveImage]);
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView 
+        <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
@@ -631,8 +631,8 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
           <View style={styles.contentContainer}>
             {/* Header */}
             <View style={styles.header}>
-              <TouchableOpacity 
-                style={styles.backButton} 
+              <TouchableOpacity
+                style={styles.backButton}
                 onPress={() => navigation.goBack()}
                 hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
               >
@@ -641,7 +641,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
               <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Upload Item</Text>
               <View style={styles.headerSpacer} />
             </View>
-            
+
             {/* Photo Upload Section */}
             <View style={styles.sectionWrapper}>
               <View style={styles.sectionHeaderRow}>
@@ -659,39 +659,39 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
                   </Text>
                 </View>
               </View>
-              
+
               {renderPhotoGallery()}
             </View>
-            
+
             {/* Sell/Rent Toggle Section */}
             <View style={styles.sectionWrapper}>
               {renderSectionHeader('Listing Type')}
               <View style={styles.toggleWrapper}>
                 <View style={styles.toggleContainer}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={[
-                      styles.toggleButton, 
-                      { backgroundColor: isSell ? '#f7b305' : 'transparent' }
-                    ]} 
+                      styles.toggleButton,
+                      { backgroundColor: isSell ? '#f7b305' : 'transparent' },
+                    ]}
                     onPress={() => setIsSell(true)}
                   >
                     <Text style={[
-                      styles.toggleText, 
-                      { color: isSell ? '#FFFFFF' : theme.colors.text }
+                      styles.toggleText,
+                      { color: isSell ? '#FFFFFF' : theme.colors.text },
                     ]}>
                       Sell
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={[
-                      styles.toggleButton, 
-                      { backgroundColor: !isSell ? '#f7b305' : 'transparent' }
-                    ]} 
+                      styles.toggleButton,
+                      { backgroundColor: !isSell ? '#f7b305' : 'transparent' },
+                    ]}
                     onPress={() => setIsSell(false)}
                   >
                     <Text style={[
-                      styles.toggleText, 
-                      { color: !isSell ? '#FFFFFF' : theme.colors.text }
+                      styles.toggleText,
+                      { color: !isSell ? '#FFFFFF' : theme.colors.text },
                     ]}>
                       Rent
                     </Text>
@@ -699,11 +699,11 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
                 </View>
               </View>
             </View>
-            
+
             {/* Item Details Section */}
             <View style={styles.sectionWrapper}>
               {renderSectionHeader('Item Details')}
-              
+
               <TextInput
                 label="Title"
                 value={title}
@@ -713,32 +713,32 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
                 error={errors.title}
                 maxLength={100}
               />
-              
+
               {/* Type Dropdown */}
               <View style={styles.inputContainer}>
                 <Text style={[styles.label, { color: theme.colors.text }]}>
                   Type {errors.type && <Text style={styles.errorText}>({errors.type})</Text>}
                 </Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[
-                    styles.dropdown, 
-                    { 
-                      borderColor: errors.type ? '#e74c3c' : theme.colors.border, 
+                    styles.dropdown,
+                    {
+                      borderColor: errors.type ? '#e74c3c' : theme.colors.border,
                       backgroundColor: theme.colors.surface,
-                      borderWidth: 1.5
+                      borderWidth: 1.5,
                     },
-                    selectedType && { borderColor: '#f7b305', borderWidth: 2 }
-                  ]} 
+                    selectedType && { borderColor: '#f7b305', borderWidth: 2 },
+                  ]}
                   onPress={() => setTypeModalVisible(true)}
                 >
                   <Text style={[
-                    styles.dropdownText, 
-                    { 
+                    styles.dropdownText,
+                    {
                       color: selectedType ? theme.colors.text : theme.colors.textSecondary,
-                      fontWeight: selectedType ? '600' : 'normal'
-                    }
+                      fontWeight: selectedType ? '600' : 'normal',
+                    },
                   ]}>
-                    {selectedType?.name || "Select item type"}
+                    {selectedType?.name || 'Select item type'}
                   </Text>
                   <Icon name="chevron-down" size={16} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
@@ -748,28 +748,28 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
                   </Text>
                 )}
               </View>
-              
+
               {/* Subcategory Dropdown - Only shown if selected type has subcategories */}
               {selectedType && selectedType.subcategories && selectedType.subcategories.length > 0 && (
                 <View style={styles.inputContainer}>
                   <Text style={[styles.label, { color: theme.colors.text }]}>Subcategory</Text>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={[
-                      styles.dropdown, 
-                      { 
-                        borderColor: theme.colors.border, 
+                      styles.dropdown,
+                      {
+                        borderColor: theme.colors.border,
                         backgroundColor: theme.colors.surface,
-                        borderWidth: 1.5
-                      }
-                    ]} 
+                        borderWidth: 1.5,
+                      },
+                    ]}
                     onPress={() => setSubcategoryModalVisible(true)}
                   >
                     <Text style={[
-                      styles.dropdownText, 
-                      { 
+                      styles.dropdownText,
+                      {
                         color: selectedSubcategory ? theme.colors.text : theme.colors.textSecondary,
-                        fontWeight: selectedSubcategory ? '500' : 'normal'
-                      }
+                        fontWeight: selectedSubcategory ? '500' : 'normal',
+                      },
                     ]}>
                       {selectedSubcategory || `Select ${selectedType.name.toLowerCase()} subcategory`}
                     </Text>
@@ -782,7 +782,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
                   )}
                 </View>
               )}
-              
+
               <TextInput
                 label="Description"
                 value={description}
@@ -796,11 +796,11 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
                 maxLength={1000}
               />
             </View>
-            
+
             {/* Pricing & Condition Section */}
             <View style={styles.sectionWrapper}>
               {renderSectionHeader('Pricing & Condition')}
-              
+
               <TextInput
                 label={`Price${isSell ? '' : ' (per day)'}`}
                 value={price}
@@ -812,31 +812,31 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
                 error={errors.price}
                 maxLength={12}
               />
-              
+
               {/* Condition Dropdown */}
               <View style={styles.inputContainer}>
                 <Text style={[styles.label, { color: theme.colors.text }]}>
                   Condition {errors.condition && <Text style={styles.errorText}>({errors.condition})</Text>}
                 </Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[
-                    styles.dropdown, 
-                    { 
-                      borderColor: errors.condition ? '#e74c3c' : theme.colors.border, 
+                    styles.dropdown,
+                    {
+                      borderColor: errors.condition ? '#e74c3c' : theme.colors.border,
                       backgroundColor: theme.colors.surface,
-                      borderWidth: 1.5
-                    }
-                  ]} 
+                      borderWidth: 1.5,
+                    },
+                  ]}
                   onPress={() => setConditionModalVisible(true)}
                 >
                   <Text style={[
-                    styles.dropdownText, 
-                    { 
+                    styles.dropdownText,
+                    {
                       color: displayCondition ? theme.colors.text : theme.colors.textSecondary,
-                      fontWeight: displayCondition ? '500' : 'normal'
-                    }
+                      fontWeight: displayCondition ? '500' : 'normal',
+                    },
                   ]}>
-                    {selectedCondition?.name || "Select item condition"}
+                    {selectedCondition?.name || 'Select item condition'}
                   </Text>
                   <Icon name="chevron-down" size={16} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
@@ -847,7 +847,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
                 )}
               </View>
             </View>
-            
+
             {/* Post Button */}
             <PostButton />
           </View>
@@ -865,7 +865,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
           <View style={[styles.modalContent, { backgroundColor: theme.colors.background }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Select Item Type</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.modalCloseButton}
                 onPress={() => setTypeModalVisible(false)}
                 hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
@@ -900,7 +900,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
                 <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
                   Select {selectedType.name} Subcategory
                 </Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.modalCloseButton}
                   onPress={() => setSubcategoryModalVisible(false)}
                   hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
@@ -915,9 +915,9 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
                 windowSize={5}
                 removeClippedSubviews={true}
                 renderItem={({ item }) => (
-                  <TouchableOpacity 
-                    style={[styles.optionItem, { 
-                      backgroundColor: selectedSubcategory === item ? theme.colors.primaryLight : 'transparent'
+                  <TouchableOpacity
+                    style={[styles.optionItem, {
+                      backgroundColor: selectedSubcategory === item ? theme.colors.primaryLight : 'transparent',
                     }]}
                     onPress={() => selectSubcategory(item)}
                   >
@@ -944,7 +944,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
           <View style={[styles.modalContent, { backgroundColor: theme.colors.background }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Select Condition</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.modalCloseButton}
                 onPress={() => setConditionModalVisible(false)}
                 hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
@@ -959,9 +959,9 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
               windowSize={3}
               removeClippedSubviews={true}
               renderItem={({ item }) => (
-                <TouchableOpacity 
-                  style={[styles.optionItem, { 
-                    backgroundColor: selectedCondition?.id === item.id ? theme.colors.primaryLight : 'transparent'
+                <TouchableOpacity
+                  style={[styles.optionItem, {
+                    backgroundColor: selectedCondition?.id === item.id ? theme.colors.primaryLight : 'transparent',
                   }]}
                   onPress={() => selectCondition(item)}
                 >
@@ -1562,4 +1562,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default PostingScreen; 
+export default PostingScreen;

@@ -31,4 +31,4 @@ describe('AsyncStorage Mock', () => {
     expect(value1).toBeNull();
     expect(value2).toBeNull();
   });
-}); 
+});

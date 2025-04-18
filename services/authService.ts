@@ -15,4 +15,4 @@ export const login = async (username: string, password: string) => {
   }
 
   return await response.json(); // Return the response data
-}; 
+};

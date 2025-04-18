@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  StyleSheet,
   Alert,
   SafeAreaView,
   TouchableOpacity,
@@ -30,7 +30,7 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
   const { theme } = useTheme();
   const { refreshSession } = useAuth();
   const { email, tempPassword, name, phoneNumber } = route.params;
-  
+
   // State variables
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(30);
@@ -41,28 +41,28 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [loadingStep, setLoadingStep] = useState(0);
-  
+
   // Single OTP input
   const [otpValue, setOtpValue] = useState('');
-  
+
   // Animated values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const otpInputRef = useRef<RNTextInput>(null);
-  
+
   // Progress animation
   const progressAnim = useRef(new Animated.Value(0)).current;
-  
+
   // Define loading steps
   const otpLoadingSteps = useMemo(() => [
     { id: 'verifying', message: 'Verifying your code...' },
-    { id: 'success', message: 'Code verified successfully!' }
+    { id: 'success', message: 'Code verified successfully!' },
   ], []);
-  
+
   const passwordLoadingSteps = useMemo(() => [
     { id: 'creating', message: 'Creating your password...' },
     { id: 'success', message: 'Password set successfully!' },
-    { id: 'preparing', message: 'Preparing your account...' }
+    { id: 'preparing', message: 'Preparing your account...' },
   ], []);
 
   // Animate entrance
@@ -83,7 +83,7 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
         toValue: verificationStep === 'otp' ? 30 : 75,
         duration: 1000,
         useNativeDriver: false,
-      })
+      }),
     ]).start();
 
     return () => {
@@ -92,7 +92,7 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
       progressAnim.setValue(0);
     };
   }, [fadeAnim, slideAnim, progressAnim, verificationStep]);
-  
+
   useEffect(() => {
     // Listen for keyboard events
     const keyboardDidShowListener = Keyboard.addListener(
@@ -132,7 +132,7 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
         duration: 800,
         useNativeDriver: false,
       }).start();
-      
+
       Animated.sequence([
         Animated.parallel([
           Animated.timing(fadeAnim, {
@@ -144,7 +144,7 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
             toValue: -30,
             duration: 300,
             useNativeDriver: true,
-          })
+          }),
         ]),
         Animated.timing(slideAnim, {
           toValue: 30,
@@ -161,29 +161,29 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
             toValue: 0,
             duration: 600,
             useNativeDriver: true,
-          })
-        ])
+          }),
+        ]),
       ]).start();
     }
   }, [verificationStep, fadeAnim, slideAnim, progressAnim]);
-  
+
   useEffect(() => {
     console.log('Current OTP:', otpValue);
   }, [otpValue]);
-  
+
   const handleVerifyCode = async () => {
     if (otpValue.length !== 6) {
       Alert.alert('Error', 'Please enter a valid 6-digit code');
       return;
     }
-    
+
     setLoading(true);
     setLoadingStep(0);
-    
+
     try {
       // Confirm sign up with the verification code
       await Auth.confirmSignUp(email, otpValue);
-      
+
       // Show success message briefly
       setLoadingStep(1);
       setTimeout(() => {
@@ -191,13 +191,13 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
         // Switch to password creation step
         setVerificationStep('password');
       }, 1000);
-      
+
     } catch (error: any) {
       setLoading(false);
       Alert.alert('Error', error.message || 'Failed to verify code');
     }
   };
-  
+
   const handleOtpChange = (text: string) => {
     // Allow only numbers and max 6 digits
     const numericText = text.replace(/[^0-9]/g, '');
@@ -209,13 +209,13 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
   const getOtpBoxStyle = (index: number) => {
     const filled = index < otpValue.length;
     const lastFilled = index === otpValue.length - 1;
-    
+
     return {
-      borderColor: filled 
-        ? theme.colors.primary 
+      borderColor: filled
+        ? theme.colors.primary
         : theme.colors.border,
-      backgroundColor: filled 
-        ? 'rgba(0,122,255,0.05)' 
+      backgroundColor: filled
+        ? 'rgba(0,122,255,0.05)'
         : theme.colors.background,
       transform: [{ scale: lastFilled ? 1.05 : 1 }],
     };
@@ -227,46 +227,46 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
   });
 
   const renderOtpVerification = () => (
-    <Animated.View 
+    <Animated.View
       style={[
         styles.animatedContainer,
-        { 
+        {
           opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }]
-        }
+          transform: [{ translateY: slideAnim }],
+        },
       ]}
     >
       <Text style={[styles.title, { color: theme.colors.secondary }]}>
         Verification
       </Text>
-      
+
       {!keyboardVisible && (
         <View style={styles.imageContainer}>
-          <Image 
-            source={require('../../../assets/email.png')} 
+          <Image
+            source={require('../../../assets/email.png')}
             style={styles.image}
             resizeMode="contain"
           />
         </View>
       )}
-      
+
       <View style={styles.cardContainer}>
         <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
           Please enter the 6-digit code sent to
         </Text>
         <Text style={styles.emailText}>{email}</Text>
       </View>
-      
+
       {/* New Enhanced OTP Input */}
       <View style={styles.otpMainContainer}>
         {/* OTP Display */}
         <View style={styles.otpDisplayContainer}>
           {Array(6).fill(0).map((_, index) => (
-            <View 
-              key={index} 
+            <View
+              key={index}
               style={[
                 styles.otpDigitDisplay,
-                getOtpBoxStyle(index)
+                getOtpBoxStyle(index),
               ]}
             >
               <Text style={[styles.otpDigitText, { color: theme.colors.secondary }]}>
@@ -275,7 +275,7 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
             </View>
           ))}
         </View>
-        
+
         {/* Hidden Native Text Input */}
         <RNTextInput
           ref={otpInputRef}
@@ -286,9 +286,9 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
           maxLength={6}
           autoFocus={true}
         />
-        
+
         {/* Tap area to focus input */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.tapToFocusArea}
           activeOpacity={0.9}
           onPress={() => otpInputRef.current?.focus()}
@@ -298,7 +298,7 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
           </Text>
         </TouchableOpacity>
       </View>
-      
+
       <TouchableOpacity
         onPress={handleResendCode}
         disabled={!canResend}
@@ -306,19 +306,19 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
       >
         <Text style={[
           styles.resendText,
-          { 
-            color: canResend 
-              ? theme.colors.primary 
-              : theme.colors.textSecondary 
-          }
+          {
+            color: canResend
+              ? theme.colors.primary
+              : theme.colors.textSecondary,
+          },
         ]}>
-          {canResend 
-            ? 'Resend Code' 
+          {canResend
+            ? 'Resend Code'
             : `Resend code in ${countdown}s`
           }
         </Text>
       </TouchableOpacity>
-      
+
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={styles.buttonWrapper}
@@ -328,8 +328,8 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
         >
           <LinearGradient
             colors={
-              loading ? 
-                ['rgba(150,150,150,0.5)', 'rgba(120,120,120,0.8)'] : 
+              loading ?
+                ['rgba(150,150,150,0.5)', 'rgba(120,120,120,0.8)'] :
                 otpValue.length === 6 ?
                   [theme.colors.primary, theme.colors.primaryDark || '#0055b3'] :
                   ['rgba(200,200,200,0.5)', 'rgba(180,180,180,0.8)']
@@ -339,23 +339,23 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
             style={styles.verifyButton}
           >
             <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
-              {loading ? "Verifying..." : "Verify"}
+              {loading ? 'Verifying...' : 'Verify'}
             </Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
-      
+
       {/* Progress indicator moved to bottom */}
       <View style={styles.progressContainer}>
         <View style={styles.progressTrack}>
-          <Animated.View 
+          <Animated.View
             style={[
-              styles.progressBar, 
-              { 
+              styles.progressBar,
+              {
                 width: progressWidth,
                 backgroundColor: loading ? '#FFB347' : theme.colors.primary,
-              }
-            ]} 
+              },
+            ]}
           />
         </View>
       </View>
@@ -368,53 +368,53 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
       setPasswordError('Password must be at least 8 characters');
       return;
     }
-    
+
     if (password !== confirmPassword) {
       setPasswordError('Passwords do not match');
       return;
     }
-    
+
     // Password strength check
     const hasUpperCase = /[A-Z]/.test(password);
     const hasLowerCase = /[a-z]/.test(password);
     const hasNumber = /[0-9]/.test(password);
     const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-    
+
     if (!(hasUpperCase && hasLowerCase && hasNumber && hasSpecialChar)) {
       setPasswordError('Password must contain uppercase, lowercase, number, and special character');
       return;
     }
-    
+
     setLoading(true);
     setLoadingStep(0);
-    
+
     try {
       // If tempPassword exists, sign in with it and change password
       if (tempPassword) {
         // Sign in with temporary password
         await Auth.signIn(email, tempPassword);
-        
+
         // Change password from temp to new password
         const user = await Auth.currentAuthenticatedUser();
         await Auth.changePassword(user, tempPassword, password);
-        
+
         // Show success message
         setLoadingStep(1);
-        
+
         // Refresh the session to update auth state
         await refreshSession();
-        
+
         // Add user to Firebase Firestore
         try {
           await addUserToFirebase(
             email,
-            name, 
+            name,
             phoneNumber,
             {
               // Add any additional user data here
               cognito_sub: user.attributes?.sub,
               cognito_username: user.username,
-              isPasswordSet: true
+              isPasswordSet: true,
             }
           );
           console.log('User added to Firebase successfully');
@@ -422,29 +422,29 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
           console.error('Error adding user to Firebase:', firebaseError);
           // Don't stop the flow if Firebase addition fails
         }
-        
+
         // Animate progress to 100% when password is created successfully
         Animated.timing(progressAnim, {
           toValue: 100,
           duration: 600,
           useNativeDriver: false,
         }).start();
-        
+
         // Show preparing message
         setTimeout(() => {
           setLoadingStep(2);
-          
+
           // Navigate after a brief delay
           setTimeout(() => {
             setLoading(false);
             console.log('User successfully authenticated and password set');
-            
+
             // Navigate to profile filling page
-            navigation.navigate('ProfileFillingPage', { 
-              email, 
+            navigation.navigate('ProfileFillingPage', {
+              email,
               username: name || '',
               isAuthenticated: true,
-              phoneNumber
+              phoneNumber,
             });
           }, 800);
         }, 1000);
@@ -454,17 +454,17 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
         try {
           await addUserToFirebase(
             email,
-            name, 
+            name,
             phoneNumber,
             {
-              isPasswordSet: true
+              isPasswordSet: true,
             }
           );
           console.log('User added to Firebase successfully');
         } catch (firebaseError) {
           console.error('Error adding user to Firebase:', firebaseError);
         }
-        
+
         setLoading(false);
         Alert.alert(
           'Success',
@@ -472,8 +472,8 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
           [
             {
               text: 'OK',
-              onPress: () => navigation.navigate('SignIn')
-            }
+              onPress: () => navigation.navigate('SignIn'),
+            },
           ]
         );
       }
@@ -482,10 +482,10 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
       Alert.alert('Error', error.message || 'Failed to set password');
     }
   };
-  
+
   const handleResendCode = async () => {
-    if (!canResend) return;
-    
+    if (!canResend) {return;}
+
     try {
       await Auth.resendSignUp(email);
       Alert.alert('Success', 'Verification code has been resent');
@@ -498,28 +498,28 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
 
   // Function to check password strength
   const getPasswordStrength = () => {
-    if (!password) return 0;
-    
+    if (!password) {return 0;}
+
     let score = 0;
-    if (password.length >= 8) score += 1;
-    if (/[A-Z]/.test(password)) score += 1;
-    if (/[a-z]/.test(password)) score += 1;
-    if (/[0-9]/.test(password)) score += 1;
-    if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) score += 1;
-    
+    if (password.length >= 8) {score += 1;}
+    if (/[A-Z]/.test(password)) {score += 1;}
+    if (/[a-z]/.test(password)) {score += 1;}
+    if (/[0-9]/.test(password)) {score += 1;}
+    if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) {score += 1;}
+
     return score;
   };
 
   const renderPasswordStrengthBar = () => {
     const strength = getPasswordStrength();
     const strengthText = ['Very Weak', 'Weak', 'Fair', 'Good', 'Strong'];
-    
+
     // Professional color scheme using only red and green tones
     const getSegmentColor = (index: number, currentStrength: number) => {
-      if (currentStrength === 0) return '#E0E0E0'; // Empty state
-      
-      if (index > currentStrength) return '#E0E0E0'; // Unfilled segment
-      
+      if (currentStrength === 0) {return '#E0E0E0';} // Empty state
+
+      if (index > currentStrength) {return '#E0E0E0';} // Unfilled segment
+
       // Color gradient from red to green based on strength
       if (currentStrength <= 2) {
         // Weak to fair (red to light red)
@@ -532,16 +532,16 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
         return '#4CD964';
       }
     };
-    
+
     return (
       <View style={styles.strengthContainer}>
         <View style={styles.strengthBarContainer}>
           {[1, 2, 3, 4, 5].map(index => (
-            <View 
+            <View
               key={index}
               style={[
                 styles.strengthSegment,
-                { backgroundColor: getSegmentColor(index, strength) }
+                { backgroundColor: getSegmentColor(index, strength) },
               ]}
             />
           ))}
@@ -550,13 +550,13 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
           <View style={styles.strengthTextContainer}>
             <Text style={[
               styles.strengthText,
-              { 
-                color: strength <= 2 ? '#FF3B30' : 
+              {
+                color: strength <= 2 ? '#FF3B30' :
                        strength <= 3 ? '#8CC152' : '#4CD964',
-                fontWeight: '600'
-              }
+                fontWeight: '600',
+              },
             ]}>
-              {strengthText[strength-1] || 'Too weak'}
+              {strengthText[strength - 1] || 'Too weak'}
             </Text>
           </View>
         )}
@@ -565,13 +565,13 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
   };
 
   const renderPasswordCreation = () => (
-    <Animated.View 
+    <Animated.View
       style={[
         styles.animatedContainer,
-        { 
+        {
           opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }]
-        }
+          transform: [{ translateY: slideAnim }],
+        },
       ]}
     >
       <Text style={[styles.title, { color: theme.colors.secondary }]}>
@@ -582,20 +582,20 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
       </Text>
       {!keyboardVisible && (
         <View style={styles.imageContainer}>
-          <Image 
-            source={require('../../../assets/password.png')} 
+          <Image
+            source={require('../../../assets/password.png')}
             style={styles.image}
             resizeMode="contain"
           />
         </View>
       )}
-      
+
       <View style={styles.cardContainer}>
         <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
           Your email has been verified. Please create a strong password for your account.
         </Text>
       </View>
-      
+
       <View style={styles.passwordFormContainer}>
         <Text style={[styles.inputLabel, { color: theme.colors.text }]}>New Password</Text>
         <TextInput
@@ -613,9 +613,9 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
           touched={!!passwordError}
           leftIcon={<Entypo name="lock" size={20} color={'#888'} />}
         />
-        
+
         {renderPasswordStrengthBar()}
-        
+
         <Text style={[styles.inputLabel, { color: theme.colors.text }]}>Confirm Password</Text>
         <TextInput
           value={confirmPassword}
@@ -631,7 +631,7 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
           leftIcon={<Entypo name="lock" size={20} color={'#888'} />}
         />
       </View>
-      
+
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={styles.buttonWrapper}
@@ -641,8 +641,8 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
         >
           <LinearGradient
             colors={
-              loading ? 
-                ['rgba(150,150,150,0.5)', 'rgba(120,120,120,0.8)'] : 
+              loading ?
+                ['rgba(150,150,150,0.5)', 'rgba(120,120,120,0.8)'] :
                 (password && confirmPassword) ?
                   [theme.colors.primary, theme.colors.primaryDark || '#0055b3'] :
                   ['rgba(200,200,200,0.5)', 'rgba(180,180,180,0.8)']
@@ -652,23 +652,23 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
             style={styles.verifyButton}
           >
             <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
-              {loading ? "Creating..." : "Create Password"}
+              {loading ? 'Creating...' : 'Create Password'}
             </Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
-      
+
       {/* Progress indicator moved to bottom */}
       <View style={styles.progressContainer}>
         <View style={styles.progressTrack}>
-          <Animated.View 
+          <Animated.View
             style={[
-              styles.progressBar, 
-              { 
+              styles.progressBar,
+              {
                 width: progressWidth,
                 backgroundColor: loading ? '#FFB347' : theme.colors.primary,
-              }
-            ]} 
+              },
+            ]}
           />
         </View>
       </View>
@@ -684,7 +684,7 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
         currentStep={loadingStep}
         showProgressDots={true}
       />
-      
+
       {/* Password creation loading overlay */}
       <LoadingOverlay
         visible={loading && verificationStep === 'password'}
@@ -692,50 +692,50 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
         currentStep={loadingStep}
         showProgressDots={true}
       />
-      
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoidingView}
       >
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
           <View style={styles.header}>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => {
                 if (verificationStep === 'password') {
                   // Animate back to OTP screen
                   Animated.timing(fadeAnim, {
                     toValue: 0,
                     duration: 300,
-                    useNativeDriver: true
+                    useNativeDriver: true,
                   }).start(() => {
                     setVerificationStep('otp');
                     Animated.timing(fadeAnim, {
                       toValue: 1,
                       duration: 300,
-                      useNativeDriver: true
+                      useNativeDriver: true,
                     }).start();
                   });
                 } else {
                   navigation.goBack();
                 }
-              }} 
+              }}
               style={styles.backButton}
               activeOpacity={0.7}
             >
               <Entypo name="chevron-left" size={28} color={theme.colors.secondary} />
             </TouchableOpacity>
           </View>
-          
+
           <View style={styles.contentContainer}>
             {verificationStep === 'otp' ? renderOtpVerification() : renderPasswordCreation()}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-      
+
       {/* Premium corner decorative elements */}
       <View style={[styles.cornerDecoration, styles.topLeftCorner]} />
       <View style={[styles.cornerDecoration, styles.bottomRightCorner]} />
@@ -763,7 +763,7 @@ const styles = StyleSheet.create({
       android: {
         marginTop: 15,
         paddingTop: 15,
-      }
+      },
     }),
   },
   backButton: {
@@ -773,7 +773,7 @@ const styles = StyleSheet.create({
       android: {
         marginTop: 0,
         paddingBottom: 0,
-      }
+      },
     }),
   },
   contentContainer: {
@@ -1018,4 +1018,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default OtpInputScreen; 
+export default OtpInputScreen;

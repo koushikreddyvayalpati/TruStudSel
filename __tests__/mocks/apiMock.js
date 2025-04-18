@@ -1,6 +1,6 @@
 /**
  * API Mock Service
- * 
+ *
  * Provides mock data and response handlers for API testing
  */
 
@@ -103,41 +103,41 @@ const handlers = {
   getProducts: () => mockApiResponse(200, { products: mockProducts }),
   getProductById: (id) => {
     const product = mockProducts.find(p => p.id === parseInt(id));
-    return product 
-      ? mockApiResponse(200, { product }) 
+    return product
+      ? mockApiResponse(200, { product })
       : mockApiResponse(404, { error: 'Product not found' });
   },
-  
+
   // Messages API
   getMessages: () => mockApiResponse(200, { messages: mockMessages }),
   getConversation: (id) => {
     const conversation = mockMessages.filter(m => m.conversationId === id);
-    return conversation.length 
-      ? mockApiResponse(200, { messages: conversation }) 
+    return conversation.length
+      ? mockApiResponse(200, { messages: conversation })
       : mockApiResponse(404, { error: 'Conversation not found' });
   },
-  
+
   // Profile API
   getProfile: () => mockApiResponse(200, { profile: mockProfile }),
-  updateProfile: (data) => mockApiResponse(200, { 
-    profile: { ...mockProfile, ...data } 
+  updateProfile: (data) => mockApiResponse(200, {
+    profile: { ...mockProfile, ...data },
   }),
-  
+
   // Authentication API
   login: (credentials) => {
     if (credentials.email === 'test@example.edu' && credentials.password === 'password123') {
-      return mockApiResponse(200, { 
+      return mockApiResponse(200, {
         token: 'mock-jwt-token',
-        user: mockProfile
+        user: mockProfile,
       });
     }
     return mockApiResponse(401, { error: 'Invalid credentials' });
   },
-  
+
   // Search API
   searchProducts: (query) => {
-    const results = mockProducts.filter(p => 
-      p.name.toLowerCase().includes(query.toLowerCase()) || 
+    const results = mockProducts.filter(p =>
+      p.name.toLowerCase().includes(query.toLowerCase()) ||
       p.description.toLowerCase().includes(query.toLowerCase())
     );
     return mockApiResponse(200, { products: results });
@@ -148,27 +148,27 @@ const handlers = {
 const setupApiMocks = () => {
   global.fetch = jest.fn((url, options = {}) => {
     console.log(`[MOCK API] ${options.method || 'GET'} ${url}`);
-    
+
     // Products endpoints
     if (url.match(/\/api\/products\/?$/)) {
       return handlers.getProducts();
     }
-    
+
     if (url.match(/\/api\/products\/(\d+)/)) {
       const id = url.match(/\/api\/products\/(\d+)/)[1];
       return handlers.getProductById(id);
     }
-    
+
     // Messages endpoints
     if (url.match(/\/api\/messages\/?$/)) {
       return handlers.getMessages();
     }
-    
+
     if (url.match(/\/api\/conversations\/(.+)/)) {
       const id = url.match(/\/api\/conversations\/(.+)/)[1];
       return handlers.getConversation(id);
     }
-    
+
     // Profile endpoints
     if (url.match(/\/api\/profile\/?$/)) {
       if (options.method === 'PUT') {
@@ -177,24 +177,24 @@ const setupApiMocks = () => {
       }
       return handlers.getProfile();
     }
-    
+
     // Auth endpoints
     if (url.match(/\/api\/auth\/login\/?$/)) {
       const credentials = JSON.parse(options.body);
       return handlers.login(credentials);
     }
-    
+
     // Search endpoint
     if (url.match(/\/api\/search\/?/)) {
       const query = new URL(url).searchParams.get('q');
       return handlers.searchProducts(query);
     }
-    
+
     // Fallback for any unhandled routes
     console.warn(`[MOCK API] Unhandled API route: ${url}`);
     return mockApiResponse(404, { error: 'Not found' });
   });
-  
+
   return {
     mockProducts,
     mockMessages,
@@ -202,7 +202,7 @@ const setupApiMocks = () => {
     handlers,
     resetMocks: () => {
       global.fetch.mockClear();
-    }
+    },
   };
 };
 
@@ -213,7 +213,7 @@ describe('API Mock', () => {
   it('should export a function', () => {
     expect(typeof setupApiMocks).toBe('function');
   });
-  
+
   it('should return mock data and handlers', () => {
     const mocks = setupApiMocks();
     expect(mocks.mockProducts).toBeDefined();

@@ -1,6 +1,6 @@
 /**
  * File Upload API Service
- * 
+ *
  * This service handles file upload operations for the application.
  */
 import { API_URL, fetchWithTimeout } from './config';
@@ -23,7 +23,7 @@ export interface ProductImagesUploadResponse {
 
 /**
  * Upload multiple product images (up to 5)
- * 
+ *
  * @param images Array of image objects with uri, type, and name properties
  * @returns Promise with the upload response containing image filenames
  */
@@ -31,21 +31,21 @@ export const uploadProductImages = async (
   images: Array<{ uri: string; type: string; name: string }>
 ): Promise<ProductImagesUploadResponse> => {
   console.log('[API:fileUpload] Starting uploadProductImages with images:', images.length);
-  
+
   if (!images || images.length === 0) {
     console.error('[API:fileUpload] No images provided for upload');
     throw new Error('No images provided');
   }
-  
+
   if (images.length > 5) {
     console.error('[API:fileUpload] Too many images provided:', images.length);
     throw new Error('Maximum 5 images allowed per product');
   }
-  
+
   try {
     // Import Auth from Amplify inside the function to avoid circular dependencies
     const { Auth } = require('aws-amplify');
-    
+
     // Get the current authenticated session to retrieve the JWT token
     let token;
     try {
@@ -56,46 +56,46 @@ export const uploadProductImages = async (
       console.error('[API:fileUpload] Failed to get authentication token:', authError);
       throw new Error('Authentication failed. Please sign in again.');
     }
-    
+
     if (!token) {
       console.error('[API:fileUpload] No authentication token available');
       throw new Error('Authentication token not available. Please sign in again.');
     }
-    
+
     const formData = new FormData();
-    
+
     // Detailed logging for each image
     console.log('[API:fileUpload] Images to upload:');
     images.forEach((image, index) => {
       console.log(`[API:fileUpload] Image ${index + 1}:`, JSON.stringify({
         uri: image.uri,
         type: image.type || 'image/jpeg',
-        name: image.name || `image_${Date.now()}.jpg`
+        name: image.name || `image_${Date.now()}.jpg`,
       }));
-      
+
       // Verify the URI is valid
       if (!image.uri || !image.uri.startsWith('file://')) {
         console.error(`[API:fileUpload] Image ${index + 1} has invalid URI:`, image.uri);
       }
-      
+
       // Check if file exists
       if (image.uri) {
         console.log(`[API:fileUpload] Adding image ${index + 1} to FormData`);
         const imageToUpload = {
           uri: image.uri,
           type: image.type || 'image/jpeg',
-          name: image.name || `image_${Date.now()}.jpg`
+          name: image.name || `image_${Date.now()}.jpg`,
         };
-        
+
         // Append to FormData
         formData.append('images', imageToUpload as any);
       }
     });
-    
+
     // Log the FormData structure
     try {
       const formDataEntries = [...(formData as any)._parts];
-      console.log('[API:fileUpload] FormData structure:', 
+      console.log('[API:fileUpload] FormData structure:',
         formDataEntries.map(part => {
           const fieldName = part[0];
           const value = part[1];
@@ -104,7 +104,7 @@ export const uploadProductImages = async (
               field: fieldName,
               type: value.type,
               name: value.name,
-              uri: value.uri ? (value.uri.substring(0, 50) + '...') : 'undefined'
+              uri: value.uri ? (value.uri.substring(0, 50) + '...') : 'undefined',
             };
           }
           return { field: fieldName, value };
@@ -113,16 +113,16 @@ export const uploadProductImages = async (
     } catch (error) {
       console.error('[API:fileUpload] Error logging FormData:', error);
     }
-    
+
     const endpoint = `${FILE_UPLOAD_API_URL}/product-images`;
     console.log('[API:fileUpload] Sending request to endpoint:', endpoint);
-    
+
     // Log request headers
     console.log('[API:fileUpload] Request headers:', {
       'Content-Type': 'multipart/form-data',
-      'Authorization': `Bearer ${token.substring(0, 15)}...` // Only log part of token for security
+      'Authorization': `Bearer ${token.substring(0, 15)}...`, // Only log part of token for security
     });
-    
+
     const response = await fetchWithTimeout(
       endpoint,
       {
@@ -130,25 +130,25 @@ export const uploadProductImages = async (
         body: formData,
         headers: {
           'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${token}`
-        }
+          'Authorization': `Bearer ${token}`,
+        },
       }
     );
-    
+
     console.log('[API:fileUpload] Response status:', response.status);
     console.log('[API:fileUpload] Response status text:', response.statusText);
-    
+
     // For successful responses
     if (response.ok) {
       try {
         const responseText = await response.text();
-        console.log('[API:fileUpload] Raw response text:', responseText.length > 200 
-          ? responseText.substring(0, 200) + '...' 
+        console.log('[API:fileUpload] Raw response text:', responseText.length > 200
+          ? responseText.substring(0, 200) + '...'
           : responseText);
-        
+
         // Try to parse as JSON
         const result = JSON.parse(responseText) as ProductImagesUploadResponse;
-        
+
         // Log the full S3 URLs for verification
         if (result.fileNames && result.fileNames.length > 0) {
           console.log('[API:fileUpload] Full S3 image URLs:');
@@ -156,7 +156,7 @@ export const uploadProductImages = async (
             console.log(`- ${S3_BASE_URL}${fileName}`);
           });
         }
-        
+
         console.log('[API:fileUpload] Upload successful, response:', JSON.stringify(result));
         return result;
       } catch (parseError) {
@@ -176,13 +176,13 @@ export const uploadProductImages = async (
       console.error('[API:fileUpload] Error message:', error.message);
       console.error('[API:fileUpload] Error stack:', error.stack);
     }
-    throw error instanceof Error 
-      ? error 
+    throw error instanceof Error
+      ? error
       : new Error('Failed to upload product images');
   }
 };
 
 export default {
   uploadProductImages,
-  S3_BASE_URL
-}; 
+  S3_BASE_URL,
+};

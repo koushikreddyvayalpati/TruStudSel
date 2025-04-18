@@ -84,7 +84,7 @@ export const layout = {
     xl: 24,
     full: 9999,
   },
-  
+
   // Border width
   borderWidth: {
     none: 0,
@@ -92,7 +92,7 @@ export const layout = {
     base: 1,
     thick: 2,
   },
-  
+
   // Component sizes
   buttonHeight: {
     xs: 32,
@@ -100,13 +100,13 @@ export const layout = {
     md: 48,
     lg: 56,
   },
-  
+
   inputHeight: {
     sm: 40,
     md: 48,
     lg: 56,
   },
-  
+
   iconSize: {
     xs: 16,
     sm: 20,
@@ -114,7 +114,7 @@ export const layout = {
     lg: 32,
     xl: 40,
   },
-  
+
   // Screen max widths (for responsive design)
   maxWidth: {
     sm: 640,
@@ -122,7 +122,7 @@ export const layout = {
     lg: 1024,
     xl: 1280,
   },
-  
+
   // Elevation (for shadow depth)
   elevation: {
     none: 0,
@@ -148,4 +148,4 @@ export default {
   insets,
   layout,
   breakpoints,
-}; 
+};

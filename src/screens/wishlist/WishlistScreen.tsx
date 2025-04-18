@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
-import { 
-  View, 
+import {
+  View,
   Text,
   StyleSheet,
   TouchableOpacity,
@@ -11,7 +11,7 @@ import {
   Image,
   ActivityIndicator,
   Alert,
-  RefreshControl
+  RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
@@ -52,14 +52,14 @@ type WishlistScreenNavigationProp = StackNavigationProp<MainStackParamList, 'Wis
 
 // Helper function to format the date
 const formatDate = (dateString?: string) => {
-  if (!dateString) return '';
-  
+  if (!dateString) {return '';}
+
   try {
     const date = new Date(dateString);
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 0) {
       return 'Added today';
     } else if (diffDays === 1) {
@@ -83,16 +83,16 @@ const WishlistScreen: React.FC = () => {
   const { user } = useAuth();
   const { theme } = useTheme();
   const { colors } = theme;
-  
+
   // State for wishlist data
   const [wishlistItems, setWishlistItems] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   // Get the first letter of the user's name for the profile circle
   const getInitial = () => {
-    if (!user) return 'U';
-    
+    if (!user) {return 'U';}
+
     if (user.name) {
       return user.name.charAt(0).toUpperCase();
     }
@@ -110,31 +110,31 @@ const WishlistScreen: React.FC = () => {
       setLoading(false);
       return;
     }
-    
+
     try {
       // Import Auth from Amplify inside the function to avoid circular dependencies
       const { Auth } = require('aws-amplify');
-      
+
       // Get the current authenticated session to retrieve the JWT token
       const currentSession = await Auth.currentSession();
       const token = currentSession.getIdToken().getJwtToken();
-      
+
       console.log(`[WishlistScreen] Fetching wishlist for user: ${user.email}`);
       const apiUrl = `${API_BASE_URL}/api/wishlist/${user.email}`;
-      
+
       const response = await fetch(apiUrl, {
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          'Authorization': `Bearer ${token}`,
+        },
       });
-      
+
       if (!response.ok) {
         console.error(`[WishlistScreen] API error: ${response.status}`);
         setWishlistItems([]);
         setLoading(false);
         return;
       }
-      
+
       try {
         const text = await response.text();
         if (!text) {
@@ -143,10 +143,10 @@ const WishlistScreen: React.FC = () => {
           setLoading(false);
           return;
         }
-        
+
         const data = JSON.parse(text);
         console.log(`[WishlistScreen] Fetched ${data.length || 0} wishlist items`);
-        
+
         // Transform data to match Product interface based on actual API response
         const processedItems = Array.isArray(data) ? data.map(item => ({
           id: item.productId, // Use productId as the id
@@ -159,9 +159,9 @@ const WishlistScreen: React.FC = () => {
           type: '',
           sellerName: '',
           email: item.email,
-          addedAt: item.addedAt // Store the addedAt date for potential sorting
+          addedAt: item.addedAt, // Store the addedAt date for potential sorting
         })) : [];
-        
+
         // Sort by newest first if addedAt is available
         processedItems.sort((a, b) => {
           if (a.addedAt && b.addedAt) {
@@ -169,7 +169,7 @@ const WishlistScreen: React.FC = () => {
           }
           return 0;
         });
-        
+
         setWishlistItems(processedItems);
       } catch (parseError) {
         console.error('[WishlistScreen] Error parsing response:', parseError);
@@ -190,31 +190,31 @@ const WishlistScreen: React.FC = () => {
       console.error('[WishlistScreen] No user email found for removing from wishlist');
       return false;
     }
-    
+
     try {
       // Import Auth from Amplify inside the function to avoid circular dependencies
       const { Auth } = require('aws-amplify');
-      
+
       // Get the current authenticated session to retrieve the JWT token
       const currentSession = await Auth.currentSession();
       const token = currentSession.getIdToken().getJwtToken();
-      
+
       console.log(`[WishlistScreen] Removing product ${productId} from wishlist`);
       const apiUrl = `${API_BASE_URL}/api/wishlist/${user.email}/${productId}`;
-      
+
       const response = await fetch(apiUrl, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          'Authorization': `Bearer ${token}`,
+        },
       });
-      
+
       if (response.status >= 200 && response.status < 300) {
         console.log('[WishlistScreen] Successfully removed from wishlist');
-        
+
         // Update the UI by removing the item from state
         setWishlistItems(prev => prev.filter(item => item.id !== productId));
-        
+
         // Update the cache to reflect the removal
         try {
           const cacheKey = `wishlist_${user.email}_${productId}`;
@@ -224,7 +224,7 @@ const WishlistScreen: React.FC = () => {
         } catch (cacheError) {
           console.warn('[WishlistScreen] Error updating cache:', cacheError);
         }
-        
+
         return true;
       } else {
         console.error(`[WishlistScreen] Failed API response: ${response.status}`);
@@ -257,19 +257,19 @@ const WishlistScreen: React.FC = () => {
       [
         {
           text: 'Cancel',
-          style: 'cancel'
+          style: 'cancel',
         },
         {
           text: 'Remove',
-          onPress: () => removeFromWishlist(productId)
-        }
+          onPress: () => removeFromWishlist(productId),
+        },
       ]
     );
   }, [removeFromWishlist]);
 
   const renderProduct = useCallback(({ item }: { item: Product }) => (
-    <TouchableOpacity 
-      key={item.id} 
+    <TouchableOpacity
+      key={item.id}
       style={[styles.productCard, { backgroundColor: colors.card, shadowColor: colors.shadow }]}
       onPress={() => {
         // Use type assertion to satisfy TypeScript
@@ -278,13 +278,13 @@ const WishlistScreen: React.FC = () => {
             id: item.id.toString(),
             name: item.name,
             price: item.price,
-            image: Array.isArray(item.images) && item.images.length > 0 
-              ? item.images[0] 
+            image: Array.isArray(item.images) && item.images.length > 0
+              ? item.images[0]
               : (item.image || 'https://via.placeholder.com/150'),
             description: item.description || '',
             condition: item.condition || '',
             type: item.type || '',
-            images: Array.isArray(item.images) 
+            images: Array.isArray(item.images)
               ? item.images
               : item.image ? [item.image] : [],
             sellerName: item.sellerName || (item.seller?.name || 'Unknown Seller'),
@@ -292,20 +292,20 @@ const WishlistScreen: React.FC = () => {
             seller: {
               id: (item.seller?.id || 'unknown-seller'),
               name: item.sellerName || (item.seller?.name || 'Unknown Seller'),
-              email: item.email || (item.seller?.email || '')
-            }
+              email: item.email || (item.seller?.email || ''),
+            },
           },
-          productId: item.id.toString()
+          productId: item.id.toString(),
         });
       }}
     >
       <View style={styles.imageContainer}>
-        <Image 
-          source={{ 
-            uri: Array.isArray(item.images) && item.images.length > 0 
-              ? item.images[0] 
-              : (item.image || 'https://via.placeholder.com/150')
-          }} 
+        <Image
+          source={{
+            uri: Array.isArray(item.images) && item.images.length > 0
+              ? item.images[0]
+              : (item.image || 'https://via.placeholder.com/150'),
+          }}
           style={styles.productImage}
           resizeMode="cover"
           {...(Platform.OS === 'ios' ? { defaultSource: { uri: 'https://via.placeholder.com/150' } } : {})}
@@ -317,15 +317,15 @@ const WishlistScreen: React.FC = () => {
       <View style={styles.productInfo}>
         <Text style={[styles.productName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
         <Text style={[styles.productPrice, { color: colors.text }]}>${item.price}</Text>
-        
+
         {/* Added date display */}
         {item.addedAt && (
           <Text style={[styles.addedDate, { color: colors.textSecondary }]}>
             {formatDate(item.addedAt)}
           </Text>
         )}
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={styles.removeButton}
           onPress={() => handleRemoveFromWishlist(item.id)}
         >
@@ -341,13 +341,13 @@ const WishlistScreen: React.FC = () => {
       <View style={[styles.container]}>
         {/* Top navigation bar with back button and title */}
         <View style={styles.topBar}>
-          <TouchableOpacity 
-            style={styles.backButton} 
+          <TouchableOpacity
+            style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
             <MaterialIcons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
-          
+
           <View style={styles.titleContainer}>
             <Text style={[styles.screenTitle, { color: colors.text }]}>My Wishlist</Text>
             {!loading && wishlistItems.length > 0 && (
@@ -356,8 +356,8 @@ const WishlistScreen: React.FC = () => {
               </Text>
             )}
           </View>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.profileButton}
             onPress={() => navigation.navigate('Profile', { sellerEmail: user?.email })}
           >
@@ -366,7 +366,7 @@ const WishlistScreen: React.FC = () => {
             </View>
           </TouchableOpacity>
         </View>
-        
+
         {/* Wishlist Items */}
         {loading ? (
           <View style={styles.emptyWishlist}>
@@ -396,7 +396,7 @@ const WishlistScreen: React.FC = () => {
             <Text style={[styles.emptyWishlistText, { color: colors.textSecondary }]}>
               Items you save to your wishlist will appear here
             </Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.browseButton, { backgroundColor: colors.primary }]}
               onPress={() => navigation.navigate('Home')}
             >
@@ -546,4 +546,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default WishlistScreen; 
+export default WishlistScreen;

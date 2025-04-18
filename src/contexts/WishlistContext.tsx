@@ -152,4 +152,4 @@ export const useWishlist = (): WishlistContextType => {
   return context;
 };
 
-export default WishlistContext; 
+export default WishlistContext;

@@ -1,15 +1,15 @@
 /**
  * Auth API Service
- * 
+ *
  * This service handles communication with the backend authentication API endpoints.
  * Note: This complements the Cognito authentication provided by AuthContext.
  */
-import { 
-  AUTH_API_URL, 
-  DEFAULT_OPTIONS, 
-  fetchWithTimeout, 
+import {
+  AUTH_API_URL,
+  DEFAULT_OPTIONS,
+  fetchWithTimeout,
   handleResponse,
-  getAuthenticatedOptions 
+  getAuthenticatedOptions,
 } from './config';
 
 // Auth API response types
@@ -61,7 +61,7 @@ export const login = async (email: string, password: string): Promise<LoginRespo
       body: JSON.stringify({ email, password }),
     }
   );
-  
+
   return handleResponse<LoginResponse>(response);
 };
 
@@ -77,7 +77,7 @@ export const refreshToken = async (refreshToken: string): Promise<RefreshTokenRe
       body: JSON.stringify({ refreshToken }),
     }
   );
-  
+
   return handleResponse<RefreshTokenResponse>(response);
 };
 
@@ -86,7 +86,7 @@ export const refreshToken = async (refreshToken: string): Promise<RefreshTokenRe
  */
 export const getUserProfile = async (token: string, userId: string): Promise<UserProfileResponse> => {
   const options = getAuthenticatedOptions(token);
-  
+
   const response = await fetchWithTimeout(
     `${AUTH_API_URL}/users/${userId}/profile`,
     {
@@ -94,7 +94,7 @@ export const getUserProfile = async (token: string, userId: string): Promise<Use
       method: 'GET',
     }
   );
-  
+
   return handleResponse<UserProfileResponse>(response);
 };
 
@@ -102,12 +102,12 @@ export const getUserProfile = async (token: string, userId: string): Promise<Use
  * Update user profile on backend
  */
 export const updateUserProfile = async (
-  token: string, 
-  userId: string, 
+  token: string,
+  userId: string,
   profileData: Partial<UserProfileResponse>
 ): Promise<UserProfileResponse> => {
   const options = getAuthenticatedOptions(token);
-  
+
   const response = await fetchWithTimeout(
     `${AUTH_API_URL}/users/${userId}/profile`,
     {
@@ -116,7 +116,7 @@ export const updateUserProfile = async (
       body: JSON.stringify(profileData),
     }
   );
-  
+
   return handleResponse<UserProfileResponse>(response);
 };
 
@@ -125,4 +125,4 @@ export default {
   refreshToken,
   getUserProfile,
   updateUserProfile,
-}; 
+};

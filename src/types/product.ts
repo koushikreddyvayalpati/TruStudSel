@@ -69,4 +69,4 @@ export interface ProductCache {
   timestamp: number;
   totalPages?: number;
   totalCount?: number;
-} 
+}

@@ -9,7 +9,7 @@ export const searchUsersByEmail = async (email: string): Promise<UserData | null
     // This is a placeholder since Cognito doesn't directly support user search by attributes like email
     // In a real app, you would implement a serverless function or API to search users
     console.log('Searching for user with email:', email);
-    
+
     // For demo purposes, we're simulating a user search
     // In production, you would implement a Lambda function that uses AdminListUsers with a filter
     return null;
@@ -28,13 +28,13 @@ export const searchUsersByName = async (name: string): Promise<UserData[]> => {
     // This is a placeholder since Cognito doesn't directly support user search by attributes like name
     // In a real app, you would implement a serverless function or API to search users
     console.log('Searching for users with name containing:', name);
-    
+
     // For demo purposes, we're returning a mock list of users
     // In production, you would implement a Lambda function that uses AdminListUsers with a filter
     if (name.length < 3) {
       return [];
     }
-    
+
     // Simple mock data for demonstration
     const mockUsers: UserData[] = [
       {
@@ -43,7 +43,7 @@ export const searchUsersByName = async (name: string): Promise<UserData[]> => {
         name: 'John Smith',
         university: 'Example University',
         isVerified: true,
-        stats: { sold: 5, purchased: 3 }
+        stats: { sold: 5, purchased: 3 },
       },
       {
         username: 'user2',
@@ -51,7 +51,7 @@ export const searchUsersByName = async (name: string): Promise<UserData[]> => {
         name: 'Jane Doe',
         university: 'Another University',
         isVerified: true,
-        stats: { sold: 2, purchased: 7 }
+        stats: { sold: 2, purchased: 7 },
       },
       {
         username: 'user3',
@@ -59,7 +59,7 @@ export const searchUsersByName = async (name: string): Promise<UserData[]> => {
         name: 'Sam Johnson',
         university: 'State University',
         isVerified: true,
-        stats: { sold: 0, purchased: 1 }
+        stats: { sold: 0, purchased: 1 },
       },
       {
         username: 'koushik',
@@ -67,7 +67,7 @@ export const searchUsersByName = async (name: string): Promise<UserData[]> => {
         name: 'Koushik Reddy',
         university: 'Tech University',
         isVerified: true,
-        stats: { sold: 8, purchased: 3 }
+        stats: { sold: 8, purchased: 3 },
       },
       {
         username: 'reddy',
@@ -75,7 +75,7 @@ export const searchUsersByName = async (name: string): Promise<UserData[]> => {
         name: 'Reddy Kumar',
         university: 'City College',
         isVerified: true,
-        stats: { sold: 3, purchased: 5 }
+        stats: { sold: 3, purchased: 5 },
       },
       {
         username: 'mike',
@@ -83,16 +83,16 @@ export const searchUsersByName = async (name: string): Promise<UserData[]> => {
         name: 'Mike Wilson',
         university: 'State University',
         isVerified: true,
-        stats: { sold: 5, purchased: 4 }
-      }
+        stats: { sold: 5, purchased: 4 },
+      },
     ];
-    
-    const filteredUsers = mockUsers.filter(user => 
+
+    const filteredUsers = mockUsers.filter(user =>
       user.name?.toLowerCase().includes(name.toLowerCase())
     );
 
     console.log('Search results:', filteredUsers);
-    
+
     return filteredUsers;
   } catch (error) {
     console.error('Error searching users by name:', error);
@@ -109,7 +109,7 @@ export const getUserByUsername = async (username: string): Promise<UserData | nu
     // This is a placeholder function
     // In a real app, you would use a Lambda function to get user details using AdminGetUser
     console.log('Getting user details for:', username);
-    
+
     // For demo purposes, we're simulating a user lookup
     // In production, you would implement a Lambda function
     return null;
@@ -134,7 +134,7 @@ export const getRecommendedUsers = async (): Promise<UserData[]> => {
         name: 'John Smith',
         university: 'Example University',
         isVerified: true,
-        stats: { sold: 5, purchased: 3 }
+        stats: { sold: 5, purchased: 3 },
       },
       {
         username: 'user2',
@@ -142,7 +142,7 @@ export const getRecommendedUsers = async (): Promise<UserData[]> => {
         name: 'Jane Doe',
         university: 'Another University',
         isVerified: true,
-        stats: { sold: 2, purchased: 7 }
+        stats: { sold: 2, purchased: 7 },
       },
       {
         username: 'user3',
@@ -150,7 +150,7 @@ export const getRecommendedUsers = async (): Promise<UserData[]> => {
         name: 'Sam Johnson',
         university: 'State University',
         isVerified: true,
-        stats: { sold: 0, purchased: 1 }
+        stats: { sold: 0, purchased: 1 },
       },
       {
         username: 'koushik',
@@ -158,7 +158,7 @@ export const getRecommendedUsers = async (): Promise<UserData[]> => {
         name: 'Koushik Reddy',
         university: 'Tech University',
         isVerified: true,
-        stats: { sold: 8, purchased: 3 }
+        stats: { sold: 8, purchased: 3 },
       },
       {
         username: 'reddy',
@@ -166,14 +166,14 @@ export const getRecommendedUsers = async (): Promise<UserData[]> => {
         name: 'Reddy Kumar',
         university: 'City College',
         isVerified: true,
-        stats: { sold: 3, purchased: 5 }
-      }
+        stats: { sold: 3, purchased: 5 },
+      },
     ];
-    
+
     console.log('Returning recommended users:', mockUsers);
     return mockUsers;
   } catch (error) {
     console.error('Error getting recommended users:', error);
     return [];
   }
-}; 
+};
