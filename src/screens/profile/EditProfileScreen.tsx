@@ -13,6 +13,8 @@ import {
   InteractionManager,
   ActivityIndicator,
   LogBox,
+  StatusBar,
+  Linking,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -21,7 +23,7 @@ import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import { useAuth } from '../../contexts/AuthContext';
 import { TextInput } from '../../components/common';
 import { EditProfileScreenNavigationProp, EditProfileScreenRouteProp } from '../../types/navigation.types';
-import { launchImageLibrary } from 'react-native-image-picker';
+import ImagePicker from 'react-native-image-crop-picker';
 import { uploadFile, updateUserProfileData } from '../../api/users';
 
 // Disable yellow box warnings in production
@@ -197,60 +199,154 @@ const EditProfileScreen = () => {
     }
   };
 
-  // Function to handle profile picture upload - now only stores the image locally
+  // Function to handle profile picture upload with cropping
   const handleUploadProfilePicture = async () => {
     if (uploadingImage) {return;}
 
     setUploadingImage(true);
 
     try {
-      const result = await launchImageLibrary({
+      console.log('[EditProfileScreen] Starting image selection with cropping');
+      
+      // Only modify StatusBar on Android
+      if (Platform.OS === 'android') {
+        StatusBar.setTranslucent(false);
+        StatusBar.setBackgroundColor('#000000');
+        StatusBar.setBarStyle('light-content');
+      }
+      
+      // Use react-native-image-crop-picker for selecting and cropping with improved UI
+      const image = await ImagePicker.openPicker({
+        width: 500,
+        height: 500,
+        cropping: true,
+        cropperCircleOverlay: true, // Make crop overlay circular for profile picture
+        compressImageQuality: 0.8,
         mediaType: 'photo',
-        quality: 0.8,
-        maxWidth: 500,
-        maxHeight: 500,
+        cropperToolbarTitle: 'Edit Profile Photo',
+        cropperStatusBarColor: '#000000',
+        cropperToolbarColor: '#000000',
+        cropperToolbarWidgetColor: '#ffffff',
+        cropperActiveWidgetColor: '#1b74e4', // Using blue color from profile screen
+        hideBottomControls: false,
+        showCropGuidelines: true,
+        enableRotationGesture: true,
+        cropperChooseText: 'Use Photo',
+        cropperCancelText: 'Cancel',
+        // For Android, using a more standard bottom toolbar layout
+        freeStyleCropEnabled: false, // Force aspect ratio for profile picture
+        showCropFrame: true,
+        // Android specific configurations for better controls and safe areas
+        ...(Platform.OS === 'android' ? {
+          cropperToolbarWidgetColor: '#ffffff',
+          includeBase64: false,
+          cropperTintColor: '#1b74e4',
+          cropperDisableFreeStyleCrop: true, // Force aspect ratio to be square
+          cropperToolbarIconsColor: '#ffffff',
+          forceJpg: true,
+          showVerticallyScrollingCropArea: true,
+          cropperStatusBarColor: '#000000',
+          cropperToolbarHeight: 88,
+          cropperButtonsHorizontalMargin: 16,
+          cropperActiveControlsWidgetColor: '#1b74e4',
+        } : {}),
+        // iOS specific configurations
+        ...(Platform.OS === 'ios' ? {
+          showsSelectedCount: false,
+          avoidEmptySpaceAroundImage: true,
+          autoScaleFontSize: true,
+          customButtonsIOS: [],
+          waitAnimationEnd: false,
+          smartAlbums: ['UserLibrary', 'PhotoStream', 'Panoramas', 'Videos', 'Bursts'],
+          useFrontCamera: false,
+          includeBase64: false,
+          cropping: true,
+          loadingLabelText: 'Processing...',
+          forceJpg: true,
+          maxFiles: 1,
+        } : {}),
       });
 
-      if (result.didCancel) {
-        console.log('User cancelled image picker');
-        setUploadingImage(false);
+      console.log('[EditProfileScreen] Selected and cropped image:', image);
+
+      if (!image.path) {
+        console.error('[EditProfileScreen] Selected image has no path');
+        Alert.alert('Error', 'Failed to get image');
         return;
       }
 
-      if (result.errorCode) {
-        console.error('ImagePicker Error:', result.errorMessage);
-        Alert.alert('Error', result.errorMessage || 'Failed to pick image');
-        setUploadingImage(false);
+      // Check file size (limit to 5MB)
+      const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
+      if (image.size && image.size > MAX_FILE_SIZE) {
+        console.warn('[EditProfileScreen] Image too large:', image.size);
+        Alert.alert(
+          'Image Too Large',
+          'The selected image exceeds the 5MB size limit. Please choose a smaller image or compress this one.',
+          [
+            { text: 'OK', style: 'default' },
+          ]
+        );
         return;
       }
 
-      if (!result.assets || result.assets.length === 0 || !result.assets[0].uri) {
-        Alert.alert('Error', 'No image selected');
-        setUploadingImage(false);
-        return;
-      }
+      // Store the image information
+      const selectedImage = {
+        uri: image.path,
+        type: image.mime || 'image/jpeg',
+        fileName: `profile_${Date.now()}.jpg`,
+        size: image.size,
+      };
 
-      // Get the selected image and store it temporarily for display
-      const selectedImage = result.assets[0];
-      console.log('Selected image locally:', selectedImage.uri);
+      console.log('[EditProfileScreen] Profile image ready for upload:', selectedImage.uri);
 
-      // Just store the local image URI in state - no upload yet
-      // We'll upload it only when the Save button is clicked
-      setProfilePicture(selectedImage.uri || null);
-
+      // Update the UI with the selected image
+      setProfilePicture(selectedImage.uri);
+      
       // Store the selected image in a ref for later upload
       selectedImageRef.current = selectedImage;
 
-      // Notify user they need to save changes
+      // Notification for better UX
       Alert.alert(
-        'Image Selected',
-        'Your profile image has been selected. Click "Save Changes" to upload and update your profile.',
+        'Profile Photo Selected',
+        'Your new profile photo has been selected. Click "Save Changes" to update your profile.',
         [{ text: 'OK', style: 'default' }]
       );
+
     } catch (error: any) {
-      console.error('Image selection error:', error);
-      Alert.alert('Error', error.message || 'Failed to select profile picture');
+      // Check if user canceled the image picker
+      if (error.toString().includes('cancelled') || error.toString().includes('canceled')) {
+        console.log('[EditProfileScreen] User canceled image picker');
+        return;
+      }
+      
+      console.error('[EditProfileScreen] Error selecting image:', error);
+      
+      if (Platform.OS === 'ios') {
+        // iOS specific error handling
+        if (error.message?.includes('permission') || error.message?.includes('denied') || error.message?.includes('restricted')) {
+          Alert.alert(
+            'Permission Required',
+            'To select photos, please allow access to your photo library in your device settings.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { 
+                text: 'Open Settings', 
+                onPress: () => Linking.openURL('app-settings:') 
+              }
+            ]
+          );
+          return;
+        }
+      }
+      
+      Alert.alert('Error', 'Failed to select image. Please try again.');
     } finally {
+      // Reset StatusBar on Android
+      if (Platform.OS === 'android') {
+        StatusBar.setTranslucent(true);
+        StatusBar.setBackgroundColor('transparent');
+        StatusBar.setBarStyle('dark-content');
+      }
       setUploadingImage(false);
     }
   };

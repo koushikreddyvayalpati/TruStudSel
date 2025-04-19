@@ -20,6 +20,7 @@ import {
   Linking,
   PermissionsAndroid,
   StatusBar,
+  InteractionManager,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -380,28 +381,34 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
       return;
     }
 
+    // --- Android Pre-Picker Setup --- 
+    // On Android, hide modal and add delay *before* picker to prevent UI jump
+    if (Platform.OS === 'android') {
+      hidePhotoPickerModal();
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+    // --- End Android Pre-Picker Setup ---
+
     try {
       console.log('[PostingScreen] Requesting permissions and launching image crop picker');
       
-      // Only modify StatusBar on Android
+      // --- Android StatusBar Handling --- 
       if (Platform.OS === 'android') {
-        StatusBar.setTranslucent(false);
-        StatusBar.setBackgroundColor('#000000');
-        StatusBar.setBarStyle('light-content');
+        StatusBar.setBackgroundColor('#000000', true); 
+        StatusBar.setBarStyle('light-content', true);
       }
+      // --- End Android StatusBar Handling ---
       
-      // On iOS, permissions are requested automatically by openPicker if needed.
-      
-      // Use react-native-image-crop-picker for selecting and cropping with improved UI
+      // Launch the picker
       const image = await ImagePicker.openPicker({
         width: 1200,
         height: 1200,
         cropping: true,
         cropperCircleOverlay: false,
-        compressImageQuality: 0.7, // Reduced quality to improve performance
+        compressImageQuality: 0.7,
         mediaType: 'photo',
         cropperToolbarTitle: 'Edit Photo',
-        cropperStatusBarColor: '#000000',
+        cropperStatusBarColor: '#000000', 
         cropperToolbarColor: '#000000',
         cropperToolbarWidgetColor: '#ffffff',
         cropperActiveWidgetColor: '#f7b305',
@@ -410,42 +417,47 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
         enableRotationGesture: true,
         cropperChooseText: 'Done',
         cropperCancelText: 'Cancel',
-        multiple: false, // Ensure only selecting one image
-        // For Android, using a more standard bottom toolbar layout
+        multiple: false,
         freeStyleCropEnabled: true, 
         showCropFrame: true,
-        // Android specific configurations for better controls and safe areas
         ...(Platform.OS === 'android' ? {
           cropperToolbarWidgetColor: '#ffffff',
           includeBase64: false,
           cropperTintColor: '#f7b305',
-          cropperDisableFreeStyleCrop: false, // Allow free crop ratio
+          cropperDisableFreeStyleCrop: false,
           cropperToolbarIconsColor: '#ffffff',
-          forceJpg: true, // This will convert any GIFs and PNGs to JPG to ensure consistent behavior
-          showVerticallyScrollingCropArea: true, // This helps on taller Android phones
-          cropperStatusBarColor: '#000000', // Status bar color (will be black)
-          cropperToolbarHeight: 88, // Android standard toolbar height with better spacing
-          cropperButtonsHorizontalMargin: 16, // Better horizontal margins for controls
-          cropperActiveControlsWidgetColor: '#f7b305', // Active controls in primary color
+          forceJpg: true,
+          showVerticallyScrollingCropArea: true,
+          cropperToolbarHeight: 88,
+          cropperButtonsHorizontalMargin: 16,
+          cropperActiveControlsWidgetColor: '#f7b305',
         } : {}),
-        // iOS specific (places controls at the bottom with proper safe area)
         ...(Platform.OS === 'ios' ? {
           showsSelectedCount: false,
           avoidEmptySpaceAroundImage: true,
           autoScaleFontSize: true,
           customButtonsIOS: [],
-          waitAnimationEnd: false, // Don't wait for the animation to end (prevents iOS hanging)
+          waitAnimationEnd: false,
           smartAlbums: ['UserLibrary', 'PhotoStream', 'Panoramas', 'Videos', 'Bursts'],
           useFrontCamera: false,
           includeBase64: false,
           cropping: true,
           loadingLabelText: 'Processing...',
           forceJpg: true,
-          maxFiles: 1, // Ensure only one file is selected
-          width: 800, // Slightly reduced dimensions for better iOS performance
-          height: 800, // Slightly reduced dimensions for better iOS performance
+          maxFiles: 1,
+          width: 800,
+          height: 800,
         } : {}),
       });
+      
+      // --- Post-Picker Modal Hide (iOS & Android) ---
+      // Hide the modal *after* picker interaction is complete (or started)
+      // For Android, this is redundant if it succeeded, but safe.
+      // For iOS, this is the primary hide.
+      if (Platform.OS === 'ios') {
+         hidePhotoPickerModal(); 
+      }
+      // --- End Post-Picker Modal Hide ---
 
       console.log('[PostingScreen] Selected and cropped image:', image);
 
@@ -481,13 +493,16 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
       addImage(newImage);
 
     } catch (error: any) {
-      // Check if user canceled the image picker
-      if (error.toString().includes('cancelled') || error.toString().includes('canceled')) {
-        console.log('[PostingScreen] User canceled image picker');
-        return;
-      }
+      console.error('[PostingScreen] Error during image selection/processing:', error, error.stack);
+
+      // Always hide the modal in case of error/cancellation
+      hidePhotoPickerModal(); 
       
-      console.error('[PostingScreen] Error selecting image:', error, error.stack);
+      if (error.toString().includes('cancelled') || error.toString().includes('canceled')) {
+        console.log('[PostingScreen] User canceled image picker/cropper');
+        // No need to reset status bar if cancelled
+        return; 
+      }
       
       if (Platform.OS === 'ios') {
         // iOS specific error handling
@@ -511,15 +526,27 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
       }
       
       Alert.alert('Error', 'Failed to select image. Please try again.');
-    } finally {
-      // Reset StatusBar on Android
+      
+      // Reset Android status bar if an error occurred *after* it was changed
       if (Platform.OS === 'android') {
-        // Reset to default or app's theme
-        StatusBar.setTranslucent(true);
-        StatusBar.setBackgroundColor('transparent');
-        StatusBar.setBarStyle('dark-content');
+        InteractionManager.runAfterInteractions(() => {
+          StatusBar.setBackgroundColor('transparent', true);
+          StatusBar.setBarStyle('dark-content', true);
+        });
       }
-      // Hide the modal regardless of outcome
+
+    } finally {
+      // Reset StatusBar on Android if the process completed successfully
+      // The catch block handles resets on error for Android.
+      if (Platform.OS === 'android') {
+        // We might check if the try block actually completed vs cancelled here, 
+        // but resetting unconditionally within InteractionManager is generally safe.
+        InteractionManager.runAfterInteractions(() => {
+          StatusBar.setBackgroundColor('transparent', true);
+          StatusBar.setBarStyle('dark-content', true);
+        });
+      }
+      // Ensure modal is hidden (redundant for success/error cases handled above, but safe)
       hidePhotoPickerModal();
     }
   }, [images.length, addImage, hidePhotoPickerModal]);
@@ -534,15 +561,14 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
     }
 
     try {
-      // Camera permission check for Android
+      hidePhotoPickerModal();
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // --- Android StatusBar Handling --- 
       if (Platform.OS === 'android') {
-        StatusBar.setTranslucent(false);
-        StatusBar.setBackgroundColor('#000000');
-        StatusBar.setBarStyle('light-content');
-        
+        // Camera permission check
         const permission = PermissionsAndroid.PERMISSIONS.CAMERA;
         const hasPermission = await PermissionsAndroid.check(permission);
-        
         if (!hasPermission) {
           const status = await PermissionsAndroid.request(permission, {
             title: "Camera Permission",
@@ -568,17 +594,20 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
             return;
           }
         }
+        
+        StatusBar.setBackgroundColor('#000000', true);
+        StatusBar.setBarStyle('light-content', true);
       }
+      // --- End Android StatusBar Handling ---
       
       // On iOS, permissions are requested automatically by openCamera if needed.
 
-      // Use react-native-image-crop-picker for both camera and crop with improved UI
       const image = await ImagePicker.openCamera({
         width: 1200,
         height: 1200,
         cropping: true,
         cropperCircleOverlay: false,
-        compressImageQuality: 0.7, // Reduced quality to improve performance
+        compressImageQuality: 0.7,
         mediaType: 'photo',
         cropperToolbarTitle: 'Edit Photo',
         cropperStatusBarColor: '#000000',
@@ -590,39 +619,35 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
         enableRotationGesture: true,
         cropperChooseText: 'Done',
         cropperCancelText: 'Cancel',
-        multiple: false, // Ensure only taking one image
-        // For Android, using a more standard bottom toolbar layout
+        multiple: false,
         freeStyleCropEnabled: true,
         showCropFrame: true,
-        // Android specific configurations for better controls and safe areas
         ...(Platform.OS === 'android' ? {
           cropperToolbarWidgetColor: '#ffffff',
           includeBase64: false,
           cropperTintColor: '#f7b305',
-          cropperDisableFreeStyleCrop: false, // Allow free crop ratio
+          cropperDisableFreeStyleCrop: false,
           cropperToolbarIconsColor: '#ffffff',
-          forceJpg: true, // This will convert any GIFs and PNGs to JPG to ensure consistent behavior
-          showVerticallyScrollingCropArea: true, // This helps on taller Android phones
-          cropperStatusBarColor: '#000000', // Status bar color (will be black)
-          cropperToolbarHeight: 56, // Android standard toolbar height with better spacing
-          cropperButtonsHorizontalMargin: 16, // Better horizontal margins for controls
-          cropperActiveControlsWidgetColor: '#f7b305', // Active controls in primary color
+          forceJpg: true,
+          showVerticallyScrollingCropArea: true,
+          cropperToolbarHeight: 56, 
+          cropperButtonsHorizontalMargin: 16,
+          cropperActiveControlsWidgetColor: '#f7b305',
         } : {}),
-        // iOS specific (places controls at the bottom with proper safe area)
         ...(Platform.OS === 'ios' ? {
           showsSelectedCount: false,
           avoidEmptySpaceAroundImage: true,
           autoScaleFontSize: true,
           customButtonsIOS: [],
-          waitAnimationEnd: false, // Don't wait for the animation to end (prevents iOS hanging)
+          waitAnimationEnd: false,
           useFrontCamera: false,
           includeBase64: false,
           cropping: true,
           loadingLabelText: 'Processing...',
           forceJpg: true,
-          maxFiles: 1, // Ensure only one file is captured
-          width: 800, // Slightly reduced dimensions for better iOS performance
-          height: 800, // Slightly reduced dimensions for better iOS performance
+          maxFiles: 1,
+          width: 800,
+          height: 800,
         } : {}),
       });
 
@@ -677,15 +702,14 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
       
       Alert.alert('Error', 'Failed to capture image. Please try again.');
     } finally {
-      // Reset StatusBar on Android
+      // Reset StatusBar on Android after interactions
       if (Platform.OS === 'android') {
-        // Reset to default or app's theme
-        StatusBar.setTranslucent(true);
-        StatusBar.setBackgroundColor('transparent');
-        StatusBar.setBarStyle('dark-content');
+        InteractionManager.runAfterInteractions(() => {
+          // Reset background and explicitly set barStyle to default
+          StatusBar.setBackgroundColor('transparent', true);
+          StatusBar.setBarStyle('dark-content', true);
+        });
       }
-      // Hide the modal regardless of outcome
-      hidePhotoPickerModal();
     }
   }, [images.length, addImage, hidePhotoPickerModal]);
 
@@ -1927,7 +1951,7 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
       },
       android: {
-        elevation: 3,
+        elevation: 0,
       },
     }),
   },

@@ -18,6 +18,8 @@ import {
   Easing,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  StatusBar,
+  Linking,
 } from 'react-native';
 import { ProfileFillingScreenProps } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
@@ -25,7 +27,7 @@ import { useAuth } from '../../contexts';
 import { Auth } from 'aws-amplify';
 import { CommonActions } from '@react-navigation/native';
 import { createUserProfile, UserProfileData, uploadFile } from '../../api/users';
-import { launchImageLibrary } from 'react-native-image-picker';
+import ImagePicker from 'react-native-image-crop-picker';
 import LinearGradient from 'react-native-linear-gradient';
 import Entypo from 'react-native-vector-icons/Entypo';
 import collegeData from '../../../college_names.json';
@@ -522,73 +524,155 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
     }
   };
 
-  const handleUploadProfilePicture = () => {
+  const handleUploadProfilePicture = async () => {
     if (uploadingImage) {return;}
 
     setUploadingImage(true);
-    console.log('Starting image picker');
+    console.log('[ProfileFillingScreen] Starting image selection with cropping');
 
-    const options = {
-      mediaType: 'photo' as const,
-      maxWidth: 500,
-      maxHeight: 500,
-      quality: 1 as const,
-    };
+    try {
+      // Only modify StatusBar on Android
+      if (Platform.OS === 'android') {
+        StatusBar.setTranslucent(false);
+        StatusBar.setBackgroundColor('#000000');
+        StatusBar.setBarStyle('light-content');
+      }
+      
+      // Use react-native-image-crop-picker for selecting and cropping with improved UI
+      const image = await ImagePicker.openPicker({
+        width: 500,
+        height: 500,
+        cropping: true,
+        cropperCircleOverlay: true, // Make crop overlay circular for profile picture
+        compressImageQuality: 0.8,
+        mediaType: 'photo',
+        cropperToolbarTitle: 'Edit Profile Photo',
+        cropperStatusBarColor: '#000000',
+        cropperToolbarColor: '#000000',
+        cropperToolbarWidgetColor: '#ffffff',
+        cropperActiveWidgetColor: '#f7b305', // Using the app's primary yellow color
+        hideBottomControls: false,
+        showCropGuidelines: true,
+        enableRotationGesture: true,
+        cropperChooseText: 'Use Photo',
+        cropperCancelText: 'Cancel',
+        // For Android, using a more standard bottom toolbar layout
+        freeStyleCropEnabled: false, // Force aspect ratio for profile picture
+        showCropFrame: true,
+        // Android specific configurations for better controls and safe areas
+        ...(Platform.OS === 'android' ? {
+          cropperToolbarWidgetColor: '#ffffff',
+          includeBase64: false,
+          cropperTintColor: '#f7b305',
+          cropperDisableFreeStyleCrop: true, // Force aspect ratio to be square
+          cropperToolbarIconsColor: '#ffffff',
+          forceJpg: true,
+          showVerticallyScrollingCropArea: true,
+          cropperStatusBarColor: '#000000',
+          cropperToolbarHeight: 88,
+          cropperButtonsHorizontalMargin: 16,
+          cropperActiveControlsWidgetColor: '#f7b305',
+        } : {}),
+        // iOS specific configurations
+        ...(Platform.OS === 'ios' ? {
+          showsSelectedCount: false,
+          avoidEmptySpaceAroundImage: true,
+          autoScaleFontSize: true,
+          customButtonsIOS: [],
+          waitAnimationEnd: false,
+          smartAlbums: ['UserLibrary', 'PhotoStream', 'Panoramas', 'Videos', 'Bursts'],
+          useFrontCamera: false,
+          includeBase64: false,
+          cropping: true,
+          loadingLabelText: 'Processing...',
+          forceJpg: true,
+          maxFiles: 1,
+        } : {}),
+      });
 
-    launchImageLibrary(options, (response) => {
-      if (response.didCancel) {
-        setUploadingImage(false);
+      console.log('[ProfileFillingScreen] Selected and cropped image:', image);
+
+      if (!image.path) {
+        console.error('[ProfileFillingScreen] Selected image has no path');
+        Alert.alert('Error', 'Failed to get image');
         return;
       }
 
-      if (response.errorCode) {
-        console.error('ImagePicker Error: ', response.errorMessage);
-        Alert.alert('Error', 'Image picker error: ' + (response.errorMessage || 'unknown error'));
-        setUploadingImage(false);
-        return;
-      }
-
-      if (!response.assets || response.assets.length === 0) {
-        Alert.alert('Error', 'No image was selected');
-        setUploadingImage(false);
-        return;
-      }
-
-      const selectedAsset = response.assets[0];
-      if (!selectedAsset.uri) {
-        Alert.alert('Error', 'Selected image has no URI');
-        setUploadingImage(false);
+      // Check file size (limit to 5MB)
+      const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
+      if (image.size && image.size > MAX_FILE_SIZE) {
+        console.warn('[ProfileFillingScreen] Image too large:', image.size);
+        Alert.alert(
+          'Image Too Large',
+          'The selected image exceeds the 5MB size limit. Please choose a smaller image or compress this one.',
+          [
+            { text: 'OK', style: 'default' },
+          ]
+        );
         return;
       }
 
       // Create form data for upload
       const formData = new FormData();
       formData.append('file', {
-        uri: selectedAsset.uri,
-        type: selectedAsset.type || 'image/jpeg',
-        name: selectedAsset.fileName || 'profile_image.jpg',
-      });
+        uri: image.path,
+        type: image.mime || 'image/jpeg',
+        name: `profile_${Date.now()}.jpg`,
+      } as any);
 
       // Upload the image
-      uploadFile(formData)
-        .then((uploadResponse) => {
-          if (uploadResponse && uploadResponse.fileName) {
-            const imageUrl = `https://trustedproductimages.s3.us-east-2.amazonaws.com/${uploadResponse.fileName}`;
-            setImageFileName(uploadResponse.fileName);
-            setProfileImage(imageUrl);
-            Alert.alert('Success', 'Profile picture uploaded successfully');
-          } else {
-            Alert.alert('Error', 'Failed to upload profile picture');
-          }
-        })
-        .catch((error) => {
-          console.error('Upload error:', error);
-          Alert.alert('Error', error.message || 'Failed to upload profile picture');
-        })
-        .finally(() => {
-          setUploadingImage(false);
-        });
-    });
+      try {
+        const uploadResponse = await uploadFile(formData);
+        if (uploadResponse && uploadResponse.fileName) {
+          const imageUrl = `https://trustedproductimages.s3.us-east-2.amazonaws.com/${uploadResponse.fileName}`;
+          setImageFileName(uploadResponse.fileName);
+          setProfileImage(imageUrl);
+          Alert.alert('Success', 'Profile picture uploaded successfully');
+        } else {
+          Alert.alert('Error', 'Failed to upload profile picture');
+        }
+      } catch (uploadError: any) {
+        console.error('[ProfileFillingScreen] Upload error:', uploadError);
+        Alert.alert('Error', uploadError.message || 'Failed to upload profile picture');
+      }
+
+    } catch (error: any) {
+      // Check if user canceled the image picker
+      if (error.toString().includes('cancelled') || error.toString().includes('canceled')) {
+        console.log('[ProfileFillingScreen] User canceled image picker');
+        return;
+      }
+      
+      console.error('[ProfileFillingScreen] Error selecting image:', error);
+      
+      if (Platform.OS === 'ios') {
+        // iOS specific error handling
+        if (error.message?.includes('permission') || error.message?.includes('denied') || error.message?.includes('restricted')) {
+          Alert.alert(
+            'Permission Required',
+            'To select photos, please allow access to your photo library in your device settings.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { 
+                text: 'Open Settings', 
+                onPress: () => Linking.openURL('app-settings:') 
+              }
+            ]
+          );
+          return;
+        }
+      }
+      
+      Alert.alert('Error', 'Failed to select image. Please try again.');
+    } finally {
+      // Reset StatusBar on Android
+      if (Platform.OS === 'android') {
+        StatusBar.setTranslucent(true);
+        StatusBar.setBackgroundColor('transparent');
+        StatusBar.setBarStyle('dark-content');
+      }
+      setUploadingImage(false);
+    }
   };
 
   const toggleCategorySelection = (categoryId: string) => {
