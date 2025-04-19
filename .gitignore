@@ -101,3 +101,8 @@ src/services/firebaseService.ts
 # Keystore environment variables
 android/keystore-env.sh
 
+# Environment variables
+.env
+.env.*
+!.env.example
+

@@ -6,7 +6,7 @@ import React from 'react';
 import { StatusBar, StatusBarStyle } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Amplify } from 'aws-amplify';
-import awsconfig from '../aws-exports';
+import Config from 'react-native-config';
 
 // Import crypto polyfills before Amplify
 import '@azure/core-asynciterator-polyfill';
@@ -47,9 +47,22 @@ import { useTheme } from './hooks';
 // Import navigation
 import AppNavigator from './navigation/AppNavigator';
 
-// Configure Amplify
-// console.log('Configuring Amplify with:', awsconfig);
-Amplify.configure(awsconfig);
+// Build the Amplify config object from environment variables
+const amplifyConfig = {
+  Auth: {
+    region: Config.AMPLIFY_AUTH_REGION,
+    userPoolId: Config.AMPLIFY_AUTH_USER_POOL_ID,
+    userPoolWebClientId: Config.AMPLIFY_AUTH_USER_POOL_WEB_CLIENT_ID,
+  },
+  // Add other Amplify categories (Storage, etc.) if you use them,
+  // pulling values from Config.
+};
+
+// Log the configuration being used (for debugging)
+console.log('[App.tsx] Configuring Amplify with:', JSON.stringify(amplifyConfig, null, 2));
+
+// Configure Amplify with the dynamically built config
+Amplify.configure(amplifyConfig);
 
 const App: React.FC = () => {
   return (

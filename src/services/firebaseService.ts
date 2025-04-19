@@ -2,15 +2,16 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import Config from 'react-native-config';
 
-// Firebase configuration
+// Firebase configuration - Build dynamically from environment variables
 const firebaseConfig = {
-  apiKey: 'AIzaSyAYRBEbZO-bKlXdjckswIuqbXEgK-JR4m0',
-  authDomain: 'trustudsel.firebaseapp.com',
-  projectId: 'trustudsel',
-  storageBucket: 'trustudsel.appspot.com',
-  messagingSenderId: '772246629586',
-  appId: '1:772246629586:web:8d2a8f9a0f53e5bdf975b5',
+  apiKey: Config.FIREBASE_API_KEY,
+  authDomain: Config.FIREBASE_AUTH_DOMAIN,
+  projectId: Config.FIREBASE_PROJECT_ID,
+  storageBucket: Config.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: Config.FIREBASE_MESSAGING_SENDER_ID,
+  appId: Config.FIREBASE_APP_ID,
 };
 
 // Initialize Firebase
