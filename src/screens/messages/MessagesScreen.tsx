@@ -364,10 +364,9 @@ const MessagesScreen = () => {
 
   return (
     <>
-      <StatusBar 
-        barStyle="dark-content" 
-        backgroundColor="#f7b305" 
-        translucent={Platform.OS === 'android'}
+     <StatusBar
+        barStyle={Platform.OS === 'android' ? 'dark-content' : 'dark-content'}
+        backgroundColor={Platform.OS === 'android' ? '#fff' : '#fff'}
       />
       <KeyboardAvoidingView 
         style={{ flex: 1 }}
@@ -490,7 +489,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     ...Platform.select({
       android: {
-        paddingTop: StatusBar.currentHeight || 0,
+        paddingTop:  0,
       },
     }),
   },
@@ -504,7 +503,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.8,
         shadowRadius: 2,
-        height: 50,
+        height: 56,
       },
       android: {
         height: 56,
@@ -514,7 +513,7 @@ const styles = StyleSheet.create({
         elevation: 4,
       },
     }),
-    zIndex: 10,
+    zIndex: 0,
   },
   normalHeader: {
     flexDirection: 'row',

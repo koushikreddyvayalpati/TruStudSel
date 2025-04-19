@@ -1,7 +1,7 @@
 /**
  * Import statements
  */
-import React, { useCallback, memo, useEffect } from 'react';
+import React, { useCallback, memo, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import {
   SafeAreaView,
   Linking,
   PermissionsAndroid,
+  StatusBar,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -27,8 +28,8 @@ import { PostingScreenProps } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
 import { TextInput } from '../../components/common';
 import { useAuth } from '../../contexts/AuthContext';
-import { launchImageLibrary } from 'react-native-image-picker';
 import LinearGradient from 'react-native-linear-gradient';
+import ImagePicker from 'react-native-image-crop-picker';
 
 // Import the Zustand store
 import usePostingStore, { ProductType, ProductCondition } from '../../store/postingStore';
@@ -147,18 +148,6 @@ const PRODUCT_CONDITIONS: ProductCondition[] = [
   },
 ];
 
-// Type definition for photo placeholder props
-type PhotoPlaceholderProps = {
-  onPress: () => void;
-  theme: {
-    colors: {
-      text: string;
-      textSecondary: string;
-      border: string;
-    };
-  };
-};
-
 // Type definition for image component props
 type PhotoProps = {
   uri: string;
@@ -189,7 +178,17 @@ const PhotoTips = memo(() => (
   </View>
 ));
 
-const MainPhotoPlaceholder = memo(({ onPress, theme }: PhotoPlaceholderProps) => (
+// Updated MainPhotoPlaceholder to single button
+const MainPhotoPlaceholder = memo(({ onPress, theme }: { 
+  onPress: () => void, 
+  theme: {
+    colors: {
+      text: string;
+      textSecondary: string;
+      border: string;
+    };
+  };
+}) => (
   <TouchableOpacity
     style={[styles.mainPhotoButton, {
       borderColor: 'rgba(247, 179, 5, 0.4)',
@@ -277,6 +276,7 @@ const ThumbnailPhoto = memo(({ uri, onRemove }: PhotoProps) => (
 const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
   const { theme } = useTheme();
   const { user } = useAuth();
+  const [photoPickerModalVisible, setPhotoPickerModalVisible] = useState(false);
 
   // Get userUniversity from route params with enhanced validation
   const routeParams = route.params || {};
@@ -342,6 +342,17 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
     // Reset state
     resetState,
   } = usePostingStore();
+
+  // Show photo picker modal
+  const showPhotoPickerModal = useCallback(() => {
+    setPhotoPickerModalVisible(true);
+  }, []);
+
+  // Hide photo picker modal
+  const hidePhotoPickerModal = useCallback(() => {
+    setPhotoPickerModalVisible(false);
+  }, []);
+
   // Set university and city from route params
   useEffect(() => {
     setUniversityToUse(routeUniversity || 'University not provided');
@@ -360,7 +371,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
     resetState();
   }, [route.params, user, resetState]);
 
-  // Real image picker implementation - now uses the store's addImage function
+  // Modified image picker function to include cropping
   const handleImageUpload = useCallback(async () => {
     console.log('[PostingScreen] Starting image selection process');
     if (images.length >= 5) {
@@ -370,146 +381,84 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
     }
 
     try {
-      console.log('[PostingScreen] Requesting permissions and launching image library picker');
+      console.log('[PostingScreen] Requesting permissions and launching image crop picker');
       
-      // On Android, we need to explicitly request permissions before using the image picker
+      // Only modify StatusBar on Android
       if (Platform.OS === 'android') {
-        // For Android 13+ (API level 33+)
-        if (Platform.Version >= 33) {
-          const permission = PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES;
-          const hasPermission = await PermissionsAndroid.check(permission);
-          
-          if (!hasPermission) {
-            const status = await PermissionsAndroid.request(permission, {
-              title: "Photo Gallery Permission",
-              message: "TruStudSel needs access to your photos " +
-                "so you can upload product images.",
-              buttonNeutral: "Ask Me Later",
-              buttonNegative: "Cancel",
-              buttonPositive: "OK"
-            });
-            
-            if (status !== PermissionsAndroid.RESULTS.GRANTED) {
-              console.log('[PostingScreen] Permission denied for accessing photos');
-              Alert.alert(
-                'Permission Required',
-                'To upload photos, please allow access to your photo gallery in app settings.',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  { 
-                    text: 'Open Settings', 
-                    onPress: () => Linking.openSettings()
-                  }
-                ]
-              );
-              return;
-            }
-          }
-        } 
-        // For Android 12 and below
-        else {
-          const permission = PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
-          const hasPermission = await PermissionsAndroid.check(permission);
-          
-          if (!hasPermission) {
-            const status = await PermissionsAndroid.request(permission, {
-              title: "Photo Gallery Permission",
-              message: "TruStudSel needs access to your photos " +
-                "so you can upload product images.",
-              buttonNeutral: "Ask Me Later",
-              buttonNegative: "Cancel",
-              buttonPositive: "OK"
-            });
-            
-            if (status !== PermissionsAndroid.RESULTS.GRANTED) {
-              console.log('[PostingScreen] Permission denied for accessing photos');
-              Alert.alert(
-                'Permission Required',
-                'To upload photos, please allow access to your photo gallery in app settings.',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  { 
-                    text: 'Open Settings', 
-                    onPress: () => Linking.openSettings()
-                  }
-                ]
-              );
-              return;
-            }
-          }
-        }
+        StatusBar.setTranslucent(false);
+        StatusBar.setBackgroundColor('#000000');
+        StatusBar.setBarStyle('light-content');
       }
       
-      // Launch image picker with options
-      const result = await launchImageLibrary({
+      // On iOS, permissions are requested automatically by openPicker if needed.
+      
+      // Use react-native-image-crop-picker for selecting and cropping with improved UI
+      const image = await ImagePicker.openPicker({
+        width: 1200,
+        height: 1200,
+        cropping: true,
+        cropperCircleOverlay: false,
+        compressImageQuality: 0.7, // Reduced quality to improve performance
         mediaType: 'photo',
-        quality: 0.8,
-        selectionLimit: 1,
-        maxWidth: 1200, // Limit image dimensions
-        maxHeight: 1200, // Limit image dimensions
-        includeBase64: false,
+        cropperToolbarTitle: 'Edit Photo',
+        cropperStatusBarColor: '#000000',
+        cropperToolbarColor: '#000000',
+        cropperToolbarWidgetColor: '#ffffff',
+        cropperActiveWidgetColor: '#f7b305',
+        hideBottomControls: false,
+        showCropGuidelines: true,
+        enableRotationGesture: true,
+        cropperChooseText: 'Done',
+        cropperCancelText: 'Cancel',
+        multiple: false, // Ensure only selecting one image
+        // For Android, using a more standard bottom toolbar layout
+        freeStyleCropEnabled: true, 
+        showCropFrame: true,
+        // Android specific configurations for better controls and safe areas
+        ...(Platform.OS === 'android' ? {
+          cropperToolbarWidgetColor: '#ffffff',
+          includeBase64: false,
+          cropperTintColor: '#f7b305',
+          cropperDisableFreeStyleCrop: false, // Allow free crop ratio
+          cropperToolbarIconsColor: '#ffffff',
+          forceJpg: true, // This will convert any GIFs and PNGs to JPG to ensure consistent behavior
+          showVerticallyScrollingCropArea: true, // This helps on taller Android phones
+          cropperStatusBarColor: '#000000', // Status bar color (will be black)
+          cropperToolbarHeight: 88, // Android standard toolbar height with better spacing
+          cropperButtonsHorizontalMargin: 16, // Better horizontal margins for controls
+          cropperActiveControlsWidgetColor: '#f7b305', // Active controls in primary color
+        } : {}),
+        // iOS specific (places controls at the bottom with proper safe area)
+        ...(Platform.OS === 'ios' ? {
+          showsSelectedCount: false,
+          avoidEmptySpaceAroundImage: true,
+          autoScaleFontSize: true,
+          customButtonsIOS: [],
+          waitAnimationEnd: false, // Don't wait for the animation to end (prevents iOS hanging)
+          smartAlbums: ['UserLibrary', 'PhotoStream', 'Panoramas', 'Videos', 'Bursts'],
+          useFrontCamera: false,
+          includeBase64: false,
+          cropping: true,
+          loadingLabelText: 'Processing...',
+          forceJpg: true,
+          maxFiles: 1, // Ensure only one file is selected
+          width: 800, // Slightly reduced dimensions for better iOS performance
+          height: 800, // Slightly reduced dimensions for better iOS performance
+        } : {}),
       });
 
-      console.log('[PostingScreen] Image picker result:', JSON.stringify(result));
+      console.log('[PostingScreen] Selected and cropped image:', image);
 
-      if (result.didCancel) {
-        console.log('[PostingScreen] Image selection canceled by user');
-        return;
-      }
-
-      // Handle permission denied case
-      if (result.errorCode === 'permission') {
-        console.log('[PostingScreen] Permission denied for accessing photos');
-        Alert.alert(
-          'Permission Required',
-          'To upload photos, please allow access to your photo library in your device settings.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Open Settings', 
-              onPress: () => {
-                // Open app settings so user can enable permissions
-                if (Platform.OS === 'ios') {
-                  Linking.openURL('app-settings:');
-                } else {
-                  Linking.openSettings();
-                }
-              } 
-            }
-          ]
-        );
-        return;
-      }
-
-      if (result.errorCode) {
-        console.error('[PostingScreen] Image picker error:', result.errorCode, result.errorMessage);
-        Alert.alert('Error', result.errorMessage || 'Failed to select image');
-        return;
-      }
-
-      if (!result.assets || result.assets.length === 0) {
-        console.log('[PostingScreen] No assets returned from picker');
-        return;
-      }
-
-      const selected = result.assets[0];
-      console.log('[PostingScreen] Selected image:', JSON.stringify({
-        uri: selected.uri,
-        type: selected.type,
-        name: selected.fileName,
-        fileSize: selected.fileSize,
-      }));
-
-      if (!selected.uri) {
-        console.error('[PostingScreen] Selected image has no URI');
+      if (!image.path) {
+        console.error('[PostingScreen] Selected image has no path');
         Alert.alert('Error', 'Failed to get image');
         return;
       }
 
       // Check file size (limit to 5MB)
       const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
-      if (selected.fileSize && selected.fileSize > MAX_FILE_SIZE) {
-        console.warn('[PostingScreen] Image too large:', selected.fileSize);
+      if (image.size && image.size > MAX_FILE_SIZE) {
+        console.warn('[PostingScreen] Image too large:', image.size);
         Alert.alert(
           'Image Too Large',
           'The selected image exceeds the 5MB size limit. Please choose a smaller image or compress this one.',
@@ -522,20 +471,223 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
 
       // Add the image to the store
       const newImage = {
-        uri: selected.uri,
-        type: selected.type || 'image/jpeg',
-        name: selected.fileName || `image_${Date.now()}.jpg`,
-        fileSize: selected.fileSize,
+        uri: image.path,
+        type: image.mime || 'image/jpeg',
+        name: `gallery_${Date.now()}.jpg`,
+        fileSize: image.size,
       };
 
-      console.log('[PostingScreen] Adding new image to store:', JSON.stringify(newImage));
+      console.log('[PostingScreen] Adding new gallery image to store:', JSON.stringify(newImage));
       addImage(newImage);
 
-    } catch (error) {
-      console.error('[PostingScreen] Error selecting image:', error);
-      Alert.alert('Error', 'Failed to select image');
+    } catch (error: any) {
+      // Check if user canceled the image picker
+      if (error.toString().includes('cancelled') || error.toString().includes('canceled')) {
+        console.log('[PostingScreen] User canceled image picker');
+        return;
+      }
+      
+      console.error('[PostingScreen] Error selecting image:', error, error.stack);
+      
+      if (Platform.OS === 'ios') {
+        // iOS specific error handling
+        console.log('[PostingScreen] iOS error details:', error.code, error.message);
+        
+        // If there's a permissions issue
+        if (error.message?.includes('permission') || error.message?.includes('denied') || error.message?.includes('restricted')) {
+          Alert.alert(
+            'Permission Required',
+            'To select photos, please allow access to your photo library in your device settings.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { 
+                text: 'Open Settings', 
+                onPress: () => Linking.openURL('app-settings:') 
+              }
+            ]
+          );
+          return;
+        }
+      }
+      
+      Alert.alert('Error', 'Failed to select image. Please try again.');
+    } finally {
+      // Reset StatusBar on Android
+      if (Platform.OS === 'android') {
+        // Reset to default or app's theme
+        StatusBar.setTranslucent(true);
+        StatusBar.setBackgroundColor('transparent');
+        StatusBar.setBarStyle('dark-content');
+      }
+      // Hide the modal regardless of outcome
+      hidePhotoPickerModal();
     }
-  }, [images.length, addImage]);
+  }, [images.length, addImage, hidePhotoPickerModal]);
+
+  // New function to handle camera image capture
+  const handleCameraCapture = useCallback(async () => {
+    console.log('[PostingScreen] Starting camera capture');
+    if (images.length >= 5) {
+      console.log('[PostingScreen] Maximum images limit reached');
+      Alert.alert('Maximum Images', 'You can upload up to 5 images');
+      return;
+    }
+
+    try {
+      // Camera permission check for Android
+      if (Platform.OS === 'android') {
+        StatusBar.setTranslucent(false);
+        StatusBar.setBackgroundColor('#000000');
+        StatusBar.setBarStyle('light-content');
+        
+        const permission = PermissionsAndroid.PERMISSIONS.CAMERA;
+        const hasPermission = await PermissionsAndroid.check(permission);
+        
+        if (!hasPermission) {
+          const status = await PermissionsAndroid.request(permission, {
+            title: "Camera Permission",
+            message: "TruStudSel needs access to your camera to take photos",
+            buttonNeutral: "Ask Me Later",
+            buttonNegative: "Cancel",
+            buttonPositive: "OK"
+          });
+          
+          if (status !== PermissionsAndroid.RESULTS.GRANTED) {
+            console.log('[PostingScreen] Camera permission denied');
+            Alert.alert(
+              'Permission Required',
+              'To take photos, please allow camera access in app settings.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { 
+                  text: 'Open Settings', 
+                  onPress: () => Linking.openSettings()
+                }
+              ]
+            );
+            return;
+          }
+        }
+      }
+      
+      // On iOS, permissions are requested automatically by openCamera if needed.
+
+      // Use react-native-image-crop-picker for both camera and crop with improved UI
+      const image = await ImagePicker.openCamera({
+        width: 1200,
+        height: 1200,
+        cropping: true,
+        cropperCircleOverlay: false,
+        compressImageQuality: 0.7, // Reduced quality to improve performance
+        mediaType: 'photo',
+        cropperToolbarTitle: 'Edit Photo',
+        cropperStatusBarColor: '#000000',
+        cropperToolbarColor: '#000000',
+        cropperToolbarWidgetColor: '#ffffff',
+        cropperActiveWidgetColor: '#f7b305',
+        hideBottomControls: false,
+        showCropGuidelines: true,
+        enableRotationGesture: true,
+        cropperChooseText: 'Done',
+        cropperCancelText: 'Cancel',
+        multiple: false, // Ensure only taking one image
+        // For Android, using a more standard bottom toolbar layout
+        freeStyleCropEnabled: true,
+        showCropFrame: true,
+        // Android specific configurations for better controls and safe areas
+        ...(Platform.OS === 'android' ? {
+          cropperToolbarWidgetColor: '#ffffff',
+          includeBase64: false,
+          cropperTintColor: '#f7b305',
+          cropperDisableFreeStyleCrop: false, // Allow free crop ratio
+          cropperToolbarIconsColor: '#ffffff',
+          forceJpg: true, // This will convert any GIFs and PNGs to JPG to ensure consistent behavior
+          showVerticallyScrollingCropArea: true, // This helps on taller Android phones
+          cropperStatusBarColor: '#000000', // Status bar color (will be black)
+          cropperToolbarHeight: 56, // Android standard toolbar height with better spacing
+          cropperButtonsHorizontalMargin: 16, // Better horizontal margins for controls
+          cropperActiveControlsWidgetColor: '#f7b305', // Active controls in primary color
+        } : {}),
+        // iOS specific (places controls at the bottom with proper safe area)
+        ...(Platform.OS === 'ios' ? {
+          showsSelectedCount: false,
+          avoidEmptySpaceAroundImage: true,
+          autoScaleFontSize: true,
+          customButtonsIOS: [],
+          waitAnimationEnd: false, // Don't wait for the animation to end (prevents iOS hanging)
+          useFrontCamera: false,
+          includeBase64: false,
+          cropping: true,
+          loadingLabelText: 'Processing...',
+          forceJpg: true,
+          maxFiles: 1, // Ensure only one file is captured
+          width: 800, // Slightly reduced dimensions for better iOS performance
+          height: 800, // Slightly reduced dimensions for better iOS performance
+        } : {}),
+      });
+
+      console.log('[PostingScreen] Camera captured image:', image);
+
+      if (!image.path) {
+        console.error('[PostingScreen] Camera image has no path');
+        Alert.alert('Error', 'Failed to get image from camera');
+        return;
+      }
+
+      // Add the image to the store
+      const newImage = {
+        uri: image.path,
+        type: image.mime || 'image/jpeg',
+        name: `camera_${Date.now()}.jpg`,
+        fileSize: image.size,
+      };
+
+      console.log('[PostingScreen] Adding new camera image to store:', JSON.stringify(newImage));
+      addImage(newImage);
+
+    } catch (error: any) {
+      // Check if user canceled the camera
+      if (error.toString().includes('cancelled') || error.toString().includes('canceled')) {
+        console.log('[PostingScreen] User canceled camera');
+        return;
+      }
+      
+      console.error('[PostingScreen] Error capturing image:', error, error.stack);
+      
+      if (Platform.OS === 'ios') {
+        // iOS specific error handling
+        console.log('[PostingScreen] iOS camera error details:', error.code, error.message);
+        
+        // If there's a permissions issue
+        if (error.message?.includes('permission') || error.message?.includes('denied') || error.message?.includes('restricted')) {
+          Alert.alert(
+            'Camera Permission Required',
+            'To take photos, please allow camera access in your device settings.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { 
+                text: 'Open Settings', 
+                onPress: () => Linking.openURL('app-settings:') 
+              }
+            ]
+          );
+          return;
+        }
+      }
+      
+      Alert.alert('Error', 'Failed to capture image. Please try again.');
+    } finally {
+      // Reset StatusBar on Android
+      if (Platform.OS === 'android') {
+        // Reset to default or app's theme
+        StatusBar.setTranslucent(true);
+        StatusBar.setBackgroundColor('transparent');
+        StatusBar.setBarStyle('dark-content');
+      }
+      // Hide the modal regardless of outcome
+      hidePhotoPickerModal();
+    }
+  }, [images.length, addImage, hidePhotoPickerModal]);
 
   // Handle removing images - uses the store's removeImage function
   const handleRemoveImage = useCallback((index: number) => {
@@ -681,7 +833,10 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
     <View style={styles.photoGalleryContainer}>
       {/* Main photo upload button or first image */}
       {images.length === 0 ? (
-        <MainPhotoPlaceholder onPress={handleImageUpload} theme={theme} />
+        <MainPhotoPlaceholder 
+          onPress={showPhotoPickerModal}
+          theme={theme} 
+        />
       ) : (
         <MainPhoto uri={localImageUris[0]} onRemove={() => handleRemoveImage(0)} />
       )}
@@ -706,7 +861,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
               borderColor: 'rgba(247, 179, 5, 0.3)',
               backgroundColor: 'rgba(247, 179, 5, 0.05)',
             }]}
-            onPress={handleImageUpload}
+            onPress={showPhotoPickerModal}
             activeOpacity={0.7}
           >
             <Icon name="plus" size={20} color="#f7b305" />
@@ -717,7 +872,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
       {/* Photo upload tips */}
       {images.length === 0 && <PhotoTips />}
     </View>
-  ), [localImageUris, images.length, theme, handleImageUpload, handleRemoveImage]);
+  ), [localImageUris, images.length, theme, showPhotoPickerModal, handleRemoveImage]);
 
   return (
     <KeyboardAvoidingView
@@ -1083,6 +1238,57 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Photo Picker Modal */}
+      <Modal
+        visible={photoPickerModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={hidePhotoPickerModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.photoPickerModalContent, { backgroundColor: theme.colors.background }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Add Photo</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={hidePhotoPickerModal}
+                hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+              >
+                <Icon name="times" size={22} color={theme.colors.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.photoPickerOptions}>
+              <TouchableOpacity
+                style={styles.photoPickerOption}
+                onPress={handleCameraCapture}
+              >
+                <View style={[styles.photoPickerIconCircle, { backgroundColor: 'rgba(247, 179, 5, 0.1)' }]}>
+                  <Icon name="camera" size={28} color="#f7b305" />
+                </View>
+                <Text style={[styles.photoPickerText, { color: theme.colors.text }]}>Camera</Text>
+                <Text style={[styles.photoPickerSubtext, { color: theme.colors.textSecondary }]}>
+                  Take and crop a photo
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.photoPickerOption}
+                onPress={handleImageUpload}
+              >
+                <View style={[styles.photoPickerIconCircle, { backgroundColor: 'rgba(247, 179, 5, 0.1)' }]}>
+                  <Icon name="image" size={28} color="#f7b305" />
+                </View>
+                <Text style={[styles.photoPickerText, { color: theme.colors.text }]}>Gallery</Text>
+                <Text style={[styles.photoPickerSubtext, { color: theme.colors.textSecondary }]}>
+                  Select and crop from photos
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
@@ -1100,7 +1306,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 16,
-    paddingTop: Platform.OS === 'ios' ? 5 : 30,
+    paddingTop: Platform.OS === 'ios' ? 5 : 0,
   },
   header: {
     flexDirection: 'row',
@@ -1668,6 +1874,71 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 13,
     fontWeight: '500',
+  },
+  thumbnailButtonsContainer: {
+    flexDirection: 'row',
+  },
+  photoPickerModalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 30,
+    maxHeight: '50%',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  photoPickerOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 20,
+    marginBottom: 30,
+  },
+  photoPickerOption: {
+    alignItems: 'center',
+    width: '45%',
+    paddingVertical: 15,
+    paddingHorizontal: 5,
+    borderRadius: 12,
+    backgroundColor: 'rgba(247, 179, 5, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(247, 179, 5, 0.2)',
+  },
+  photoPickerIconCircle: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#f7b305',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  photoPickerText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  photoPickerSubtext: {
+    fontSize: 12,
+    textAlign: 'center',
   },
 });
 

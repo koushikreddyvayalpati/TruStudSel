@@ -13,6 +13,10 @@
     "android-build-bundle": "cd android && ./gradlew bundleRelease && cd .."
   },
   "dependencies": {
+    "@aws-sdk/client-cognito-identity": "^3.787.0",
+    "@aws-sdk/client-s3": "^3.787.0",
+    "@aws-sdk/credential-provider-cognito-identity": "^3.787.0",
+    "@aws-sdk/s3-request-presigner": "^3.787.0",
     "@azure/core-asynciterator-polyfill": "^1.0.2",
     "@react-native-async-storage/async-storage": "^2.1.2",
     "@react-native-community/masked-view": "^0.1.11",
@@ -33,6 +37,7 @@
     "react-native": "0.78.0",
     "react-native-gesture-handler": "^2.24.0",
     "react-native-get-random-values": "^1.11.0",
+    "react-native-image-crop-picker": "^0.42.0",
     "react-native-image-manipulator": "^1.0.6",
     "react-native-image-picker": "^8.2.0",
     "react-native-linear-gradient": "^2.8.3",

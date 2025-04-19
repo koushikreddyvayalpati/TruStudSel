@@ -1159,7 +1159,7 @@ const FirebaseChatScreen = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar
         barStyle={Platform.OS === 'android' ? 'dark-content' : 'dark-content'}
-        backgroundColor={Platform.OS === 'android' ? '#f7b305' : '#fff'}
+        backgroundColor={Platform.OS === 'android' ? '#fff' : '#fff'}
       />
 
       {/* Enhanced Header */}
@@ -1262,8 +1262,8 @@ const styles = StyleSheet.create({
       },
       android: {
         elevation: 4,
-        paddingTop: 40,
-        paddingBottom: 15,
+        paddingTop: 10,
+        paddingBottom: 10,
         backgroundColor: '#f7b305',
         borderBottomWidth: 0,
       },
