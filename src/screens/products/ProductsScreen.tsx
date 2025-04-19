@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Animated,
-  SafeAreaView,
   Alert,
   FlatList,
   Modal,
@@ -25,9 +24,8 @@ import { ProductInfoScreenRouteProp, ProductInfoScreenNavigationProp } from '../
 import { useAuth } from '../../contexts'; // Add this to get user email
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import useProductDetailsStore from '../../store/productDetailsStore';
-import reviewsApi from '../../api/reviews';
-import SkeletonPlaceholder from 'react-native-skeleton-placeholder';
 import ReviewsSection from '../../components/reviews/ReviewsSection';
+import { SafeAreaView as SafeAreaViewContext } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
 
@@ -341,7 +339,7 @@ const ProductsScreen = () => {
 
   // Initialize product from route params or id
   useEffect(() => {
-    setProductFromRoute(productFromRoute, productId);
+    setProductFromRoute(productFromRoute as any, productId);
   }, [setProductFromRoute, productFromRoute, productId]);
 
   // Check wishlist status when product changes
@@ -532,18 +530,24 @@ const ProductsScreen = () => {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
+      <SafeAreaViewContext style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#f7b305" />
         <Text style={styles.loadingText}>Loading product details...</Text>
-      </SafeAreaView>
+      </SafeAreaViewContext>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar backgroundColor="white" barStyle="dark-content" />
+    <SafeAreaViewContext 
+      style={styles.safeArea}
+      edges={Platform.OS === 'android' ? ['bottom', 'left', 'right'] : ['top', 'bottom', 'left', 'right']}
+    >
+      <StatusBar
+        translucent={true}
+        backgroundColor="transparent"
+        barStyle="dark-content"
+      />
 
-      {/* Header with back button */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -575,15 +579,12 @@ const ProductsScreen = () => {
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
-        {/* Image Gallery */}
         <ImageGallery
           images={productImages}
           onImagePress={handleImagePress}
         />
 
-        {/* Product Info */}
         <View style={styles.productInfoContainer}>
-          {/* Title with Share option */}
           <View style={styles.titleContainer}>
             <Text style={styles.productName}>{product.name}</Text>
             <TouchableOpacity
@@ -594,7 +595,6 @@ const ProductsScreen = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Price and tags in one row - with price on the left and wishlist on the right */}
           <View style={styles.priceAndTagsRow}>
             <Text style={styles.productPrice}>${product.price}</Text>
             <View style={styles.tagsContainer}>
@@ -613,7 +613,6 @@ const ProductsScreen = () => {
               )}
             </View>
 
-            {/* Wishlist heart button */}
             {!isUserSeller && (
               <TouchableOpacity
                 style={[styles.wishlistButton, isInWishlist && styles.wishlistActiveButton]}
@@ -628,16 +627,13 @@ const ProductsScreen = () => {
             )}
           </View>
 
-          {/* Description */}
           {renderDescriptionSection}
 
-          {/* Seller Profile - Only show if the current user is not the seller */}
           {!isUserSeller && (
             <View style={styles.sellerSection}>
               <Text style={styles.sectionTitle}>Seller Information</Text>
 
               <View style={styles.sellerProfileContainer}>
-                {/* Top row with profile and details */}
                 <View style={styles.sellerInfoContainer}>
                   <View style={styles.profileImageWrapper}>
                     <TouchableOpacity
@@ -646,7 +642,6 @@ const ProductsScreen = () => {
                     >
                       <Text style={styles.profileText}>
                         {(() => {
-                          // Get the display name prioritizing sellerName, then seller.name
                           const displayName = product.sellerName || product.seller?.name || '';
                           return displayName ? displayName.charAt(0).toUpperCase() : 'S';
                         })()}
@@ -683,7 +678,6 @@ const ProductsScreen = () => {
                   </TouchableOpacity>
                 </View>
 
-                {/* Contact button with gradient-like effect */}
                 <TouchableOpacity
                   style={styles.contactSellerButton}
                   onPress={() => handleContactSeller('message')}
@@ -695,7 +689,6 @@ const ProductsScreen = () => {
             </View>
           )}
 
-          {/* Seller Reviews Section */}
           <ReviewsSection
             sellerEmail={product.email ?? ''}
             sellerName={product.sellerName ?? ''}
@@ -705,7 +698,6 @@ const ProductsScreen = () => {
             onUpdateTotalReviews={handleUpdateTotalReviews}
           />
 
-          {/* Your own product indicator - show when the current user is the seller */}
           {isUserSeller && (
             <View style={styles.ownProductContainer}>
               <Ionicons name="checkmark-circle" size={22} color="#4CAF50" />
@@ -713,24 +705,20 @@ const ProductsScreen = () => {
             </View>
           )}
 
-          {/* Similar Products */}
           {renderSimilarProductsSection}
 
-          {/* Debug Info - Hidden in Production */}
           {renderDebugSection}
 
-          {/* Bottom padding */}
           <View style={styles.bottomPadding} />
         </View>
       </ScrollView>
 
-      {/* Image Zoom Modal */}
       <ImageZoomModal
         visible={zoomVisible}
         imageUri={selectedImage}
         onClose={closeZoom}
       />
-    </SafeAreaView>
+    </SafeAreaViewContext>
   );
 };
 
@@ -738,7 +726,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: 'white',
-    paddingTop: 0,
   },
   loadingContainer: {
     flex: 1,
@@ -760,6 +747,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#eeeeee',
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 12 : 10,
     ...Platform.select({
       android: {
         elevation: 3,
@@ -852,7 +840,6 @@ const styles = StyleSheet.create({
   },
   productInfoContainer: {
     paddingHorizontal: 20,
-
     backgroundColor: 'white',
   },
   titleContainer: {

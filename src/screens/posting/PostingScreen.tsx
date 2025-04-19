@@ -16,12 +16,12 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
-  SafeAreaView,
   Linking,
   PermissionsAndroid,
   StatusBar,
   InteractionManager,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Entypoicon from 'react-native-vector-icons/Entypo';
@@ -904,7 +904,17 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView 
+        style={styles.safeArea}
+        edges={Platform.OS === 'android' ? ['bottom', 'left', 'right'] : ['top', 'bottom', 'left', 'right']}
+      >
+        {/* Set Status Bar to translucent */}
+        <StatusBar
+          translucent={true}
+          backgroundColor="transparent"
+          barStyle="dark-content"
+        />
+        
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
@@ -912,7 +922,9 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
         >
           <View style={styles.contentContainer}>
             {/* Header */}
-            <View style={styles.header}>
+            <View style={[styles.header, Platform.OS === 'android' && {
+              marginTop: (StatusBar.currentHeight || 0) + 10,
+            }]}>
               <TouchableOpacity
                 style={styles.backButton}
                 onPress={() => navigation.goBack()}
@@ -921,7 +933,6 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
                 <Icon name="chevron-left" size={20} color={theme.colors.text} />
               </TouchableOpacity>
               <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Upload Item</Text>
-              <View style={styles.headerSpacer} />
             </View>
 
             {/* Photo Upload Section */}
@@ -1329,44 +1340,51 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'ios' ? 40 : 24,
   },
   contentContainer: {
+    flex: 1,
     padding: 16,
     paddingTop: Platform.OS === 'ios' ? 5 : 0,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-    paddingBottom: 8,
+    justifyContent: 'flex-start',
+    paddingVertical: 12,
+    marginHorizontal: 0,
+    paddingHorizontal: 0,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.05)',
-  },
-  backButton: {
-    padding: 10,
-    borderRadius: 10,
+    backgroundColor: 'white',
+    borderRadius: 14,
+    marginBottom: 8,
     ...Platform.select({
       ios: {
-        backgroundColor: '',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
+        shadowOpacity: 0.05,
         shadowRadius: 2,
       },
       android: {
-        marginTop: 10,
-        backgroundColor: '',
         elevation: 0,
-        borderWidth: 0,
+        paddingTop: 10,
+      },
+    }),
+  },
+  backButton: {
+    width: 35,
+    height: 35,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 5,
+    ...Platform.select({
+      android: {
+        marginRight: 10,
       },
     }),
   },
   headerTitle: {
-    fontSize: SCREEN_WIDTH > 400 ? 22 : 20,
+    fontSize: 20,
     fontWeight: 'bold',
     letterSpacing: -0.3,
-  },
-  headerSpacer: {
-    width: 35, // Same width as back button to ensure title stays centered
   },
   sectionWrapper: {
     marginBottom: 20,
