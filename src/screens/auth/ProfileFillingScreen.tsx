@@ -20,6 +20,8 @@ import {
   NativeScrollEvent,
   StatusBar,
   Linking,
+  PermissionsAndroid,
+  type Permission,
 } from 'react-native';
 import { ProfileFillingScreenProps } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
@@ -31,6 +33,9 @@ import ImagePicker from 'react-native-image-crop-picker';
 import LinearGradient from 'react-native-linear-gradient';
 import Entypo from 'react-native-vector-icons/Entypo';
 import collegeData from '../../../college_names.json';
+
+// Destructure needed constants if direct access causes issues
+const { PERMISSIONS, RESULTS } = PermissionsAndroid;
 
 // Define a simple TextInput component to replace the missing import
 interface CustomTextInputProps {
@@ -345,7 +350,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
     { id: 'updating', message: 'Updating your profile...' },
     { id: 'success', message: 'Profile saved successfully!' },
     { id: 'preparing', message: 'Preparing your account...' },
-    { id: 'navigating', message: 'Taking you to home screen...' },
+    { id: 'navigating', message: 'Successfully created please login again!' },
   ], []);
 
   // Define gradient colors for progress bar
@@ -494,12 +499,12 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
                   console.log('Reloading app to update navigation...');
                   DevSettings.reload();
                 } else {
-                  // Navigate to Main screen instead of SignIn
-                  console.log('Navigating to Main screen...');
+                  // Navigate to SignIn Screen for security
+                  console.log('Navigating to SignIn screen...');
                   navigation.dispatch(
                     CommonActions.reset({
                       index: 0,
-                      routes: [{ name: 'Main' }],
+                      routes: [{ name: 'SignIn' }],
                     })
                   );
                 }
@@ -531,7 +536,53 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
     console.log('[ProfileFillingScreen] Starting image selection with cropping');
 
     try {
-      // Only modify StatusBar on Android
+      // --- Android Permission Check ---
+      if (Platform.OS === 'android') {
+        const apiLevel = Platform.Version;
+        let permissionToRequest: Permission;
+
+        if (apiLevel >= 33) { // Android 13+ uses READ_MEDIA_IMAGES
+          permissionToRequest = PERMISSIONS.READ_MEDIA_IMAGES;
+          console.log('[ProfileFillingScreen] Requesting READ_MEDIA_IMAGES permission (Android 13+)');
+        } else { // Older Android versions use READ_EXTERNAL_STORAGE
+          permissionToRequest = PERMISSIONS.READ_EXTERNAL_STORAGE;
+          console.log('[ProfileFillingScreen] Requesting READ_EXTERNAL_STORAGE permission (Android < 13)');
+        }
+
+        const hasPermission = await PermissionsAndroid.check(permissionToRequest);
+        if (!hasPermission) {
+          const status = await PermissionsAndroid.request(permissionToRequest, {
+            title: "Photo Library Permission",
+            message: "TruStudSel needs access to your photo library to select pictures.",
+            buttonNeutral: "Ask Me Later",
+            buttonNegative: "Cancel",
+            buttonPositive: "OK"
+          });
+          
+          if (status !== RESULTS.GRANTED) {
+            console.log('[ProfileFillingScreen] Photo library permission denied by user');
+            Alert.alert(
+              'Permission Required',
+              'To select photos, please allow access to your photo library in app settings.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { 
+                  text: 'Open Settings', 
+                  onPress: () => Linking.openSettings()
+                }
+              ]
+            );
+            setUploadingImage(false);
+            return;
+          }
+          console.log('[ProfileFillingScreen] Photo library permission granted by user');
+        } else {
+          console.log('[ProfileFillingScreen] Photo library permission was already granted');
+        }
+      }
+      // --- End Android Permission Check ---
+
+      // Only modify StatusBar on Android *after* potential permission dialogs
       if (Platform.OS === 'android') {
         StatusBar.setTranslucent(false);
         StatusBar.setBackgroundColor('#000000');
@@ -655,7 +706,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
               { text: 'Cancel', style: 'cancel' },
               { 
                 text: 'Open Settings', 
-                onPress: () => Linking.openURL('app-settings:') 
+                onPress: () => Linking.openURL('app-settings:')
               }
             ]
           );
@@ -671,7 +722,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
         StatusBar.setBackgroundColor('transparent');
         StatusBar.setBarStyle('dark-content');
       }
-      setUploadingImage(false);
+      setUploadingImage(false); // Ensure loading state is reset
     }
   };
 

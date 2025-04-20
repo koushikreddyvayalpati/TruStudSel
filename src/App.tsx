@@ -59,7 +59,7 @@ const amplifyConfig = {
 };
 
 // Log the configuration being used (for debugging)
-console.log('[App.tsx] Configuring Amplify with:', JSON.stringify(amplifyConfig, null, 2));
+// console.log('[App.tsx] Configuring Amplify with:', JSON.stringify(amplifyConfig, null, 2));
 
 // Configure Amplify with the dynamically built config
 Amplify.configure(amplifyConfig);
