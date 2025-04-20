@@ -843,18 +843,36 @@ const FirebaseChatScreen = () => {
             </Text>
           </View>
         )}
-        <View
-          style={[
-            styles.messageBubbleContainer,
-            isCurrentUser ? styles.sentMessageContainer : styles.receivedMessageContainer,
-          ]}
-        >
+        <View style={[
+          styles.messageBubbleContainer,
+          isCurrentUser ? styles.sentMessageContainer : styles.receivedMessageContainer,
+        ]}>
+          {/* Recipient Avatar (Clickable) */}
           {!isCurrentUser && (
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {getInitials(otherUserName || displayName)}
-              </Text>
-            </View>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                try {
+                  // Navigate to user profile using the recipient email
+                  if (recipientEmail) {
+                    (navigation as any).navigate('Profile', {
+                      sellerEmail: recipientEmail,
+                    });
+                  } else {
+                    console.warn('[FirebaseChatScreen] Cannot navigate to profile, recipientEmail is missing.');
+                  }
+                } catch (error) {
+                  console.error('[FirebaseChatScreen] Navigation error when clicking avatar:', error);
+                  Alert.alert('Error', 'Could not open profile.');
+                }
+              }}
+            >
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {getInitials(otherUserName || displayName)}
+                </Text>
+              </View>
+            </TouchableOpacity>
           )}
 
           <View
@@ -885,7 +903,7 @@ const FirebaseChatScreen = () => {
         </View>
       </>
     );
-  }, [currentUserEmail, otherUserName, displayName, getInitials, shouldShowDateHeader]);
+  }, [currentUserEmail, otherUserName, displayName, getInitials, shouldShowDateHeader, recipientEmail, navigation]);
 
   // Key extractor for FlatList
   const keyExtractor = useCallback((item: Message) => item.id, []);
