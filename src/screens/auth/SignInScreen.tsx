@@ -205,7 +205,7 @@ const SignInScreen: React.FC = () => {
 
             <View style={[styles.logoContainer, keyboardVisible && styles.logoContainerCompressed]}>
               <Text style={styles.logoText}>TruStudSel</Text>
-              <Text style={styles.tagline}>The Trusted Student Marketplace</Text>
+              <Text style={styles.tagline}>Your Campus Your Market Your Way</Text>
 
               {!keyboardVisible && (
                 <Image

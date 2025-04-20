@@ -33,6 +33,12 @@ import ImagePicker from 'react-native-image-crop-picker';
 import LinearGradient from 'react-native-linear-gradient';
 import Entypo from 'react-native-vector-icons/Entypo';
 import collegeData from '../../../college_names.json';
+import stateCitiesData from '../../../state_cities.json';
+
+// Define type for stateCitiesData
+interface StateCitiesMap {
+  [key: string]: string[];
+}
 
 // Destructure needed constants if direct access causes issues
 const { PERMISSIONS, RESULTS } = PermissionsAndroid;
@@ -205,7 +211,8 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
   const [uploadingImage, setUploadingImage] = useState<boolean>(false);
   const [_imageFileName, setImageFileName] = useState<string | null>(null);
   const [university, setUniversity] = useState<string>('');
-  const [city, setCity] = useState<string>('');
+  const [selectedState, setSelectedState] = useState<string>('');
+  const [selectedCity, setSelectedCity] = useState<string>('');
   const [zipcode, setZipcode] = useState<string>('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -215,6 +222,12 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
   // New state for university dropdown - changed to use modal approach
   const [showUniversityModal, setShowUniversityModal] = useState<boolean>(false);
   const [filteredUniversities, setFilteredUniversities] = useState<string[]>([]);
+  const [showStateModal, setShowStateModal] = useState<boolean>(false);
+  const [filteredStates, setFilteredStates] = useState<string[]>([]);
+  const [stateSearchQuery, setStateSearchQuery] = useState<string>('');
+  const [showCityModal, setShowCityModal] = useState<boolean>(false);
+  const [filteredCities, setFilteredCities] = useState<string[]>([]);
+  const [citySearchQuery, setCitySearchQuery] = useState<string>('');
 
   // Constants for progress tracking and UI
   const minCategoriesRequired = 3;
@@ -225,6 +238,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
     city: false,
     zipcode: false,
     categories: false,
+    state: false,
   });
 
   // Add animation values for the scroll indicator
@@ -304,15 +318,49 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
     }
   }, [university]);
 
+  // Effect to filter states based on search query
+  useEffect(() => {
+    const allStates = Object.keys(stateCitiesData as StateCitiesMap);
+    if (stateSearchQuery.trim().length > 0) {
+      const filtered = allStates.filter(stateName =>
+        stateName.toLowerCase().includes(stateSearchQuery.toLowerCase())
+      );
+      setFilteredStates(filtered);
+    } else {
+      // Show all states initially or a subset if needed
+      setFilteredStates(allStates);
+    }
+  }, [stateSearchQuery]);
+
+  // Effect to filter cities based on selected state and city search query
+  useEffect(() => {
+    const typedStateCitiesData = stateCitiesData as StateCitiesMap;
+    if (selectedState && typedStateCitiesData[selectedState]) {
+      const citiesInState = typedStateCitiesData[selectedState];
+      if (citySearchQuery.trim().length > 0) {
+        const filtered = citiesInState.filter((cityName: string) =>
+          cityName.toLowerCase().includes(citySearchQuery.toLowerCase())
+        );
+        setFilteredCities(filtered);
+      } else {
+        // Show all cities in the selected state initially
+        setFilteredCities(citiesInState);
+      }
+    } else {
+      setFilteredCities([]); // No state selected or state not found
+    }
+  }, [selectedState, citySearchQuery]);
+
   // Update completion flags when fields change
   useEffect(() => {
     setCompletionFlags({
       university: !!university.trim(),
-      city: !!city.trim(),
+      city: !!selectedCity.trim(),
       zipcode: !!zipcode.trim(),
       categories: selectedCategories.length > 0,
+      state: !!selectedState.trim(),
     });
-  }, [university, city, zipcode, selectedCategories]);
+  }, [university, selectedCity, zipcode, selectedCategories, selectedState]);
 
   // Function to calculate completion percentage
   const calculateCompletionPercentage = () => {
@@ -323,7 +371,8 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
 
     // Location fields add 30% total
     if (university) {progress += 10;}
-    if (city) {progress += 10;}
+    if (selectedState) {progress += 5;}
+    if (selectedCity) {progress += 5;}
     if (zipcode) {progress += 10;}
 
     // Categories add up to 50%
@@ -344,6 +393,35 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
     setUniversity(name);
     setShowUniversityModal(false);
   };
+
+  // --- State Selection Handlers ---
+  const handleStateInputChange = (text: string) => {
+    setStateSearchQuery(text);
+    if (!showStateModal) setShowStateModal(true); // Show modal on input change
+  };
+
+  const selectState = (stateName: string) => {
+    setSelectedState(stateName);
+    setStateSearchQuery(stateName); // Update search query to reflect selection
+    setShowStateModal(false);
+    setSelectedCity(''); // Reset city when state changes
+    setCitySearchQuery(''); // Reset city search query
+    setFilteredCities((stateCitiesData as StateCitiesMap)[stateName] || []); // <-- Typed access
+  };
+
+  // --- City Selection Handlers ---
+  const handleCityInputChange = (text: string) => {
+    setCitySearchQuery(text);
+     if (!showCityModal) setShowCityModal(true); // Show modal on input change
+  };
+
+  const selectCity = (cityName: string) => {
+    setSelectedCity(cityName);
+    setCitySearchQuery(cityName); // Update search query to reflect selection
+    setShowCityModal(false);
+  };
+
+  // --- End Selection Handlers ---
 
   // Define loading steps
   const loadingSteps = useMemo(() => [
@@ -418,8 +496,12 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
       Alert.alert('Error', 'Please enter your university');
       return;
     }
-    if (!city.trim()) {
-      Alert.alert('Error', 'Please enter your city');
+    if (!selectedState.trim()) {
+      Alert.alert('Error', 'Please select your state');
+      return;
+    }
+    if (!selectedCity.trim()) {
+      Alert.alert('Error', 'Please select your city');
       return;
     }
     if (!zipcode.trim()) {
@@ -445,10 +527,10 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
         email,
         name: fullName.trim(),
         university: university.trim(),
-        city: city.trim(),
+        city: selectedCity.trim(),
         zipcode: zipcode.trim(),
         productsCategoriesIntrested: selectedCategories,
-        state: '',
+        state: selectedState.trim(),
         userRating: '0', // Can be filled in later
         productsListed: '0',
         productssold: '0',
@@ -1006,9 +1088,9 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
                           style={{maxHeight: 250}}
                           keyboardShouldPersistTaps="handled"
                         >
-                          {filteredUniversities.map((item) => (
+                          {filteredUniversities.map((item, index) => (
                             <TouchableOpacity
-                              key={item}
+                              key={`${item}-${index}`}
                               style={styles.suggestionItem}
                               onPress={() => selectUniversity(item)}
                             >
@@ -1029,23 +1111,146 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
               </View>
             </View>
 
+            {/* State Selection Input */}
             <View style={styles.inputRow}>
               <View style={styles.inputIconContainer}>
-                <View style={[styles.inputIcon, { backgroundColor: city ? theme.colors.primary : 'rgba(0,0,0,0.05)' }]}>
-                  <Entypo name="location" size={20} color={city ? '#fff' : theme.colors.secondary} />
+                <View style={[styles.inputIcon, { backgroundColor: selectedState ? theme.colors.primary : 'rgba(0,0,0,0.05)' }]}>
+                  <Entypo name="map" size={20} color={selectedState ? '#fff' : theme.colors.secondary} />
                 </View>
               </View>
               <View style={styles.inputContent}>
-                <TextInput
-                  label="City"
-                  value={city}
-                  onChangeText={setCity}
-                  placeholder="Enter your city"
-                  containerStyle={styles.inputContainer}
-                />
+                <Text style={[textInputStyles.inputLabel, { color: theme.colors.text }]}>
+                  State
+                </Text>
+                <View style={styles.dropdownContainer}>
+                  <View style={styles.dropdownInputWrapper}>
+                    <RNTextInput
+                      style={[styles.input, { color: theme.colors.text }]}
+                      value={selectedState} // Display selected state
+                      placeholder="Select your state"
+                      placeholderTextColor={theme.colors.placeholder || '#999'}
+                      editable={false} // Make input non-editable
+                      onTouchStart={() => { setStateSearchQuery(''); setShowStateModal(true); }} // Show dropdown on touch
+                    />
+                    <TouchableOpacity
+                      style={styles.dropdownButton}
+                      onPress={() => { setStateSearchQuery(''); setShowStateModal(true); }}
+                    >
+                      <Entypo name="chevron-down" size={18} color={theme.colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
+
+                  {showStateModal && (
+                    <View style={[styles.suggestionsList, { backgroundColor: theme.colors.background }]}>
+                      <View style={styles.searchInputContainer}>
+                        <RNTextInput
+                          style={[styles.searchInput, { color: theme.colors.text }]}
+                          placeholder="Search for state..."
+                          placeholderTextColor={theme.colors.placeholder || '#999'}
+                          onChangeText={handleStateInputChange}
+                          value={stateSearchQuery}
+                          autoFocus={true}
+                        />
+                      </View>
+                      <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 250 }} keyboardShouldPersistTaps="handled">
+                        {filteredStates.length > 0 ? filteredStates.map((item, index) => (
+                          <TouchableOpacity key={`${item}-${index}`} style={styles.suggestionItem} onPress={() => selectState(item)}>
+                            <Text style={[styles.suggestionText, { color: theme.colors.text }]} numberOfLines={1}>
+                              {item}
+                            </Text>
+                          </TouchableOpacity>
+                        )) : (
+                          <Text style={[styles.emptyMessage, { color: theme.colors.textSecondary }]}>No states found.</Text>
+                        )}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
               </View>
             </View>
 
+            {/* City Selection Input */}
+            <View style={styles.inputRow}>
+              <View style={styles.inputIconContainer}>
+                <View style={[styles.inputIcon, { backgroundColor: selectedCity ? theme.colors.primary : 'rgba(0,0,0,0.05)' }]}>
+                  <Entypo name="location" size={20} color={selectedCity ? '#fff' : theme.colors.secondary} />
+                </View>
+              </View>
+              <View style={styles.inputContent}>
+                 <Text style={[textInputStyles.inputLabel, { color: theme.colors.text }]}>
+                    City
+                 </Text>
+                 <View style={styles.dropdownContainer}>
+                    <View style={styles.dropdownInputWrapper}>
+                       <RNTextInput
+                          style={[styles.input, { color: theme.colors.text, opacity: selectedState ? 1 : 0.5 }]} // Dim if no state selected
+                          value={selectedCity}
+                          placeholder={selectedState ? "Select your city" : "Select state first"}
+                          placeholderTextColor={theme.colors.placeholder || '#999'}
+                          editable={false} // Make input non-editable
+                          onTouchStart={() => {
+                            if (selectedState) {
+                              setCitySearchQuery(''); // Reset search on open
+                              setShowCityModal(true);
+                            } else {
+                              Alert.alert("Select State", "Please select a state before choosing a city.");
+                            }
+                          }}
+                       />
+                       <TouchableOpacity
+                          style={styles.dropdownButton}
+                          onPress={() => {
+                            if (selectedState) {
+                              setCitySearchQuery(''); // Reset search on open
+                              setShowCityModal(true);
+                            } else {
+                              Alert.alert("Select State", "Please select a state before choosing a city.");
+                            }
+                          }}
+                          disabled={!selectedState} // Disable button if no state selected
+                       >
+                          <Entypo name="chevron-down" size={18} color={selectedState ? theme.colors.textSecondary : '#ccc'} />
+                       </TouchableOpacity>
+                    </View>
+
+                    {showCityModal && selectedState && (
+                       <View style={[styles.suggestionsList, { 
+                          backgroundColor: theme.colors.background, 
+                          zIndex: 9999,
+                          elevation: 9,
+                          position: 'absolute',
+                          top: '100%',
+                          left: 0,
+                          right: 0
+                       }]}>
+                          <View style={styles.searchInputContainer}>
+                             <RNTextInput
+                                style={[styles.searchInput, { color: theme.colors.text }]}
+                                placeholder={`Search cities in ${selectedState}...`}
+                                placeholderTextColor={theme.colors.placeholder || '#999'}
+                                onChangeText={handleCityInputChange}
+                                value={citySearchQuery}
+                                autoFocus={true}
+                             />
+                          </View>
+                          <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 250 }} keyboardShouldPersistTaps="handled">
+                             {filteredCities.length > 0 ? filteredCities.map((item, index) => (
+                                <TouchableOpacity key={`${item}-${index}`} style={styles.suggestionItem} onPress={() => selectCity(item)}>
+                                   <Text style={[styles.suggestionText, { color: theme.colors.text }]} numberOfLines={1}>
+                                      {item}
+                                   </Text>
+                                </TouchableOpacity>
+                             )) : (
+                                <Text style={[styles.emptyMessage, { color: theme.colors.textSecondary }]}>No cities found for "{citySearchQuery}" in {selectedState}.</Text>
+                             )}
+                          </ScrollView>
+                       </View>
+                    )}
+                 </View>
+              </View>
+            </View>
+
+            {/* Zipcode Input */}
             <View style={styles.inputRow}>
               <View style={styles.inputIconContainer}>
                 <View style={[styles.inputIcon, { backgroundColor: zipcode ? theme.colors.primary : 'rgba(0,0,0,0.05)' }]}>
@@ -1695,6 +1900,58 @@ const styles = StyleSheet.create({
     backgroundColor: '#ddd',
     borderRadius: 2,
     marginBottom: 4,
+  },
+  dropdownContainer: {
+    position: 'relative',
+  },
+  dropdownInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 42,
+    borderWidth: Platform.OS === 'ios' ? 1 : 0.5,
+    borderRadius: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 1,
+      },
+      android: {
+        elevation: 0,
+        backgroundColor: '#fff',
+        borderColor: 'rgba(224, 224, 224, 0.5)',
+      },
+    }),
+  },
+  dropdownButton: {
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  suggestionsList: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    maxHeight: 200,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+    borderRadius: 8,
+    padding: 8,
+    zIndex: 1000,
+    backgroundColor: 'white',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
 });
 

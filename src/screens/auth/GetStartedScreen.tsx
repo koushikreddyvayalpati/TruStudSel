@@ -55,7 +55,7 @@ const Container = Platform.OS === 'ios' ? View : SafeAreaView;
         <Text style={[styles.title, { color: theme.colors.primary }]}>TruStudSel</Text>
         <Text style={[styles.subtitle, { color: theme.colors.text }]}>Welcome's You</Text>
         <Image
-          source={require('../../../assets/intro.jpg')} // Update with your image path
+          source={require('../../../assets/intro2.png')} // Update with your image path
           style={styles.image}
           resizeMode="cover"
         />
@@ -91,9 +91,10 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 20 : 60,
   },
   image: {
-    width: width * 1,
+    width: width * 1.1,
     height: width * 0.85,
     marginTop: 10,
+    marginLeft: 10,
   },
   title: {
     fontSize: 44,
@@ -119,8 +120,13 @@ const styles = StyleSheet.create({
     fontSize: 40,
     fontWeight: '700',
     color: 'black',
-    marginBottom: 20,
+    marginBottom: 10,
     fontFamily: 'Montserrat-bold',
+    ...Platform.select({
+      ios: {
+        marginBottom: 20,
+      },
+    }),
   },
   getStartedButton: {
     padding: 15,
