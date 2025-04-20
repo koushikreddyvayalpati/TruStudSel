@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo} from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,8 @@ import {
   LogBox,
   StatusBar,
   Linking,
+  PermissionsAndroid,
+  type Permission,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -30,6 +32,9 @@ import { uploadFile, updateUserProfileData } from '../../api/users';
 if (!__DEV__) {
   LogBox.ignoreAllLogs();
 }
+
+// Destructure needed constants if direct access causes issues
+const { PERMISSIONS, RESULTS } = PermissionsAndroid;
 
 const EditProfileScreen = () => {
   const navigation = useNavigation<EditProfileScreenNavigationProp>();
@@ -208,7 +213,58 @@ const EditProfileScreen = () => {
     try {
       console.log('[EditProfileScreen] Starting image selection with cropping');
       
-      // Only modify StatusBar on Android
+      // --- Permission Check ---
+      if (Platform.OS === 'android') {
+        const apiLevel = Platform.Version;
+        let permissionToRequest: Permission;
+
+        if (apiLevel >= 33) { // Android 13+ uses READ_MEDIA_IMAGES
+          permissionToRequest = PERMISSIONS.READ_MEDIA_IMAGES;
+          console.log('[EditProfileScreen] Requesting READ_MEDIA_IMAGES permission (Android 13+)');
+        } else { // Older Android versions use READ_EXTERNAL_STORAGE
+          permissionToRequest = PERMISSIONS.READ_EXTERNAL_STORAGE;
+          console.log('[EditProfileScreen] Requesting READ_EXTERNAL_STORAGE permission (Android < 13)');
+        }
+
+        const hasPermission = await PermissionsAndroid.check(permissionToRequest);
+        if (!hasPermission) {
+          const status = await PermissionsAndroid.request(permissionToRequest, {
+            title: "Photo Library Permission",
+            message: "TruStudSel needs access to your photo library to select pictures.",
+            buttonNeutral: "Ask Me Later",
+            buttonNegative: "Cancel",
+            buttonPositive: "OK"
+          });
+
+          if (status !== RESULTS.GRANTED) {
+            console.log('[EditProfileScreen] Photo library permission denied by user');
+            Alert.alert(
+              'Permission Required',
+              'To select photos, please allow access to your photo library in app settings.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Open Settings',
+                  onPress: () => Linking.openSettings()
+                }
+              ]
+            );
+            setUploadingImage(false);
+            return; // Exit if permission denied
+          }
+          console.log('[EditProfileScreen] Photo library permission granted by user');
+        } else {
+          console.log('[EditProfileScreen] Photo library permission was already granted');
+        }
+      } else if (Platform.OS === 'ios') {
+         // On iOS, permission is typically requested by the library itself,
+         // but we can add a check here if needed in the future, or rely on the catch block.
+         // For now, we rely on the catch block for iOS permission errors.
+         console.log('[EditProfileScreen] Proceeding with image picker on iOS (permissions checked by library/handled in catch)');
+      }
+      // --- End Permission Check ---
+
+      // Only modify StatusBar on Android *after* potential permission dialogs
       if (Platform.OS === 'android') {
         StatusBar.setTranslucent(false);
         StatusBar.setBackgroundColor('#000000');
@@ -316,11 +372,13 @@ const EditProfileScreen = () => {
       // Check if user canceled the image picker
       if (error.toString().includes('cancelled') || error.toString().includes('canceled')) {
         console.log('[EditProfileScreen] User canceled image picker');
+        // No need to reset status bar if cancelled
         return;
       }
       
       console.error('[EditProfileScreen] Error selecting image:', error);
       
+      // --- iOS Permission Error Handling (from catch block) ---
       if (Platform.OS === 'ios') {
         // iOS specific error handling
         if (error.message?.includes('permission') || error.message?.includes('denied') || error.message?.includes('restricted')) {

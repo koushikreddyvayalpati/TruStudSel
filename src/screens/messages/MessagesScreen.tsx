@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     ...Platform.select({
       android: {
-        paddingTop:  0,
+        paddingTop:  Platform.OS === 'android' ? StatusBar.currentHeight : 0,
       },
     }),
   },
