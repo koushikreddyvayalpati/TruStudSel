@@ -16,6 +16,7 @@ interface ExtendedProduct {
   condition?: string;
   type?: string;
   images?: string[];
+  postingdate?: string;
   seller?: {
     name: string;
     rating?: number;
@@ -39,6 +40,7 @@ interface BaseProduct {
   condition?: string;
   type?: string;
   images?: string[];
+  postingdate?: string;
   sellerName?: string;
   email?: string;
   sellingtype?: string;
@@ -58,6 +60,7 @@ const sampleProduct: ExtendedProduct = {
     'https://via.placeholder.com/300/FF0000',
     'https://via.placeholder.com/300/00FF00',
   ],
+  postingdate: new Date().toISOString(),
   seller: {
     id: 'seller1',
     name: 'Koushik Reddy',
@@ -265,6 +268,7 @@ const useProductDetailsStore = create<ProductDetailsState>((set, get) => ({
         email: item.email || '',
         images: item.images || item.imageUrls || [],
         sellingtype: item.sellingtype || '',
+        postingdate: item.postingdate || '',
       }));
 
       // Update state with similar products

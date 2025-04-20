@@ -391,7 +391,7 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
             </View>
             <ScrollView style={styles.modalScrollView}>
               <Text style={styles.privacyTitle}>Privacy Policy</Text>
-              <Text style={styles.privacyDate}>Last updated: April 16, 2025</Text>
+              <Text style={styles.privacyDate}>Last updated: April 20, 2025</Text>
 
               <Text style={styles.privacyText}>
                 This Privacy Policy describes Our policies and procedures on the collection,
@@ -436,7 +436,7 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
               </View>
 
               <View style={styles.bulletPoint}>
-                <Text style={styles.privacyText}>• Country refers to: New York, United States</Text>
+                <Text style={styles.privacyText}>• Country refers to: Alabama, United States</Text>
               </View>
 
               <View style={styles.bulletPoint}>
@@ -519,7 +519,7 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
                 If you have any questions about this Privacy Policy, You can contact us:
               </Text>
               <View style={styles.bulletPoint}>
-                <Text style={styles.privacyText}>• By email: koushikreddyvayalpati@gmail.com</Text>
+                <Text style={styles.privacyText}>• By email: trustudsel@gmail.com</Text>
               </View>
             </ScrollView>
           </View>

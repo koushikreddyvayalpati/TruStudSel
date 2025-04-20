@@ -1720,7 +1720,7 @@ const styles = StyleSheet.create({
   truStudSelText: {
     fontSize: 24,
     fontFamily: 'Montserrat',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   profileButton: {
     padding: 5,

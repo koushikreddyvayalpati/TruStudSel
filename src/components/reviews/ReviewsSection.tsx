@@ -111,10 +111,11 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
     loadMoreReviews(sellerEmail);
   };
 
-  // Don't show reviews section if user is the seller
-  if (isUserSeller) {
-    return null;
-  }
+  // Determine how many reviews to display
+  // Show all available reviews instead of limiting to 5 when we have multiple pages
+  const displayedReviews = currentPage > 0 ? sellerReviews : sellerReviews.slice(0, Math.min(sellerReviews.length, 5));
+  const hasMoreToLoad = currentPage < totalPages - 1;
+  const hasMoreToShow = sellerReviews.length < totalReviews;
 
   // If loading, show loading indicator
   if (loadingReviews) {
@@ -135,13 +136,15 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
       <View style={styles.reviewsSection}>
         <View style={styles.reviewsSectionHeader}>
           <Text style={styles.sectionTitle}>Seller Reviews</Text>
-          <TouchableOpacity
-            style={styles.writeReviewButton}
-            onPress={() => setShowReviewForm(true)}
-          >
-            <Text style={styles.writeReviewText}>Write a Review</Text>
-            <Ionicons name="create-outline" size={16} color="#f7b305" />
-          </TouchableOpacity>
+          {!isUserSeller && (
+            <TouchableOpacity
+              style={styles.writeReviewButton}
+              onPress={() => setShowReviewForm(true)}
+            >
+              <Text style={styles.writeReviewText}>Write a Review</Text>
+              <Ionicons name="create-outline" size={16} color="#f7b305" />
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.noReviewsContainer}>
@@ -149,12 +152,186 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
           <Text style={styles.noReviewsText}>
             No reviews yet for this seller.
           </Text>
-          <Text style={styles.beFirstText}>
-            Be the first to leave a review!
-          </Text>
+          {!isUserSeller && (
+            <Text style={styles.beFirstText}>
+              Be the first to leave a review!
+            </Text>
+          )}
         </View>
 
-        {/* Review form modal - ensure it's included for zero reviews case */}
+        {!isUserSeller && (
+          <Modal
+            visible={showReviewForm}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setShowReviewForm(false)}
+          >
+            <View style={styles.reviewFormModalContainer}>
+              <View style={styles.reviewFormContent}>
+                <View style={styles.reviewFormHeader}>
+                  <Text style={styles.reviewFormTitle}>Write a Review</Text>
+                  <TouchableOpacity
+                    style={styles.closeFormButton}
+                    onPress={() => setShowReviewForm(false)}
+                  >
+                    <Ionicons name="close" size={24} color="#333" />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.ratingLabel}>Rating:</Text>
+                <View style={styles.ratingSelector}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <TouchableOpacity
+                      key={`star_${star}`}
+                      onPress={() => setReviewRating(star)}
+                      style={styles.ratingStar}
+                    >
+                      <Icon
+                        name={star <= reviewRating ? 'star' : 'star-o'}
+                        size={32}
+                        color="#f7b305"
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.reviewCommentLabel}>Your Review:</Text>
+                <TextInput
+                  style={styles.reviewCommentInput}
+                  placeholder="Share your experience with this seller..."
+                  placeholderTextColor="#999"
+                  multiline
+                  textAlignVertical="top"
+                  value={reviewComment}
+                  onChangeText={setReviewComment}
+                />
+
+                <TouchableOpacity
+                  style={[
+                    styles.submitReviewButton,
+                    (!reviewComment.trim() || submittingReview) && styles.disabledButton,
+                  ]}
+                  onPress={handleSubmitReview}
+                  disabled={!reviewComment.trim() || submittingReview}
+                >
+                  {submittingReview ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={styles.submitReviewButtonText}>Submit Review</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+        )}
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.reviewsSection}>
+      <View style={styles.reviewsSectionHeader}>
+        <View style={styles.reviewsTitleContainer}>
+          <Text style={styles.sectionTitle}>Seller Reviews</Text>
+          <View style={styles.reviewMetaInfo}>
+            <RatingStars rating={parseFloat(averageRating)} size={14} />
+            <Text style={styles.reviewMetaText}>({totalReviews})</Text>
+          </View>
+        </View>
+
+        {!isUserSeller && (
+          <TouchableOpacity
+            style={styles.writeReviewButton}
+            onPress={() => setShowReviewForm(true)}
+          >
+            <Text style={styles.writeReviewText}>Write a Review</Text>
+            <Ionicons name="create-outline" size={16} color="#f7b305" />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Reviews summary card */}
+      <View style={styles.reviewsSummaryCard}>
+        <View style={styles.reviewAverageContainer}>
+          <Text style={styles.reviewAverageScore}>{parseFloat(averageRating).toFixed(1)}</Text>
+          <RatingStars rating={parseFloat(averageRating)} size={20} />
+        </View>
+
+        {/* Reviews list */}
+        <View style={currentPage > 0 || displayedReviews.length > 5 ? styles.reviewsScrollContainerLarge : styles.reviewsScrollContainer}>
+          <ScrollView
+            nestedScrollEnabled={true}
+            showsVerticalScrollIndicator={false}
+          >
+            {displayedReviews.map((item, index) => (
+              <React.Fragment key={item.reviewId}>
+                <View style={styles.reviewItemCompact}>
+                  <View style={styles.reviewHeaderCompact}>
+                    <View style={styles.reviewerInfoContainer}>
+                      <View style={styles.reviewerInitialCircle}>
+                        <Text style={styles.reviewerInitial}>
+                          {item.reviewerName ? item.reviewerName.charAt(0).toUpperCase() : 'U'}
+                        </Text>
+                      </View>
+                      <View>
+                        <Text style={styles.reviewerNameCompact}>{item.reviewerName}</Text>
+                        <Text style={styles.reviewDateCompact}>
+                          {new Date(item.createdAt).toLocaleDateString()}
+                        </Text>
+                      </View>
+                    </View>
+                    <RatingStars rating={item.rating} size={14} />
+                  </View>
+                  <Text style={styles.reviewTextCompact} numberOfLines={2} ellipsizeMode="tail">
+                    {item.comment}
+                  </Text>
+                </View>
+                {index < displayedReviews.length - 1 && <View style={styles.reviewSeparator} />}
+              </React.Fragment>
+            ))}
+
+            {/* Show loading indicator when fetching more reviews */}
+            {loadingMoreReviews && (
+              <View style={styles.loadingMoreContainer}>
+                <ActivityIndicator size="small" color="#f7b305" />
+                <Text style={styles.loadingMoreText}>Loading more reviews...</Text>
+              </View>
+            )}
+
+            {/* Show load more button if more reviews are available on the server */}
+            {(hasMoreToLoad || hasMoreToShow) && !loadingMoreReviews && (
+              <TouchableOpacity
+                style={styles.loadMoreButton}
+                onPress={handleLoadMoreReviews}
+              >
+                <Text style={styles.loadMoreButtonText}>Load more reviews</Text>
+                <Ionicons name="chevron-down" size={16} color="#f7b305" />
+              </TouchableOpacity>
+            )}
+
+            {/* Show a message when all reviews are loaded */}
+            {!hasMoreToLoad && currentPage > 0 && sellerReviews.length >= 10 && (
+              <View style={styles.allLoadedContainer}>
+                <Text style={styles.allLoadedText}>All reviews loaded</Text>
+              </View>
+            )}
+
+            {/* Show view all button to navigate to a dedicated reviews screen */}
+            {hasMoreToShow && (
+              <TouchableOpacity
+                style={styles.seeAllReviewsButton}
+                onPress={onViewAllReviews}
+              >
+                <Text style={styles.seeAllReviewsText}>See all {totalReviews} reviews</Text>
+                <Ionicons name="chevron-forward" size={16} color="#f7b305" />
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        </View>
+      </View>
+
+      {/* Review form modal */}
+      {!isUserSeller && (
         <Modal
           visible={showReviewForm}
           transparent={true}
@@ -218,181 +395,7 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
             </View>
           </View>
         </Modal>
-      </View>
-    );
-  }
-
-  // Determine how many reviews to display
-  // Show all available reviews instead of limiting to 5 when we have multiple pages
-  const displayedReviews = currentPage > 0 ? sellerReviews : sellerReviews.slice(0, Math.min(sellerReviews.length, 5));
-  const hasMoreToLoad = currentPage < totalPages - 1;
-  const hasMoreToShow = sellerReviews.length < totalReviews;
-
-  return (
-    <View style={styles.reviewsSection}>
-      <View style={styles.reviewsSectionHeader}>
-        <View style={styles.reviewsTitleContainer}>
-          <Text style={styles.sectionTitle}>Seller Reviews</Text>
-          <View style={styles.reviewMetaInfo}>
-            <RatingStars rating={parseFloat(averageRating)} size={14} />
-            <Text style={styles.reviewMetaText}>({totalReviews})</Text>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={styles.writeReviewButton}
-          onPress={() => setShowReviewForm(true)}
-        >
-          <Text style={styles.writeReviewText}>Write a Review</Text>
-          <Ionicons name="create-outline" size={16} color="#f7b305" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Reviews summary card */}
-      <View style={styles.reviewsSummaryCard}>
-        <View style={styles.reviewAverageContainer}>
-          <Text style={styles.reviewAverageScore}>{parseFloat(averageRating).toFixed(1)}</Text>
-          <RatingStars rating={parseFloat(averageRating)} size={20} />
-          {/* <Text style={styles.totalReviewsText}>Based on {totalReviews} reviews</Text> */}
-        </View>
-
-        {/* Reviews list */}
-        <View style={currentPage > 0 || displayedReviews.length > 5 ? styles.reviewsScrollContainerLarge : styles.reviewsScrollContainer}>
-          <ScrollView
-            nestedScrollEnabled={true}
-            showsVerticalScrollIndicator={false}
-          >
-            {displayedReviews.map((item, index) => (
-              <React.Fragment key={item.reviewId}>
-                <View style={styles.reviewItemCompact}>
-                  <View style={styles.reviewHeaderCompact}>
-                    <View style={styles.reviewerInfoContainer}>
-                      <View style={styles.reviewerInitialCircle}>
-                        <Text style={styles.reviewerInitial}>
-                          {item.reviewerName ? item.reviewerName.charAt(0).toUpperCase() : 'U'}
-                        </Text>
-                      </View>
-                      <View>
-                        <Text style={styles.reviewerNameCompact}>{item.reviewerName}</Text>
-                        <Text style={styles.reviewDateCompact}>
-                          {new Date(item.createdAt).toLocaleDateString()}
-                        </Text>
-                      </View>
-                    </View>
-                    <RatingStars rating={item.rating} size={14} />
-                  </View>
-                  <Text style={styles.reviewTextCompact} numberOfLines={2} ellipsizeMode="tail">
-                    {item.comment}
-                  </Text>
-                </View>
-                {index < displayedReviews.length - 1 && <View style={styles.reviewSeparator} />}
-              </React.Fragment>
-            ))}
-
-            {/* Show loading indicator when fetching more reviews */}
-            {loadingMoreReviews && (
-              <View style={styles.loadingMoreContainer}>
-                <ActivityIndicator size="small" color="#f7b305" />
-                <Text style={styles.loadingMoreText}>Loading more reviews...</Text>
-              </View>
-            )}
-
-            {/* Show load more button if more reviews are available on the server */}
-            {hasMoreToLoad && !loadingMoreReviews && (
-              <TouchableOpacity
-                style={styles.loadMoreButton}
-                onPress={handleLoadMoreReviews}
-              >
-                <Text style={styles.loadMoreButtonText}>Load more reviews</Text>
-                <Ionicons name="chevron-down" size={16} color="#f7b305" />
-              </TouchableOpacity>
-            )}
-
-            {/* Show a message when all reviews are loaded */}
-            {!hasMoreToLoad && currentPage > 0 && sellerReviews.length >= 10 && (
-              <View style={styles.allLoadedContainer}>
-                <Text style={styles.allLoadedText}>All reviews loaded</Text>
-              </View>
-            )}
-
-            {/* Show view all button to navigate to a dedicated reviews screen */}
-            {hasMoreToShow && (
-              <TouchableOpacity
-                style={styles.seeAllReviewsButton}
-                onPress={onViewAllReviews}
-              >
-                <Text style={styles.seeAllReviewsText}>See all {totalReviews} reviews</Text>
-                <Ionicons name="chevron-forward" size={16} color="#f7b305" />
-              </TouchableOpacity>
-            )}
-          </ScrollView>
-        </View>
-      </View>
-
-      {/* Review form modal */}
-      <Modal
-        visible={showReviewForm}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowReviewForm(false)}
-      >
-        <View style={styles.reviewFormModalContainer}>
-          <View style={styles.reviewFormContent}>
-            <View style={styles.reviewFormHeader}>
-              <Text style={styles.reviewFormTitle}>Write a Review</Text>
-              <TouchableOpacity
-                style={styles.closeFormButton}
-                onPress={() => setShowReviewForm(false)}
-              >
-                <Ionicons name="close" size={24} color="#333" />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.ratingLabel}>Rating:</Text>
-            <View style={styles.ratingSelector}>
-              {[1, 2, 3, 4, 5].map((star) => (
-                <TouchableOpacity
-                  key={`star_${star}`}
-                  onPress={() => setReviewRating(star)}
-                  style={styles.ratingStar}
-                >
-                  <Icon
-                    name={star <= reviewRating ? 'star' : 'star-o'}
-                    size={32}
-                    color="#f7b305"
-                  />
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles.reviewCommentLabel}>Your Review:</Text>
-            <TextInput
-              style={styles.reviewCommentInput}
-              placeholder="Share your experience with this seller..."
-              placeholderTextColor="#999"
-              multiline
-              textAlignVertical="top"
-              value={reviewComment}
-              onChangeText={setReviewComment}
-            />
-
-            <TouchableOpacity
-              style={[
-                styles.submitReviewButton,
-                (!reviewComment.trim() || submittingReview) && styles.disabledButton,
-              ]}
-              onPress={handleSubmitReview}
-              disabled={!reviewComment.trim() || submittingReview}
-            >
-              {submittingReview ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.submitReviewButtonText}>Submit Review</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      )}
     </View>
   );
 };

@@ -82,10 +82,9 @@ const OnboardingScreen3: React.FC<OnboardingScreen3Props> = ({ navigation }) => 
       </View>
 
       <View style={styles.contentContainer}>
-        <Text style={styles.title}>Meet in Safe Zones</Text>
+        <Text style={styles.title}>Beware of Scams</Text>
         <Text style={styles.description}>
-          Meet other students in designated safe zones on campus
-          for a secure buying and selling experience
+          Meet the seller, verify the product, and reach an agreement before making payment
         </Text>
       </View>
 

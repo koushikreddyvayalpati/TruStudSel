@@ -15,6 +15,7 @@ import {
   Platform,
   Pressable,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -26,6 +27,7 @@ import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import useProductDetailsStore from '../../store/productDetailsStore';
 import ReviewsSection from '../../components/reviews/ReviewsSection';
 import { SafeAreaView as SafeAreaViewContext } from 'react-native-safe-area-context';
+import { submitReport } from '../../api/reports';
 
 const { width, height } = Dimensions.get('window');
 
@@ -528,6 +530,85 @@ const ProductsScreen = () => {
     setTotalReviews(count);
   }, []);
 
+  // Add new state for report modal
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportMessage, setReportMessage] = useState('');
+  const [reportLoading, setReportLoading] = useState(false);
+  
+  // Predefined report reasons
+  const reportReasons = [
+    'Inappropriate Content',
+    'Scam/Fraud',
+    'Fake Product',
+    'Offensive Content',
+    'Wrong Category',
+    'Other'
+  ];
+
+  // Function to handle reporting a product
+  const handleReportProduct = async () => {
+    if (!reportReason) {
+      Alert.alert('Error', 'Please select a reason for reporting');
+      return;
+    }
+
+    setReportLoading(true);
+    
+    try {
+      // Format the report message with reason included
+      const finalReportMessage = reportReason === 'Other' 
+        ? reportMessage 
+        : `${reportReason}: ${reportMessage}`;
+      
+      // Get the seller email from the product
+      const sellerEmail = product.email || product.seller?.email;
+      
+      if (!sellerEmail) {
+        throw new Error('Seller information is missing');
+      }
+      
+      // Get product ID, ensuring it's a string
+      const productId = (product.id || route.params?.productId || '').toString();
+      
+      if (!productId) {
+        throw new Error('Product ID is missing');
+      }
+
+      if (!user?.email) {
+        throw new Error('User email is missing. Please log in again.');
+      }
+      
+      // Use the API function from reports.ts
+      await submitReport({
+        productId,
+        userEmail: user.email,
+        sellerId: sellerEmail,
+        reportMessage: finalReportMessage
+      });
+      
+      // Close the modal and show success message
+      setReportModalVisible(false);
+      setReportReason('');
+      setReportMessage('');
+      
+      Alert.alert(
+        'Report Submitted',
+        'Thank you for your report. We will review it shortly.',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Error submitting report:', error);
+      Alert.alert(
+        'Error',
+        'Failed to submit report. Please try again later.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <SafeAreaViewContext style={styles.loadingContainer}>
@@ -561,17 +642,10 @@ const ProductsScreen = () => {
 
         <TouchableOpacity
           style={styles.headerRight}
-          onPress={() => Alert.alert(
-            'Report Item',
-            'Do you want to report this item?',
-            [
-              {text: 'Cancel', style: 'cancel'},
-              {text: 'Report', style: 'destructive'},
-            ]
-          )}
+          onPress={() => setReportModalVisible(true)}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <MaterialIcons name="report-problem" size={22} color="#e74c3c" />
+          <MaterialIcons name="report" size={22} color="#e74c3c" />
         </TouchableOpacity>
       </View>
 
@@ -627,6 +701,15 @@ const ProductsScreen = () => {
             )}
           </View>
 
+          {/* Display Posting Date */}
+          {product.postingdate && (
+            <Text style={styles.postingDateText}>
+              Posted on: {new Date(product.postingdate).toLocaleDateString('en-US', {
+                year: 'numeric', month: 'long', day: 'numeric'
+              })}
+            </Text>
+          )}
+
           {renderDescriptionSection}
 
           {!isUserSeller && (
@@ -650,8 +733,11 @@ const ProductsScreen = () => {
                   </View>
 
                   <View style={styles.sellerDetails}>
-                    <Text style={styles.sellerName}>
-                      {product.sellerName || product.seller?.name || 'Unknown Seller'}
+                    <Text style={styles.sellerName} numberOfLines={1}>
+                      {(() => {
+                        const name = product.sellerName || product.seller?.name || 'Unknown Seller';
+                        return name.length > 16 ? `${name.substring(0, 16)}...` : name;
+                      })()}
                     </Text>
                     <View style={styles.sellerMetaInfo}>
                       {product.seller?.rating && (
@@ -689,6 +775,7 @@ const ProductsScreen = () => {
             </View>
           )}
 
+          {/* Always render ReviewsSection, pass isUserSeller prop */}
           <ReviewsSection
             sellerEmail={product.email ?? ''}
             sellerName={product.sellerName ?? ''}
@@ -718,6 +805,77 @@ const ProductsScreen = () => {
         imageUri={selectedImage}
         onClose={closeZoom}
       />
+
+      {/* Report Modal */}
+      <Modal
+        visible={reportModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setReportModalVisible(false)}
+      >
+        <View style={styles.reportModalContainer}>
+          <View style={styles.reportModalContent}>
+            <View style={styles.reportModalHeader}>
+              <Text style={styles.reportModalTitle}>Report Item</Text>
+              <TouchableOpacity 
+                style={styles.closeReportButton}
+                onPress={() => setReportModalVisible(false)}
+              >
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={styles.reportSectionTitle}>Select a reason:</Text>
+            <View style={styles.reportReasonsContainer}>
+              {reportReasons.map((reason) => (
+                <TouchableOpacity
+                  key={reason}
+                  style={[
+                    styles.reportReasonItem,
+                    reportReason === reason && styles.reportReasonSelected
+                  ]}
+                  onPress={() => setReportReason(reason)}
+                >
+                  <Text 
+                    style={[
+                      styles.reportReasonText,
+                      reportReason === reason && styles.reportReasonTextSelected
+                    ]}
+                  >
+                    {reason}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            
+            <Text style={styles.reportSectionTitle}>Additional details (optional):</Text>
+            <TextInput
+              style={styles.reportMessageInput}
+              multiline
+              placeholder="Please provide additional details about the issue..."
+              placeholderTextColor="#999"
+              value={reportMessage}
+              onChangeText={setReportMessage}
+              maxLength={500}
+            />
+            
+            <TouchableOpacity
+              style={[
+                styles.reportSubmitButton,
+                (!reportReason || reportLoading) && styles.reportSubmitButtonDisabled
+              ]}
+              onPress={handleReportProduct}
+              disabled={!reportReason || reportLoading}
+            >
+              {reportLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.reportSubmitButtonText}>Submit Report</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaViewContext>
   );
 };
@@ -865,7 +1023,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    marginBottom: 0,
+    marginBottom: 8,
   },
   productPrice: {
     fontSize: 24,
@@ -1030,6 +1188,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#222',
     marginBottom: 6,
+    marginTop: 0,
   },
   sellerRating: {
     flexDirection: 'row',
@@ -1706,6 +1865,115 @@ const styles = StyleSheet.create({
   },
   galleryNextButton: {
     right: 0,
+  },
+  // Report modal styles
+  reportModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  reportModalContent: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: '80%',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 5,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  reportModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  reportModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  closeReportButton: {
+    padding: 5,
+  },
+  reportSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 10,
+    marginTop: 5,
+  },
+  reportReasonsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 20,
+  },
+  reportReasonItem: {
+    backgroundColor: '#f5f5f5',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginRight: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  reportReasonSelected: {
+    backgroundColor: '#e74c3c20',
+    borderColor: '#e74c3c',
+  },
+  reportReasonText: {
+    fontSize: 14,
+    color: '#555',
+    fontWeight: '500',
+  },
+  reportReasonTextSelected: {
+    color: '#e74c3c',
+    fontWeight: '600',
+  },
+  reportMessageInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    padding: 15,
+    height: 120,
+    fontSize: 16,
+    backgroundColor: '#fafafa',
+    marginBottom: 20,
+    textAlignVertical: 'top',
+  },
+  reportSubmitButton: {
+    backgroundColor: '#e74c3c',
+    borderRadius: 10,
+    padding: 15,
+    alignItems: 'center',
+    marginBottom: Platform.OS === 'ios' ? 20 : 0,
+  },
+  reportSubmitButtonDisabled: {
+    backgroundColor: '#cccccc',
+  },
+  reportSubmitButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  // Style for the posting date
+  postingDateText: {
+    fontSize: 13,
+    color: '#777',
+    marginTop: 0, // Adjust as needed
+    marginBottom: 0, // Space before description
   },
 });
 

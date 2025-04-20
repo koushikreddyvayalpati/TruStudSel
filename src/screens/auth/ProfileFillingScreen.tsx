@@ -1214,15 +1214,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
                     </View>
 
                     {showCityModal && selectedState && (
-                       <View style={[styles.suggestionsList, { 
-                          backgroundColor: theme.colors.background, 
-                          zIndex: 9999,
-                          elevation: 9,
-                          position: 'absolute',
-                          top: '100%',
-                          left: 0,
-                          right: 0
-                       }]}>
+                       <View style={[styles.suggestionsList, { backgroundColor: theme.colors.background, zIndex: 1100 }]}>
                           <View style={styles.searchInputContainer}>
                              <RNTextInput
                                 style={[styles.searchInput, { color: theme.colors.text }]}
@@ -1314,7 +1306,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
         </View>
       </ScrollView>
 
-      {/* Scroll indicator */}
+      {/* Scroll indicator
       <Animated.View
         style={[
           styles.scrollIndicator,
@@ -1327,7 +1319,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
         <View style={styles.scrollIndicatorLine} />
         <Text style={styles.scrollIndicatorText}>Scroll for more</Text>
         <Entypo name="chevron-down" size={20} color="#666" />
-      </Animated.View>
+      </Animated.View> */}
 
       {/* Premium corner decorative elements */}
       <View style={[styles.cornerDecoration, styles.topLeftCorner]} />
