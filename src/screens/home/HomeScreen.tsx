@@ -1311,6 +1311,14 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     _cityProductsOriginal,
   ]);
 
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      StatusBar.setTranslucent(true);
+      StatusBar.setBackgroundColor('transparent');
+      StatusBar.setBarStyle('dark-content');
+    }
+  }, []);
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: 'white' }]}>
       <View style={styles.container}>
@@ -1688,7 +1696,7 @@ const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: 0,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   container: {
     flex: 1,

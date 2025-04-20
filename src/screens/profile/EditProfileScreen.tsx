@@ -220,14 +220,14 @@ const EditProfileScreen = () => {
         width: 500,
         height: 500,
         cropping: true,
-        cropperCircleOverlay: true, // Make crop overlay circular for profile picture
+        cropperCircleOverlay: true,
         compressImageQuality: 0.8,
-        mediaType: 'photo',
+        mediaType: 'any',
         cropperToolbarTitle: 'Edit Profile Photo',
         cropperStatusBarColor: '#000000',
         cropperToolbarColor: '#000000',
         cropperToolbarWidgetColor: '#ffffff',
-        cropperActiveWidgetColor: '#1b74e4', // Using blue color from profile screen
+        cropperActiveWidgetColor: '#1b74e4',
         hideBottomControls: false,
         showCropGuidelines: true,
         enableRotationGesture: true,
@@ -361,6 +361,17 @@ const EditProfileScreen = () => {
     }
     return 'U'; // Default if no name is available
   };
+
+  useEffect(() => {
+    // Reset StatusBar on Android when leaving the screen
+    return () => {
+      if (Platform.OS === 'android') {
+        StatusBar.setTranslucent(true);
+        StatusBar.setBackgroundColor('transparent');
+        StatusBar.setBarStyle('dark-content');
+      }
+    };
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>

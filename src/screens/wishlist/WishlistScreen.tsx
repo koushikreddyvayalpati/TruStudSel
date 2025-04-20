@@ -267,6 +267,14 @@ const WishlistScreen: React.FC = () => {
     );
   }, [removeFromWishlist]);
 
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      StatusBar.setTranslucent(true);
+      StatusBar.setBackgroundColor('transparent');
+      StatusBar.setBarStyle('dark-content');
+    }
+  }, []);
+
   const renderProduct = useCallback(({ item }: { item: Product }) => (
     <TouchableOpacity
       key={item.id}
@@ -337,7 +345,7 @@ const WishlistScreen: React.FC = () => {
   ), [navigation, colors, handleRemoveFromWishlist]);
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }]}>
       <View style={[styles.container]}>
         {/* Top navigation bar with back button and title */}
         <View style={styles.topBar}>

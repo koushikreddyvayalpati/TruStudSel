@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 20,
     marginTop: 20,
-    paddingTop: Platform.OS === 'ios' ? 50 : 0, // Increase top padding to move content down
+    paddingTop: Platform.OS === 'ios' ? 50 : 50, // Increase top padding to move content down
     marginBottom: 10,
   },
   headerTitle: {
