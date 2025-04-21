@@ -2,10 +2,10 @@
  * TruStudSel App
  */
 import 'react-native-gesture-handler';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StatusBar, StatusBarStyle } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Amplify } from 'aws-amplify';
+import { Amplify, Auth } from 'aws-amplify';
 import Config from 'react-native-config';
 
 // Import crypto polyfills before Amplify
@@ -88,6 +88,24 @@ const App: React.FC = () => {
 const AppContent: React.FC = () => {
   // We can now use the useTheme hook here because we're inside ThemeProvider
   const { theme } = useTheme();
+
+  // Add useEffect to log the token
+  useEffect(() => {
+    const logToken = async () => {
+      try {
+        const session = await Auth.currentSession();
+        const token = session.getIdToken().getJwtToken();
+        console.log('--- JWT Token for Testing ---');
+        console.log(token);
+        console.log('-----------------------------');
+      } catch (error) {
+        console.log('No active session found, user likely not logged in.');
+        // console.error('Error fetching JWT token:', error);
+      }
+    };
+
+    logToken();
+  }, []); // Empty dependency array means this runs once on mount
 
   return (
     <>

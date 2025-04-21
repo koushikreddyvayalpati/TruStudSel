@@ -44,6 +44,22 @@ interface ProductState {
   loadingUniversity: boolean;
   loadingCity: boolean;
   loadingInterestedCategory: boolean;
+  loadingMoreFeatured: boolean;
+  loadingMoreNewArrivals: boolean;
+  loadingMoreUniversity: boolean;
+  loadingMoreCity: boolean;
+
+  // Pagination tokens
+  featuredNextPageToken: string | null;
+  newArrivalsNextPageToken: string | null;
+  universityNextPageToken: string | null;
+  cityNextPageToken: string | null;
+  
+  // Has more pages flags
+  featuredHasMorePages: boolean;
+  newArrivalsHasMorePages: boolean;
+  universityHasMorePages: boolean;
+  cityHasMorePages: boolean;
 
   // Selected category
   selectedInterestCategory: string | null;
@@ -73,9 +89,13 @@ interface ProductState {
 
   // Product loading functions
   loadFeaturedProducts: (university: string, city: string) => Promise<void>;
+  loadMoreFeaturedProducts: (university: string, city: string) => Promise<void>;
   loadNewArrivals: (university: string) => Promise<void>;
+  loadMoreNewArrivals: (university: string) => Promise<void>;
   loadUniversityProducts: (university: string) => Promise<void>;
+  loadMoreUniversityProducts: (university: string) => Promise<void>;
   loadCityProducts: (city: string) => Promise<void>;
+  loadMoreCityProducts: (city: string) => Promise<void>;
   loadInterestedCategoryProducts: (category: string, university?: string, city?: string) => Promise<void>;
 
   // Refresh handling
@@ -105,6 +125,20 @@ const useProductStore = create<ProductState>((set, get) => ({
   loadingUniversity: false,
   loadingCity: false,
   loadingInterestedCategory: false,
+  loadingMoreFeatured: false,
+  loadingMoreNewArrivals: false,
+  loadingMoreUniversity: false,
+  loadingMoreCity: false,
+
+  featuredNextPageToken: null,
+  newArrivalsNextPageToken: null,
+  universityNextPageToken: null,
+  cityNextPageToken: null,
+  
+  featuredHasMorePages: false,
+  newArrivalsHasMorePages: false,
+  universityHasMorePages: false,
+  cityHasMorePages: false,
 
   selectedInterestCategory: null,
 
@@ -268,7 +302,12 @@ const useProductStore = create<ProductState>((set, get) => ({
   // Load featured products
   loadFeaturedProducts: async (university, city) => {
     try {
-      set({ loadingFeatured: true });
+      set({ 
+        loadingFeatured: true,
+        // Reset pagination state when loading from the beginning
+        featuredNextPageToken: null,
+        featuredHasMorePages: false
+      });
 
       // Check if force refresh is enabled
       if (get().shouldForceRefresh) {
@@ -283,6 +322,8 @@ const useProductStore = create<ProductState>((set, get) => ({
             featuredProductsOriginal: response,
             totalFeaturedCount: response.length,
             featuredFilterMaps: response.length > 0 ? createFilterMaps(response) : {},
+            featuredHasMorePages: false,
+            featuredNextPageToken: null
           });
 
           // Cache the result
@@ -294,16 +335,20 @@ const useProductStore = create<ProductState>((set, get) => ({
             featuredProductsOriginal: response.products,
             totalFeaturedCount: response.totalItems || response.products.length,
             featuredFilterMaps: response.products.length > 0 ? createFilterMaps(response.products) : {},
+            featuredNextPageToken: response.nextPageToken || null,
+            featuredHasMorePages: response.hasMorePages || false
           });
 
           // Cache the result
-          await get().cacheProducts(FEATURED_PRODUCTS_CACHE_KEY, response.products, university, city);
+          await get().cacheProducts(FEATURED_PRODUCTS_CACHE_KEY, response, university, city);
         } else {
           console.error('Unexpected response format from getFeaturedProducts:', response);
           set({
             featuredProducts: [],
             featuredProductsOriginal: [],
             totalFeaturedCount: 0,
+            featuredNextPageToken: null,
+            featuredHasMorePages: false
           });
         }
 
@@ -316,17 +361,35 @@ const useProductStore = create<ProductState>((set, get) => ({
 
       if (cachedProducts) {
         // Use cached data
-        set({
-          featuredProducts: cachedProducts,
-          featuredProductsOriginal: cachedProducts,
-          totalFeaturedCount: cachedProducts.length,
-          featuredFilterMaps: cachedProducts.length > 0 ? createFilterMaps(cachedProducts) : {},
-          loadingFeatured: false,
-        });
+        if (Array.isArray(cachedProducts)) {
+          // Legacy cached data format
+          set({
+            featuredProducts: cachedProducts,
+            featuredProductsOriginal: cachedProducts,
+            totalFeaturedCount: cachedProducts.length,
+            featuredFilterMaps: cachedProducts.length > 0 ? createFilterMaps(cachedProducts) : {},
+            loadingFeatured: false,
+            featuredNextPageToken: null,
+            featuredHasMorePages: false
+          });
+        } else {
+          // New paginated cached data format
+          set({
+            featuredProducts: cachedProducts.products || cachedProducts,
+            featuredProductsOriginal: cachedProducts.products || cachedProducts,
+            totalFeaturedCount: cachedProducts.totalItems || (cachedProducts.products?.length || cachedProducts.length),
+            featuredFilterMaps: (cachedProducts.products || cachedProducts).length > 0 
+              ? createFilterMaps(cachedProducts.products || cachedProducts) 
+              : {},
+            loadingFeatured: false,
+            featuredNextPageToken: cachedProducts.nextPageToken || null,
+            featuredHasMorePages: cachedProducts.hasMorePages || false
+          });
+        }
       } else {
         // Fetch from API
         console.log(`[ProductStore] Fetching fresh featured products: univ=${university}, city=${city}`);
-        const response = await getFeaturedProducts(university || '', city || '');
+        const response = await getFeaturedProducts(university || '', city || '', null); // null pageToken for first page
 
         // Handle the response based on its format
         if (Array.isArray(response)) {
@@ -336,6 +399,8 @@ const useProductStore = create<ProductState>((set, get) => ({
             featuredProductsOriginal: response,
             totalFeaturedCount: response.length,
             featuredFilterMaps: response.length > 0 ? createFilterMaps(response) : {},
+            featuredNextPageToken: null,
+            featuredHasMorePages: false
           });
 
           // Cache the result
@@ -347,16 +412,20 @@ const useProductStore = create<ProductState>((set, get) => ({
             featuredProductsOriginal: response.products,
             totalFeaturedCount: response.totalItems || response.products.length,
             featuredFilterMaps: response.products.length > 0 ? createFilterMaps(response.products) : {},
+            featuredNextPageToken: response.nextPageToken || null,
+            featuredHasMorePages: response.hasMorePages || false
           });
 
           // Cache the result
-          await get().cacheProducts(FEATURED_PRODUCTS_CACHE_KEY, response.products, university, city);
+          await get().cacheProducts(FEATURED_PRODUCTS_CACHE_KEY, response, university, city);
         } else {
           console.error('Unexpected response format from getFeaturedProducts:', response);
           set({
             featuredProducts: [],
             featuredProductsOriginal: [],
             totalFeaturedCount: 0,
+            featuredNextPageToken: null,
+            featuredHasMorePages: false
           });
         }
 
@@ -367,6 +436,56 @@ const useProductStore = create<ProductState>((set, get) => ({
       set({
         error: 'Failed to load featured products',
         loadingFeatured: false,
+        featuredNextPageToken: null,
+        featuredHasMorePages: false
+      });
+    }
+  },
+
+  // Load more featured products using token-based pagination
+  loadMoreFeaturedProducts: async (university, city) => {
+    try {
+      const { featuredNextPageToken, featuredHasMorePages, loadingMoreFeatured } = get();
+      
+      // Don't proceed if already loading or no more pages
+      if (loadingMoreFeatured || !featuredHasMorePages || !featuredNextPageToken) {
+        console.log('[ProductStore] Skipping loadMoreFeaturedProducts - already loading, no more pages, or no token');
+        return;
+      }
+      
+      set({ loadingMoreFeatured: true });
+      
+      console.log(`[ProductStore] Loading more featured products with token: ${featuredNextPageToken}`);
+      const response = await getFeaturedProducts(university || '', city || '', featuredNextPageToken);
+      
+      // Handle the response
+      if (response && response.products) {
+        // Get current products and append new ones
+        const currentProducts = [...get().featuredProducts];
+        const newProducts = [...currentProducts, ...response.products];
+        
+        set({
+          featuredProducts: newProducts,
+          featuredProductsOriginal: newProducts,
+          featuredNextPageToken: response.nextPageToken || null,
+          featuredHasMorePages: response.hasMorePages || false,
+          // Update total count if available
+          totalFeaturedCount: response.totalItems || newProducts.length,
+          // Update filter maps
+          featuredFilterMaps: newProducts.length > 0 ? createFilterMaps(newProducts) : get().featuredFilterMaps,
+        });
+        
+        console.log(`[ProductStore] Loaded ${response.products.length} more featured products, total: ${newProducts.length}`);
+      } else {
+        console.error('[ProductStore] Unexpected response format from getFeaturedProducts:', response);
+      }
+      
+      set({ loadingMoreFeatured: false });
+    } catch (err) {
+      console.error('Error loading more featured products:', err);
+      set({
+        error: 'Failed to load more featured products',
+        loadingMoreFeatured: false
       });
     }
   },
@@ -374,12 +493,17 @@ const useProductStore = create<ProductState>((set, get) => ({
   // Load new arrivals
   loadNewArrivals: async (university) => {
     try {
-      set({ loadingNewArrivals: true });
+      set({ 
+        loadingNewArrivals: true,
+        // Reset pagination state when loading from the beginning
+        newArrivalsNextPageToken: null,
+        newArrivalsHasMorePages: false
+      });
 
       // Check if force refresh is enabled
       if (get().shouldForceRefresh) {
         console.log('[ProductStore] Force refresh enabled, fetching fresh new arrivals');
-        const response = await getNewArrivals(university || '');
+        const response = await getNewArrivals(university || '', undefined); // Use undefined instead of null
 
         // Handle the response based on its format
         if (Array.isArray(response)) {
@@ -388,6 +512,8 @@ const useProductStore = create<ProductState>((set, get) => ({
             newArrivalsProducts: response,
             newArrivalsProductsOriginal: response,
             newArrivalsFilterMaps: response.length > 0 ? createFilterMaps(response) : {},
+            newArrivalsNextPageToken: null,
+            newArrivalsHasMorePages: false
           });
 
           // Cache the result
@@ -398,15 +524,19 @@ const useProductStore = create<ProductState>((set, get) => ({
             newArrivalsProducts: response.products,
             newArrivalsProductsOriginal: response.products,
             newArrivalsFilterMaps: response.products.length > 0 ? createFilterMaps(response.products) : {},
+            newArrivalsNextPageToken: response.nextPageToken || null,
+            newArrivalsHasMorePages: response.hasMorePages || false
           });
 
           // Cache the result
-          await get().cacheProducts(NEW_ARRIVALS_CACHE_KEY, response.products, university);
+          await get().cacheProducts(NEW_ARRIVALS_CACHE_KEY, response, university);
         } else {
           console.error('Unexpected response format from getNewArrivals:', response);
           set({
             newArrivalsProducts: [],
             newArrivalsProductsOriginal: [],
+            newArrivalsNextPageToken: null,
+            newArrivalsHasMorePages: false
           });
         }
 
@@ -419,16 +549,33 @@ const useProductStore = create<ProductState>((set, get) => ({
 
       if (cachedProducts) {
         // Use cached data
-        set({
-          newArrivalsProducts: cachedProducts,
-          newArrivalsProductsOriginal: cachedProducts,
-          newArrivalsFilterMaps: cachedProducts.length > 0 ? createFilterMaps(cachedProducts) : {},
-          loadingNewArrivals: false,
-        });
+        if (Array.isArray(cachedProducts)) {
+          // Legacy cached data format
+          set({
+            newArrivalsProducts: cachedProducts,
+            newArrivalsProductsOriginal: cachedProducts,
+            newArrivalsFilterMaps: cachedProducts.length > 0 ? createFilterMaps(cachedProducts) : {},
+            loadingNewArrivals: false,
+            newArrivalsNextPageToken: null,
+            newArrivalsHasMorePages: false
+          });
+        } else {
+          // New paginated cached data format
+          set({
+            newArrivalsProducts: cachedProducts.products || cachedProducts,
+            newArrivalsProductsOriginal: cachedProducts.products || cachedProducts,
+            newArrivalsFilterMaps: (cachedProducts.products || cachedProducts).length > 0 
+              ? createFilterMaps(cachedProducts.products || cachedProducts) 
+              : {},
+            loadingNewArrivals: false,
+            newArrivalsNextPageToken: cachedProducts.nextPageToken || null,
+            newArrivalsHasMorePages: cachedProducts.hasMorePages || false
+          });
+        }
       } else {
         // Fetch from API
         console.log(`[ProductStore] Fetching fresh new arrivals: univ=${university}`);
-        const response = await getNewArrivals(university || '');
+        const response = await getNewArrivals(university || '', undefined); // Use undefined instead of null
 
         // Handle the response based on its format
         if (Array.isArray(response)) {
@@ -437,6 +584,8 @@ const useProductStore = create<ProductState>((set, get) => ({
             newArrivalsProducts: response,
             newArrivalsProductsOriginal: response,
             newArrivalsFilterMaps: response.length > 0 ? createFilterMaps(response) : {},
+            newArrivalsNextPageToken: null,
+            newArrivalsHasMorePages: false
           });
 
           // Cache the result
@@ -447,15 +596,19 @@ const useProductStore = create<ProductState>((set, get) => ({
             newArrivalsProducts: response.products,
             newArrivalsProductsOriginal: response.products,
             newArrivalsFilterMaps: response.products.length > 0 ? createFilterMaps(response.products) : {},
+            newArrivalsNextPageToken: response.nextPageToken || null,
+            newArrivalsHasMorePages: response.hasMorePages || false
           });
 
           // Cache the result
-          await get().cacheProducts(NEW_ARRIVALS_CACHE_KEY, response.products, university);
+          await get().cacheProducts(NEW_ARRIVALS_CACHE_KEY, response, university);
         } else {
           console.error('Unexpected response format from getNewArrivals:', response);
           set({
             newArrivalsProducts: [],
             newArrivalsProductsOriginal: [],
+            newArrivalsNextPageToken: null,
+            newArrivalsHasMorePages: false
           });
         }
 
@@ -466,6 +619,54 @@ const useProductStore = create<ProductState>((set, get) => ({
       set({
         error: 'Failed to load new arrivals',
         loadingNewArrivals: false,
+        newArrivalsNextPageToken: null,
+        newArrivalsHasMorePages: false
+      });
+    }
+  },
+
+  // Load more new arrivals using token-based pagination
+  loadMoreNewArrivals: async (university) => {
+    try {
+      const { newArrivalsNextPageToken, newArrivalsHasMorePages, loadingMoreNewArrivals } = get();
+      
+      // Don't proceed if already loading or no more pages
+      if (loadingMoreNewArrivals || !newArrivalsHasMorePages || !newArrivalsNextPageToken) {
+        console.log('[ProductStore] Skipping loadMoreNewArrivals - already loading, no more pages, or no token');
+        return;
+      }
+      
+      set({ loadingMoreNewArrivals: true });
+      
+      console.log(`[ProductStore] Loading more new arrivals with token: ${newArrivalsNextPageToken}`);
+      const response = await getNewArrivals(university || '', newArrivalsNextPageToken);
+      
+      // Handle the response
+      if (response && response.products) {
+        // Get current products and append new ones
+        const currentProducts = [...get().newArrivalsProducts];
+        const newProducts = [...currentProducts, ...response.products];
+        
+        set({
+          newArrivalsProducts: newProducts,
+          newArrivalsProductsOriginal: newProducts,
+          newArrivalsNextPageToken: response.nextPageToken || null,
+          newArrivalsHasMorePages: response.hasMorePages || false,
+          // Update filter maps
+          newArrivalsFilterMaps: newProducts.length > 0 ? createFilterMaps(newProducts) : get().newArrivalsFilterMaps,
+        });
+        
+        console.log(`[ProductStore] Loaded ${response.products.length} more new arrivals, total: ${newProducts.length}`);
+      } else {
+        console.error('[ProductStore] Unexpected response format from getNewArrivals:', response);
+      }
+      
+      set({ loadingMoreNewArrivals: false });
+    } catch (err) {
+      console.error('Error loading more new arrivals:', err);
+      set({
+        error: 'Failed to load more new arrivals',
+        loadingMoreNewArrivals: false
       });
     }
   },
@@ -475,20 +676,29 @@ const useProductStore = create<ProductState>((set, get) => ({
     if (!university) {return;}
 
     try {
-      set({ loadingUniversity: true });
+      set({ 
+        loadingUniversity: true,
+        // Reset pagination state when loading from the beginning
+        universityNextPageToken: null,
+        universityHasMorePages: false 
+      });
 
       // Check if force refresh is enabled
       if (get().shouldForceRefresh) {
         console.log('[ProductStore] Force refresh enabled, fetching fresh university products');
-        const response = await getProductsByUniversity(university);
+        const response = await getProductsByUniversity(university, { 
+          pageToken: undefined // Use undefined instead of null to avoid type issues
+        });
 
         set({
           universityProducts: response.products || [],
           universityProductsOriginal: response.products || [],
-          totalUniversityCount: response.products?.length || 0,
+          totalUniversityCount: response.totalItems || response.products?.length || 0,
           universityFilterMaps: response.products && response.products.length > 0
             ? createFilterMaps(response.products)
             : {},
+          universityNextPageToken: response.nextPageToken || null,
+          universityHasMorePages: response.hasMorePages || false
         });
 
         // Cache the result
@@ -503,27 +713,52 @@ const useProductStore = create<ProductState>((set, get) => ({
 
       if (cachedProducts) {
         // Use cached data
-        set({
-          universityProducts: cachedProducts.products || [],
-          universityProductsOriginal: cachedProducts.products || [],
-          totalUniversityCount: cachedProducts.products?.length || 0,
-          universityFilterMaps: cachedProducts.products && cachedProducts.products.length > 0
-            ? createFilterMaps(cachedProducts.products)
-            : {},
-          loadingUniversity: false,
-        });
+        if (Array.isArray(cachedProducts)) {
+          // Legacy cached data format
+          set({
+            universityProducts: cachedProducts,
+            universityProductsOriginal: cachedProducts,
+            totalUniversityCount: cachedProducts.length,
+            universityFilterMaps: cachedProducts.length > 0
+              ? createFilterMaps(cachedProducts)
+              : {},
+            loadingUniversity: false,
+            universityNextPageToken: null,
+            universityHasMorePages: false
+          });
+        } else if (cachedProducts.products) {
+          // New paginated cached data format
+          set({
+            universityProducts: cachedProducts.products,
+            universityProductsOriginal: cachedProducts.products,
+            totalUniversityCount: cachedProducts.totalItems || cachedProducts.products.length,
+            universityFilterMaps: cachedProducts.products.length > 0
+              ? createFilterMaps(cachedProducts.products)
+              : {},
+            loadingUniversity: false,
+            universityNextPageToken: cachedProducts.nextPageToken || null,
+            universityHasMorePages: cachedProducts.hasMorePages || false
+          });
+        } else {
+          console.warn('[ProductStore] Unexpected cached university products format');
+          set({ loadingUniversity: false });
+        }
       } else {
         // Fetch from API
         console.log(`[ProductStore] Fetching fresh university products: univ=${university}`);
-        const response = await getProductsByUniversity(university);
+        const response = await getProductsByUniversity(university, {
+          pageToken: undefined // Use undefined instead of null to avoid type issues
+        });
 
         set({
           universityProducts: response.products || [],
           universityProductsOriginal: response.products || [],
-          totalUniversityCount: response.products?.length || 0,
+          totalUniversityCount: response.totalItems || response.products?.length || 0,
           universityFilterMaps: response.products && response.products.length > 0
             ? createFilterMaps(response.products)
             : {},
+          universityNextPageToken: response.nextPageToken || null,
+          universityHasMorePages: response.hasMorePages || false
         });
 
         // Cache the result
@@ -536,6 +771,60 @@ const useProductStore = create<ProductState>((set, get) => ({
       set({
         error: 'Failed to load university products',
         loadingUniversity: false,
+        universityNextPageToken: null,
+        universityHasMorePages: false
+      });
+    }
+  },
+
+  // Load more university products
+  loadMoreUniversityProducts: async (university) => {
+    if (!university) return;
+
+    try {
+      const { universityNextPageToken, universityHasMorePages, loadingMoreUniversity } = get();
+      
+      // Don't proceed if already loading or no more pages
+      if (loadingMoreUniversity || !universityHasMorePages || !universityNextPageToken) {
+        console.log('[ProductStore] Skipping loadMoreUniversityProducts - already loading, no more pages, or no token');
+        return;
+      }
+      
+      set({ loadingMoreUniversity: true });
+      
+      console.log(`[ProductStore] Loading more university products with token: ${universityNextPageToken}`);
+      const response = await getProductsByUniversity(university, {
+        pageToken: universityNextPageToken
+      });
+      
+      // Handle the response
+      if (response && response.products) {
+        // Get current products and append new ones
+        const currentProducts = [...get().universityProducts];
+        const newProducts = [...currentProducts, ...response.products];
+        
+        set({
+          universityProducts: newProducts,
+          universityProductsOriginal: newProducts,
+          universityNextPageToken: response.nextPageToken || null,
+          universityHasMorePages: response.hasMorePages || false,
+          // Update total count if available
+          totalUniversityCount: response.totalItems || newProducts.length,
+          // Update filter maps
+          universityFilterMaps: newProducts.length > 0 ? createFilterMaps(newProducts) : get().universityFilterMaps,
+        });
+        
+        console.log(`[ProductStore] Loaded ${response.products.length} more university products, total: ${newProducts.length}`);
+      } else {
+        console.error('[ProductStore] Unexpected response format from getProductsByUniversity:', response);
+      }
+      
+      set({ loadingMoreUniversity: false });
+    } catch (err) {
+      console.error('Error loading more university products:', err);
+      set({
+        error: 'Failed to load more university products',
+        loadingMoreUniversity: false
       });
     }
   },
@@ -545,12 +834,19 @@ const useProductStore = create<ProductState>((set, get) => ({
     if (!city) {return;}
 
     try {
-      set({ loadingCity: true });
+      set({ 
+        loadingCity: true,
+        // Reset pagination state when loading from the beginning
+        cityNextPageToken: null,
+        cityHasMorePages: false 
+      });
 
       // Check if force refresh is enabled
       if (get().shouldForceRefresh) {
         console.log('[ProductStore] Force refresh enabled, fetching fresh city products');
-        const response = await getProductsByCity(city);
+        const response = await getProductsByCity(city, {
+          pageToken: undefined // Use undefined instead of null to avoid type issues
+        });
 
         set({
           cityProducts: response.products || [],
@@ -558,6 +854,8 @@ const useProductStore = create<ProductState>((set, get) => ({
           cityFilterMaps: response.products && response.products.length > 0
             ? createFilterMaps(response.products)
             : {},
+          cityNextPageToken: response.nextPageToken || null,
+          cityHasMorePages: response.hasMorePages || false
         });
 
         // Cache the result
@@ -572,18 +870,40 @@ const useProductStore = create<ProductState>((set, get) => ({
 
       if (cachedProducts) {
         // Use cached data
-        set({
-          cityProducts: cachedProducts.products || [],
-          cityProductsOriginal: cachedProducts.products || [],
-          cityFilterMaps: cachedProducts.products && cachedProducts.products.length > 0
-            ? createFilterMaps(cachedProducts.products)
-            : {},
-          loadingCity: false,
-        });
+        if (Array.isArray(cachedProducts)) {
+          // Legacy cached data format
+          set({
+            cityProducts: cachedProducts,
+            cityProductsOriginal: cachedProducts,
+            cityFilterMaps: cachedProducts.length > 0
+              ? createFilterMaps(cachedProducts)
+              : {},
+            loadingCity: false,
+            cityNextPageToken: null,
+            cityHasMorePages: false
+          });
+        } else if (cachedProducts.products) {
+          // New paginated cached data format
+          set({
+            cityProducts: cachedProducts.products,
+            cityProductsOriginal: cachedProducts.products,
+            cityFilterMaps: cachedProducts.products.length > 0
+              ? createFilterMaps(cachedProducts.products)
+              : {},
+            loadingCity: false,
+            cityNextPageToken: cachedProducts.nextPageToken || null,
+            cityHasMorePages: cachedProducts.hasMorePages || false
+          });
+        } else {
+          console.warn('[ProductStore] Unexpected cached city products format');
+          set({ loadingCity: false });
+        }
       } else {
         // Fetch from API
         console.log(`[ProductStore] Fetching fresh city products: city=${city}`);
-        const response = await getProductsByCity(city);
+        const response = await getProductsByCity(city, {
+          pageToken: undefined // Use undefined instead of null to avoid type issues
+        });
 
         set({
           cityProducts: response.products || [],
@@ -591,6 +911,8 @@ const useProductStore = create<ProductState>((set, get) => ({
           cityFilterMaps: response.products && response.products.length > 0
             ? createFilterMaps(response.products)
             : {},
+          cityNextPageToken: response.nextPageToken || null,
+          cityHasMorePages: response.hasMorePages || false
         });
 
         // Cache the result
@@ -603,6 +925,58 @@ const useProductStore = create<ProductState>((set, get) => ({
       set({
         error: 'Failed to load city products',
         loadingCity: false,
+        cityNextPageToken: null,
+        cityHasMorePages: false
+      });
+    }
+  },
+
+  // Load more city products
+  loadMoreCityProducts: async (city) => {
+    if (!city) return;
+
+    try {
+      const { cityNextPageToken, cityHasMorePages, loadingMoreCity } = get();
+      
+      // Don't proceed if already loading or no more pages
+      if (loadingMoreCity || !cityHasMorePages || !cityNextPageToken) {
+        console.log('[ProductStore] Skipping loadMoreCityProducts - already loading, no more pages, or no token');
+        return;
+      }
+      
+      set({ loadingMoreCity: true });
+      
+      console.log(`[ProductStore] Loading more city products with token: ${cityNextPageToken}`);
+      const response = await getProductsByCity(city, {
+        pageToken: cityNextPageToken
+      });
+      
+      // Handle the response
+      if (response && response.products) {
+        // Get current products and append new ones
+        const currentProducts = [...get().cityProducts];
+        const newProducts = [...currentProducts, ...response.products];
+        
+        set({
+          cityProducts: newProducts,
+          cityProductsOriginal: newProducts,
+          cityNextPageToken: response.nextPageToken || null,
+          cityHasMorePages: response.hasMorePages || false,
+          // Update filter maps
+          cityFilterMaps: newProducts.length > 0 ? createFilterMaps(newProducts) : get().cityFilterMaps,
+        });
+        
+        console.log(`[ProductStore] Loaded ${response.products.length} more city products, total: ${newProducts.length}`);
+      } else {
+        console.error('[ProductStore] Unexpected response format from getProductsByCity:', response);
+      }
+      
+      set({ loadingMoreCity: false });
+    } catch (err) {
+      console.error('Error loading more city products:', err);
+      set({
+        error: 'Failed to load more city products',
+        loadingMoreCity: false
       });
     }
   },

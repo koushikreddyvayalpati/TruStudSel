@@ -144,9 +144,14 @@ interface ProfileState {
   // Loading states
   isLoading: boolean;
   isLoadingProducts: boolean;
+  isLoadingMoreProducts: boolean;
   isRefreshing: boolean;
   error: string | null;
   productsError: string | null;
+
+  // Pagination
+  productsNextPageToken: string | null;
+  productsHasMorePages: boolean;
 
   // Refresh count
   refreshCount: number;
@@ -158,6 +163,7 @@ interface ProfileState {
   // Data fetching
   fetchUserProfile: (email: string, forceRefresh?: boolean) => Promise<void>;
   fetchUserProducts: (email: string, forceRefresh?: boolean) => Promise<void>;
+  loadMoreUserProducts: (email: string) => Promise<void>;
   refreshAllData: (email: string) => Promise<void>;
 
   // Filtered products
@@ -178,9 +184,12 @@ const useProfileStore = create<ProfileState>((set, get) => ({
   activeTab: 'inMarket',
   isLoading: false,
   isLoadingProducts: false,
+  isLoadingMoreProducts: false,
   isRefreshing: false,
   error: null,
   productsError: null,
+  productsNextPageToken: null,
+  productsHasMorePages: false,
   refreshCount: 0,
 
   // Set active tab
@@ -325,6 +334,9 @@ const useProfileStore = create<ProfileState>((set, get) => ({
     set(state => ({
       isLoadingProducts: !state.isRefreshing,
       productsError: null,
+      // Reset pagination state when loading from the beginning
+      productsNextPageToken: null,
+      productsHasMorePages: false
     }));
 
     try {
@@ -342,7 +354,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
           console.log(`[ProfileStore] Rate limiting products API request for ${email}`);
 
           if (productsCache.has(email)) {
-            const { data } = productsCache.get(email);
+            const { data, nextPageToken, hasMorePages } = productsCache.get(email);
 
             // Create a map of products
             const newProductsMap = new Map<number, Product>();
@@ -354,15 +366,15 @@ const useProfileStore = create<ProfileState>((set, get) => ({
               return post;
             });
 
-            const filteredPosts = get().activeTab === 'inMarket'
-              ? formattedPosts.filter(post => post.status === 'available')
-              : formattedPosts.filter(post => post.status === 'archived');
+            const filteredPosts = get().getFilteredProducts();
 
             set({
               products: formattedPosts,
               productsMap: newProductsMap,
               filteredProducts: filteredPosts,
               isLoadingProducts: false,
+              productsNextPageToken: nextPageToken || null,
+              productsHasMorePages: hasMorePages || false
             });
 
             return;
@@ -373,7 +385,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
         if (!shouldForceRefresh && !get().isRefreshing) {
           // Check in-memory cache
           if (productsCache.has(email)) {
-            const { data, timestamp } = productsCache.get(email);
+            const { data, timestamp, nextPageToken, hasMorePages } = productsCache.get(email);
             const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
 
             if (!isExpired) {
@@ -389,15 +401,15 @@ const useProfileStore = create<ProfileState>((set, get) => ({
                 return post;
               });
 
-              const filteredPosts = get().activeTab === 'inMarket'
-                ? formattedPosts.filter(post => post.status === 'available')
-                : formattedPosts.filter(post => post.status === 'archived');
+              const filteredPosts = get().getFilteredProducts();
 
               set({
                 products: formattedPosts,
                 productsMap: newProductsMap,
                 filteredProducts: filteredPosts,
                 isLoadingProducts: false,
+                productsNextPageToken: nextPageToken || null,
+                productsHasMorePages: hasMorePages || false
               });
 
               return;
@@ -409,14 +421,14 @@ const useProfileStore = create<ProfileState>((set, get) => ({
           const cachedData = await AsyncStorage.getItem(cacheKey);
 
           if (cachedData) {
-            const { data, timestamp } = JSON.parse(cachedData);
+            const { data, timestamp, nextPageToken, hasMorePages } = JSON.parse(cachedData);
             const isExpired = Date.now() - timestamp > PRODUCTS_CACHE_EXPIRY_TIME;
 
             if (!isExpired) {
               console.log('[ProfileStore] Using AsyncStorage cached products data');
 
               // Update in-memory cache
-              productsCache.set(email, { data, timestamp });
+              productsCache.set(email, { data, timestamp, nextPageToken, hasMorePages });
 
               // Create a map of products
               const newProductsMap = new Map<number, Product>();
@@ -428,15 +440,15 @@ const useProfileStore = create<ProfileState>((set, get) => ({
                 return post;
               });
 
-              const filteredPosts = get().activeTab === 'inMarket'
-                ? formattedPosts.filter(post => post.status === 'available')
-                : formattedPosts.filter(post => post.status === 'archived');
+              const filteredPosts = get().getFilteredProducts();
 
               set({
                 products: formattedPosts,
                 productsMap: newProductsMap,
                 filteredProducts: filteredPosts,
                 isLoadingProducts: false,
+                productsNextPageToken: nextPageToken || null,
+                productsHasMorePages: hasMorePages || false
               });
 
               return;
@@ -449,52 +461,46 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       console.log('[ProfileStore] Fetching user products from API');
       PRODUCTS_API_REQUEST_TIMESTAMPS.set(email, currentTime);
 
-      const productsData = await fetchUserProducts(email);
-      console.log(`[ProfileStore] Fetched ${productsData.length} products from API`);
+      const response = await fetchUserProducts(email, null, 20);
+      console.log(`[ProfileStore] Fetched ${response.products?.length || 0} products from API`);
 
       // Log product statuses for debugging
-      const statusCounts = productsData.reduce((acc: Record<string, number>, product: Product) => {
+      const statusCounts = response.products?.reduce((acc: Record<string, number>, product: Product) => {
         const status = product.status || 'unknown';
         acc[status] = (acc[status] || 0) + 1;
         return acc;
-      }, {});
+      }, {}) || {};
       console.log('[ProfileStore] Product status counts:', statusCounts);
 
       // Cache the data
       const timestamp = Date.now();
-      productsCache.set(email, { data: productsData, timestamp });
+      productsCache.set(email, { 
+        data: response.products || [], 
+        timestamp,
+        nextPageToken: response.nextPageToken || null,
+        hasMorePages: response.hasMorePages || false
+      });
+      
       const cacheKey = `${USER_PRODUCTS_CACHE_KEY}${email}`;
       await AsyncStorage.setItem(cacheKey, JSON.stringify({
-        data: productsData,
+        data: response.products || [],
         timestamp,
+        nextPageToken: response.nextPageToken || null,
+        hasMorePages: response.hasMorePages || false
       }));
 
       // Create a map of products
       const newProductsMap = new Map<number, Product>();
 
       // Convert API products to Post format
-      const formattedPosts = productsData.map((product: Product) => {
+      const formattedPosts = (response.products || []).map((product: Product) => {
         const post = convertProductToPost(product);
         newProductsMap.set(post.id, product);
         return post;
       });
 
-      // Get filtered products based on active tab
-      const activeTab = get().activeTab;
-      let filteredPosts;
-
-      if (activeTab === 'inMarket') {
-        filteredPosts = formattedPosts.filter(post => post.status === 'available');
-        console.log(`[ProfileStore] Filtered ${filteredPosts.length} available products`);
-      } else if (activeTab === 'archive') {
-        filteredPosts = formattedPosts.filter(post => post.status === 'archived');
-        console.log(`[ProfileStore] Filtered ${filteredPosts.length} archived products`);
-      } else if (activeTab === 'sold') {
-        filteredPosts = formattedPosts.filter(post => post.status === 'sold');
-        console.log(`[ProfileStore] Filtered ${filteredPosts.length} sold products`);
-      } else {
-        filteredPosts = formattedPosts;
-      }
+      // Get filtered products based on active tab using getFilteredProducts
+      const filteredPosts = get().getFilteredProducts();
 
       // Update store state
       set({
@@ -502,6 +508,8 @@ const useProfileStore = create<ProfileState>((set, get) => ({
         productsMap: newProductsMap,
         filteredProducts: filteredPosts,
         isLoadingProducts: false,
+        productsNextPageToken: response.nextPageToken || null,
+        productsHasMorePages: response.hasMorePages || false
       });
 
       // Reset refresh count on successful fetch
@@ -513,6 +521,66 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       set({
         productsError: error?.message || 'Failed to load user products',
         isLoadingProducts: false,
+        productsNextPageToken: null,
+        productsHasMorePages: false
+      });
+    }
+  },
+
+  // Load more user products
+  loadMoreUserProducts: async (email) => {
+    const { productsNextPageToken, productsHasMorePages, isLoadingMoreProducts } = get();
+    
+    // Don't proceed if already loading or no more pages or no token
+    if (!email || isLoadingMoreProducts || !productsHasMorePages || !productsNextPageToken) {
+      console.log('[ProfileStore] Skipping loadMoreUserProducts - already loading, no more pages, or no token');
+      return;
+    }
+    
+    set({ isLoadingMoreProducts: true });
+    
+    try {
+      console.log(`[ProfileStore] Loading more user products with token: ${productsNextPageToken}`);
+      const response = await fetchUserProducts(email, productsNextPageToken, 20);
+      
+      if (response && response.products) {
+        // Get current products and add to the map
+        const currentProducts = [...get().products];
+        const currentProductsMap = new Map(get().productsMap);
+        
+        // Convert new products to Post format and add to map
+        const newFormattedPosts = response.products.map((product: Product) => {
+          const post = convertProductToPost(product);
+          currentProductsMap.set(post.id, product);
+          return post;
+        });
+        
+        // Combine with existing products
+        const allPosts = [...currentProducts, ...newFormattedPosts];
+        
+        // Update filtered products based on active tab
+        const filteredPosts = get().getFilteredProducts();
+        
+        // Update state
+        set({
+          products: allPosts,
+          productsMap: currentProductsMap,
+          filteredProducts: filteredPosts,
+          productsNextPageToken: response.nextPageToken || null,
+          productsHasMorePages: response.hasMorePages || false,
+          isLoadingMoreProducts: false
+        });
+        
+        console.log(`[ProfileStore] Loaded ${response.products.length} more products, total: ${allPosts.length}`);
+      } else {
+        console.error('[ProfileStore] Unexpected response format from fetchUserProducts');
+        set({ isLoadingMoreProducts: false });
+      }
+    } catch (error: any) {
+      console.error('[ProfileStore] Error loading more user products:', error);
+      set({
+        productsError: error?.message || 'Failed to load more products',
+        isLoadingMoreProducts: false
       });
     }
   },

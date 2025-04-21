@@ -631,6 +631,9 @@ const ProfileContentView = React.memo(({
   onTabChange,
   onEditProfile,
   isLoadingProducts,
+  isLoadingMoreProducts,
+  hasMoreProducts,
+  onLoadMore,
   isRefreshing,
   onRefresh,
   productsError,
@@ -648,6 +651,9 @@ const ProfileContentView = React.memo(({
   onTabChange: (tab: TabType) => void,
   onEditProfile: () => void,
   isLoadingProducts: boolean,
+  isLoadingMoreProducts: boolean,
+  hasMoreProducts: boolean,
+  onLoadMore: () => void,
   isRefreshing: boolean,
   onRefresh: () => Promise<void>,
   productsError: string | null,
@@ -946,7 +952,11 @@ const ProfileContentView = React.memo(({
       return (
         <View style={styles.emptyListContainer}>
           <MaterialIcons name="error-outline" size={56} color="#e74c3c" />
-          <Text style={styles.emptyListErrorText}>{productsError}</Text>
+          <Text style={styles.emptyListErrorText}>
+            {productsError.includes('404') ? 
+              'Your products could not be found. The server might be experiencing issues.' : 
+              productsError}
+          </Text>
           <TouchableOpacity
             style={styles.retryButton}
             onPress={onRefresh}
@@ -1037,9 +1047,40 @@ const ProfileContentView = React.memo(({
       )}
       ListEmptyComponent={ListEmptyComponent}
       ListFooterComponent={() => (
-        <View style={styles.listFooter} />
+        <View style={styles.listFooter}>
+          {filteredProducts.length > 0 && (
+            <>
+              {isLoadingMoreProducts && (
+                <View style={styles.loadMoreContainer}>
+                  <ActivityIndicator size="small" color="#f7b305" />
+                  <Text style={styles.loadMoreText}>Loading more products...</Text>
+                </View>
+              )}
+              
+              {!isLoadingMoreProducts && hasMoreProducts && (
+                <TouchableOpacity 
+                  style={styles.loadMoreButton}
+                  onPress={onLoadMore}
+                  disabled={isLoadingMoreProducts}
+                >
+                  <Text style={styles.loadMoreButtonText}>Load More</Text>
+                </TouchableOpacity>
+              )}
+              
+              {!hasMoreProducts && filteredProducts.length > 0 && (
+                <Text style={styles.endOfListText}>
+                  {filteredProducts.length === 1 
+                    ? "That's the only product" 
+                    : "You've reached the end"}
+                </Text>
+              )}
+            </>
+          )}
+        </View>
       )}
       columnWrapperStyle={styles.columnWrapper}
+      onEndReached={hasMoreProducts ? onLoadMore : undefined}
+      onEndReachedThreshold={0.5}
       refreshControl={
         <RefreshControl
           refreshing={isRefreshing}
@@ -1084,13 +1125,18 @@ const ProfileScreen: React.FC = () => {
     activeTab,
     isLoading,
     isLoadingProducts,
+    isLoadingMoreProducts,
+    productsNextPageToken,
+    productsHasMorePages,
     isRefreshing,
     error,
     productsError,
-    setActiveTab,
     fetchUserProfile,
     fetchUserProducts,
+    loadMoreUserProducts,
     refreshAllData,
+    setActiveTab,
+    removeProduct
   } = useProfileStore();
 
   // Use a ref to track products length for optimized updates
@@ -1105,8 +1151,8 @@ const ProfileScreen: React.FC = () => {
     }
   }, [products.length]);
 
-  // Add scrollY animated value for header animation
-  const scrollY = useMemo(() => new Animated.Value(0), []);
+  // Animation for the parallax header effect
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   // Filter products based on active tab - MOVED HERE before any conditional returns
   const filteredProducts = useMemo(() => {
@@ -1133,55 +1179,99 @@ const ProfileScreen: React.FC = () => {
       'Sign Out',
       'Are you sure you want to sign out?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
         {
           text: 'Sign Out',
-          style: 'destructive',
           onPress: async () => {
             try {
-              await signOut();
-              // Navigation will be handled by the AuthContext
+              // Clear caches and sign out
+              await Promise.all([
+                cleanupCache(),
+                cleanupProductsCache(),
+                AsyncStorage.removeItem(USER_PROFILE_CACHE_KEY),
+                AsyncStorage.removeItem(USER_PRODUCTS_CACHE_KEY),
+              ]);
+
+              // Sign out with Auth
+              try {
+                const { Auth } = require('aws-amplify');
+                await Auth.signOut();
+                if (__DEV__) {
+                  console.log('[ProfileScreen] User signed out successfully');
+                }
+              } catch (authError) {
+                console.error('[ProfileScreen] Error signing out:', authError);
+              }
+
+              // Clear AsyncStorage
+              await AsyncStorage.clear();
+
+              // Navigate to auth screen
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'GetStarted' }],
+              });
             } catch (error) {
-              console.error('Error signing out:', error);
+              console.error('[ProfileScreen] Error during sign out:', error);
               Alert.alert('Error', 'Failed to sign out. Please try again.');
             }
           },
         },
-      ]
+      ],
+      { cancelable: true }
     );
-  }, [signOut]);
+  }, [navigation]);
 
-  // Handle edit profile navigation
+  // Handle edit profile
   const handleEditProfile = useCallback(() => {
-    if (!backendUserData) {return;}
-
-    navigation.navigate('EditProfile', {
-      name: backendUserData.name,
-      university: backendUserData.university,
-      city: backendUserData.city,
-      mobile: backendUserData.mobile,
-      zipcode: backendUserData.zipcode,
-      userphoto: backendUserData.userphoto,
-      email: backendUserData.email,
+    if (isViewingSeller) {return;}
+    navigation.navigate({
+      name: 'EditProfile',
+      params: {}
     });
-  }, [navigation, backendUserData]);
+  }, [navigation, isViewingSeller]);
 
   // Handle adding a new listing
   const handleAddListing = useCallback(() => {
-    // Get the user's university and city to pass to PostingScreen
-    const userUniversity = backendUserData?.university || '';
-    const userCity = backendUserData?.city || '';
-
-    console.log('[ProfileScreen] Navigating to PostingScreen with params:', {
-      userUniversity,
-      userCity,
-    });
-
-    navigation.navigate('PostingScreen', {
-      userUniversity,
-      userCity,
+    if (__DEV__) {
+      console.log('[ProfileScreen] Navigating to Posting screen');
+    }
+    navigation.navigate({
+      name: 'PostingScreen',
+      params: {
+        userUniversity: backendUserData?.university || '',
+        userCity: backendUserData?.city || ''
+      }
     });
   }, [navigation, backendUserData]);
+
+  // Handle loading more products
+  const handleLoadMore = useCallback(() => {
+    if (!isLoadingMoreProducts && productsHasMorePages) {
+      const emailToFetch = sellerEmail || user?.email;
+      if (emailToFetch) {
+        try {
+          loadMoreUserProducts(emailToFetch).catch(error => {
+            console.error(`[ProfileScreen] Error loading more products: ${error.message || error}`);
+            // Show a toast or small notification instead of full alert for better UX
+            if (error.response?.status === 404) {
+              // Handle 404 specifically
+              Alert.alert(
+                'Products Not Found',
+                'The server could not find additional products. Please try refreshing the page.',
+                [{ text: 'OK', style: 'default' }]
+              );
+            }
+          });
+        } catch (error) {
+          console.error('[ProfileScreen] Error in handleLoadMore:', error);
+        }
+      }
+    }
+  }, [sellerEmail, user?.email, isLoadingMoreProducts, productsHasMorePages, loadMoreUserProducts]);
 
   // Handle tab change
   const handleTabChange = useCallback((tab: TabType) => {
@@ -1197,9 +1287,28 @@ const ProfileScreen: React.FC = () => {
 
         console.log(`[ProfileScreen] Loading data for ${emailToFetch}`);
 
-        // Load profile and products in parallel
-        fetchUserProfile(emailToFetch);
-        fetchUserProducts(emailToFetch);
+        try {
+          // Load profile and products in parallel with error handling
+          await Promise.all([
+            fetchUserProfile(emailToFetch).catch(error => {
+              console.error(`[ProfileScreen] Error fetching user profile: ${error.message || error}`);
+              if (error.response?.status === 404) {
+                // Handle 404 specifically for profile
+                Alert.alert(
+                  'Profile Not Found',
+                  'Could not find user profile. The user may have been deleted or the server is experiencing issues.',
+                  [{ text: 'OK', style: 'default' }]
+                );
+              }
+            }),
+            fetchUserProducts(emailToFetch).catch(error => {
+              console.error(`[ProfileScreen] Error fetching user products: ${error.message || error}`);
+              // We don't show an alert here as the error will be displayed in the UI
+            })
+          ]);
+        } catch (error) {
+          console.error('[ProfileScreen] Error in loadData:', error);
+        }
       };
 
       loadData();
@@ -1210,9 +1319,30 @@ const ProfileScreen: React.FC = () => {
   const handleRefresh = useCallback(async () => {
     const emailToFetch = sellerEmail || user?.email;
     if (!emailToFetch) {return;}
-
-    // Use the store's refresh function
-    await refreshAllData(emailToFetch);
+    
+    try {
+      console.log('[ProfileScreen] Forcing refresh and clearing cache');
+      
+      // Clear caches before refreshing to fix potential 404 errors
+      await Promise.all([
+        cleanupCache(),
+        cleanupProductsCache(),
+        AsyncStorage.removeItem(`${USER_PROFILE_CACHE_KEY}${emailToFetch}`),
+        AsyncStorage.removeItem(`${USER_PRODUCTS_CACHE_KEY}${emailToFetch}`)
+      ]);
+      
+      // Use the store's refresh function with force refresh enabled
+      await refreshAllData(emailToFetch);
+      
+      console.log('[ProfileScreen] Refresh completed successfully');
+    } catch (error) {
+      console.error('[ProfileScreen] Error during refresh:', error);
+      Alert.alert(
+        'Refresh Failed',
+        'Unable to refresh your data. Please check your connection and try again.',
+        [{ text: 'OK', style: 'default' }]
+      );
+    }
   }, [sellerEmail, user?.email, refreshAllData]);
 
   // Render loading state
@@ -1327,6 +1457,9 @@ const ProfileScreen: React.FC = () => {
                 onTabChange={handleTabChange}
                 onEditProfile={handleEditProfile}
                 isLoadingProducts={isLoadingProducts}
+                isLoadingMoreProducts={isLoadingMoreProducts}
+                hasMoreProducts={productsHasMorePages}
+                onLoadMore={handleLoadMore}
                 isRefreshing={isRefreshing}
                 onRefresh={handleRefresh}
                 productsError={productsError}
@@ -1993,7 +2126,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   listFooter: {
-    height: 30,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   universityItem: {
     borderLeftColor: '#f7b305',
@@ -2023,6 +2158,42 @@ const styles = StyleSheet.create({
     padding: 6,
     backgroundColor: 'rgba(0, 0, 0, 0.05)',
     borderRadius: 50,
+  },
+  loadMoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
+  },
+  loadMoreText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+    marginLeft: 10,
+  },
+  loadMoreButton: {
+    backgroundColor: '#f7b305',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    ...Platform.select({
+      android: {
+        elevation: 0,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.05)',
+      },
+    }),
+  },
+  loadMoreButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  endOfListText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#777',
+    textAlign: 'center',
   },
 });
 

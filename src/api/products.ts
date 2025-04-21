@@ -83,15 +83,18 @@ export interface ProductFilters {
   sellingType?: string | string[];
   sortBy?: string; // Support dynamic sort options
   sortDirection?: 'asc' | 'desc';
-  page?: number;
+  page?: number; // Legacy pagination - will be deprecated
   size?: number;
+  pageToken?: string; // Token-based pagination
 }
 
 export interface ProductListResponse {
   products: Product[];
   totalItems: number;
-  currentPage: number;
-  totalPages: number;
+  currentPage?: number; // Legacy pagination - will be deprecated
+  totalPages?: number; // Legacy pagination - will be deprecated
+  nextPageToken?: string | null; // Token for the next page of results
+  hasMorePages?: boolean; // Whether there are more pages of results
 }
 
 export interface CreateProductWithImagesRequest {
@@ -155,12 +158,54 @@ export const getProducts = async (filters: ProductFilters = {}): Promise<Product
 export const getProductsByUniversity = async (university: string, filters: ProductFilters = {}): Promise<ProductListResponse> => {
   // console.log(`[API:products] Getting products for university: ${university}`, { filters });
 
-  // Use exact same URL that worked with curl, with no query parameters
-  const url = `${API_URL}/api/products/university/${encodeURIComponent(university)}`;
+  // Build query string for token-based pagination
+  const queryParams = new URLSearchParams();
+  
+  // Add size parameter
+  if (filters.size) {
+    queryParams.append('size', filters.size.toString());
+  } else {
+    queryParams.append('size', '20'); // Default size
+  }
+  
+  // Add pageToken parameter for token-based pagination if provided
+  if (filters.pageToken) {
+    queryParams.append('pageToken', filters.pageToken);
+  }
+  
+  // Add other filter parameters
+  if (filters.category) queryParams.append('category', filters.category);
+  if (filters.sortBy) queryParams.append('sortBy', filters.sortBy);
+  if (filters.sortDirection) queryParams.append('sortDirection', filters.sortDirection);
+  
+  // Handle array parameters
+  if (filters.condition) {
+    if (Array.isArray(filters.condition)) {
+      filters.condition.forEach(condition => {
+        if (condition) queryParams.append('condition', condition);
+      });
+    } else {
+      queryParams.append('condition', filters.condition);
+    }
+  }
+  
+  if (filters.sellingType) {
+    if (Array.isArray(filters.sellingType)) {
+      filters.sellingType.forEach(type => {
+        if (type) queryParams.append('sellingType', type);
+      });
+    } else {
+      queryParams.append('sellingType', filters.sellingType);
+    }
+  }
+
+  const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+  const url = `${API_URL}/api/products/university/${encodeURIComponent(university)}${queryString}`;
+
   if (__DEV__) {
-  console.log(`[API:products] University products URL: `);
-  console.log('[API:products] Using EXACT same URL that worked with curl - no query parameters');
-}
+    console.log(`[API:products] University products URL: ${url}`);
+  }
+
   // Use the same headers and approach as the successful curl command
   return new Promise<ProductListResponse>((resolve, reject) => {
     try {
@@ -190,12 +235,15 @@ export const getProductsByUniversity = async (university: string, filters: Produ
         // Manually parse as JSON
         const data = JSON.parse(text);
 
-        // Process the response
+        // Process the response with token-based pagination
         const result: ProductListResponse = {
           products: data.products || [],
           totalItems: data.totalItems || 0,
-          currentPage: data.currentPage || 0,
-          totalPages: data.totalPages || 0,
+          nextPageToken: data.nextPageToken || null,
+          hasMorePages: data.hasMorePages || false,
+          // Include legacy pagination fields for backward compatibility
+          currentPage: data.currentPage,
+          totalPages: data.totalPages,
         };
 
         // Process products and add full image URLs
@@ -215,7 +263,12 @@ export const getProductsByUniversity = async (university: string, filters: Produ
         // Special handling for "ListIterators are not supported for this list" error
         if (error.message && error.message.includes('ListIterators are not supported')) {
           console.warn('[API:products] Caught ListIterators error, returning empty product list');
-          resolve({ products: [], totalItems: 0, currentPage: 0, totalPages: 0 });
+          resolve({ 
+            products: [], 
+            totalItems: 0, 
+            nextPageToken: null,
+            hasMorePages: false
+          });
         } else {
           reject(error);
         }
@@ -230,7 +283,12 @@ export const getProductsByUniversity = async (university: string, filters: Produ
     console.error('[API:products] Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
 
     // Return an empty result structure to avoid breaking the app
-    return { products: [], totalItems: 0, currentPage: 0, totalPages: 0 };
+    return { 
+      products: [], 
+      totalItems: 0, 
+      nextPageToken: null,
+      hasMorePages: false
+    };
   });
 };
 
@@ -243,25 +301,40 @@ export const getProductsByCity = async (city: string, filters: ProductFilters = 
   // Build query string from filters
   const queryParams = new URLSearchParams();
 
-  // Convert filters to match backend expected format
-  const backendFilters = {
-    // Convert page from 1-indexed to 0-indexed
-    page: filters.page !== undefined ? (filters.page - 1).toString() : '0',
-    size: filters.size?.toString() || '20',
-    category: filters.category,
-    sortBy: filters.sortBy,
-    condition: filters.condition,
-    sellingType: filters.sellingType,
-    // Keep university as is
-    university: filters.university,
-  };
+  // Add size parameter (default to 20 if not provided)
+  queryParams.append('size', filters.size?.toString() || '20');
 
-  // Add only defined parameters to query string
-  Object.entries(backendFilters).forEach(([key, value]) => {
-    if (value !== undefined && value !== null) {
-      queryParams.append(key, value);
+  // Add pageToken parameter for token-based pagination if provided
+  if (filters.pageToken) {
+    queryParams.append('pageToken', filters.pageToken);
+  }
+  
+  // Add filter parameters
+  if (filters.category) queryParams.append('category', filters.category);
+  if (filters.sortBy) queryParams.append('sortBy', filters.sortBy);
+  if (filters.university) queryParams.append('university', filters.university);
+  if (filters.sortDirection) queryParams.append('sortDirection', filters.sortDirection);
+  
+  // Handle array parameters
+  if (filters.condition) {
+    if (Array.isArray(filters.condition)) {
+      filters.condition.forEach(condition => {
+        if (condition) queryParams.append('condition', condition);
+      });
+    } else {
+      queryParams.append('condition', filters.condition);
     }
-  });
+  }
+  
+  if (filters.sellingType) {
+    if (Array.isArray(filters.sellingType)) {
+      filters.sellingType.forEach(type => {
+        if (type) queryParams.append('sellingType', type);
+      });
+    } else {
+      queryParams.append('sellingType', filters.sellingType);
+    }
+  }
 
   // Ensure the university parameter is included in the URL if provided
   if (filters.university) {
@@ -271,10 +344,10 @@ export const getProductsByCity = async (city: string, filters: ProductFilters = 
   const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
   const url = `${API_URL}/api/products/city/${encodeURIComponent(city)}${queryString}`;
 
-  console.log(`[API:products] City products URL: `);
+  console.log(`[API:products] City products URL: ${url}`);
 
   try {
-    console.log(`[API:products] Sending request to city endpoint: `);
+    console.log(`[API:products] Sending request to city endpoint: ${url}`);
 
     // Use explicit headers matching the README example
     const fetchOptions = {
@@ -322,8 +395,16 @@ export const getProductsByCity = async (city: string, filters: ProductFilters = 
           const manualJson = JSON.parse(rawText);
           console.log('[API:products] Successfully parsed raw response text as JSON');
 
-          // Process the manually parsed JSON
-          const result: ProductListResponse = manualJson;
+          // Process the manually parsed JSON with token-based pagination
+          const result: ProductListResponse = {
+            products: manualJson.products || [],
+            totalItems: manualJson.totalItems || 0,
+            nextPageToken: manualJson.nextPageToken || null,
+            hasMorePages: manualJson.hasMorePages || false,
+            // Include legacy pagination fields for backward compatibility
+            currentPage: manualJson.currentPage,
+            totalPages: manualJson.totalPages,
+          };
 
           // Continue with normal processing...
           if (result.products) {
@@ -344,19 +425,13 @@ export const getProductsByCity = async (city: string, filters: ProductFilters = 
                   iteratorError.message &&
                   iteratorError.message.includes('ListIterators are not supported')
                 ) {
-                  console.warn('[API:products] ListIterators error detected in city products. Using empty products array.');
                   result.products = [];
-                } else {
-                  throw iteratorError;
                 }
               }
             }
 
-            // Now safely map over products array
+            // Process all product images
             result.products = result.products.map(product => processProductImages(product));
-          } else {
-            console.warn('[API:products] Unexpected response format from city products API');
-            result.products = [];
           }
 
           return result;
@@ -429,19 +504,48 @@ export const getProductsByCity = async (city: string, filters: ProductFilters = 
 export const getProductsByCategory = async (category: string, filters: ProductFilters = {}): Promise<ProductListResponse> => {
   console.log(`[API:products] Getting products for category: ${category}`);
 
-  // Build query string from filters
+  // Build query string from filters for token-based pagination
   const queryParams = new URLSearchParams();
-
-  Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== null) {
-      queryParams.append(key, value.toString());
+  
+  // Add size parameter (default to 20 if not provided)
+  queryParams.append('size', filters.size?.toString() || '20');
+  
+  // Add pageToken parameter for token-based pagination if provided
+  if (filters.pageToken) {
+    queryParams.append('pageToken', filters.pageToken);
+  }
+  
+  // Add other filter parameters
+  if (filters.university) queryParams.append('university', filters.university);
+  if (filters.city) queryParams.append('city', filters.city);
+  if (filters.sortBy) queryParams.append('sortBy', filters.sortBy);
+  if (filters.sortDirection) queryParams.append('sortDirection', filters.sortDirection);
+  
+  // Handle array parameters
+  if (filters.condition) {
+    if (Array.isArray(filters.condition)) {
+      filters.condition.forEach(condition => {
+        if (condition) queryParams.append('condition', condition);
+      });
+    } else {
+      queryParams.append('condition', filters.condition);
     }
-  });
+  }
+  
+  if (filters.sellingType) {
+    if (Array.isArray(filters.sellingType)) {
+      filters.sellingType.forEach(type => {
+        if (type) queryParams.append('sellingType', type);
+      });
+    } else {
+      queryParams.append('sellingType', filters.sellingType);
+    }
+  }
 
   const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
 
   const response = await fetchWithTimeout(
-    `${API_URL}/api/products/category/${encodeURIComponent(category)}${queryString}`,
+    `${API_URL}/api/products/category/${encodeURIComponent(category)}/paginated${queryString}`,
     { method: 'GET' }
   );
 
@@ -455,37 +559,53 @@ export const getProductsByCategory = async (category: string, filters: ProductFi
     const data = JSON.parse(responseText);
 
     // Handle both array responses and object responses with products property
-    let productsArray: Product[] = [];
+    let result: ProductListResponse;
 
     if (Array.isArray(data)) {
       console.log(`[API:products] Category response is an array with ${data.length} items`);
-      productsArray = data;
-    } else if (data && typeof data === 'object' && Array.isArray(data.products)) {
-      console.log(`[API:products] Category response is an object with products array (${data.products.length} items)`);
-      productsArray = data.products;
+      // If response is array, convert to ProductListResponse format
+      result = {
+        products: data,
+        totalItems: data.length,
+        hasMorePages: false,
+        nextPageToken: null
+      };
+    } else if (data && typeof data === 'object') {
+      console.log(`[API:products] Category response is an object`);
+      // If response is object with pagination information
+      result = {
+        products: data.products || [],
+        totalItems: data.totalItems || 0,
+        nextPageToken: data.nextPageToken || null,
+        hasMorePages: data.hasMorePages || false,
+        // Include legacy pagination fields for backward compatibility
+        currentPage: data.currentPage,
+        totalPages: data.totalPages
+      };
     } else {
       console.warn('[API:products] Unexpected response format for category products');
-      productsArray = [];
+      result = {
+        products: [],
+        totalItems: 0,
+        hasMorePages: false,
+        nextPageToken: null
+      };
     }
 
     // Process all products to add full image URLs
-    const processedProducts = productsArray.map(product => processProductImages(product));
+    if (Array.isArray(result.products)) {
+      result.products = result.products.map(product => processProductImages(product));
+    }
 
-    // Return in the standard ProductListResponse format
-    return {
-      products: processedProducts,
-      totalItems: processedProducts.length,
-      currentPage: 1,
-      totalPages: 1,
-    };
+    return result;
   } catch (error) {
     console.error('[API:products] Error processing category products response:', error);
     // Return empty result to avoid breaking the app
     return {
       products: [],
       totalItems: 0,
-      currentPage: 1,
-      totalPages: 1,
+      hasMorePages: false,
+      nextPageToken: null
     };
   }
 };
@@ -493,14 +613,38 @@ export const getProductsByCategory = async (category: string, filters: ProductFi
 /**
  * Get featured products for university and city
  */
-export const getFeaturedProducts = async (university: string, city: string, page: number = 0, size: number = 10): Promise<ProductListResponse> => {
-  console.log(`[API:products] Getting featured products for university: ${university}, city: ${city}, page: ${page}, size: ${size}`);
+export const getFeaturedProducts = async (
+  university: string, 
+  city: string, 
+  pageToken: string | null = null, 
+  size: number = 10
+): Promise<ProductListResponse> => {
+  console.log(`[API:products] Getting featured products for university: ${university}, city: ${city}, size: ${size}, pageToken: ${pageToken || 'null'}`);
 
   try {
-    const response = await fetchWithTimeout(
-      `${API_URL}/api/products/featured/${encodeURIComponent(university)}/${encodeURIComponent(city)}/paginated?page=${page}&size=${size}&pageSize=${size}`,
-      { method: 'GET' }
-    );
+    // Build URL with token-based pagination
+    const queryParams = new URLSearchParams();
+    queryParams.append('size', size.toString());
+    
+    if (pageToken) {
+      queryParams.append('pageToken', pageToken);
+    }
+    
+    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+    const url = `${API_URL}/api/products/featured/${encodeURIComponent(university)}/${encodeURIComponent(city)}/paginated${queryString}`;
+    
+    // Import Auth from Amplify inside the function
+    const { Auth } = require('aws-amplify');
+    // Get the current authenticated session to retrieve the JWT token
+    const currentSession = await Auth.currentSession();
+    const token = currentSession.getIdToken().getJwtToken();
+
+    const response = await fetchWithTimeout(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
 
     const result = await handleResponse<ProductListResponse>(response);
 
@@ -514,29 +658,60 @@ export const getFeaturedProducts = async (university: string, city: string, page
       return {
         products: products.map(product => processProductImages(product)),
         totalItems: products.length,
-        currentPage: page,
-        totalPages: 1,
+        hasMorePages: false,
+        nextPageToken: null
       };
+    }
+
+    // Ensure token-based pagination fields are present
+    if (result.nextPageToken === undefined) {
+      result.nextPageToken = null;
+    }
+    
+    if (result.hasMorePages === undefined) {
+      // If we have legacy pagination info, use it to determine if there are more pages
+      if (result.currentPage !== undefined && result.totalPages !== undefined) {
+        result.hasMorePages = result.currentPage < result.totalPages - 1;
+      } else {
+        result.hasMorePages = false;
+      }
     }
 
     return result;
   } catch (error) {
     console.error('Error fetching featured products:', error);
-    return { products: [], totalItems: 0, currentPage: page, totalPages: 1 };
+    return { 
+      products: [], 
+      totalItems: 0, 
+      hasMorePages: false,
+      nextPageToken: null
+    };
   }
 };
 
 /**
  * Get new arrivals for university
  */
-export const getNewArrivals = async (university: string, page: number = 0, size: number = 10): Promise<ProductListResponse> => {
-  console.log(`[API:products] Getting new arrivals for university: ${university}, page: ${page}, size: ${size}`);
+export const getNewArrivals = async (
+  university: string, 
+  pageToken: string | null = null, 
+  size: number = 10
+): Promise<ProductListResponse> => {
+  console.log(`[API:products] Getting new arrivals for university: ${university}, size: ${size}, pageToken: ${pageToken || 'null'}`);
 
   try {
-    const response = await fetchWithTimeout(
-      `${API_URL}/api/products/new-arrivals/${encodeURIComponent(university)}/paginated?page=${page}&size=${size}&pageSize=${size}`,
-      { method: 'GET' }
-    );
+    // Build URL with token-based pagination
+    const queryParams = new URLSearchParams();
+    queryParams.append('size', size.toString());
+    
+    if (pageToken) {
+      queryParams.append('pageToken', pageToken);
+    }
+    
+    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+    const url = `${API_URL}/api/products/new-arrivals/${encodeURIComponent(university)}/paginated${queryString}`;
+    
+    const response = await fetchWithTimeout(url, { method: 'GET' });
 
     const result = await handleResponse<ProductListResponse>(response);
 
@@ -550,15 +725,34 @@ export const getNewArrivals = async (university: string, page: number = 0, size:
       return {
         products: products.map(product => processProductImages(product)),
         totalItems: products.length,
-        currentPage: page,
-        totalPages: 1,
+        hasMorePages: false,
+        nextPageToken: null
       };
+    }
+
+    // Ensure token-based pagination fields are present
+    if (result.nextPageToken === undefined) {
+      result.nextPageToken = null;
+    }
+    
+    if (result.hasMorePages === undefined) {
+      // If we have legacy pagination info, use it to determine if there are more pages
+      if (result.currentPage !== undefined && result.totalPages !== undefined) {
+        result.hasMorePages = result.currentPage < result.totalPages - 1;
+      } else {
+        result.hasMorePages = false;
+      }
     }
 
     return result;
   } catch (error) {
     console.error('Error fetching new arrivals:', error);
-    return { products: [], totalItems: 0, currentPage: page, totalPages: 1 };
+    return { 
+      products: [], 
+      totalItems: 0, 
+      hasMorePages: false,
+      nextPageToken: null
+    };
   }
 };
 
@@ -687,11 +881,17 @@ export const getProductById = async (id: string): Promise<Product> => {
 /**
  * Fetches all products listed by a specific user
  * @param email - User's email address
- * @returns Promise resolving to an array of products
+ * @param pageToken - Optional token for pagination
+ * @param size - Number of results per page
+ * @returns Promise resolving to a ProductListResponse
  */
-export const fetchUserProducts = async (email: string): Promise<Product[]> => {
+export const fetchUserProducts = async (
+  email: string, 
+  pageToken: string | null = null, 
+  size: number = 20
+): Promise<ProductListResponse> => {
   try {
-    console.log(`[API] Fetching products for user: ${email}`);
+    console.log(`[API] Fetching products for user: ${email}, pageToken: ${pageToken || 'null'}, size: ${size}`);
 
     // Import Auth from Amplify inside the function to avoid circular dependencies
     const { Auth } = require('aws-amplify');
@@ -700,22 +900,72 @@ export const fetchUserProducts = async (email: string): Promise<Product[]> => {
     const currentSession = await Auth.currentSession();
     const token = currentSession.getIdToken().getJwtToken();
 
-    const response = await axios.get(`${API_BASE_URL}/products/user/${email}`, {
+    // Build URL with token-based pagination
+    const queryParams = new URLSearchParams();
+    queryParams.append('size', size.toString());
+    
+    if (pageToken) {
+      queryParams.append('pageToken', pageToken);
+    }
+    
+    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+    const url = `${API_BASE_URL}/products/user/${email}${queryString}`;
+
+    const response = await axios.get(url, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
     });
 
     if (response.status === 200) {
-      console.log(`[API] Successfully fetched ${response.data.length} products for user`);
-      return response.data.map((product: any) => processProductImages(product));
+      // Check if response is an array (old API) or an object with pagination (new API)
+      if (Array.isArray(response.data)) {
+        console.log(`[API] Successfully fetched ${response.data.length} products for user (array response)`);
+        const products = response.data.map((product: any) => processProductImages(product));
+        
+        // Convert array response to ProductListResponse format
+        return {
+          products,
+          totalItems: products.length,
+          hasMorePages: false,
+          nextPageToken: null
+        };
+      } else {
+        console.log(`[API] Successfully fetched ${response.data.products?.length || 0} products for user (paginated response)`);
+        
+        // Handle paginated response
+        const result: ProductListResponse = {
+          products: response.data.products || [],
+          totalItems: response.data.totalItems || 0,
+          nextPageToken: response.data.nextPageToken || null,
+          hasMorePages: response.data.hasMorePages || false,
+          // Include legacy pagination fields for backward compatibility
+          currentPage: response.data.currentPage,
+          totalPages: response.data.totalPages
+        };
+        
+        // Process products to add full image URLs
+        result.products = result.products.map((product: any) => processProductImages(product));
+        
+        return result;
+      }
     } else {
       console.error(`[API] Error fetching user products: ${response.status}`);
-      return [];
+      return { 
+        products: [], 
+        totalItems: 0,
+        hasMorePages: false,
+        nextPageToken: null 
+      };
     }
   } catch (error) {
     console.error('[API] Error fetching user products:', error);
-    throw error;
+    return { 
+      products: [], 
+      totalItems: 0,
+      hasMorePages: false,
+      nextPageToken: null 
+    };
   }
 };
 
@@ -731,9 +981,9 @@ export interface SearchProductsParams {
   maxPrice?: number | string;   // Max price filter
   sortBy?: string;              // Sort field
   sortDirection?: string;       // Sort direction
-  page?: number;                // Page number (0-based, defaults to 0)
+  page?: number;                // Legacy pagination - page number (0-based, defaults to 0)
   size?: number;                // Results per page (defaults to 20, max 50)
-  paginationToken?: string;     // Token for pagination (if supported)
+  paginationToken?: string;     // Token for pagination (preferred over page parameter)
 }
 
 // Define interface for search results
@@ -779,10 +1029,19 @@ export const searchProducts = async (searchParams: SearchProductsParams): Promis
     // Add optional filters
     if (searchParams.category) {queryParams.append('category', searchParams.category);}
 
-    // Pagination (0-based page number)
-    if (searchParams.page !== undefined) {queryParams.append('page', searchParams.page.toString());}
+    // Token-based pagination
+    if (searchParams.paginationToken) {
+      queryParams.append('pageToken', searchParams.paginationToken);
+    }
+    
+    // Set result size (default to 20, cap at 50)
     const size = searchParams.size || 20;
     queryParams.append('size', Math.min(size, 50).toString()); // Enforce max size of 50
+
+    // Legacy pagination (only use if pageToken is not provided)
+    if (!searchParams.paginationToken && searchParams.page !== undefined) {
+      queryParams.append('page', searchParams.page.toString());
+    }
 
     // Handle condition filters (can be array)
     if (searchParams.condition) {
@@ -840,11 +1099,11 @@ export const searchProducts = async (searchParams: SearchProductsParams): Promis
         throw new Error(`Search API returned status: ${response.status}`);
       }
 
-        const result = await handleResponse<SearchProductsResponse>(response);
+      const result = await handleResponse<SearchProductsResponse>(response);
 
       // Process images in search results
-        if (result.products && Array.isArray(result.products)) {
-          result.products = result.products.map(product => processProductImages(product));
+      if (result.products && Array.isArray(result.products)) {
+        result.products = result.products.map(product => processProductImages(product));
       } else {
         // Ensure products is always an array
         result.products = [];
@@ -856,10 +1115,10 @@ export const searchProducts = async (searchParams: SearchProductsParams): Promis
         totalItems: result.totalItems || 0,
         currentPage: result.currentPage || 0,
         totalPages: result.totalPages || 1,
-        hasMorePages: result.currentPage < result.totalPages - 1,
+        hasMorePages: result.hasMorePages || result.currentPage < result.totalPages - 1,
         nextPageToken: result.nextPageToken || null,
       };
-  } catch (error) {
+    } catch (error) {
       console.error('[API:products] Error in searchProducts:', error);
 
       // Return empty results on error
