@@ -75,7 +75,7 @@ interface CategoryState {
   searchProducts: (query: string) => Promise<void>;
 
   // Handle refresh
-  handleRefresh: () => Promise<void>;
+  handleRefresh: (currentUniversity: string, currentCity: string) => Promise<void>;
 
   // Handle filters
   applyFilters: () => void;
@@ -148,15 +148,45 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
 
   // Helper function to generate cache key
   generateCacheKey: (categoryName, params) => {
-    const filterString = JSON.stringify({
-      query: params.searchQuery?.trim() || undefined,
-      university: params.userUniversity || undefined,
-      city: params.userCity || undefined,
-      categoryId: params.categoryId,
-      categoryName: categoryName,
-      page: params.page || 0,
-    });
-    return `${CATEGORY_PRODUCTS_CACHE_KEY}${categoryName}_${simpleHash(filterString)}`;
+    // Determine the product type based on categoryName and params
+    const { userUniversity, userCity, categoryId, searchQuery, page } = params;
+    const isFeatured = categoryName === 'Featured Products';
+    const isNewArrivals = categoryName === 'New Arrivals';
+    const isUniversityType = (categoryName.includes('University') || 
+                        (categoryName.endsWith('Products') && !categoryName.match(/^[A-Z][a-z]+ Products$/))) && 
+                        userUniversity && userUniversity.length > 0;
+    const isCityType = (categoryId === 0 && 
+                   userCity && 
+                   userCity.length > 0 && 
+                   (categoryName === `${userCity} Products` || categoryName.match(/^[A-Z][a-z]+ Products$/))) &&
+                   !isFeatured && 
+                   !isNewArrivals && 
+                   !isUniversityType;
+    
+    let primaryIdentifier = categoryId !== 0 ? categoryId : categoryName;
+    let keyParams: any = {
+      query: searchQuery?.trim() || undefined,
+      page: page || 0,
+    };
+
+    // Add specific identifiers based on the determined type
+    if (isUniversityType) {
+      keyParams.university = userUniversity;
+      primaryIdentifier = `university-${userUniversity}`; // Use university as part of the primary ID
+    } else if (isCityType) {
+      keyParams.city = userCity;
+      primaryIdentifier = `city-${userCity}`; // Use city as part of the primary ID
+    } else if (isFeatured || isNewArrivals) {
+      // Featured/New Arrivals might depend on both or either
+      keyParams.university = userUniversity || undefined;
+      keyParams.city = userCity || undefined;
+    } else {
+      // Regular category - no extra identifiers needed in keyParams usually
+    }
+
+    const filterString = JSON.stringify(keyParams);
+    // Use the more specific primaryIdentifier in the key
+    return `${CATEGORY_PRODUCTS_CACHE_KEY}${primaryIdentifier}_${simpleHash(filterString)}`;
   },
 
   // Helper function to cache products
@@ -263,26 +293,49 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
       // Determine if this is a featured, new arrivals, university, city or regular category
       const isFeatured = categoryName === 'Featured Products';
       const isNewArrivals = categoryName === 'New Arrivals';
-      const isUniversity = categoryName.includes('University') || categoryName.endsWith('Products');
-      const isCity = !isUniversity && !isFeatured && !isNewArrivals && categoryId === 0;
+      const isUniversity = (categoryName.includes('University') || 
+                          (categoryName.endsWith('Products') && !categoryName.match(/^[A-Z][a-z]+ Products$/))) && 
+                          userUniversity && userUniversity.length > 0;
+      const isCity = (categoryId === 0 && 
+                     userCity && 
+                     userCity.length > 0 && 
+                     (categoryName === `${userCity} Products` || categoryName.match(/^[A-Z][a-z]+ Products$/))) &&
+                     !isFeatured && 
+                     !isNewArrivals && 
+                     !isUniversity;
+
+      // After defining the product types, add detailed logging
+      console.log(`[CategoryStore] Category detection:
+        Name: ${categoryName}
+        CategoryId: ${categoryId}
+        University: ${userUniversity}
+        City: ${userCity}
+        isFeatured: ${isFeatured}
+        isNewArrivals: ${isNewArrivals}
+        isUniversity: ${isUniversity}
+        isCity: ${isCity}
+      `);
 
       let result;
       // Determine which API to call based on the type
       if (isFeatured) {
         console.log(`[CategoryStore] Fetching featured products with pagination, page ${page}`);
-        result = await getFeaturedProducts(userUniversity, userCity, page, 10);
+        result = await getFeaturedProducts(userUniversity, userCity, page > 0 ? String(page) : null, 10);
       } else if (isNewArrivals) {
         console.log(`[CategoryStore] Fetching new arrivals with pagination, page ${page}`);
         if (!userUniversity) {
           throw new Error('University is required for new arrivals');
         }
-        result = await getNewArrivals(userUniversity, page, 10);
+        result = await getNewArrivals(userUniversity, page > 0 ? String(page) : null, 10);
       } else if (isUniversity && userUniversity) {
         console.log(`[CategoryStore] Fetching university products with pagination, page ${page}`);
         result = await getProductsByUniversity(userUniversity, apiSearchFilters);
       } else if (isCity && userCity) {
-        console.log(`[CategoryStore] Fetching city products with pagination, page ${page}`);
+        console.log(`[CategoryStore] Fetching city products for city: "${userCity}" with pagination, page ${page}`);
+        console.log(`[CategoryStore] API search filters:`, JSON.stringify(apiSearchFilters));
         result = await getProductsByCity(userCity, apiSearchFilters);
+        console.log(`[CategoryStore] City products API response received:`, 
+                    `${result && 'products' in result ? result.products.length : 0} products`);
       } else {
         console.log(`[CategoryStore] Fetching category products with pagination, page ${page}`);
         result = await getProductsByCategory(categoryName.toLowerCase(), apiSearchFilters);
@@ -411,17 +464,21 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
   },
 
   // Handle refresh
-  handleRefresh: async () => {
+  handleRefresh: async (currentUniversity, currentCity) => {
     set({ refreshing: true });
     const currentState = get();
-    const { currentCategory } = currentState;
+    // Use the CURRENT context passed from the screen, not the potentially stale
+    // context stored in currentCategory from the initial load.
+    const { name: categoryName, id: categoryId } = currentState.currentCategory; 
 
-    // Reload the current category from page 0
+    console.log(`[CategoryStore] Refresh triggered for ${categoryName}. Using current University: ${currentUniversity}, City: ${currentCity}`);
+
+    // Reload the current category from page 0 using the provided context
     await currentState.loadCategoryProducts(
-      currentCategory.name,
-      currentCategory.id,
-      currentCategory.university,
-      currentCategory.city,
+      categoryName,
+      categoryId,
+      currentUniversity, // Use argument
+      currentCity,       // Use argument
       0, // Restart from page 0
       false // Replace existing, don't append
     );

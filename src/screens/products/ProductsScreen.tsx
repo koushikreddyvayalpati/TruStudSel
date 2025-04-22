@@ -671,26 +671,30 @@ const ProductsScreen = () => {
         <View style={styles.productInfoContainer}>
           <View style={styles.titleContainer}>
             <Text style={styles.productName}>{product.name}</Text>
-            {isUserSeller ? (
-              <TouchableOpacity
-                style={styles.editHeaderButton}
-                onPress={() => {
-                  navigation.navigate('PostingScreen', { 
-                    isEditMode: true, 
-                    productToEdit: product 
-                  });
-                }}
-              >
-                <Ionicons name="create-outline" size={22} color="#333" />
-              </TouchableOpacity>
-            ) : (
+            <View style={styles.titleButtonsContainer}> 
+              {/* Share button (always visible) */}
               <TouchableOpacity
                 style={styles.shareButton}
                 onPress={handleShare}
               >
                 <MaterialIcons name="share" size={22} color="#333" />
               </TouchableOpacity>
-            )}
+              
+              {/* Edit button (visible only for seller) */}
+              {isUserSeller && (
+                <TouchableOpacity
+                  style={[styles.editHeaderButton, { marginLeft: 8 }]} // Add some margin
+                  onPress={() => {
+                    navigation.navigate('PostingScreen', { 
+                      isEditMode: true, 
+                      productToEdit: product 
+                    });
+                  }}
+                >
+                  <Ionicons name="create-outline" size={22} color="#333" />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           <View style={styles.priceAndTagsRow}>
@@ -779,7 +783,7 @@ const ProductsScreen = () => {
                     <Text style={styles.sellerName} numberOfLines={1}>
                       {(() => {
                         const name = product.sellerName || product.seller?.name || 'Unknown Seller';
-                        return name.length > 16 ? `${name.substring(0, 16)}...` : name;
+                        return name.length > 14 ? `${name.substring(0, 14)}...` : name;
                       })()}
                     </Text>
                     <View style={styles.sellerMetaInfo}>
@@ -830,10 +834,31 @@ const ProductsScreen = () => {
 
           {isUserSeller && (
             <View style={styles.ownProductContainer}>
-              <View style={styles.ownProductStatusRow}>
-                <Ionicons name="checkmark-circle" size={22} color="#4CAF50" />
-                <Text style={styles.ownProductText}>This is your product listing</Text>
+              <View style={styles.ownProductHeader}>
+                <View style={styles.ownProductStatusRow}>
+                  <Ionicons name="shield-checkmark" size={22} color="#4CAF50" />
+                  <Text style={styles.ownProductText}>Product Management</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.manageButton}
+                  onPress={() => {
+                    navigation.navigate('PostingScreen', { 
+                      isEditMode: true, 
+                      productToEdit: product 
+                    });
+                  }}
+                >
+                  <Text style={styles.manageButtonText}>Edit Details</Text>
+                  <Ionicons name="chevron-forward" size={16} color="#f7b305" />
+                </TouchableOpacity>
               </View>
+              
+              <Text style={styles.ownProductDescription}>
+                You posted this product on {product.postingdate ? 
+                  new Date(product.postingdate).toLocaleDateString('en-US', {
+                    month: 'long', day: 'numeric', year: 'numeric'
+                  }) : 'an unknown date'}
+              </Text>
             </View>
           )}
 
@@ -1053,6 +1078,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 0,
     paddingBottom: 5,
+  },
+  titleButtonsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   shareButton: {
     padding: 8,
@@ -1604,24 +1633,62 @@ const styles = StyleSheet.create({
     }),
   },
   ownProductContainer: {
-    backgroundColor: '#f5f5f5',
-    padding: 15,
-    borderRadius: 10,
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 15,
     marginTop: 20,
     marginBottom: 10,
     flexDirection: 'column',
     alignItems: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#eeeeee',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
+  },
+  ownProductHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 15,
   },
   ownProductStatusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
   },
   ownProductText: {
-    fontSize: 14,
+    fontSize: 16,
     marginLeft: 8,
-    color: '#4a4a4a',
-    fontWeight: '500',
+    color: '#222',
+    fontWeight: '600',
+  },
+  ownProductDescription: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+  },
+  manageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(247, 179, 5, 0.1)',
+  },
+  manageButtonText: {
+    fontSize: 14,
+    color: '#f7b305',
+    fontWeight: '600',
+    marginRight: 4,
   },
   editHeaderButton: {
     padding: 8,

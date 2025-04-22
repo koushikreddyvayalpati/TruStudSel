@@ -1,12 +1,12 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import {
   View,
-  TextInput,
   Text,
-  StyleSheet,
   TouchableOpacity,
+  StyleSheet,
   ScrollView,
   SafeAreaView,
+  TextInput,
   Platform,
   StatusBar,
   FlatList,
@@ -27,6 +27,9 @@ import { useNavigation, DrawerActions } from '@react-navigation/native';
 // Import from contexts with new structure
 import { useAuth } from '../../contexts';
 import { useUniversity, useCity } from '../../navigation/MainNavigator';
+
+// Import CitySelector component
+import CitySelector from '../../components/CitySelector';
 
 // Import the Product type from types/product
 import { Product } from '../../types/product';
@@ -430,13 +433,18 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   const nav = propNavigation || navigation;
   const { user } = useAuth();
   const { setUserUniversity } = useUniversity();
-  const { setUserCity } = useCity();
+  // Get both the setter and the current city value from the context
+  const { userCity: cityFromContext, setUserCity } = useCity(); 
 
   // User profile data state
   const [userProfileData, setUserProfileData] = useState<any>(null);
   const [isLoadingUserData, setIsLoadingUserData] = useState<boolean>(false);
   const [userDataError, setUserDataError] = useState<string | null>(null);
-
+  
+  // Add state for location change modal
+  const [locationModalVisible, setLocationModalVisible] = useState<boolean>(false);
+  const [_citySearchQuery, setCitySearchQuery] = useState<string>('');
+  
   // Add stub functions for filtering until full Zustand migration is complete
   // These will eventually be removed when migration is complete
   const loadFilteredFeaturedProducts = async (filters: any) => {
@@ -555,6 +563,41 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     handleRefresh,
     setError,
   } = useProductStore();
+
+  // Function to handle city selection (moved here after Zustand store initialization)
+  const handleCitySelection = useCallback((city: string) => {
+    if (!city) return;
+    
+    setUserCity(city);
+    setLocationModalVisible(false);
+    setCitySearchQuery('');
+    
+    // Only refresh city-based products with the new city
+    // Don't reload other product types that aren't city-specific
+    loadCityProducts(city);
+    
+    // We don't call these anymore to keep other product sections unchanged:
+    // loadFeaturedProducts(userUniversity, city);
+    // loadInterestedCategoryProducts(selectedInterestCategory, userUniversity, city);
+    
+    console.log('[HomeScreen] City changed to:', city);
+  }, [
+    loadCityProducts,
+    setUserCity
+  ]);
+
+  // Function to reset location to default
+  const handleResetLocation = useCallback(() => {
+    const defaultCity = userProfileData?.city || user?.city || '';
+    
+    if (defaultCity && defaultCity !== cityFromContext) {
+      handleCitySelection(defaultCity);
+    } else {
+      // If already default or no default exists, just close the modal
+      setLocationModalVisible(false);
+      setCitySearchQuery('');
+    }
+  }, [cityFromContext, userProfileData?.city, user?.city, handleCitySelection]);
 
   // Modify the fetchUserProfile function to better log category selection
   const fetchUserProfile = useCallback(async () => {
@@ -782,20 +825,18 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
 
   // Handle the refresh action with the Zustand store
   const onRefresh = useCallback(() => {
-    // Call the handleRefresh function from the store
-    handleRefresh(userUniversity, userCity);
+    // Use cityFromContext for the city parameter to ensure the current selection is used
+    console.log(`[HomeScreen] Calling refresh with University: ${userUniversity}, City: ${cityFromContext}`);
+    handleRefresh(userUniversity, cityFromContext);
 
     // Also increment search refresh counter
     if (search && search.incrementSearchRefreshCount) {
       search.incrementSearchRefreshCount();
     }
-
-    // No need to manually refresh interested category products here,
-    // since the store's handleRefresh already handles that
   }, [
     handleRefresh,
     userUniversity,
-    userCity,
+    cityFromContext, // Use cityFromContext here
     search,
   ]);
 
@@ -1165,33 +1206,38 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   const handleSeeAll = useCallback((section: ProductSectionType) => {
     // Navigate to the CategoryProducts screen with appropriate parameters
     if (section === 'featured') {
+      console.log('[HomeScreen] Navigating to Featured Products');
       nav.navigate('CategoryProducts', {
         categoryId: 0, // Using 0 for non-category specific sections
         categoryName: 'Featured Products',
         userUniversity: userUniversity,
-        userCity: userCity,
+        userCity: cityFromContext, // Use context value here too for consistency if needed
       });
     } else if (section === 'newArrivals') {
+      console.log('[HomeScreen] Navigating to New Arrivals');
       nav.navigate('CategoryProducts', {
         categoryId: 0,
         categoryName: 'New Arrivals',
         userUniversity: userUniversity,
       });
     } else if (section === 'university') {
+      console.log('[HomeScreen] Navigating to University Products:', userUniversity);
       nav.navigate('CategoryProducts', {
         categoryId: 0,
         categoryName: `${userUniversity} Products`,
         userUniversity: userUniversity,
       });
     } else if (section === 'city') {
+      console.log('[HomeScreen] Navigating to City Products:', cityFromContext);
+      // Use cityFromContext here for correct navigation params
       nav.navigate('CategoryProducts', {
         categoryId: 0,
-        categoryName: `${userCity} Products`,
+        categoryName: `${cityFromContext} Products`, 
         userUniversity: userUniversity,
-        userCity: userCity,
+        userCity: cityFromContext, 
       });
     }
-  }, [nav, userCity, userUniversity]);
+  }, [nav, cityFromContext, userUniversity]); // Update dependency array
 
   // Add missing handlers
   const handleProductPress = useCallback((product: Product) => {
@@ -1338,6 +1384,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     }
   };
 
+  // Replace the modal JSX with the CitySelector component
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: 'white' }]}>
       <View style={styles.container}>
@@ -1456,6 +1503,25 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
               ))}
             </View>
           )}
+        </View>
+        
+        {/* Location Row */}
+        <View style={styles.locationRow}>
+          <View style={styles.locationContainer}>
+            <MaterialIcons name="location-on" size={18} color="#f7b305" />
+            {/* Use cityFromContext directly for display */}
+            <Text style={styles.locationText}>
+              {cityFromContext || 'Set your location'}
+            </Text>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.changeLocationButton}
+            onPress={() => setLocationModalVisible(true)}
+          >
+            <Text style={styles.changeLocationText}>Change</Text>
+            {/* <MaterialIcons name="edit-location-alt" size={18} color="black" /> */}
+          </TouchableOpacity>
         </View>
 
         {/* Row with text and buttons */}
@@ -1662,9 +1728,9 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
               )}
 
               {/* City Products Section */}
-              {userCity && (
+              {cityFromContext && (
                 <ProductSection
-                  title={`${userCity} Products`}
+                  title={`${cityFromContext} Products`}
                   data={(cityProductsState.length > 0 ? cityProductsState : cityProducts) as any}
                   wishlist={wishlist}
                   onToggleWishlist={toggleWishlist}
@@ -1700,6 +1766,18 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                 </View>
               )}
 
+              {/* Use the new CitySelector component */}
+              <CitySelector
+                isVisible={locationModalVisible}
+                onClose={() => {
+                  setLocationModalVisible(false);
+                  setCitySearchQuery('');
+                }}
+                onSelectCity={handleCitySelection}
+                currentCity={cityFromContext}
+                defaultCity={userProfileData?.city || user?.city || null}
+              />
+
               {/* Bottom padding to avoid content being hidden behind navigation */}
               <View style={{height: 70}} />
             </ScrollView>
@@ -1707,8 +1785,8 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
         )}
       </View>
     </SafeAreaView>
-  );
-};
+  )
+}
 
 const { width } = Dimensions.get('window');
 
@@ -1727,7 +1805,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 10,
-    marginBottom:5,
+    marginBottom:0,
   },
   menuButton: {
     padding: 5,
@@ -1799,7 +1877,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 10,
   },
   plainText: {
     fontSize: 18,
@@ -1813,8 +1891,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   smallButton: {
-    paddingVertical: 7,
-    paddingHorizontal: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
     borderRadius: 20,
     marginRight: 10,
     flexDirection: 'row',
@@ -2069,9 +2147,7 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
   closeButton: {
-    padding: 4,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    padding: 5,
   },
   searchResultsContainer: {
     flex: 1,
@@ -2274,6 +2350,148 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '600',
     fontSize: 16,
+  },
+  
+  // Location Row styles
+  locationRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 0,
+    marginBottom: 10,
+    paddingHorizontal: 4,
+  },
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  locationText: {
+    fontSize: 14,
+    color: '#333',
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  changeLocationButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    backgroundColor: '#f0f0f0',
+  },
+  changeLocationText: {
+    fontSize: 12,
+    color: '#000',
+    fontWeight: '600',
+  },
+  
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+    maxHeight: '80%',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 5,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  citySearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f7f7f7',
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    marginBottom: 15,
+    height: 45,
+  },
+  citySearchInput: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 16,
+    color: '#333',
+  },
+  clearCitySearchButton: {
+    padding: 5,
+  },
+  citiesList: {
+    maxHeight: 400,
+  },
+  cityItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  cityItemSelected: {
+    backgroundColor: 'rgba(247, 179, 5, 0.1)',
+  },
+  cityItemText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  cityItemTextSelected: {
+    color: '#f7b305',
+    fontWeight: '600',
+  },
+  noCitiesContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  noCitiesText: {
+    fontSize: 16,
+    color: '#999',
+  },
+  // Add styles for Reset button
+  resetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: 5,
+    backgroundColor: '#f0f0f0',
+  },
+  resetButtonDisabled: {
+    backgroundColor: '#f9f9f9',
+  },
+  resetButtonText: {
+    fontSize: 13,
+    marginLeft: 4,
+    color: '#666',
+    fontWeight: '500',
+  },
+  resetButtonTextDisabled: {
+    color: '#bbb',
   },
 });
 

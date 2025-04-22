@@ -403,7 +403,11 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
 
   // Extract user location data - prioritize route params over user context
   const userUniversity = routeUniversity || user?.university || '';
-  const userCity = routeCity || user?.city || '';
+  const userCity = useMemo(() => {
+    const cityFromRoute = route.params.userCity;
+    console.log('[CategoryProducts] City from route params:', cityFromRoute, 'User city:', user?.city);
+    return cityFromRoute || user?.city || '';
+  }, [route.params.userCity, user?.city]);
 
   // At the top of the CategoryProductsScreen component
   // Add a new initialLoad ref to track the first load
@@ -449,8 +453,10 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
   // Handler for refresh
   const handleRefresh = useCallback(() => {
     // Wrap refreshProducts to pass the correct parameters
-    refreshProducts();
-  }, [refreshProducts]);
+    // Use the userUniversity and userCity determined for this screen
+    console.log(`[CategoryProducts] Calling refresh with University: ${userUniversity}, City: ${userCity}`);
+    refreshProducts(userUniversity, userCity);
+  }, [refreshProducts, userUniversity, userCity]);
 
   // Add a loading state for sort operations
   const [isSorting, setIsSorting] = useState(false);
@@ -571,6 +577,8 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     // Force immediate load on mount
     const loadInitialData = async () => {
       try {
+        console.log('[CategoryProducts] Initial load - Category:', categoryName, 'City:', userCity);
+        
         // Set the current category context first
         setCurrentCategory(categoryName, categoryId, userUniversity, userCity);
 
