@@ -1892,7 +1892,7 @@ const styles = StyleSheet.create({
   },
   smallButton: {
     paddingVertical: 4,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     borderRadius: 20,
     marginRight: 10,
     flexDirection: 'row',

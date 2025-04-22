@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,16 +10,13 @@ import {
   Dimensions,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import citiesData from '../city_names_sorted.json';
 
-// Predefined list of cities
-const PREDEFINED_CITIES = [
-  'Amsterdam', 'Athens', 'Barcelona', 'Berlin', 'Birmingham', 'Bordeaux', 'Brussels',
-  'Budapest', 'Copenhagen', 'Dublin', 'Edinburgh', 'Frankfurt', 'Geneva', 'Hamburg',
-  'Helsinki', 'Lisbon', 'Liverpool', 'London', 'Lyon', 'Madrid', 'Manchester', 
-  'Marseille', 'Milan', 'Munich', 'Naples', 'Oslo', 'Paris', 'Porto', 'Prague',
-  'Rome', 'Rotterdam', 'Seville', 'Stockholm', 'Stuttgart', 'Turin', 'Valencia',
-  'Vienna', 'Warsaw', 'Zurich'
-];
+// Get cities from imported JSON file
+const PREDEFINED_CITIES = citiesData.city_names;
+
+// Constants for list optimization
+const ITEM_HEIGHT = 53; // Height of each city item (16px padding top/bottom + 1px border + text height)
 
 interface CitySelectorProps {
   isVisible: boolean;
@@ -28,6 +25,29 @@ interface CitySelectorProps {
   currentCity: string | null;
   defaultCity?: string | null;
 }
+
+// Memoized list item component to prevent unnecessary re-renders
+const CityItem = React.memo(({
+  city,
+  isSelected,
+  onSelect
+}: {
+  city: string,
+  isSelected: boolean,
+  onSelect: () => void
+}) => (
+  <TouchableOpacity
+    style={[styles.cityItem, isSelected && styles.selectedCityItem]}
+    onPress={onSelect}
+  >
+    <Text style={[styles.cityItemText, isSelected && styles.selectedCityItemText]}>
+      {city}
+    </Text>
+    {isSelected && (
+      <Ionicons name="checkmark" size={20} color="#4CAF50" />
+    )}
+  </TouchableOpacity>
+));
 
 const CitySelector: React.FC<CitySelectorProps> = ({
   isVisible,
@@ -41,19 +61,49 @@ const CitySelector: React.FC<CitySelectorProps> = ({
   // Filter cities based on search query
   const filteredCities = useMemo(() => {
     if (!searchQuery.trim()) return PREDEFINED_CITIES;
+    
     const normalizedQuery = searchQuery.toLowerCase().trim();
+    
+    // For very short queries, only match from the beginning of city names
+    if (normalizedQuery.length < 3) {
+      return PREDEFINED_CITIES.filter(city => 
+        city.toLowerCase().startsWith(normalizedQuery)
+      );
+    }
+    
+    // For longer queries, match anywhere in the city name
     return PREDEFINED_CITIES.filter(city => 
       city.toLowerCase().includes(normalizedQuery)
     );
   }, [searchQuery]);
 
   // Handle reset to default city
-  const handleResetToDefault = () => {
+  const handleResetToDefault = useCallback(() => {
     if (defaultCity && defaultCity !== currentCity) {
       onSelectCity(defaultCity);
       onClose();
     }
-  };
+  }, [defaultCity, currentCity, onSelectCity, onClose]);
+
+  // FlatList optimization functions
+  const getItemLayout = useCallback((data: any, index: number) => ({
+    length: ITEM_HEIGHT,
+    offset: ITEM_HEIGHT * index,
+    index,
+  }), []);
+
+  const renderCityItem = useCallback(({ item }: { item: string }) => (
+    <CityItem
+      city={item}
+      isSelected={currentCity === item}
+      onSelect={() => {
+        onSelectCity(item);
+        onClose();
+      }}
+    />
+  ), [currentCity, onSelectCity, onClose]);
+
+  const keyExtractor = useCallback((item: string) => item, []);
 
   const isResetDisabled = !defaultCity || defaultCity === currentCity;
 
@@ -108,29 +158,13 @@ const CitySelector: React.FC<CitySelectorProps> = ({
           ) : (
             <FlatList
               data={filteredCities}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.cityItem,
-                    currentCity === item && styles.selectedCityItem
-                  ]}
-                  onPress={() => {
-                    onSelectCity(item);
-                    onClose();
-                  }}
-                >
-                  <Text style={[
-                    styles.cityItemText,
-                    currentCity === item && styles.selectedCityItemText
-                  ]}>
-                    {item}
-                  </Text>
-                  {currentCity === item && (
-                    <Ionicons name="checkmark" size={20} color="#4CAF50" />
-                  )}
-                </TouchableOpacity>
-              )}
+              keyExtractor={keyExtractor}
+              renderItem={renderCityItem}
+              getItemLayout={getItemLayout}
+              initialNumToRender={10}
+              maxToRenderPerBatch={20}
+              windowSize={10}
+              removeClippedSubviews={true}
               style={styles.cityList}
             />
           )}
