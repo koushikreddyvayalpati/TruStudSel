@@ -1,25 +1,11 @@
 import { create } from 'zustand';
 import { uploadProductImages, S3_BASE_URL } from '../api/fileUpload';
-import { createProductWithImageFilenames } from '../api/products';
+import { createProductWithImageFilenames, updateProduct, CreateProductWithImagesRequest, Product } from '../api/products';
 import { Alert } from 'react-native';
+import { ProductType, ProductCondition, PRODUCT_TYPES, PRODUCT_CONDITIONS } from '../constants/productConstants';
 
 // Define types
 export type ProductCategory = 'electronics' | 'furniture' | 'auto' | 'fashion' | 'sports' | 'stationery' | 'eventpass';
-
-export interface ProductType {
-  id: ProductCategory | string;
-  name: string;
-  icon: string;
-  iconType: 'material' | 'fontawesome' | 'entypo';
-  color: string;
-  subcategories?: string[];
-}
-
-export interface ProductCondition {
-  id: string;
-  name: string;
-  description: string;
-}
 
 export interface ImageFile {
   uri: string;
@@ -58,6 +44,11 @@ interface PostingState {
   subcategoryModalVisible: boolean;
   conditionModalVisible: boolean;
 
+  // Edit mode state
+  isEditMode: boolean;
+  productId: string | null;
+  initialProductData: Partial<Product> | null;
+
   // Display computed values
   displayType: string;
   displaySubcategory: string;
@@ -88,7 +79,7 @@ interface PostingState {
 
   // Image handling
   addImage: (image: ImageFile) => void;
-  removeImage: (index: number) => void;
+  removeImage: (index: number, isExisting: boolean) => void;
 
   // Form validation
   validateForm: () => boolean;
@@ -102,8 +93,22 @@ interface PostingState {
     onSuccess: () => void
   ) => Promise<void>;
 
+  // Edit mode methods
+  setEditMode: (isEdit: boolean) => void;
+  setProductId: (id: string | null) => void;
+  populateFormWithProduct: (product: Product) => void;
+  updateExistingProduct: (
+    userEmail: string,
+    userName: string,
+    userZipcode: string,
+    onSuccess: () => void
+  ) => Promise<void>;
+
   // Reset state
   resetState: () => void;
+
+  // New state for deletion tracking
+  imagesToDelete: string[];
 }
 
 // Create the store
@@ -126,6 +131,12 @@ const usePostingStore = create<PostingState>((set, get) => ({
   typeModalVisible: false,
   subcategoryModalVisible: false,
   conditionModalVisible: false,
+
+  // Edit mode state
+  isEditMode: false,
+  productId: null,
+  initialProductData: null,
+  imagesToDelete: [],
 
   // Display computed values
   get displayType() { return get().selectedType?.name || ''; },
@@ -206,27 +217,37 @@ const usePostingStore = create<PostingState>((set, get) => ({
   addImage: (image) => {
     set(state => ({
       images: [...state.images, image],
-      localImageUris: [...state.localImageUris, image.uri],
     }));
-
-    // Clear any image-related errors
     if (get().errors.images) {
-      set(state => ({
-        errors: { ...state.errors, images: undefined },
-      }));
+      set(state => ({ errors: { ...state.errors, images: undefined } }));
     }
   },
-  removeImage: (index) => {
+  removeImage: (index, isExisting) => {
     set(state => {
       const newImages = [...state.images];
-      newImages.splice(index, 1);
-
       const newLocalUris = [...state.localImageUris];
-      newLocalUris.splice(index, 1);
+      let newImagesToDelete = [...state.imagesToDelete];
+
+      if (isExisting) {
+        // Removing an image that was initially present
+        if (index < newLocalUris.length) {
+          const removedUrl = newLocalUris[index];
+          console.log("[PostingStore] Marking existing image for deletion:", removedUrl);
+          newImagesToDelete.push(removedUrl);
+          newLocalUris.splice(index, 1);
+        }
+      } else {
+        // Removing a newly added image (index corresponds to state.images)
+        if (index < newImages.length) {
+            console.log("[PostingStore] Removing newly added image at index:", index);
+            newImages.splice(index, 1);
+        }
+      }
 
       return {
-        images: newImages,
-        localImageUris: newLocalUris,
+        images: newImages, // Updated list of NEW images
+        localImageUris: newLocalUris, // Updated list of currently displayed images
+        imagesToDelete: newImagesToDelete, // Updated list of images marked for deletion
       };
     });
   },
@@ -273,8 +294,8 @@ const usePostingStore = create<PostingState>((set, get) => ({
       isValid = false;
     }
 
-    // Validate images
-    if (state.images.length === 0) {
+    // Validate images only if NOT in edit mode
+    if (!state.isEditMode && state.localImageUris.length === 0 && state.images.length === 0) {
       newErrors.images = 'At least one image is required';
       isValid = false;
     }
@@ -462,6 +483,214 @@ const usePostingStore = create<PostingState>((set, get) => ({
     }
   },
 
+  // Edit mode methods
+  setEditMode: (isEdit) => set({ isEditMode: isEdit }),
+  
+  // Set product ID for editing
+  setProductId: (id) => set({ productId: id }),
+  
+  // Populate form with existing product data
+  populateFormWithProduct: (product: Product) => {
+    if (!product) return;
+    
+    const productType = product.category 
+      ? PRODUCT_TYPES.find((type: ProductType) => type.id === product.category?.toLowerCase())
+      : null;
+      
+    const condition = product.productage 
+      ? PRODUCT_CONDITIONS.find((c: ProductCondition) => c.id === product.productage)
+      : null;
+      
+    const isSell = product.sellingtype === 'sell';
+    
+    // Use robust logic to extract image URLs
+    let imageUrls: string[] = [];
+    if (product.allImages && Array.isArray(product.allImages) && product.allImages.length > 0) {
+      imageUrls = product.allImages;
+    } else if (product.imageUrls && Array.isArray(product.imageUrls) && product.imageUrls.length > 0) {
+      imageUrls = product.imageUrls;
+    } else if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+      imageUrls = product.images;
+    } else if (product.primaryImage) {
+      imageUrls = [product.primaryImage, ...(product.additionalImages || [])];
+    } else if (product.image) {
+      imageUrls = [product.image];
+    }
+    // Filter out any invalid URLs
+    const validImageUrls = imageUrls
+      .map(img => (typeof img === 'string' && img.trim() !== '') ? img.trim() : undefined)
+      .filter((img): img is string => img !== undefined);
+
+    console.log("[PostingStore] Populating form with product:", product.id, "Image URLs found:", validImageUrls);
+
+    set({
+      title: product.name || '',
+      selectedType: productType,
+      selectedSubcategory: (product as any).subcategory || null, // Keep potential subcategory
+      description: product.description || '',
+      price: product.price || '',
+      selectedCondition: condition,
+      isSell: isSell,
+      localImageUris: validImageUrls, // Set the extracted URLs
+      images: [], // Start with no new images
+      initialProductData: { ...product }, // Store copy
+      // Reset display values based on populated data
+      displayType: productType ? productType.name : 'Select Type',
+      displaySubcategory: (product as any).subcategory || 'Select Subcategory',
+      displayCondition: condition ? condition.name : 'Select Condition',
+      hasSubcategories: !!(productType && productType.subcategories),
+    });
+  },
+  
+  // Update existing product
+  updateExistingProduct: async (userEmail, userName, userZipcode, onSuccess) => {
+    const state = get();
+    const isValid = state.validateForm();
+    
+    if (!isValid) return;
+    if (!state.productId || !state.initialProductData) {
+      Alert.alert('Error', 'Cannot update. Initial product data missing.');
+      return;
+    }
+    
+    set({ isLoading: true, uploadProgress: 0 });
+    
+    try {
+      const updateData: Partial<CreateProductWithImagesRequest> = {};
+      const initial = state.initialProductData;
+
+      // Compare text/selection fields and add to updateData if changed
+      if (state.title !== initial.name) {
+        updateData.name = state.title;
+      }
+      const currentCategoryId = state.selectedType?.id || '';
+      // Compare with initial.type (assuming type corresponds to category)
+      if (currentCategoryId !== (initial.type || '')) { 
+        updateData.category = currentCategoryId;
+        // Reset subcategory if category changes
+        updateData.subcategory = state.selectedSubcategory || ''; 
+      } else if (state.selectedSubcategory !== (initial as any).subcategory) { // Use type assertion for subcategory as it's not in Product type
+        // Update subcategory only if it changed within the same category
+        updateData.subcategory = state.selectedSubcategory || '';
+      }
+      if (state.description !== initial.description) {
+        updateData.description = state.description;
+      }
+      if (state.price !== initial.price) {
+        updateData.price = state.price;
+      }
+      const currentConditionId = state.selectedCondition?.id || '';
+      // Compare with initial.productage (assuming productage corresponds to condition)
+      if (currentConditionId !== (initial.productage || '')) { 
+        updateData.productage = currentConditionId;
+      }
+      const currentSellingType = state.isSell ? 'sell' : 'rent';
+      if (currentSellingType !== initial.sellingtype) {
+        updateData.sellingtype = currentSellingType;
+      }
+
+      let newImageUrls: string[] = [];
+      let imageUpdateNeeded = false;
+
+      // 1. Upload NEWLY added images (if any)
+      if (state.images.length > 0) {
+        console.log('[PostingStore] New images selected, starting upload...');
+        imageUpdateNeeded = true; // Mark that images need updating
+        set({ uploadProgress: 20 });
+        try {
+          const uploadResponse = await uploadProductImages(state.images);
+          set({ uploadProgress: 50 });
+          if (!uploadResponse?.fileNames?.length) throw new Error('Failed to upload images - no filenames returned');
+          newImageUrls = uploadResponse.fileNames.map(filename => `${S3_BASE_URL}${filename}`);
+          console.log('[PostingStore] New images uploaded:', newImageUrls);
+        } catch (uploadError: any) {
+          console.error('[PostingStore] Image upload error during update:', uploadError);
+          set({ isLoading: false });
+          Alert.alert('Image Upload Failed', uploadError instanceof Error ? uploadError.message : 'Failed to upload new images.');
+          return; // Stop update if new image upload fails
+        }
+      }
+
+      // 2. Determine the final list of image URLs
+      const initialImageUrls = state.initialProductData.allImages || 
+                               state.initialProductData.imageUrls || 
+                               state.initialProductData.images || 
+                               (state.initialProductData.primaryImage ? [state.initialProductData.primaryImage, ...(state.initialProductData.additionalImages || [])] : []) ||
+                               [];
+                               
+      const validInitialUrls = initialImageUrls
+                                .map(img => typeof img === 'string' && img.trim() !== '' ? img.trim() : undefined)
+                                .filter((img): img is string => img !== undefined);
+
+      // Filter out images marked for deletion
+      const remainingInitialUrls = validInitialUrls.filter(url => !state.imagesToDelete.includes(url));
+      
+      // Combine remaining initial URLs with newly uploaded URLs
+      const finalImageUrls = [...remainingInitialUrls, ...newImageUrls];
+
+      // 3. Check if the final image list is different from the initial list
+      const initialUrlsSet = new Set(validInitialUrls);
+      const finalUrlsSet = new Set(finalImageUrls);
+      if (initialUrlsSet.size !== finalUrlsSet.size || !validInitialUrls.every(url => finalUrlsSet.has(url))) {
+        imageUpdateNeeded = true; // Mark update needed if list composition changed
+        console.log("[PostingStore] Image list changed. Initial:", validInitialUrls, "Final:", finalImageUrls);
+      }
+
+      // 4. Add image data to updateData ONLY if an update is needed
+      if (imageUpdateNeeded) {
+        console.log("[PostingStore] Including final image list in update payload.");
+        updateData.allImages = finalImageUrls;
+        updateData.primaryImage = finalImageUrls.length > 0 ? finalImageUrls[0] : '';
+        // Optionally send imageFilenames if your backend uses it specifically for updates
+        // updateData.imageFilenames = finalImageUrls; 
+      }
+
+      // 5. Check if anything actually changed (text fields or images)
+      if (Object.keys(updateData).length === 0) {
+        console.log('[PostingStore] No changes detected. Skipping update.');
+        set({ isLoading: false });
+        Alert.alert('No Changes', 'You haven\'t made any changes to the listing.', [{ text: 'OK', onPress: () => {
+            onSuccess(); 
+            get().resetState();
+        }}]);
+        return;
+      }
+
+      console.log('[PostingStore] Updating product with changed data:', JSON.stringify(updateData));
+      set({ uploadProgress: 80 });
+      
+      // Update the product API call
+      try {
+        const updatedProduct = await updateProduct(state.productId, updateData);
+        console.log('[PostingStore] Product updated successfully:', JSON.stringify(updatedProduct));
+        set({ uploadProgress: 100, isLoading: false });
+        Alert.alert('Success', 'Your item has been updated successfully!', [{ text: 'OK', onPress: () => {
+            console.log('[PostingStore] Navigating back after successful update');
+            onSuccess();
+            get().resetState();
+          }}]);
+      } catch (productError) {
+        console.error('[PostingStore] Product update error:', productError);
+        set({ isLoading: false });
+        Alert.alert(
+          'Error Updating Listing',
+          productError instanceof Error
+            ? `Failed to update product: ${productError.message}`
+            : 'Failed to update product. Please try again.'
+        );
+      }
+    } catch (error: any) {
+      console.error('[PostingStore] General update error:', error);
+      set({ isLoading: false });
+      Alert.alert(
+        'Update Failed',
+        error instanceof Error
+          ? `Failed to update product: ${error.message}`
+          : 'Failed to update product. Please try again.'
+      );
+    }
+  },
+
   // Reset state
   resetState: () => set({
     images: [],
@@ -479,6 +708,14 @@ const usePostingStore = create<PostingState>((set, get) => ({
     typeModalVisible: false,
     subcategoryModalVisible: false,
     conditionModalVisible: false,
+    displayType: 'Select Type',
+    displaySubcategory: 'Select Subcategory',
+    displayCondition: 'Select Condition',
+    hasSubcategories: false,
+    isEditMode: false,
+    productId: null,
+    imagesToDelete: [],
+    initialProductData: null,
   }),
 }));
 

@@ -39,6 +39,14 @@
         android:launchMode="singleTask"
         android:windowSoftInputMode="adjustResize"
         android:exported="true">
+        <!-- Deep Link handler -->
+        <intent-filter>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <!-- URI scheme for our app -->
+            <data android:scheme="trustudsel" />
+        </intent-filter>
       </activity>
     </application>
 </manifest>

@@ -326,11 +326,20 @@ const ProductsScreen = () => {
 
   // State for reviews section
   const [totalReviews, setTotalReviews] = useState<number>(0);
+  const [comingFromDeepLink, setComingFromDeepLink] = useState<boolean>(false);
 
   // Extract product and productId from route params
   const routeParams = route.params || {};
   const productFromRoute = routeParams.product;
   const productId = routeParams.productId;
+
+  // Check if this was opened from a deep link
+  useEffect(() => {
+    if (productId && !productFromRoute) {
+      console.log('Product opened from deep link with ID:', productId);
+      setComingFromDeepLink(true);
+    }
+  }, [productId, productFromRoute]);
 
   // Set user email from context
   useEffect(() => {
@@ -540,10 +549,11 @@ const ProductsScreen = () => {
   const reportReasons = [
     'Inappropriate Content',
     'Scam/Fraud',
+    'Seller is not responding',
     'Fake Product',
     'Offensive Content',
-    'Wrong Category',
-    'Other'
+    'Other',
+
   ];
 
   // Function to handle reporting a product
@@ -685,6 +695,12 @@ const ProductsScreen = () => {
                   </Text>
                 </View>
               )}
+
+              {comingFromDeepLink && (
+                <View style={[styles.tagItem, styles.deepLinkTag]}>
+                  <Text style={styles.tagText}>Shared via link</Text>
+                </View>
+              )}
             </View>
 
             {!isUserSeller && (
@@ -701,13 +717,26 @@ const ProductsScreen = () => {
             )}
           </View>
 
-          {/* Display Posting Date */}
-          {product.postingdate && (
-            <Text style={styles.postingDateText}>
-              Posted on: {new Date(product.postingdate).toLocaleDateString('en-US', {
-                year: 'numeric', month: 'long', day: 'numeric'
-              })}
-            </Text>
+          {/* Display City and Date */}
+          {(product.city || product.postingdate) && (
+            <View style={styles.locationDateContainer}>
+              {product.city && (
+                <>
+                  <MaterialIcons name="location-on" size={16} color="#777" />
+                  <Text style={styles.locationDateText}>{product.city}</Text>
+                </>
+              )}
+              {product.city && product.postingdate && (
+                <Text style={styles.locationDateSeparator}> · </Text> // Separator
+              )}
+              {product.postingdate && (
+                <Text style={styles.locationDateText}>
+                  Posted: {new Date(product.postingdate).toLocaleDateString('en-US', {
+                    month: 'short', day: 'numeric', year: 'numeric'
+                  })}
+                </Text>
+              )}
+            </View>
           )}
 
           {renderDescriptionSection}
@@ -787,8 +816,23 @@ const ProductsScreen = () => {
 
           {isUserSeller && (
             <View style={styles.ownProductContainer}>
-              <Ionicons name="checkmark-circle" size={22} color="#4CAF50" />
-              <Text style={styles.ownProductText}>This is your product listing</Text>
+              <View style={styles.ownProductStatusRow}>
+                <Ionicons name="checkmark-circle" size={22} color="#4CAF50" />
+                <Text style={styles.ownProductText}>This is your product listing</Text>
+              </View>
+            
+              <TouchableOpacity 
+                style={styles.editProductButton}
+                onPress={() => {
+                  navigation.navigate('PostingScreen', { 
+                    isEditMode: true, 
+                    productToEdit: product 
+                  });
+                }}
+              >
+                <Ionicons name="create-outline" size={18} color="#FFFFFF" />
+                <Text style={styles.editProductButtonText}>Edit Product</Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -879,6 +923,8 @@ const ProductsScreen = () => {
     </SafeAreaViewContext>
   );
 };
+
+export default ProductsScreen;
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -1050,6 +1096,10 @@ const styles = StyleSheet.create({
   sellingTypeTag: {
     backgroundColor: '#e8f4fd',
     borderColor: '#c5e0f5',
+  },
+  deepLinkTag: {
+    backgroundColor: '#f8e1fb',
+    borderColor: '#ebc7ee',
   },
   tagText: {
     fontSize: 13,
@@ -1553,20 +1603,40 @@ const styles = StyleSheet.create({
     }),
   },
   ownProductContainer: {
+    backgroundColor: '#f5f5f5',
+    padding: 15,
+    borderRadius: 10,
+    marginTop: 20,
+    marginBottom: 10,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
+  ownProductStatusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f9f5',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#e0f2e0',
+    marginBottom: 10,
   },
   ownProductText: {
-    marginLeft: 10,
-    fontSize: 16,
-    color: '#2e7d32',
+    fontSize: 14,
+    marginLeft: 8,
+    color: '#4a4a4a',
     fontWeight: '500',
+  },
+  editProductButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f7b305',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    marginTop: 5,
+    alignSelf: 'flex-start',
+  },
+  editProductButtonText: {
+    color: '#ffffff',
+    fontWeight: '500',
+    fontSize: 14,
+    marginLeft: 5,
   },
   reviewsSection: {
     marginTop: 20,
@@ -1968,13 +2038,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  // Style for the posting date
-  postingDateText: {
-    fontSize: 13,
+  // Styles for Combined City and Date display
+  locationDateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center', // Space before description
+  },
+  locationDateText: {
+    fontSize: 14,
+    color: '#555',
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  locationDateSeparator: {
+    fontSize: 14,
     color: '#777',
-    marginTop: 0, // Adjust as needed
-    marginBottom: 0, // Space before description
+    marginHorizontal: 4, // Space around the separator
   },
 });
-
-export default ProductsScreen;

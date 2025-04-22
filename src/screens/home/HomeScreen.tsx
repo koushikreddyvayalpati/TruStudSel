@@ -15,6 +15,7 @@ import {
   RefreshControl,
   Dimensions,
   Alert,
+  Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -1319,6 +1320,24 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     }
   }, []);
 
+  // Test deep linking (for development purposes)
+  const testDeepLink = async () => {
+    try {
+      const url = 'trustudsel://product/12345';
+      const supported = await Linking.canOpenURL(url);
+      
+      if (supported) {
+        // Open the deep link
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Not Supported', 'Deep linking is not supported on this device');
+      }
+    } catch (error) {
+      console.error('Error testing deep link:', error);
+      Alert.alert('Error', 'Could not open deep link');
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: 'white' }]}>
       <View style={styles.container}>
@@ -2230,6 +2249,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10,
+  },
+  specialButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 5,
+    marginHorizontal: 10,
+    marginBottom: 10,
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 1.5,
+      },
+      android: {
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+      },
+    }),
+  },
+  specialButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
   },
 });
 

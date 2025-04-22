@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Share, Alert } from 'react-native';
+import { Share, Alert, Platform } from 'react-native';
 import { getProductById, getProductsByCategory } from '../api/products';
 import { API_URL } from '../api/config';
 // Add a base URL constant for API calls
@@ -28,6 +28,13 @@ interface ExtendedProduct {
   email?: string;
   category?: string;
   sellingtype?: string;
+  city?: string;
+  primaryImage?: string;
+  additionalImages?: string[];
+  allImages?: string[];
+  imageUrls?: string[];
+  productage?: string;
+  subcategory?: string;
 }
 
 // Base product type
@@ -44,6 +51,7 @@ interface BaseProduct {
   sellerName?: string;
   email?: string;
   sellingtype?: string;
+  city?: string;
 }
 
 // Sample product data (fallback if no product is provided)
@@ -70,6 +78,7 @@ const sampleProduct: ExtendedProduct = {
   },
   sellerName: 'Koushik Reddy',
   email: 'seller@example.com',
+  city: 'Sample City',
 };
 
 interface ProductDetailsState {
@@ -165,18 +174,30 @@ const useProductDetailsStore = create<ProductDetailsState>((set, get) => ({
     }
   },
 
-  // Get formatted product images
+  // Get formatted product images - Make this more robust
   getProductImages: (product) => {
     const defaultImage = 'https://via.placeholder.com/300';
+    let potentialImages: (string | undefined)[] = [];
 
-    if (!product.images || !Array.isArray(product.images) || product.images.length === 0) {
-      return [(product.image && product.image.trim() !== '') ? product.image : defaultImage];
+    // Check various potential fields in order of preference
+    if (product.allImages && Array.isArray(product.allImages) && product.allImages.length > 0) {
+      potentialImages = product.allImages;
+    } else if (product.imageUrls && Array.isArray(product.imageUrls) && product.imageUrls.length > 0) {
+      potentialImages = product.imageUrls;
+    } else if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+      potentialImages = product.images;
+    } else if (product.primaryImage) {
+      // Combine primary and additional if they exist
+      potentialImages = [product.primaryImage, ...(product.additionalImages || [])];
+    } else if (product.image) {
+      // Fallback to single legacy image field
+      potentialImages = [product.image];
     }
 
-    // Ensure all items are valid non-empty strings
-    const validImages = product.images
-      .map(img => typeof img === 'string' && img.trim() !== '' ? img : defaultImage)
-      .filter(img => img && img.trim() !== '');
+    // Ensure all items are valid non-empty strings, falling back to default
+    const validImages = potentialImages
+      .map(img => (typeof img === 'string' && img.trim() !== '') ? img.trim() : undefined)
+      .filter((img): img is string => img !== undefined);
 
     // If no valid images were found, return the default image
     return validImages.length > 0 ? validImages : [defaultImage];
@@ -269,6 +290,7 @@ const useProductDetailsStore = create<ProductDetailsState>((set, get) => ({
         images: item.images || item.imageUrls || [],
         sellingtype: item.sellingtype || '',
         postingdate: item.postingdate || '',
+        city: item.city || '',
       }));
 
       // Update state with similar products
@@ -305,14 +327,49 @@ const useProductDetailsStore = create<ProductDetailsState>((set, get) => ({
 
   // Handle product sharing
   handleShare: async () => {
-    const { product, productImages } = get();
+    const { product } = get();
+    if (!product || !product.id) {
+      console.error('Cannot share, product data is missing.');
+      Alert.alert('Error', 'Could not share product details.');
+      return;
+    }
+
+    // --- Construct the deep link --- 
+    // Ensure product.id is a string
+    const productId = product.id.toString(); 
+    const deepLinkUrl = `trustudsel://product/${productId}`;
+
+    // --- Construct the share content ---
+    const title = `TruStudSel Product: ${product.name}`;
+    
+    // Create a message that's platform-friendly
+    const message = `Check out this product on TruStudSel: ${product.name} for $${product.price}`;
+    
     try {
-      await Share.share({
-        message: `Check out this awesome product: ${product.name} for ${product.price}`,
-        url: productImages[0],
-      });
-    } catch (error) {
+      console.log(`[ProductDetailsStore] Sharing product: ${productId} with URL: ${deepLinkUrl}`);
+      
+      // Use different sharing options depending on platform
+      if (Platform.OS === 'ios') {
+        // On iOS, use url parameter for proper link handling
+        await Share.share({
+          message, 
+          url: deepLinkUrl,
+          title
+        });
+      } else {
+        // On Android, include the URL in the message
+        // Some Android share targets will make this clickable
+        await Share.share({
+          message: `${message}\n\n${deepLinkUrl}`,
+          title
+        });
+      }
+    } catch (error: any) {
       console.error('Error sharing product:', error);
+      // Provide more specific error feedback if possible
+      if (error.message !== 'User dismissed UI') {
+        Alert.alert('Sharing Failed', 'Could not share the product link at this time.');
+      }
     }
   },
 

@@ -45,22 +45,23 @@ export interface Product {
   id: string;
   name: string;
   price: string;
-  image?: string;
+  image?: string; // Legacy single image field
   condition?: string;
-  type?: string;
+  type?: string; // Corresponds to category
   description: string;
   email: string;
   city?: string;
   zipcode?: string;
   university?: string;
   primaryImage?: string;
-  productage?: string;
+  productage?: string; // Corresponds to condition selection
   sellingtype?: string;
-  status?: ProductStatus; // Updated to use the new type
-  images?: string[];
-  imageUrls?: string[]; // Full S3 URLs
+  status?: ProductStatus; 
+  images?: string[]; // Original array
+  imageUrls?: string[]; // Potential field with full S3 URLs
   additionalImages?: string[];
-  category?: string;
+  category?: string; // Field often used in requests/responses
+  subcategory?: string; // Field often used in requests/responses
   isAvailable?: boolean;
   postingdate?: string;
   seller?: {
@@ -68,6 +69,7 @@ export interface Product {
     name: string;
   };
   sellerName?: string;
+  allImages?: string[]; // Add allImages as it's seen in responses
 }
 
 // Product filter options
@@ -1146,11 +1148,6 @@ export const searchProducts = async (searchParams: SearchProductsParams): Promis
   }
 };
 
-// Add helpful base64 encode function (since btoa isn't available in React Native)
-const btoa = (input: string): string => {
-  return Buffer.from(input, 'binary').toString('base64');
-};
-
 // Add a function to clear product cache for a specific product
 export const clearProductCache = async (productId: string): Promise<void> => {
   try {
@@ -1383,6 +1380,114 @@ export const deleteProduct = async (id: string): Promise<boolean> => {
   }
 };
 
+/**
+ * Update a product's details
+ * @param id Product ID to update
+ * @param updates Object containing fields to update
+ * @returns The updated product
+ */
+export const updateProduct = async (id: string, updates: Partial<CreateProductWithImagesRequest>): Promise<Product> => {
+  // Start timing the request (dev only)
+  const startTime = __DEV__ ? Date.now() : 0;
+
+  try {
+    // Verify and format the ID
+    if (!id || typeof id !== 'string') {
+      throw new Error(`Invalid product ID: ${id}. Must be a non-empty string.`);
+    }
+
+    // Ensure the ID is properly formatted
+    const productId = id.trim();
+
+    // Only log in development mode
+    if (__DEV__) {
+      console.log(`[API:products] Updating product ${productId} with:`, JSON.stringify(updates));
+    }
+
+    // Make API call to update the product
+    const url = `${API_URL}/api/products/${productId}`;
+
+    if (__DEV__) {
+      console.log(`[API:products] Making PUT request to: ${url}`);
+    }
+
+    // Import Auth from Amplify inside the function to avoid circular dependencies
+    const { Auth } = require('aws-amplify');
+
+    // Get the current authenticated session to retrieve the JWT token
+    const currentSession = await Auth.currentSession();
+    const token = currentSession.getIdToken().getJwtToken();
+
+    // Make the API request
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(updates),
+    });
+
+    if (__DEV__) {
+      console.log(`[API:products] Update response status: ${response.status}`);
+    }
+
+    // Check for success
+    if (!response.ok) {
+      // Try to get detailed error information
+      let errorText;
+      try {
+        errorText = await response.text();
+
+        // Only log in development mode
+        if (__DEV__) {
+          console.log(`[API:products] Error response text: ${errorText}`);
+
+          // Try to parse as JSON if possible
+          try {
+            const errorJson = JSON.parse(errorText);
+            console.log('[API:products] Error JSON:', errorJson);
+          } catch (jsonError) {
+            // Not JSON, that's fine
+          }
+        }
+      } catch (textError) {
+        errorText = 'Could not extract error details';
+      }
+
+      throw new Error(`Failed to update product: ${response.status} - ${errorText}`);
+    }
+
+    // Parse the response
+    const updatedProduct = await response.json();
+
+    // Only log in development mode
+    if (__DEV__) {
+      console.log('[API:products] Updated product:', JSON.stringify(updatedProduct, null, 2));
+
+      // Performance tracking
+      const endTime = Date.now();
+      console.log(`[API:products] updateProduct took ${endTime - startTime}ms`);
+    }
+
+    // Clear any cached data for this product
+    await clearProductCache(productId);
+
+    return processProductImages(updatedProduct);
+  } catch (error) {
+    console.error('[API:products] Error updating product:', error);
+
+    // For performance monitoring in dev mode
+    if (__DEV__) {
+      const endTime = Date.now();
+      console.log(`[API:products] updateProduct failed after ${endTime - startTime}ms`);
+    }
+
+    throw error;
+  }
+};
+
 export default {
   getProducts,
   getProductsByUniversity,
@@ -1397,4 +1502,5 @@ export default {
   updateProductStatus,
   clearProductCache,
   deleteProduct,
+  updateProduct,
 };

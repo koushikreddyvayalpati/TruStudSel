@@ -33,121 +33,13 @@ import LinearGradient from 'react-native-linear-gradient';
 import ImagePicker from 'react-native-image-crop-picker';
 
 // Import the Zustand store
-import usePostingStore, { ProductType, ProductCondition } from '../../store/postingStore';
+import usePostingStore from '../../store/postingStore';
+import { ProductType, ProductCondition, PRODUCT_TYPES, PRODUCT_CONDITIONS } from '../../constants/productConstants';
 
 // Get device dimensions for responsive layout
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const THUMBNAIL_SIZE = SCREEN_WIDTH > 400 ? 85 : 75;
 const MAIN_PHOTO_HEIGHT = SCREEN_WIDTH * 0.5;
-
-// Updated product types with main categories matching ProductsScreen and using consistent icons
-const PRODUCT_TYPES: ProductType[] = [
-  {
-    id: 'electronics',
-    name: 'Electronics',
-    icon: 'game-controller',
-    iconType: 'entypo',
-    color: '#f7b305',
-    subcategories: ['Laptops', 'Phones', 'Tablets', 'Accessories', 'Audio', 'Other'],
-  },
-  {
-    id: 'furniture',
-    name: 'Furniture',
-    icon: 'bed',
-    iconType: 'fontawesome',
-    color: '#f7b305',
-    subcategories: ['Desks', 'Chairs', 'Storage', 'Lamps', 'Bedroom', 'Other'],
-  },
-  {
-    id: 'auto',
-    name: 'Auto',
-    icon: 'directions-car',
-    iconType: 'material',
-    color: '#f7b305',
-    subcategories: ['Parts', 'Accessories', 'Tools', 'Other'],
-  },
-  {
-    id: 'fashion',
-    name: 'Fashion',
-    icon: 'shopping-bag',
-    iconType: 'fontawesome',
-    color: '#f7b305',
-    subcategories: ['Tops', 'Bottoms', 'Outerwear', 'Shoes', 'Accessories', 'Other'],
-  },
-  {
-    id: 'sports',
-    name: 'Sports',
-    icon: 'sports-cricket',
-    iconType: 'material',
-    color: '#f7b305',
-    subcategories: ['Fitness', 'Team Sports', 'Outdoor', 'Other'],
-  },
-  {
-    id: 'stationery',
-    name: 'Stationery',
-    icon: 'book',
-    iconType: 'material',
-    color: '#f7b305',
-    subcategories: ['Notebooks', 'Writing Tools', 'Organization', 'Art Supplies', 'Other'],
-  },
-  {
-    id: 'eventpass',
-    name: 'Event Pass',
-    icon: 'ticket',
-    iconType: 'fontawesome',
-    color: '#f7b305',
-    subcategories: ['Sports', 'Concerts', 'Campus Events', 'Other'],
-  },
-  {
-    id: 'textbooks',
-    name: 'Textbooks',
-    icon: 'book',
-    iconType: 'material',
-    color: '#f7b305',
-    subcategories: ['Science & Math', 'Humanities', 'Business', 'Engineering', 'Other'],
-  },
-  {
-    id: 'other',
-    name: 'Other',
-    icon: 'question',
-    iconType: 'fontawesome',
-    color: '#f7b305',
-  },
-];
-
-// Enhanced product conditions with descriptions for better user guidance
-const PRODUCT_CONDITIONS: ProductCondition[] = [
-  {
-    id: 'brand-new',
-    name: 'Brand New',
-    description: 'Unused, with original packaging or tags',
-  },
-  {
-    id: 'like-new',
-    name: 'Like New',
-    description: 'Used once or twice, in perfect condition',
-  },
-  {
-    id: 'very-good',
-    name: 'Very Good',
-    description: 'Light use with minor signs of wear',
-  },
-  {
-    id: 'good',
-    name: 'Good',
-    description: 'Some signs of wear but functions perfectly',
-  },
-  {
-    id: 'acceptable',
-    name: 'Acceptable',
-    description: 'Noticeable wear but fully functional',
-  },
-  {
-    id: 'for-parts',
-    name: 'For Parts',
-    description: 'Not fully functional, for repair or parts only',
-  },
-];
 
 // Type definition for image component props
 type PhotoProps = {
@@ -279,20 +171,18 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
   const { user } = useAuth();
   const [photoPickerModalVisible, setPhotoPickerModalVisible] = useState(false);
 
-  // Get userUniversity from route params with enhanced validation
   const routeParams = route.params || {};
-  const routeUniversity = typeof routeParams.userUniversity === 'string' ? routeParams.userUniversity : '';
-  const routeCity = typeof routeParams.userCity === 'string' ? routeParams.userCity : '';
+  const { userUniversity = '', userCity = '', isEditMode = false, productToEdit = null } = routeParams;
 
   // console.log('[PostingScreen] Route params:', JSON.stringify(routeParams));
-  // console.log('[PostingScreen] Route university:', routeUniversity);
-  // console.log('[PostingScreen] Route city:', routeCity);
+  // console.log('[PostingScreen] Route university:', userUniversity);
+  // console.log('[PostingScreen] Route city:', userCity);
   // console.log('[PostingScreen] User university from auth:', user?.university || 'not set');
   // console.log('[PostingScreen] User city from auth:', user?.city || 'not set');
 
-  // Use the Zustand store for state management
+  // Use the Posting Store
   const {
-    // Form state
+    // State
     images,
     localImageUris,
     title,
@@ -305,19 +195,12 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
     isLoading,
     uploadProgress,
     errors,
-
-    // UI state
     typeModalVisible,
     subcategoryModalVisible,
     conditionModalVisible,
-
-    // Computed values
-
+    // Only include used variables to avoid linter errors
     displayCondition,
-
-    // Context
-    setUniversityToUse,
-    setCityToUse,
+    isEditMode: storeIsEditMode,
 
     // Actions
     setTitle,
@@ -327,21 +210,20 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
     setPrice,
     setSelectedCondition,
     setIsSell,
-
-    // Modal actions
     setTypeModalVisible,
     setSubcategoryModalVisible,
     setConditionModalVisible,
-
-    // Image handling
     addImage,
     removeImage,
-
-    // Posting functionality
+    clearErrors,
     postItem,
-
-    // Reset state
     resetState,
+    setUniversityToUse,
+    setCityToUse,
+    setEditMode,
+    setProductId,
+    populateFormWithProduct,
+    updateExistingProduct,
   } = usePostingStore();
 
   // Show photo picker modal
@@ -354,11 +236,24 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
     setPhotoPickerModalVisible(false);
   }, []);
 
-  // Set university and city from route params
+  // Set edit mode and load product data if in edit mode
   useEffect(() => {
-    setUniversityToUse(routeUniversity || 'University not provided');
-    setCityToUse(routeCity || 'City not provided');
-  }, [routeUniversity, routeCity, setUniversityToUse, setCityToUse]);
+    if (isEditMode && productToEdit) {
+      console.log('[PostingScreen] Entering edit mode for product:', productToEdit.id);
+      setEditMode(true);
+      setProductId(productToEdit.id);
+      populateFormWithProduct(productToEdit);
+    } else {
+      setEditMode(false);
+      setProductId(null);
+    }
+  }, [isEditMode, productToEdit, setEditMode, setProductId, populateFormWithProduct]);
+
+  // Set the city and university to use from route params
+  useEffect(() => {
+    setUniversityToUse(userUniversity);
+    setCityToUse(userCity);
+  }, [userUniversity, userCity, setUniversityToUse, setCityToUse]);
 
   // Debug log of navigation params when component mounts
   useEffect(() => {
@@ -368,9 +263,12 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
       // console.log('[PostingScreen] User university from user object:', user.university || 'not set');
     }
 
-    // Reset the store state when component mounts
-    resetState();
-  }, [route.params, user, resetState]);
+    // Reset the store state only if NOT in edit mode
+    if (!isEditMode) {
+      console.log('[PostingScreen] Resetting form state for new post.');
+      resetState();
+    }
+  }, [route.params, user, resetState, isEditMode]);
 
   // Modified image picker function to include cropping
   const handleImageUpload = useCallback(async () => {
@@ -714,8 +612,8 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
   }, [images.length, addImage, hidePhotoPickerModal]);
 
   // Handle removing images - uses the store's removeImage function
-  const handleRemoveImage = useCallback((index: number) => {
-    removeImage(index);
+  const handleRemoveImage = useCallback((index: number, isExisting: boolean) => {
+    removeImage(index, isExisting);
   }, [removeImage]);
 
   // Select a product type - uses the store's setSelectedType function
@@ -736,20 +634,36 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
     setConditionModalVisible(false);
   }, [setSelectedCondition, setConditionModalVisible]);
 
-  // Handle post item - uses the store's postItem function
-  const handlePostItem = useCallback(() => {
-    if (!user?.email) {
-      Alert.alert('Error', 'You must be logged in to post an item');
-      return;
-    }
+  // Handle posting or updating the item
+  const handlePost = useCallback(() => {
+    // Clear any previous errors
+    clearErrors();
 
-    postItem(
-      user.email,
-      user.name || user.username || 'Anonymous User',
-      user.zipcode || '',
-      () => navigation.goBack()
-    );
-  }, [user, postItem, navigation]);
+    // Get user info needed for posting
+    const userEmail = user?.email || '';
+    const userName = user?.attributes?.name || '';
+    const userZipcode = user?.attributes?.['custom:zipcode'] || '';
+
+    // Navigate back on success
+    const handleSuccess = () => {
+      // Go back to profile screen
+      navigation.goBack();
+    };
+
+    if (storeIsEditMode) {
+      // Update existing product
+      updateExistingProduct(userEmail, userName, userZipcode, handleSuccess);
+    } else {
+      // Post new item
+      postItem(userEmail, userName, userZipcode, handleSuccess);
+    }
+  }, [user, clearErrors, navigation, storeIsEditMode, updateExistingProduct, postItem]);
+
+  // Modify button text based on edit mode
+  const postButtonText = storeIsEditMode ? 'Update Listing' : 'Post Listing';
+  
+  // Modify screen title based on edit mode
+  const screenTitle = storeIsEditMode ? 'Edit Product' : 'Post Product';
 
   // Render individual type option with icon
   const renderTypeOptionItem = ({ item }: { item: ProductType }) => (
@@ -830,7 +744,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
         },
       ]}
       activeOpacity={0.7}
-      onPress={handlePostItem}
+      onPress={handlePost}
       disabled={isLoading}
     >
       {isLoading ? (
@@ -845,24 +759,28 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
         <View style={styles.buttonContent}>
           <Icon name="check" size={18} color="#FFFFFF" style={styles.buttonIcon} />
           <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
-            Post Item
+            {postButtonText}
           </Text>
         </View>
       )}
     </TouchableOpacity>
-  ), [isLoading, uploadProgress, handlePostItem]);
+  ), [isLoading, uploadProgress, handlePost, postButtonText]);
 
   // Optimized photo gallery rendering
   const renderPhotoGallery = useCallback(() => (
     <View style={styles.photoGalleryContainer}>
-      {/* Main photo upload button or first image */}
-      {images.length === 0 ? (
-        <MainPhotoPlaceholder 
+      {/* Main photo: Show first localImageUri if available */}
+      {localImageUris.length > 0 ? (
+        <MainPhoto 
+          uri={localImageUris[0]} 
+          onRemove={() => handleRemoveImage(0, true)} 
+        />
+      ) : (
+        // Show placeholder only if no images (initial or new) exist
+        images.length === 0 && <MainPhotoPlaceholder 
           onPress={showPhotoPickerModal}
           theme={theme} 
         />
-      ) : (
-        <MainPhoto uri={localImageUris[0]} onRemove={() => handleRemoveImage(0)} />
       )}
 
       {/* Additional photos row */}
@@ -871,20 +789,34 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.additionalPhotosContainer}
       >
+        {/* Display EXISTING thumbnails (excluding the main one) */}
         {localImageUris.slice(1).map((imageUri, index) => (
           <ThumbnailPhoto
-            key={`thumb-${index}`}
+            key={`thumb-existing-${index}`}
             uri={imageUri}
-            onRemove={() => handleRemoveImage(index + 1)}
+            // Pass true for isExisting, adjust index due to slice
+            onRemove={() => handleRemoveImage(index + 1, true)} 
+          />
+        ))}
+        
+        {/* Display NEWLY ADDED thumbnails */}
+        {images.map((imageFile, index) => (
+          <ThumbnailPhoto
+            key={`thumb-new-${index}`}
+            uri={imageFile.uri} // Use uri from the ImageFile object
+            // Pass false for isExisting, use index relative to the 'images' array
+            onRemove={() => handleRemoveImage(index, false)} 
           />
         ))}
 
-        {images.length > 0 && images.length < 5 && (
+        {/* Add button: Show if total displayed images < 5 */}
+        {/* Total = existing (localImageUris) + new (images) */}
+        {(localImageUris.length + images.length) < 5 && (
           <TouchableOpacity
             style={[styles.addThumbnailButton, {
               borderColor: 'rgba(247, 179, 5, 0.3)',
               backgroundColor: 'rgba(247, 179, 5, 0.05)',
-            }]}
+            }] }
             onPress={showPhotoPickerModal}
             activeOpacity={0.7}
           >
@@ -894,9 +826,10 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
       </ScrollView>
 
       {/* Photo upload tips */}
-      {images.length === 0 && <PhotoTips />}
+      {localImageUris.length === 0 && images.length === 0 && <PhotoTips />}
     </View>
-  ), [localImageUris, images.length, theme, showPhotoPickerModal, handleRemoveImage]);
+  // Dependencies remain the same
+  ), [localImageUris, images, theme, showPhotoPickerModal, handleRemoveImage]);
 
   return (
     <KeyboardAvoidingView
@@ -932,7 +865,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
               >
                 <Icon name="chevron-left" size={20} color={theme.colors.text} />
               </TouchableOpacity>
-              <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Upload Item</Text>
+              <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{screenTitle}</Text>
             </View>
 
             {/* Photo Upload Section */}

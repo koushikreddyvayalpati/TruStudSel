@@ -41,6 +41,8 @@ export type MainStackParamList = {
   PostingScreen: {
     userUniversity?: string;
     userCity?: string;
+    isEditMode?: boolean;
+    productToEdit?: any;
   };
   UserSearchScreen: undefined;
   ProductInfoPage: {

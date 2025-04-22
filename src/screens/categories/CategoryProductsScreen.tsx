@@ -728,10 +728,10 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
                     selectedFilters.length > 0 ?
                       `Clear (${selectedFilters.length})` :
                       selectedSortOption !== 'default' ?
-                        '' :
+                        'Clear Sort' :
                         'Clear All'}
                 </Text>
-                <MaterialIcons name="clear" size={14} color="#f7b305" />
+                <MaterialIcons name="clear" size={14} color="black" />
               </TouchableOpacity>
             )}
 
