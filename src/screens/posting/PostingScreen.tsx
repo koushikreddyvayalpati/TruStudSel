@@ -767,69 +767,83 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
   ), [isLoading, uploadProgress, handlePost, postButtonText]);
 
   // Optimized photo gallery rendering
-  const renderPhotoGallery = useCallback(() => (
-    <View style={styles.photoGalleryContainer}>
-      {/* Main photo: Show first localImageUri if available */}
-      {localImageUris.length > 0 ? (
-        <MainPhoto 
-          uri={localImageUris[0]} 
-          onRemove={() => handleRemoveImage(0, true)} 
-        />
-      ) : (
-        // Show placeholder only if no images (initial or new) exist
-        images.length === 0 && <MainPhotoPlaceholder 
-          onPress={showPhotoPickerModal}
-          theme={theme} 
-        />
-      )}
+  const renderPhotoGallery = useCallback(() => {
+    // Determine the URI and removal parameters for the main photo slot
+    let mainPhotoUri: string | null = null;
+    let isMainPhotoExisting = false;
+    let mainPhotoRemoveIndex = 0;
 
-      {/* Additional photos row */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.additionalPhotosContainer}
-      >
-        {/* Display EXISTING thumbnails (excluding the main one) */}
-        {localImageUris.slice(1).map((imageUri, index) => (
-          <ThumbnailPhoto
-            key={`thumb-existing-${index}`}
-            uri={imageUri}
-            // Pass true for isExisting, adjust index due to slice
-            onRemove={() => handleRemoveImage(index + 1, true)} 
-          />
-        ))}
-        
-        {/* Display NEWLY ADDED thumbnails */}
-        {images.map((imageFile, index) => (
-          <ThumbnailPhoto
-            key={`thumb-new-${index}`}
-            uri={imageFile.uri} // Use uri from the ImageFile object
-            // Pass false for isExisting, use index relative to the 'images' array
-            onRemove={() => handleRemoveImage(index, false)} 
-          />
-        ))}
+    if (localImageUris.length > 0) {
+      mainPhotoUri = localImageUris[0];
+      isMainPhotoExisting = true;
+      mainPhotoRemoveIndex = 0; // Index relative to localImageUris
+    } else if (images.length > 0) {
+      mainPhotoUri = images[0].uri;
+      isMainPhotoExisting = false;
+      mainPhotoRemoveIndex = 0; // Index relative to images array
+    }
 
-        {/* Add button: Show if total displayed images < 5 */}
-        {/* Total = existing (localImageUris) + new (images) */}
-        {(localImageUris.length + images.length) < 5 && (
-          <TouchableOpacity
-            style={[styles.addThumbnailButton, {
-              borderColor: 'rgba(247, 179, 5, 0.3)',
-              backgroundColor: 'rgba(247, 179, 5, 0.05)',
-            }] }
+    return (
+      <View style={styles.photoGalleryContainer}>
+        {/* Main photo slot: Render MainPhoto if URI exists, otherwise Placeholder */}
+        {mainPhotoUri ? (
+          <MainPhoto 
+            uri={mainPhotoUri} 
+            onRemove={() => handleRemoveImage(mainPhotoRemoveIndex, isMainPhotoExisting)} 
+          />
+        ) : (
+          <MainPhotoPlaceholder 
             onPress={showPhotoPickerModal}
-            activeOpacity={0.7}
-          >
-            <Icon name="plus" size={20} color="#f7b305" />
-          </TouchableOpacity>
+            theme={theme} 
+          />
         )}
-      </ScrollView>
 
-      {/* Photo upload tips */}
-      {localImageUris.length === 0 && images.length === 0 && <PhotoTips />}
-    </View>
-  // Dependencies remain the same
-  ), [localImageUris, images, theme, showPhotoPickerModal, handleRemoveImage]);
+        {/* Additional photos row */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.additionalPhotosContainer}
+        >
+          {/* Display EXISTING thumbnails (excluding the main one) */}
+          {localImageUris.slice(1).map((imageUri, index) => (
+            <ThumbnailPhoto
+              key={`thumb-existing-${index}`}
+              uri={imageUri}
+              onRemove={() => handleRemoveImage(index + 1, true)} 
+            />
+          ))}
+          
+          {/* Display NEWLY ADDED thumbnails (excluding the one potentially shown in main slot) */}
+          {images.slice(localImageUris.length > 0 ? 0 : 1).map((imageFile, index) => (
+            <ThumbnailPhoto
+              key={`thumb-new-${index}`}
+              uri={imageFile.uri} 
+              // Adjust index based on whether the first new image is in the main slot
+              onRemove={() => handleRemoveImage(index + (localImageUris.length > 0 ? 0 : 1), false)} 
+            />
+          ))}
+
+          {/* Add button: Show if total displayed images < 5 */}
+          {(localImageUris.length + images.length) < 5 && (
+            <TouchableOpacity
+              style={[styles.addThumbnailButton, {
+                borderColor: 'rgba(247, 179, 5, 0.3)',
+                backgroundColor: 'rgba(247, 179, 5, 0.05)',
+              }] }
+              onPress={showPhotoPickerModal}
+              activeOpacity={0.7}
+            >
+              <Icon name="plus" size={20} color="#f7b305" />
+            </TouchableOpacity>
+          )}
+        </ScrollView>
+
+        {/* Photo upload tips */}
+        {localImageUris.length === 0 && images.length === 0 && <PhotoTips />}
+      </View>
+    );
+  // Update dependencies
+  }, [localImageUris, images, theme, showPhotoPickerModal, handleRemoveImage]);
 
   return (
     <KeyboardAvoidingView

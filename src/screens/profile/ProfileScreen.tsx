@@ -1228,11 +1228,30 @@ const ProfileScreen: React.FC = () => {
   // Handle edit profile
   const handleEditProfile = useCallback(() => {
     if (isViewingSeller) {return;}
+    
+    // Ensure backendUserData exists before navigating
+    if (!backendUserData) {
+      console.warn('[ProfileScreen] Cannot navigate to EditProfile: backendUserData is missing.');
+      Alert.alert('Error', 'Could not load user data for editing. Please try again.');
+      return;
+    }
+    
+    console.log('[ProfileScreen] Navigating to EditProfile with data:', backendUserData);
+    
     navigation.navigate({
       name: 'EditProfile',
-      params: {}
+      // Pass parameters, using undefined as fallback if a field is missing on backendUserData
+      params: {
+        name: backendUserData.name ?? undefined,
+        university: backendUserData.university ?? undefined,
+        city: backendUserData.city ?? undefined,
+        mobile: backendUserData.mobile ?? undefined,
+        zipcode: backendUserData.zipcode ?? undefined,
+        userphoto: backendUserData.userphoto ?? undefined,
+        email: backendUserData.email ?? undefined, 
+      }
     });
-  }, [navigation, isViewingSeller]);
+  }, [navigation, isViewingSeller, backendUserData]);
 
   // Handle adding a new listing
   const handleAddListing = useCallback(() => {

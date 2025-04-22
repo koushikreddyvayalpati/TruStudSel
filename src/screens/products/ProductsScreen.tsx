@@ -671,12 +671,26 @@ const ProductsScreen = () => {
         <View style={styles.productInfoContainer}>
           <View style={styles.titleContainer}>
             <Text style={styles.productName}>{product.name}</Text>
-            <TouchableOpacity
-              style={styles.shareButton}
-              onPress={handleShare}
-            >
-              <MaterialIcons name="share" size={22} color="#333" />
-            </TouchableOpacity>
+            {isUserSeller ? (
+              <TouchableOpacity
+                style={styles.editHeaderButton}
+                onPress={() => {
+                  navigation.navigate('PostingScreen', { 
+                    isEditMode: true, 
+                    productToEdit: product 
+                  });
+                }}
+              >
+                <Ionicons name="create-outline" size={22} color="#333" />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.shareButton}
+                onPress={handleShare}
+              >
+                <MaterialIcons name="share" size={22} color="#333" />
+              </TouchableOpacity>
+            )}
           </View>
 
           <View style={styles.priceAndTagsRow}>
@@ -820,19 +834,6 @@ const ProductsScreen = () => {
                 <Ionicons name="checkmark-circle" size={22} color="#4CAF50" />
                 <Text style={styles.ownProductText}>This is your product listing</Text>
               </View>
-            
-              <TouchableOpacity 
-                style={styles.editProductButton}
-                onPress={() => {
-                  navigation.navigate('PostingScreen', { 
-                    isEditMode: true, 
-                    productToEdit: product 
-                  });
-                }}
-              >
-                <Ionicons name="create-outline" size={18} color="#FFFFFF" />
-                <Text style={styles.editProductButtonText}>Edit Product</Text>
-              </TouchableOpacity>
             </View>
           )}
 
@@ -1622,21 +1623,9 @@ const styles = StyleSheet.create({
     color: '#4a4a4a',
     fontWeight: '500',
   },
-  editProductButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f7b305',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    marginTop: 5,
-    alignSelf: 'flex-start',
-  },
-  editProductButtonText: {
-    color: '#ffffff',
-    fontWeight: '500',
-    fontSize: 14,
-    marginLeft: 5,
+  editHeaderButton: {
+    padding: 8,
+    borderRadius: 20,
   },
   reviewsSection: {
     marginTop: 20,
