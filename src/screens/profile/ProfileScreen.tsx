@@ -1195,25 +1195,11 @@ const ProfileScreen: React.FC = () => {
                 AsyncStorage.removeItem(USER_PRODUCTS_CACHE_KEY),
               ]);
 
-              // Sign out with Auth
-              try {
-                const { Auth } = require('aws-amplify');
-                await Auth.signOut();
-                if (__DEV__) {
-                  console.log('[ProfileScreen] User signed out successfully');
-                }
-              } catch (authError) {
-                console.error('[ProfileScreen] Error signing out:', authError);
-              }
-
-              // Clear AsyncStorage
-              await AsyncStorage.clear();
-
-              // Navigate to auth screen
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'GetStarted' }],
-              });
+              // Sign out using Auth context
+              await signOut();
+              
+              // No need to navigate manually - AuthContext will update isAuthenticated state
+              // which will cause AppNavigator to show Auth stack automatically
             } catch (error) {
               console.error('[ProfileScreen] Error during sign out:', error);
               Alert.alert('Error', 'Failed to sign out. Please try again.');
@@ -1223,7 +1209,7 @@ const ProfileScreen: React.FC = () => {
       ],
       { cancelable: true }
     );
-  }, [navigation]);
+  }, [signOut]);
 
   // Handle edit profile
   const handleEditProfile = useCallback(() => {
@@ -1340,27 +1326,54 @@ const ProfileScreen: React.FC = () => {
     if (!emailToFetch) {return;}
     
     try {
-      console.log('[ProfileScreen] Forcing refresh and clearing cache');
+      console.log('[ProfileScreen] Starting refresh and clearing cache');
       
-      // Clear caches before refreshing to fix potential 404 errors
-      await Promise.all([
-        cleanupCache(),
-        cleanupProductsCache(),
-        AsyncStorage.removeItem(`${USER_PROFILE_CACHE_KEY}${emailToFetch}`),
-        AsyncStorage.removeItem(`${USER_PRODUCTS_CACHE_KEY}${emailToFetch}`)
-      ]);
+      // Clear caches sequentially instead of in parallel to avoid race conditions
+      try {
+        // In-memory cache cleanup first
+        cleanupCache();
+        cleanupProductsCache();
+        
+        // Then clear AsyncStorage keys one by one with error handling
+        try {
+          await AsyncStorage.removeItem(`${USER_PROFILE_CACHE_KEY}${emailToFetch}`);
+        } catch (storageError) {
+          console.warn(`[ProfileScreen] Error clearing profile cache: ${storageError}`);
+          // Continue with refresh despite storage error
+        }
+        
+        try {
+          await AsyncStorage.removeItem(`${USER_PRODUCTS_CACHE_KEY}${emailToFetch}`);
+        } catch (storageError) {
+          console.warn(`[ProfileScreen] Error clearing products cache: ${storageError}`);
+          // Continue with refresh despite storage error
+        }
+      } catch (cacheError) {
+        console.warn(`[ProfileScreen] Error during cache cleanup: ${cacheError}`);
+        // Continue with refresh despite cache cleanup error
+      }
       
       // Use the store's refresh function with force refresh enabled
+      console.log('[ProfileScreen] Cache cleared, refreshing data from API');
       await refreshAllData(emailToFetch);
       
       console.log('[ProfileScreen] Refresh completed successfully');
     } catch (error) {
       console.error('[ProfileScreen] Error during refresh:', error);
-      Alert.alert(
-        'Refresh Failed',
-        'Unable to refresh your data. Please check your connection and try again.',
-        [{ text: 'OK', style: 'default' }]
-      );
+      
+      // Attempt a fallback refresh without cache clearing if the main refresh fails
+      try {
+        console.log('[ProfileScreen] Attempting fallback refresh without cache clearing');
+        await refreshAllData(emailToFetch);
+        console.log('[ProfileScreen] Fallback refresh completed successfully');
+      } catch (fallbackError) {
+        console.error('[ProfileScreen] Fallback refresh also failed:', fallbackError);
+        Alert.alert(
+          'Refresh Failed',
+          'Unable to refresh your data. Please check your connection and try again.',
+          [{ text: 'OK', style: 'default' }]
+        );
+      }
     }
   }, [sellerEmail, user?.email, refreshAllData]);
 

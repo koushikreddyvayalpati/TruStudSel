@@ -259,8 +259,13 @@ const SimilarProducts: React.FC<{
         showsHorizontalScrollIndicator={false}
         keyExtractor={(item) => `similar_${item.id}`}
         renderItem={renderItem}
-        initialNumToRender={3}
-        maxToRenderPerBatch={3}
+        style={styles.similarProductScrollView}
+        contentContainerStyle={styles.similarProductListContainer}
+        nestedScrollEnabled={true}
+        scrollEnabled={true}
+        onStartShouldSetResponder={() => true}
+        onStartShouldSetResponderCapture={() => true}
+        disableScrollViewPanResponder={true}
       />
     </View>
   );
@@ -662,6 +667,7 @@ const ProductsScreen = () => {
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
+        removeClippedSubviews={false}
       >
         <ImageGallery
           images={productImages}
@@ -673,12 +679,12 @@ const ProductsScreen = () => {
             <Text style={styles.productName}>{product.name}</Text>
             <View style={styles.titleButtonsContainer}> 
               {/* Share button (always visible) */}
-              <TouchableOpacity
-                style={styles.shareButton}
-                onPress={handleShare}
-              >
-                <MaterialIcons name="share" size={22} color="#333" />
-              </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.shareButton}
+              onPress={handleShare}
+            >
+              <MaterialIcons name="share" size={22} color="#333" />
+            </TouchableOpacity>
               
               {/* Edit button (visible only for seller) */}
               {isUserSeller && (
@@ -835,22 +841,22 @@ const ProductsScreen = () => {
           {isUserSeller && (
             <View style={styles.ownProductContainer}>
               <View style={styles.ownProductHeader}>
-                <View style={styles.ownProductStatusRow}>
+              <View style={styles.ownProductStatusRow}>
                   <Ionicons name="shield-checkmark" size={22} color="#4CAF50" />
                   <Text style={styles.ownProductText}>Product Management</Text>
-                </View>
-                <TouchableOpacity
+              </View>
+              <TouchableOpacity 
                   style={styles.manageButton}
-                  onPress={() => {
-                    navigation.navigate('PostingScreen', { 
-                      isEditMode: true, 
-                      productToEdit: product 
-                    });
-                  }}
-                >
+                onPress={() => {
+                  navigation.navigate('PostingScreen', { 
+                    isEditMode: true, 
+                    productToEdit: product 
+                  });
+                }}
+              >
                   <Text style={styles.manageButtonText}>Edit Details</Text>
                   <Ionicons name="chevron-forward" size={16} color="#f7b305" />
-                </TouchableOpacity>
+              </TouchableOpacity>
               </View>
               
               <Text style={styles.ownProductDescription}>
@@ -2109,5 +2115,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#777',
     marginHorizontal: 4, // Space around the separator
+  },
+  // Add styles copied from HomeScreen
+  similarProductScrollView: {
+    marginBottom: 20,
+  },
+  similarProductListContainer: {
+    paddingRight: 20, // Padding only on the right
+    // Maybe add left padding too for consistency?
+    paddingLeft: 10, // Let's add a small left padding
   },
 });

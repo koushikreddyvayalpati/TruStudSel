@@ -1706,6 +1706,21 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                 isLoading={loadingUniversity}
               />
 
+              
+
+              {/* City Products Section */}
+              {cityFromContext && (
+                <ProductSection
+                  title={`${cityFromContext} Products`}
+                  data={(cityProductsState.length > 0 ? cityProductsState : cityProducts) as any}
+                  wishlist={wishlist}
+                  onToggleWishlist={toggleWishlist}
+                  onProductPress={handleProductPress}
+                  onMessageSeller={handleMessageSeller}
+                  onSeeAll={() => handleSeeAll('city')}
+                  isLoading={loadingCity}
+                />
+              )}
               {/* Interested Category Products Section */}
               {selectedInterestCategory && (
                 <ProductSection
@@ -1724,20 +1739,6 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                     });
                   }}
                   isLoading={loadingInterestedCategory}
-                />
-              )}
-
-              {/* City Products Section */}
-              {cityFromContext && (
-                <ProductSection
-                  title={`${cityFromContext} Products`}
-                  data={(cityProductsState.length > 0 ? cityProductsState : cityProducts) as any}
-                  wishlist={wishlist}
-                  onToggleWishlist={toggleWishlist}
-                  onProductPress={handleProductPress}
-                  onMessageSeller={handleMessageSeller}
-                  onSeeAll={() => handleSeeAll('city')}
-                  isLoading={loadingCity}
                 />
               )}
 

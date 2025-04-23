@@ -23,7 +23,7 @@ const DeleteAccountScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [confirmStep, setConfirmStep] = useState(false);
   const [confirmText, setConfirmText] = useState('');
-  
+
   // Password change state
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');

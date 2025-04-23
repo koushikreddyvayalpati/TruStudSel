@@ -259,8 +259,8 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
   useEffect(() => {
     if (!isEditMode) {
       console.log('[PostingScreen] Setting context from route params (New Post):', { userUniversity, userCity });
-      setUniversityToUse(userUniversity);
-      setCityToUse(userCity);
+    setUniversityToUse(userUniversity);
+    setCityToUse(userCity);
     }
   }, [isEditMode, userUniversity, userCity, setUniversityToUse, setCityToUse]);
 
