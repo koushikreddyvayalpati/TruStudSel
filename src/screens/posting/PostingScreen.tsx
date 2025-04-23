@@ -36,6 +36,9 @@ import ImagePicker from 'react-native-image-crop-picker';
 import usePostingStore from '../../store/postingStore';
 import { ProductType, ProductCondition, PRODUCT_TYPES, PRODUCT_CONDITIONS } from '../../constants/productConstants';
 
+// Import CitySelector component
+import CitySelector from '../../components/CitySelector';
+
 // Get device dimensions for responsive layout
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const THUMBNAIL_SIZE = SCREEN_WIDTH > 400 ? 85 : 75;
@@ -170,6 +173,8 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
   const { theme } = useTheme();
   const { user } = useAuth();
   const [photoPickerModalVisible, setPhotoPickerModalVisible] = useState(false);
+  // Add state for city selector modal
+  const [citySelectorVisible, setCitySelectorVisible] = useState(false);
 
   const routeParams = route.params || {};
   const { userUniversity = '', userCity = '', isEditMode = false, productToEdit = null } = routeParams;
@@ -201,6 +206,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
     // Only include used variables to avoid linter errors
     displayCondition,
     isEditMode: storeIsEditMode,
+    cityToUse,
 
     // Actions
     setTitle,
@@ -249,11 +255,14 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
     }
   }, [isEditMode, productToEdit, setEditMode, setProductId, populateFormWithProduct]);
 
-  // Set the city and university to use from route params
+  // Set the city and university to use from route params, ONLY if not in edit mode
   useEffect(() => {
-    setUniversityToUse(userUniversity);
-    setCityToUse(userCity);
-  }, [userUniversity, userCity, setUniversityToUse, setCityToUse]);
+    if (!isEditMode) {
+      console.log('[PostingScreen] Setting context from route params (New Post):', { userUniversity, userCity });
+      setUniversityToUse(userUniversity);
+      setCityToUse(userCity);
+    }
+  }, [isEditMode, userUniversity, userCity, setUniversityToUse, setCityToUse]);
 
   // Debug log of navigation params when component mounts
   useEffect(() => {
@@ -845,6 +854,12 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
   // Update dependencies
   }, [localImageUris, images, theme, showPhotoPickerModal, handleRemoveImage]);
 
+  // Add handler for city selection
+  const handleSelectCity = useCallback((city: string) => {
+    setCityToUse(city);
+    setCitySelectorVisible(false);
+  }, [setCityToUse]);
+
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -1022,6 +1037,44 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
                   )}
                 </View>
               )}
+
+              {/* City Selection Dropdown */}
+              <View style={styles.inputContainer}>
+                <Text style={[styles.label, { color: theme.colors.text }]}>
+                  Listing Location
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.dropdown,
+                    {
+                      borderColor: theme.colors.border,
+                      backgroundColor: theme.colors.surface,
+                      borderWidth: 1.5,
+                    },
+                    cityToUse && { borderColor: '#f7b305', borderWidth: 2 },
+                  ]}
+                  onPress={() => setCitySelectorVisible(true)}
+                >
+                  <View style={styles.cityDropdownContent}>
+                    <MaterialIcons name="location-on" size={18} color="#f7b305" style={styles.cityIcon} />
+                    <Text style={[
+                      styles.dropdownText,
+                      {
+                        color: cityToUse ? theme.colors.text : theme.colors.textSecondary,
+                        fontWeight: cityToUse ? '500' : 'normal',
+                      },
+                    ]}>
+                      {cityToUse || 'Select listing location'}
+                    </Text>
+                  </View>
+                  <Icon name="chevron-down" size={16} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+                {cityToUse && (
+                  <Text style={[styles.cityNote, { color: theme.colors.textSecondary }]}>
+                    Your item will be listed in {cityToUse}
+                  </Text>
+                )}
+              </View>
 
               <TextInput
                 label="Description"
@@ -1271,6 +1324,15 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
           </View>
         </View>
       </Modal>
+
+      {/* City Selector Modal */}
+      <CitySelector
+        isVisible={citySelectorVisible}
+        onClose={() => setCitySelectorVisible(false)}
+        onSelectCity={handleSelectCity}
+        currentCity={cityToUse}
+        defaultCity={user?.city || null}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -1928,6 +1990,19 @@ const styles = StyleSheet.create({
   photoPickerSubtext: {
     fontSize: 12,
     textAlign: 'center',
+  },
+  cityDropdownContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  cityIcon: {
+    marginRight: 8,
+  },
+  cityNote: {
+    fontSize: 12,
+    marginTop: 4,
+    fontStyle: 'italic',
   },
 });
 

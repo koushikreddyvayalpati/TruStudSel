@@ -534,6 +534,7 @@ const usePostingStore = create<PostingState>((set, get) => ({
       localImageUris: validImageUrls, // Set the extracted URLs
       images: [], // Start with no new images
       initialProductData: { ...product }, // Store copy
+      cityToUse: product.city || '', // Populate cityToUse from product data
       // Reset display values based on populated data
       displayType: productType ? productType.name : 'Select Type',
       displaySubcategory: (product as any).subcategory || 'Select Subcategory',
@@ -579,6 +580,12 @@ const usePostingStore = create<PostingState>((set, get) => ({
       if (state.price !== initial.price) {
         updateData.price = state.price;
       }
+      
+      // Check if city changed
+      if (state.cityToUse !== (initial.city || '')) {
+        updateData.city = state.cityToUse || '';
+      }
+      
       const currentConditionId = state.selectedCondition?.id || '';
       // Compare with initial.productage (assuming productage corresponds to condition)
       if (currentConditionId !== (initial.productage || '')) { 

@@ -23,9 +23,74 @@ const DeleteAccountScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [confirmStep, setConfirmStep] = useState(false);
   const [confirmText, setConfirmText] = useState('');
+  
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
 
   const handleOpenDrawer = () => {
     navigation.dispatch(DrawerActions.openDrawer());
+  };
+
+  // Handle password change
+  const handleChangePassword = async () => {
+    // Validate inputs
+    if (!currentPassword) {
+      Alert.alert('Error', 'Please enter your current password');
+      return;
+    }
+    
+    if (!newPassword) {
+      Alert.alert('Error', 'Please enter a new password');
+      return;
+    }
+    
+    if (newPassword.length < 8) {
+      Alert.alert('Error', 'New password must be at least 8 characters long');
+      return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Error', 'New passwords do not match');
+      return;
+    }
+    
+    setChangingPassword(true);
+    
+    try {
+      const user = await Auth.currentAuthenticatedUser();
+      await Auth.changePassword(
+        user,
+        currentPassword,
+        newPassword
+      );
+      
+      // Reset fields
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      
+      Alert.alert(
+        'Success',
+        'Your password has been changed successfully',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Error changing password:', error);
+      
+      let errorMessage = 'There was a problem changing your password. Please try again.';
+      if (error instanceof Error) {
+        if (error.name === 'NotAuthorizedException') {
+          errorMessage = 'Incorrect current password. Please try again.';
+        }
+      }
+      
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setChangingPassword(false);
+    }
   };
 
   const handleDeleteAccount = async () => {
@@ -112,13 +177,71 @@ const DeleteAccountScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Account Settings Section */}
-        <View style={styles.settingsCard}>
-          <MaterialIcons name="settings" size={26} color="#555" style={styles.settingsIcon} />
-          <Text style={styles.settingsTitle}>Account Preferences</Text>
-          <Text style={styles.settingsDescription}>
-            Manage your account settings and preferences
-          </Text>
+        {/* Change Password Section */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <MaterialIcons name="lock" size={26} color="#f7b305" />
+            <Text style={styles.sectionTitle}>Change Password</Text>
+          </View>
+
+          <View style={styles.passwordFormContainer}>
+            <View style={styles.compactForm}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Current Password</Text>
+                <TextInput
+                  style={styles.passwordInput}
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  placeholder="Enter current password"
+                  secureTextEntry
+                  placeholderTextColor="#999"
+                />
+              </View>
+              
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>New Password</Text>
+                <TextInput
+                  style={styles.passwordInput}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  placeholder="Enter new password"
+                  secureTextEntry
+                  placeholderTextColor="#999"
+                />
+              </View>
+              
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Confirm New Password</Text>
+                <TextInput
+                  style={styles.passwordInput}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="Confirm new password"
+                  secureTextEntry
+                  placeholderTextColor="#999"
+                />
+              </View>
+            </View>
+            
+            <TouchableOpacity
+              style={[
+                styles.changePasswordButton,
+                changingPassword && styles.disabledButton
+              ]}
+              onPress={handleChangePassword}
+              disabled={changingPassword}
+              activeOpacity={0.8}
+            >
+              {changingPassword ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <MaterialIcons name="vpn-key" size={22} color="#fff" />
+                  <Text style={styles.buttonText}>Update Password</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Account Deletion Section */}
@@ -517,7 +640,7 @@ const styles = StyleSheet.create({
     }),
   },
   disabledButton: {
-    backgroundColor: '#ffb3b3',
+    backgroundColor: '#f7b305',
     opacity: 0.7,
   },
   cancelButton: {
@@ -528,6 +651,53 @@ const styles = StyleSheet.create({
     color: '#555',
     fontSize: 16,
     fontWeight: '500',
+  },
+  passwordFormContainer: {
+    padding: 12,
+  },
+  compactForm: {
+    marginBottom: 10,
+  },
+  passwordInstructions: {
+    fontSize: 15,
+    color: '#555',
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+  inputContainer: {
+    marginBottom: 10,
+  },
+  inputLabel: {
+    fontSize: 15,
+    marginBottom: 4,
+    fontWeight: '500',
+    color: '#333',
+  },
+  changePasswordButton: {
+    backgroundColor: '#f7b305',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 10,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+    }),
+  },
+  buttonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });
 

@@ -1891,10 +1891,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   smallButton: {
-    paddingVertical: 4,
+    paddingVertical: 3,
     paddingHorizontal: 8,
     borderRadius: 20,
-    marginRight: 10,
+    marginLeft: 10,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
@@ -2228,8 +2228,8 @@ const styles = StyleSheet.create({
   clearFiltersButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
     borderRadius: 20,
     backgroundColor: '#FFF9E6',
     borderWidth: 1,
@@ -2372,7 +2372,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   changeLocationButton: {
-    paddingVertical: 4,
+    paddingVertical: 3,
     paddingHorizontal: 8,
     borderRadius: 12,
     backgroundColor: '#f0f0f0',

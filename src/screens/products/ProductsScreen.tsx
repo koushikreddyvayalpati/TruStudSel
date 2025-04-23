@@ -1010,7 +1010,7 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: Platform.OS === 'android' ? 8 : 10,
+    marginRight: Platform.OS === 'android' ? 18 : 10,
   },
   scrollView: {
     flex: 1,
