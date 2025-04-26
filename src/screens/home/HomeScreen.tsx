@@ -91,13 +91,19 @@ const FORCE_REFRESH_KEY = 'force_refresh_flag';
 
 // Component to display section headers with potential actions
 const SectionHeader: React.FC<{
-  title: string;
+  title: string | React.ReactNode;
   onSeeAll?: () => void;
 }> = ({ title, onSeeAll }) => (
   <View style={styles.sectionHeaderContainer}>
-    <Text style={[styles.sectionHeader, { color: '#333' }]}>{title}</Text>
+    <View style={styles.sectionTitleContainer}>
+      {typeof title === 'string' ? (
+        <Text style={styles.sectionTitle}>{title}</Text>
+      ) : (
+        title
+      )}
+    </View>
     {onSeeAll && (
-      <TouchableOpacity onPress={onSeeAll}>
+      <TouchableOpacity onPress={onSeeAll} style={styles.seeAllButton}>
         <Text style={styles.seeAllText}>See All</Text>
       </TouchableOpacity>
     )}
@@ -196,7 +202,7 @@ const ProductItem: React.FC<{
 
 // Product section component for reusability
 const ProductSection: React.FC<{
-  title: string;
+  title: string | React.ReactNode;
   data: Product[];
   wishlist: string[];
   onToggleWishlist: (id: string) => void;
@@ -214,19 +220,17 @@ const ProductSection: React.FC<{
   onSeeAll,
   isLoading = false,
 }) => (
-  <View>
+  <View style={styles.section}>
     <SectionHeader title={title} onSeeAll={onSeeAll} />
+    
     {isLoading ? (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color="#f7b305" />
-      </View>
-    ) : data.length === 0 ? (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>No products available</Text>
-      </View>
-    ) : (
+      <LoadingSkeleton />
+    ) : data && data.length > 0 ? (
       <FlatList
         data={data}
+        keyExtractor={(item) => item.id}
+        horizontal
+        showsHorizontalScrollIndicator={false}
         renderItem={({ item }) => (
           <ProductItem
             item={item}
@@ -236,15 +240,34 @@ const ProductSection: React.FC<{
             onMessageSeller={onMessageSeller}
           />
         )}
-        keyExtractor={item => item.id}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.productScrollView}
-        contentContainerStyle={styles.productListContainer}
+        contentContainerStyle={{}}
       />
+    ) : (
+      <View style={styles.emptySection}>
+        <Text style={styles.emptyText}>No products available</Text>
+      </View>
     )}
   </View>
 );
+
+// Add the LoadingSkeleton component near the other component definitions
+const LoadingSkeleton = () => {
+  return (
+    <View style={styles.skeletonContainer}>
+      <Text style={styles.skeletonTitle}>Discovering Products For You...</Text>
+      <View style={styles.skeletonRow}>
+        {[1, 2, 3].map((item) => (
+          <View key={item} style={styles.skeletonItem}>
+            <View style={styles.skeletonImage} />
+            <View style={styles.skeletonLine} />
+            <View style={[styles.skeletonLine, { width: '70%' }]} />
+            <View style={[styles.skeletonLine, { width: '40%' }]} />
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+};
 
 // Define sort options
 type SortOption = {
@@ -426,6 +449,16 @@ const SearchPaginationFooter: React.FC<{
         <Text style={styles.loadMoreButtonText}>Load More</Text>
       </TouchableOpacity>
     ) : null}
+  </View>
+);
+
+// Add this near the top of the file with other component definitions
+const LocationNameShimmer = () => (
+  <View style={styles.locationShimmerContainer}>
+    <View style={styles.locationShimmer}>
+      <View style={styles.shimmerBar} />
+    </View>
+    <Text style={styles.shimmerText}> Products</Text>
   </View>
 );
 
@@ -618,7 +651,18 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   const handleCitySelection = useCallback((city: string) => {
     if (!city) return;
     
+    // Update city in context
     setUserCity(city);
+    
+    // Explicitly save to AsyncStorage to ensure persistence between app restarts
+    AsyncStorage.setItem('@user_city', city)
+      .then(() => {
+        console.log('[HomeScreen] City saved to AsyncStorage:', city);
+      })
+      .catch(error => {
+        console.error('[HomeScreen] Error saving city to AsyncStorage:', error);
+      });
+    
     setLocationModalVisible(false);
     setCitySearchQuery('');
     
@@ -1756,7 +1800,10 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
 
               {/* University Products Section */}
               <ProductSection
-                title={`${userUniversity && userUniversity.length > 26 ? `${userUniversity.substring(0, 26)}...` : userUniversity}`}
+                title={userUniversity 
+                  ? `${userUniversity && userUniversity.length > 26 ? `${userUniversity.substring(0, 26)}...` : userUniversity} Products`
+                  : <LocationNameShimmer />
+                }
                 data={(universityProductsState.length > 0 ? universityProductsState : universityProducts) as any}
                 wishlist={wishlist}
                 onToggleWishlist={toggleWishlist}
@@ -1769,9 +1816,12 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
               
 
               {/* City Products Section */}
-              {cityFromContext && (
+              {cityFromContext !== undefined ? (
                 <ProductSection
-                  title={`${cityFromContext} Products`}
+                  title={cityFromContext 
+                    ? `${cityFromContext} Products`
+                    : <LocationNameShimmer />
+                  }
                   data={(cityProductsState.length > 0 ? cityProductsState : cityProducts) as any}
                   wishlist={wishlist}
                   onToggleWishlist={toggleWishlist}
@@ -1780,7 +1830,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                   onSeeAll={() => handleSeeAll('city')}
                   isLoading={loadingCity}
                 />
-              )}
+              ) : null}
               {/* Interested Category Products Section */}
               {selectedInterestCategory && (
                 <ProductSection
@@ -1990,9 +2040,9 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   categoryContainer: {
-    height: 110,
+    height: 100,
     paddingTop: 5,
-    paddingBottom: 15,
+    paddingBottom: 0,
   },
   categoryItem: {
     alignItems: 'center',
@@ -2001,7 +2051,7 @@ const styles = StyleSheet.create({
   },
   categoryCircleWrapper: {
     padding: 5,
-    marginBottom: 5,
+    marginBottom: 0,
   },
   categoryCircle: {
     width: 55,
@@ -2026,7 +2076,7 @@ const styles = StyleSheet.create({
   categoryText: {
     fontSize: 12,
     textAlign: 'center',
-    marginTop: 5,
+    marginTop: 0,
   },
   sectionHeaderContainer: {
     flexDirection: 'row',
@@ -2555,6 +2605,88 @@ const styles = StyleSheet.create({
   },
   resetButtonTextDisabled: {
     color: '#bbb',
+  },
+  // Skeleton loading styles
+  skeletonContainer: {
+    padding: 15,
+    marginBottom: 20,
+  },
+  skeletonTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#f7b305',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  skeletonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 15,
+  },
+  skeletonItem: {
+    width: 100,
+    height: 160,
+    marginHorizontal: 5,
+    alignItems: 'center',
+  },
+  skeletonImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+    marginBottom: 8,
+  },
+  skeletonLine: {
+    height: 10,
+    width: '90%',
+    backgroundColor: '#f0f0f0',
+    marginBottom: 8,
+    borderRadius: 4,
+  },
+  section: {
+    marginBottom: 20,
+  },
+  emptySection: {
+    padding: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 150,
+  },
+  locationShimmerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  locationShimmer: {
+    width: 120,
+    height: 20,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginRight: 4,
+  },
+  shimmerBar: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
+    opacity: 0.7,
+  },
+  shimmerText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  sectionTitleContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  seeAllButton: {
+    padding: 5,
   },
 });
 

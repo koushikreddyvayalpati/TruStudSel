@@ -369,8 +369,8 @@ const WishlistScreen: React.FC = () => {
             style={styles.profileButton}
             onPress={() => navigation.navigate('Profile', { sellerEmail: user?.email })}
           >
-            <View style={[styles.profileCircle, { backgroundColor: colors.cardAlt, borderColor: colors.border }]}>
-              <Text style={[styles.profileText, { color: colors.text }]}>{getInitial()}</Text>
+            <View style={[styles.profileCircle, { backgroundColor: "black", borderColor: colors.border }]}>
+              <Text style={[styles.profileText, { color: "white" }]}>{getInitial()}</Text>
             </View>
           </TouchableOpacity>
         </View>

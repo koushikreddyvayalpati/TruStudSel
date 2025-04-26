@@ -1081,7 +1081,7 @@ export const searchProducts = async (searchParams: SearchProductsParams): Promis
 
     // Use the new search API endpoint
     const searchUrl = `${API_URL}/api/products/search?${queryParams}`;
-    console.log(`[API:products] Making search request to: ${searchUrl}`);
+    // console.log(`[API:products] Making search request to: ${searchUrl}`);
 
     // Adjust fetch call to use AbortController instead of timeout parameter
     const controller = new AbortController();

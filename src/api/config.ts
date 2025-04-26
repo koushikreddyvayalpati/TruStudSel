@@ -37,9 +37,9 @@ export const DEFAULT_OPTIONS: RequestInit = {
 
 // API request timeout utility
 export const fetchWithTimeout = async (url: string, options: RequestInit, timeout = API_TIMEOUT): Promise<Response> => {
-  console.log(`[API:config] fetchWithTimeout called for URL: ${url}`);
-  console.log(`[API:config] Request method: ${options.method || 'GET'}`);
-  console.log(`[API:config] Timeout set to: ${timeout}ms`);
+  // console.log(`[API:config] fetchWithTimeout called for URL: ${url}`);
+  // console.log(`[API:config] Request method: ${options.method || 'GET'}`);
+  // console.log(`[API:config] Timeout set to: ${timeout}ms`);
 
   const controller = new AbortController();
   const { signal } = controller;
