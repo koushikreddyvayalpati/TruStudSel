@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Platform,
-  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -14,9 +13,6 @@ import {
   DrawerContentComponentProps,
 } from '@react-navigation/drawer';
 import { useAuth } from '../../hooks';
-
-// Get the status bar height for precise positioning
-const STATUSBAR_HEIGHT = StatusBar.currentHeight || 0;
 
 // Define navigation item type for better scalability
 type DrawerNavigationItem = {
@@ -55,7 +51,8 @@ const CustomDrawerContent = (props: DrawerContentComponentProps) => {
       key: 'profile',
       label: 'Profile',
       icon: 'person',
-      navigateTo: 'Profile',
+      navigateTo: 'MainStack',
+      params: { screen: 'Profile' },
     },
     {
       key: 'messages',

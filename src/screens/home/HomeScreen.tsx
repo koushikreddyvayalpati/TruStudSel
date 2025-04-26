@@ -55,7 +55,10 @@ import { MainStackParamList } from '../../types/navigation.types';
 import { useSearch } from './home-search';
 
 // Import Zustand store
-import useProductStore from '../../store/productStore';
+import useProductStore, {
+  FEATURED_PRODUCTS_CACHE_KEY,
+  NEW_ARRIVALS_CACHE_KEY,
+} from '../../store/productStore';
 
 // Define types for better type safety
 interface Category {
@@ -77,8 +80,6 @@ interface HomescreenProps {
 
 // Cache constants with longer expiry for products
 const USER_PROFILE_CACHE_KEY = 'user_profile_cache_';
-const FEATURED_PRODUCTS_CACHE_KEY = 'featured_products_cache_';
-const NEW_ARRIVALS_CACHE_KEY = 'new_arrivals_cache_';
 const UNIVERSITY_PRODUCTS_CACHE_KEY = 'university_products_cache_';
 const CITY_PRODUCTS_CACHE_KEY = 'city_products_cache_';
 const USER_CACHE_EXPIRY_TIME = 15 * 60 * 1000; // 15 minutes
@@ -528,6 +529,9 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
   const search = useSearch(userUniversity, userCity);
 
   const [wishlist, setWishlist] = useState<string[]>([]);
+  
+  // Track if we've started loading university-specific data
+  const [hasStartedInitialLoad, setHasStartedInitialLoad] = useState(false);
 
   // Use Zustand store for product state management
   const {
@@ -563,6 +567,52 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     handleRefresh,
     setError,
   } = useProductStore();
+
+  // Load featured products immediately when component mounts - these don't require university/city
+  // This gives users something to see while waiting for location data
+  useEffect(() => {
+    if (!hasStartedInitialLoad) {
+      console.log('[HomeScreen] Starting early load of basic products');
+      // Start loading products that don't strictly require university/city first
+      loadNewArrivals(''); // Loads general new arrivals
+      loadFeaturedProducts('', ''); // Loads general featured products
+      setHasStartedInitialLoad(true);
+    }
+  }, [loadNewArrivals, loadFeaturedProducts, hasStartedInitialLoad]);
+
+  // Once university and city are loaded, load location-specific products
+  useEffect(() => {
+    // Only proceed if we have either university or city
+    if (userUniversity || userCity) {
+      console.log(`[HomeScreen] Loading location-specific products for university: "${userUniversity}", city: "${userCity}"`);
+      
+      if (userUniversity) {
+        loadUniversityProducts(userUniversity);
+        // If we have a university, reload new arrivals with university filter
+        loadNewArrivals(userUniversity);
+      }
+      
+      if (userCity) {
+        loadCityProducts(userCity);
+      }
+      
+      // Load featured products with whatever location info we have
+      loadFeaturedProducts(userUniversity, userCity);
+      
+      // Also load products for interested category if we have one
+      if (selectedInterestCategory) {
+        loadInterestedCategoryProducts(selectedInterestCategory, userUniversity, userCity);
+      }
+    }
+  }, [
+    userUniversity, 
+    userCity, 
+    loadUniversityProducts,
+    loadCityProducts,
+    loadFeaturedProducts,
+    loadInterestedCategoryProducts,
+    selectedInterestCategory
+  ]);
 
   // Function to handle city selection (moved here after Zustand store initialization)
   const handleCitySelection = useCallback((city: string) => {
@@ -1384,6 +1434,14 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     }
   };
 
+  // Extract feature toggle flags
+  const disableFeaturedProductsAPI = useProductStore(state => state.disableFeaturedProductsAPI);
+  const disableNewArrivalsAPI = useProductStore(state => state.disableNewArrivalsAPI);
+  
+  // Toggle functions for future use
+  const toggleFeaturedProductsAPI = useProductStore(state => state.toggleFeaturedProductsAPI);
+  const toggleNewArrivalsAPI = useProductStore(state => state.toggleNewArrivalsAPI);
+
   // Replace the modal JSX with the CitySelector component
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: 'white' }]}>
@@ -1682,21 +1740,23 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                 <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
               }
             >
-              {/* New Arrivals Section */}
-              <ProductSection
-                title="New Arrivals"
-                data={(newArrivalsProductsState.length > 0 ? newArrivalsProductsState : newArrivalsProducts) as any}
-                wishlist={wishlist}
-                onToggleWishlist={toggleWishlist}
-                onProductPress={handleProductPress}
-                onMessageSeller={handleMessageSeller}
-                onSeeAll={() => handleSeeAll('newArrivals')}
-                isLoading={loadingNewArrivals}
-              />
+              {/* New Arrivals Section - Only show if not disabled */}
+              {!disableNewArrivalsAPI && (
+                <ProductSection
+                  title="New Arrivals"
+                  data={(newArrivalsProductsState.length > 0 ? newArrivalsProductsState : newArrivalsProducts) as any}
+                  wishlist={wishlist}
+                  onToggleWishlist={toggleWishlist}
+                  onProductPress={handleProductPress}
+                  onMessageSeller={handleMessageSeller}
+                  onSeeAll={() => handleSeeAll('newArrivals')}
+                  isLoading={loadingNewArrivals}
+                />
+              )}
 
               {/* University Products Section */}
               <ProductSection
-                title={`${userUniversity} Products`}
+                title={`${userUniversity && userUniversity.length > 26 ? `${userUniversity.substring(0, 26)}...` : userUniversity}`}
                 data={(universityProductsState.length > 0 ? universityProductsState : universityProducts) as any}
                 wishlist={wishlist}
                 onToggleWishlist={toggleWishlist}
@@ -1742,17 +1802,19 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                 />
               )}
 
-              {/* Featured Products Section */}
-              <ProductSection
-                title="Featured Products"
-                data={(featuredProductsState.length > 0 ? featuredProductsState : featuredProducts) as any}
-                wishlist={wishlist}
-                onToggleWishlist={toggleWishlist}
-                onProductPress={handleProductPress}
-                onMessageSeller={handleMessageSeller}
-                onSeeAll={() => handleSeeAll('featured')}
-                isLoading={loadingFeatured}
-              />
+              {/* Featured Products Section - Only show if not disabled */}
+              {!disableFeaturedProductsAPI && (
+                <ProductSection
+                  title="Featured Products"
+                  data={(featuredProductsState.length > 0 ? featuredProductsState : featuredProducts) as any}
+                  wishlist={wishlist}
+                  onToggleWishlist={toggleWishlist}
+                  onProductPress={handleProductPress}
+                  onMessageSeller={handleMessageSeller}
+                  onSeeAll={() => handleSeeAll('featured')}
+                  isLoading={loadingFeatured}
+                />
+              )}
 
               {/* Error display */}
               {productError && (

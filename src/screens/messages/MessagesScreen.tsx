@@ -150,10 +150,15 @@ const MessagesScreen = () => {
 
   // Memoize filtered conversations for performance
   const filteredConversations = useMemo(() => {
-    if (!searchQuery.trim()) {return conversations;}
+    // First filter out conversations without messages
+    const conversationsWithMessages = conversations.filter(
+      conversation => !!conversation.lastMessageContent
+    );
+    
+    if (!searchQuery.trim()) {return conversationsWithMessages;}
 
     const normalizedQuery = searchQuery.toLowerCase();
-    return conversations.filter(
+    return conversationsWithMessages.filter(
       conversation =>
         conversation.name?.toLowerCase().includes(normalizedQuery) ||
         conversation.lastMessageContent?.toLowerCase().includes(normalizedQuery)

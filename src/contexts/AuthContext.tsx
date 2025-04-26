@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { Auth } from 'aws-amplify';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // User data type
 export interface UserAttributes {
@@ -116,8 +117,77 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateState({ loading: true, error: null });
 
     try {
+      // Try to get basic user info from AsyncStorage for faster initial load
+      const cachedUserData = await AsyncStorage.getItem('@cached_user_data');
+      if (cachedUserData) {
+        const parsedUserData = JSON.parse(cachedUserData);
+        const { timestamp, userData } = parsedUserData;
+        const isExpired = Date.now() - timestamp > 24 * 60 * 60 * 1000; // 24 hours expiry
+        
+        if (!isExpired && userData) {
+          console.log('[AuthContext] Using cached user data for faster initial load');
+          // Update state with cached data first for better UX
+          updateState({
+            isAuthenticated: true,
+            user: userData,
+            loading: false, // Stop loading since we have data
+            error: null,
+          });
+          
+          // Continue with Auth.currentAuthenticatedUser in background to refresh token
+          Auth.currentAuthenticatedUser()
+            .then(cognitoUser => {
+              const freshUserData = processUserData(cognitoUser);
+              
+              // Cache fresh user data
+              AsyncStorage.setItem('@cached_user_data', JSON.stringify({
+                timestamp: Date.now(),
+                userData: freshUserData
+              }));
+              
+              // Only update state if data is different to avoid unnecessary rerenders
+              if (JSON.stringify(freshUserData) !== JSON.stringify(userData)) {
+                updateState({
+                  user: freshUserData,
+                });
+              }
+            })
+            .catch(error => {
+              console.log('[AuthContext] Token refresh failed:', error);
+              // Instead of calling signOut directly (which creates a circular dependency)
+              // Update the auth state to trigger logout in the UI
+              updateState({
+                isAuthenticated: false,
+                user: null,
+                loading: false,
+                error: new Error('Session expired. Please sign in again.')
+              });
+              
+              // Clear cached data
+              AsyncStorage.removeItem('@cached_user_data');
+            });
+          
+          return; // Exit early since we already updated state
+        }
+      }
+      
+      // No valid cache, proceed with normal flow
       const cognitoUser = await Auth.currentAuthenticatedUser();
       const userData = processUserData(cognitoUser);
+      
+      // Cache the user data for future use
+      await AsyncStorage.setItem('@cached_user_data', JSON.stringify({
+        timestamp: Date.now(),
+        userData
+      }));
+      
+      // Set user university and city for immediate use
+      if (userData.university) {
+        await AsyncStorage.setItem('@user_university', userData.university);
+      }
+      if (userData.city) {
+        await AsyncStorage.setItem('@user_city', userData.city);
+      }
 
       updateState({
         isAuthenticated: true,
@@ -126,6 +196,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         error: null,
       });
     } catch (error) {
+      // Clear any cached data on error
+      try {
+        await AsyncStorage.removeItem('@cached_user_data');
+      } catch (e) {
+        console.error('[AuthContext] Error clearing cached data:', e);
+      }
+      
       updateState({
         isAuthenticated: false,
         user: null,

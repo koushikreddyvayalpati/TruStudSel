@@ -35,6 +35,7 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(30);
   const [canResend, setCanResend] = useState(false);
+  const [timerKey, setTimerKey] = useState(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [verificationStep, setVerificationStep] = useState('otp'); // 'otp' or 'password'
   const [password, setPassword] = useState('');
@@ -121,7 +122,7 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
       keyboardDidHideListener.remove();
       clearInterval(timer);
     };
-  }, []);
+  }, [timerKey]);
 
   // Animation when switching steps
   useEffect(() => {
@@ -491,6 +492,7 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
       Alert.alert('Success', 'Verification code has been resent');
       setCountdown(30);
       setCanResend(false);
+      setTimerKey(prevKey => prevKey + 1);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to resend verification code');
     }

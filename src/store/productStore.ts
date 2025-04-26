@@ -32,6 +32,10 @@ interface ProductState {
   cityProductsOriginal: Product[];
   interestedCategoryProducts: Product[];
 
+  // Feature toggle flags
+  disableFeaturedProductsAPI: boolean;
+  disableNewArrivalsAPI: boolean;
+
   // Filter maps for optimization
   featuredFilterMaps: any;
   newArrivalsFilterMaps: any;
@@ -100,6 +104,10 @@ interface ProductState {
 
   // Refresh handling
   handleRefresh: (university: string, city: string) => Promise<void>;
+
+  // Toggle API call features
+  toggleFeaturedProductsAPI: (enabled: boolean) => void;
+  toggleNewArrivalsAPI: (enabled: boolean) => void;
 }
 
 // Create the store
@@ -114,6 +122,10 @@ const useProductStore = create<ProductState>((set, get) => ({
   cityProducts: [],
   cityProductsOriginal: [],
   interestedCategoryProducts: [],
+
+  // Feature toggle flags - set to true to disable the API calls
+  disableFeaturedProductsAPI: true,
+  disableNewArrivalsAPI: true,
 
   featuredFilterMaps: {},
   newArrivalsFilterMaps: {},
@@ -299,6 +311,10 @@ const useProductStore = create<ProductState>((set, get) => ({
     console.log(`[ProductStore] Force refresh set to ${value}`);
   },
 
+  // Toggle API call features
+  toggleFeaturedProductsAPI: (enabled: boolean) => set({ disableFeaturedProductsAPI: !enabled }),
+  toggleNewArrivalsAPI: (enabled: boolean) => set({ disableNewArrivalsAPI: !enabled }),
+
   // Load featured products
   loadFeaturedProducts: async (university, city) => {
     try {
@@ -308,6 +324,19 @@ const useProductStore = create<ProductState>((set, get) => ({
         featuredNextPageToken: null,
         featuredHasMorePages: false
       });
+
+      // Check if API calls are disabled
+      if (get().disableFeaturedProductsAPI) {
+        console.log('[ProductStore] Featured products API calls are disabled');
+        set({
+          featuredProducts: [],
+          featuredProductsOriginal: [],
+          totalFeaturedCount: 0,
+          featuredFilterMaps: {},
+          loadingFeatured: false
+        });
+        return;
+      }
 
       // Check if force refresh is enabled
       if (get().shouldForceRefresh) {
@@ -499,6 +528,18 @@ const useProductStore = create<ProductState>((set, get) => ({
         newArrivalsNextPageToken: null,
         newArrivalsHasMorePages: false
       });
+
+      // Check if API calls are disabled
+      if (get().disableNewArrivalsAPI) {
+        console.log('[ProductStore] New arrivals API calls are disabled');
+        set({
+          newArrivalsProducts: [],
+          newArrivalsProductsOriginal: [],
+          newArrivalsFilterMaps: {},
+          loadingNewArrivals: false
+        });
+        return;
+      }
 
       // Check if force refresh is enabled
       if (get().shouldForceRefresh) {
@@ -1112,5 +1153,15 @@ const useProductStore = create<ProductState>((set, get) => ({
     }
   },
 }));
+
+// Helper functions to get the feature toggle flags
+export const getDisableFeaturedProductsAPI = () => useProductStore.getState().disableFeaturedProductsAPI;
+export const getDisableNewArrivalsAPI = () => useProductStore.getState().disableNewArrivalsAPI;
+
+// Helper functions to set the feature toggle flags
+export const enableFeaturedProductsAPI = () => useProductStore.getState().toggleFeaturedProductsAPI(true);
+export const disableFeaturedProductsAPI = () => useProductStore.getState().toggleFeaturedProductsAPI(false);
+export const enableNewArrivalsAPI = () => useProductStore.getState().toggleNewArrivalsAPI(true);
+export const disableNewArrivalsAPI = () => useProductStore.getState().toggleNewArrivalsAPI(false);
 
 export default useProductStore;
