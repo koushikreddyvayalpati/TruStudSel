@@ -12,7 +12,6 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-  StatusBar,
   Dimensions,
   Keyboard,
   RefreshControl,
@@ -32,6 +31,7 @@ import {
 } from '../../services/firebaseChatService';
 import { Message, ReceiptStatus, MessageStatus } from '../../types/chat.types';
 import { formatMessageTime, formatMessageDate, isSameDay } from '../../utils/timestamp';
+import { configureStatusBar } from '../../utils/statusBarManager';
 
 // Define route params type
 type FirebaseChatScreenRouteProp = RouteProp<MainStackParamList, 'FirebaseChatScreen'>;
@@ -62,6 +62,7 @@ const FirebaseChatScreen = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [_keyboardVisible, setKeyboardVisible] = useState(false);
+  const [_error, _setError] = useState<string | null>(null);
 
   // Format the recipient name consistently
   const getFormattedRecipientName = useCallback(() => {
@@ -942,8 +943,11 @@ const FirebaseChatScreen = () => {
     }
   }, [conversationId, cacheMessages]);
 
-  // Properly handle app state changes to optimize Firebase subscriptions
+  // App state change and status bar setup
   useEffect(() => {
+    // Set consistent status bar configuration
+    configureStatusBar();
+    
     // Add app state change listeners to optimize subscriptions
     const handleAppStateChange = (nextAppState: string) => {
       console.log('[FirebaseChatScreen] App state changed:', nextAppState);
@@ -951,6 +955,10 @@ const FirebaseChatScreen = () => {
       // When app comes to foreground, refresh messages to ensure we have latest data
       if (nextAppState === 'active' && conversationId && isInitializedRef.current) {
         console.log('[FirebaseChatScreen] App became active, refreshing messages');
+        
+        // Reset status bar when app comes to foreground to ensure consistency
+        configureStatusBar();
+        
         handleRefresh();
       }
     };
@@ -1175,10 +1183,7 @@ const FirebaseChatScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar
-        barStyle={Platform.OS === 'android' ? 'dark-content' : 'dark-content'}
-        backgroundColor={Platform.OS === 'android' ? '#fff' : '#fff'}
-      />
+      {/* No need for StatusBar component - configured in useEffect */}
 
       {/* Enhanced Header */}
       <View style={styles.header}>
@@ -1250,7 +1255,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   loadingContainer: {
     flex: 1,

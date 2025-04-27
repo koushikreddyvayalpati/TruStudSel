@@ -870,13 +870,6 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
         style={styles.safeArea}
         edges={Platform.OS === 'android' ? ['bottom', 'left', 'right'] : ['top', 'bottom', 'left', 'right']}
       >
-        {/* Set Status Bar to translucent */}
-        <StatusBar
-          translucent={true}
-          backgroundColor="transparent"
-          barStyle="dark-content"
-        />
-        
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
@@ -884,9 +877,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
         >
           <View style={styles.contentContainer}>
             {/* Header */}
-            <View style={[styles.header, Platform.OS === 'android' && {
-              marginTop: (StatusBar.currentHeight || 0) + 10,
-            }]}>
+            <View style={styles.header}>
               <TouchableOpacity
                 style={styles.backButton}
                 onPress={() => navigation.goBack()}
@@ -1374,7 +1365,6 @@ const styles = StyleSheet.create({
       },
       android: {
         elevation: 0,
-        paddingTop: 10,
       },
     }),
   },

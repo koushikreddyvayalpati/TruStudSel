@@ -5,10 +5,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TextInput,
   Platform,
-  StatusBar,
   FlatList,
   Image,
   ActivityIndicator,
@@ -17,6 +15,7 @@ import {
   Alert,
   Linking,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import Entypoicon from 'react-native-vector-icons/Entypo';
@@ -1452,14 +1451,6 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     _cityProductsOriginal,
   ]);
 
-  useEffect(() => {
-    if (Platform.OS === 'android') {
-      StatusBar.setTranslucent(true);
-      StatusBar.setBackgroundColor('transparent');
-      StatusBar.setBarStyle('dark-content');
-    }
-  }, []);
-
   // Test deep linking (for development purposes)
   const testDeepLink = async () => {
     try {
@@ -1488,7 +1479,10 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
 
   // Replace the modal JSX with the CitySelector component
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'white' }]}>
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: 'white' }]}
+      edges={Platform.OS === 'ios' ? ['top', 'bottom', 'left', 'right'] : ['bottom', 'left', 'right']}
+    >
       <View style={styles.container}>
         {/* Top navigation bar with menu and profile */}
         <View style={styles.topBar}>
@@ -1906,7 +1900,7 @@ const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    // Removed Android-specific paddingTop for StatusBar
   },
   container: {
     flex: 1,

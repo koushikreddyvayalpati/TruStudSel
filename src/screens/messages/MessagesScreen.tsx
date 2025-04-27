@@ -4,8 +4,6 @@ import {
   Text,
   FlatList,
   StyleSheet,
-  SafeAreaView,
-  StatusBar,
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
@@ -15,15 +13,17 @@ import {
   KeyboardAvoidingView,
   Keyboard,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
 import { MainStackParamList } from '../../types/navigation.types';
 import { Conversation } from '../../types/chat.types';
 import useChatStore from '../../store/chatStore';
 import * as PushNotificationHelper from '../../utils/pushNotificationHelper';
-import messaging from '@react-native-firebase/messaging';
+import { configureStatusBar } from '../../utils/statusBarManager';
 
 // Navigation prop type with stack methods
 type MessagesScreenNavigationProp = StackNavigationProp<MainStackParamList, 'MessagesScreen'>;
@@ -49,7 +49,6 @@ const MessagesScreen = () => {
     cleanupConversationSubscription,
     getConversationDisplayName,
     getTimeDisplay,
-    markAllConversationsAsRead,
     markConversationAsRead,
   } = useChatStore();
 
@@ -76,6 +75,9 @@ const MessagesScreen = () => {
   // Fetch current user email only once
   useEffect(() => {
     fetchCurrentUser();
+
+    // Configure status bar consistently
+    configureStatusBar();
 
     // Trigger fade-in animation on mount
     Animated.timing(fadeAnim, {
@@ -139,11 +141,14 @@ const MessagesScreen = () => {
     useCallback(() => {
       if (currentUserEmail && conversations.length > 0) {
         console.log('[MessagesScreen] Screen focused');
+        
+        // Refresh conversations when returning to this screen to update read statuses
+        fetchConversations(true);
       }
       return () => {
         // Cleanup when screen loses focus (optional)
       };
-    }, [currentUserEmail, conversations.length])
+    }, [currentUserEmail, conversations.length, fetchConversations])
   );
 
   // Memoize filtered conversations for performance
@@ -206,9 +211,9 @@ const MessagesScreen = () => {
         undefined,
     });
 
-    // Mark only this specific conversation as read
+    // Mark this specific conversation as read immediately in the UI and database
     if (conversation.unreadCount && conversation.unreadCount > 0) {
-      // Mark this specific conversation as read in the store
+      console.log(`[MessagesScreen] Marking conversation ${conversation.id} as read before navigation`);
       markConversationAsRead(conversation.id);
     }
 
@@ -376,15 +381,26 @@ const MessagesScreen = () => {
     // Request permission and register for push notifications
     const setupMessaging = async () => {
       try {
+        // Import modular Firebase libraries
+        const { getApp } = await import('@react-native-firebase/app');
+        const { 
+          getMessaging, 
+          getToken, 
+          subscribeToTopic,
+        } = await import('@react-native-firebase/messaging');
+        
+        // Get messaging instance using modular API
+        const app = getApp();
+        const messagingInstance = getMessaging(app);
+        
         // Get FCM token
-        const token = await messaging().getToken();
-        // console.log('FCM Token:', token);
+        const token = await getToken(messagingInstance);
         
         // Register the token with Firestore via PushNotificationHelper
         PushNotificationHelper.saveTokenToFirestore(token);
         
         // Subscribe to the messages topic
-        await messaging().subscribeToTopic('messages');
+        await subscribeToTopic(messagingInstance, 'messages');
       } catch (error) {
         console.error('Failed to get FCM token:', error);
       }
@@ -392,104 +408,146 @@ const MessagesScreen = () => {
     
     setupMessaging();
     
-    // Listen for token refresh
-    const unsubscribeTokenRefresh = messaging().onTokenRefresh(token => {
-      console.log('FCM Token refreshed:', token);
-      // Update token in Firestore
-      PushNotificationHelper.saveTokenToFirestore(token);
-    });
-    
-    // Handle notifications when app is in foreground
-    const unsubscribeForegroundMessage = messaging().onMessage(async remoteMessage => {
-      console.log('Foreground Message received:', remoteMessage);
-      
-      // Check if notification is related to messages
-      if (remoteMessage.data?.type === 'message') {
-        // Refresh conversations to show new message
-        fetchConversations(true);
+    // Import additional functions for creating listeners
+    const setupListeners = async () => {
+      try {
+        const { getApp } = await import('@react-native-firebase/app');
+        const { getMessaging, onTokenRefresh, onMessage } = await import('@react-native-firebase/messaging');
         
-        // Show a local notification
-        PushNotificationHelper.showLocalNotification({
-          title: remoteMessage.notification?.title || 'New Message',
-          body: remoteMessage.notification?.body || 'You have received a new message',
-          data: remoteMessage.data,
-        });
-      } else if (remoteMessage.data?.type === 'conversation') {
-        // Handle new conversation notifications
-        fetchConversations(true);
+        const app = getApp();
+        const messagingInstance = getMessaging(app);
         
-        PushNotificationHelper.showLocalNotification({
-          title: remoteMessage.notification?.title || 'New Conversation',
-          body: remoteMessage.notification?.body || 'A new conversation has been started',
-          data: remoteMessage.data,
+        // Listen for token refresh
+        const unsubscribeTokenRefresh = onTokenRefresh(messagingInstance, async () => {
+          await PushNotificationHelper.registerDevice();
         });
+        
+        // Handle notifications when app is in foreground
+        const unsubscribeForegroundMessage = onMessage(messagingInstance, async (remoteMessage: FirebaseMessagingTypes.RemoteMessage) => {
+          console.log('Foreground Message received:', remoteMessage);
+          
+          // Check if notification is related to messages
+          if (remoteMessage.data?.type === 'message') {
+            // Refresh conversations to show new message
+            fetchConversations(true);
+            
+            // Show a local notification
+            PushNotificationHelper.showLocalNotification({
+              title: remoteMessage.notification?.title || 'New Message',
+              body: remoteMessage.notification?.body || 'You have received a new message',
+              data: remoteMessage.data,
+            });
+          } else if (remoteMessage.data?.type === 'conversation') {
+            // Handle new conversation notifications
+            fetchConversations(true);
+            
+            PushNotificationHelper.showLocalNotification({
+              title: remoteMessage.notification?.title || 'New Conversation',
+              body: remoteMessage.notification?.body || 'A new conversation has been started',
+              data: remoteMessage.data,
+            });
+          }
+        });
+        
+        return () => {
+          // Clean up listeners
+          unsubscribeTokenRefresh();
+          unsubscribeForegroundMessage();
+        };
+      } catch (error) {
+        console.error('Error setting up listeners:', error);
+        return () => {};
       }
-    });
+    };
+    
+    const unsubscribe = setupListeners();
     
     return () => {
-      // Clean up listeners
-      unsubscribeTokenRefresh();
-      unsubscribeForegroundMessage();
+      // Call the cleanup function returned by setupListeners
+      unsubscribe.then(cleanup => cleanup());
     };
   }, [fetchConversations]);
   
   // Set up notification opened handler
   useEffect(() => {
-    // Handle notification open events (when app is in background)
-    const unsubscribe = messaging().onNotificationOpenedApp(remoteMessage => {
-      console.log('Notification opened app:', remoteMessage);
-      
-      // Check if notification has data
-      if (remoteMessage.data) {
-        const data = remoteMessage.data;
+    // Import required functions and set up handlers
+    const setupNotificationHandlers = async () => {
+      try {
+        // Import modular Firebase libraries
+        const { getApp } = await import('@react-native-firebase/app');
+        const { getMessaging, onNotificationOpenedApp, getInitialNotification } = await import('@react-native-firebase/messaging');
         
-        // Check if notification is related to messages
-        if (data.type === 'message' && data.conversationId) {
-          // Navigate to the specific conversation
-          navigation.navigate('FirebaseChatScreen', {
-            recipientEmail: String(data.conversationId),
-            recipientName: String(data.senderName || 'Chat'),
-          });
-        } else if (data.type === 'conversation' && data.conversationId) {
-          // Navigate to the new conversation
-          navigation.navigate('FirebaseChatScreen', {
-            recipientEmail: String(data.conversationId),
-            recipientName: String(data.creatorName || 'Chat'),
-          });
-        }
-      }
-    });
-    
-    // Check if app was opened from a notification
-    messaging()
-      .getInitialNotification()
-      .then(remoteMessage => {
-        if (remoteMessage && remoteMessage.data) {
-          console.log('App opened from notification:', remoteMessage);
+        // Get messaging instance using modular API
+        const app = getApp();
+        const messagingInstance = getMessaging(app);
+        
+        // Handle notification open events (when app is in background)
+        const unsubscribe = onNotificationOpenedApp(messagingInstance, remoteMessage => {
+          console.log('Notification opened app:', remoteMessage);
           
-          const data = remoteMessage.data;
-          // Check notification type
-          if (data.type === 'message' && data.conversationId) {
-            // Wait a short time to ensure navigation is ready
-            setTimeout(() => {
+          // Check if notification has data
+          if (remoteMessage.data) {
+            const data = remoteMessage.data;
+            
+            // Check if notification is related to messages
+            if (data.type === 'message' && data.conversationId) {
+              // Navigate to the specific conversation
               navigation.navigate('FirebaseChatScreen', {
                 recipientEmail: String(data.conversationId),
                 recipientName: String(data.senderName || 'Chat'),
               });
-            }, 1000);
-          } else if (data.type === 'conversation' && data.conversationId) {
-            // Wait a short time to ensure navigation is ready
-            setTimeout(() => {
+            } else if (data.type === 'conversation' && data.conversationId) {
+              // Navigate to the new conversation
               navigation.navigate('FirebaseChatScreen', {
                 recipientEmail: String(data.conversationId),
                 recipientName: String(data.creatorName || 'Chat'),
               });
-            }, 1000);
+            }
           }
-        }
-      });
-      
-    return unsubscribe;
+        });
+        
+        // Check if app was opened from a notification
+        getInitialNotification(messagingInstance)
+          .then(remoteMessage => {
+            if (remoteMessage && remoteMessage.data) {
+              console.log('App opened from notification:', remoteMessage);
+              
+              const data = remoteMessage.data;
+              // Check notification type
+              if (data.type === 'message' && data.conversationId) {
+                // Wait a short time to ensure navigation is ready
+                setTimeout(() => {
+                  navigation.navigate('FirebaseChatScreen', {
+                    recipientEmail: String(data.conversationId),
+                    recipientName: String(data.senderName || 'Chat'),
+                  });
+                }, 1000);
+              } else if (data.type === 'conversation' && data.conversationId) {
+                // Wait a short time to ensure navigation is ready
+                setTimeout(() => {
+                  navigation.navigate('FirebaseChatScreen', {
+                    recipientEmail: String(data.conversationId),
+                    recipientName: String(data.creatorName || 'Chat'),
+                  });
+                }, 1000);
+              }
+            }
+          });
+          
+        return unsubscribe;
+      } catch (error) {
+        console.error('Error setting up notification handlers:', error);
+        return () => {};
+      }
+    };
+    
+    // Set up handlers and store cleanup function
+    const handlerPromise = setupNotificationHandlers();
+    
+    return () => {
+      // Cleanup when component unmounts
+      handlerPromise.then(unsubscribe => unsubscribe());
+    };
   }, [navigation]);
 
   // Properly type the onRefresh handler to work with RefreshControl
@@ -500,16 +558,15 @@ const MessagesScreen = () => {
 
   return (
     <>
-     <StatusBar
-        barStyle={Platform.OS === 'android' ? 'dark-content' : 'dark-content'}
-        backgroundColor={Platform.OS === 'android' ? '#fff' : '#fff'}
-      />
       <KeyboardAvoidingView 
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
       >
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView
+          style={styles.container}
+          edges={Platform.OS === 'ios' ? ['top', 'bottom', 'left', 'right'] : ['bottom', 'left', 'right']}
+        >
           {/* Header */}
           <View style={[styles.headerContainer]}>
             {isSearchActive && (
@@ -623,11 +680,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    ...Platform.select({
-      android: {
-        paddingTop:  Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-      },
-    }),
   },
   headerContainer: {
     backgroundColor: '#f7b305',

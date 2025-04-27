@@ -3,7 +3,6 @@
  */
 import 'react-native-gesture-handler';
 import React, { useEffect, useRef } from 'react';
-import { StatusBar, StatusBarStyle, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Amplify } from 'aws-amplify';
 import Config from 'react-native-config';
@@ -43,13 +42,16 @@ import {
   CartProvider,
   MessagingProvider,
 } from './contexts';
-import { useTheme } from './hooks';
 
 // Import navigation
 import AppNavigator from './navigation/AppNavigator';
 
 // Import push notification helper
 import * as PushNotificationHelper from './utils/pushNotificationHelper';
+
+// Import status bar manager
+import { configureStatusBar } from './utils/statusBarManager';
+import StatusBarManager from './components/StatusBarManager';
 
 // Build the Amplify config object from environment variables
 const amplifyConfig = {
@@ -68,6 +70,12 @@ Amplify.configure(amplifyConfig);
 const App: React.FC = () => {
   const navigationRef = useRef<NavigationContainerRef<any>>(null);
 
+  // Configure status bar immediately at app startup
+  // This needs to be called as early as possible to prevent UI jumps
+  useEffect(() => {
+    configureStatusBar();
+  }, []);
+
   useEffect(() => {
     // Initialize push notifications
     const initNotifications = async () => {
@@ -77,6 +85,9 @@ const App: React.FC = () => {
           PushNotificationHelper.setNavigationReference(navigationRef.current);
         }
         
+        // Configure status bar again to ensure consistent appearance
+        configureStatusBar();
+        
         // Initialize push notifications with a short delay to ensure the UI is ready first
         // This helps Android show the permission dialog properly
         setTimeout(async () => {
@@ -85,7 +96,14 @@ const App: React.FC = () => {
           
           // Check if app was opened from a notification
           if (navigationRef.current?.isReady()) {
-            PushNotificationHelper.checkInitialNotification();
+            // Ensure status bar is configured correctly before checking notifications
+            configureStatusBar();
+            
+            // Add a small delay before checking for initial notification
+            // This gives the UI time to settle after initialization
+            setTimeout(() => {
+              PushNotificationHelper.checkInitialNotification();
+            }, 500);
           }
         }, 1500);
       } catch (error) {
@@ -116,7 +134,8 @@ const App: React.FC = () => {
             <WishlistProvider>
               <CartProvider>
                 <MessagingProvider>
-                  <AppContent navigationRef={navigationRef} />
+                  <StatusBarManager />
+                  <AppNavigator ref={navigationRef} />
                 </MessagingProvider>
               </CartProvider>
             </WishlistProvider>
@@ -124,22 +143,6 @@ const App: React.FC = () => {
         </AuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>
-  );
-};
-
-// Separate component to access theme context
-const AppContent: React.FC<{ navigationRef: React.RefObject<NavigationContainerRef<any>> }> = ({ navigationRef }) => {
-  // We can now use the useTheme hook here because we're inside ThemeProvider
-  const { theme } = useTheme();
-  
-  // Determine status bar style based on theme
-  const barStyle: StatusBarStyle = theme.dark ? 'light-content' : 'dark-content';
-
-  return (
-    <>
-      <StatusBar barStyle={barStyle} backgroundColor={theme.colors.background} />
-      <AppNavigator ref={navigationRef} />
-    </>
   );
 };
 

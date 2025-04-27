@@ -1,4 +1,3 @@
-import messaging from '@react-native-firebase/messaging';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Auth } from 'aws-amplify';
@@ -26,6 +25,8 @@ export default class NotificationService {
   private static instance: NotificationService;
   private initialized: boolean = false;
   private fcmToken: string | null = null;
+  private unsubscribeTokenRefresh: (() => void) | null = null;
+  private unsubscribeMessages: (() => void) | null = null;
   
   constructor() {
     if (NotificationService.instance) {
@@ -82,11 +83,27 @@ export default class NotificationService {
         );
       }
       
+      // Import modular Firebase libraries
+      const { getApp } = await import('@react-native-firebase/app');
+      const { 
+        getMessaging, 
+        requestPermission, 
+        getToken, 
+        onTokenRefresh, 
+        onMessage, 
+        setBackgroundMessageHandler,
+        AuthorizationStatus
+      } = await import('@react-native-firebase/messaging');
+      
+      // Use modular API
+      const app = getApp();
+      const messagingInstance = getMessaging(app);
+      
       // Request notification permissions
-      const authStatus = await messaging().requestPermission();
+      const authStatus = await requestPermission(messagingInstance);
       const enabled =
-        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+        authStatus === AuthorizationStatus.AUTHORIZED ||
+        authStatus === AuthorizationStatus.PROVISIONAL;
       
       if (!enabled) {
         console.log('User notification permissions denied or restricted');
@@ -94,7 +111,7 @@ export default class NotificationService {
       }
       
       // Check for existing FCM token
-      this.fcmToken = await messaging().getToken();
+      this.fcmToken = await getToken(messagingInstance);
       console.log('FCM Token:', this.fcmToken);
       
       // Save the token to Firestore
@@ -103,19 +120,19 @@ export default class NotificationService {
       }
       
       // Subscribe to token refresh
-      messaging().onTokenRefresh(fcmToken => {
+      this.unsubscribeTokenRefresh = onTokenRefresh(messagingInstance, async fcmToken => {
         this.fcmToken = fcmToken;
         console.log('FCM Token refreshed:', fcmToken);
-        this.updateUserDeviceToken(fcmToken);
+        await this.updateUserDeviceToken(fcmToken);
       });
       
       // Set up message handlers for background and foreground
-      messaging().onMessage(async remoteMessage => {
+      this.unsubscribeMessages = onMessage(messagingInstance, async remoteMessage => {
         console.log('Foreground message received:', remoteMessage);
         await NotificationService.handleNotification(remoteMessage);
       });
       
-      messaging().setBackgroundMessageHandler(async remoteMessage => {
+      setBackgroundMessageHandler(messagingInstance, async remoteMessage => {
         console.log('Background message received:', remoteMessage);
         await NotificationService.handleNotification(remoteMessage);
         return Promise.resolve();
@@ -356,7 +373,15 @@ export default class NotificationService {
   // Subscribe to a specific conversation's notifications
   async subscribeToConversation(conversationId: string): Promise<void> {
     try {
-      await messaging().subscribeToTopic(`conversation_${conversationId}`);
+      // Import modular Firebase libraries
+      const { getApp } = await import('@react-native-firebase/app');
+      const { getMessaging, subscribeToTopic } = await import('@react-native-firebase/messaging');
+      
+      // Use modular API
+      const app = getApp();
+      const messagingInstance = getMessaging(app);
+      await subscribeToTopic(messagingInstance, `conversation_${conversationId}`);
+      
       console.log(`Subscribed to conversation: ${conversationId}`);
     } catch (error) {
       console.error(`Error subscribing to conversation ${conversationId}:`, error);
@@ -367,7 +392,15 @@ export default class NotificationService {
   // Unsubscribe from a conversation's notifications
   async unsubscribeFromConversation(conversationId: string): Promise<void> {
     try {
-      await messaging().unsubscribeFromTopic(`conversation_${conversationId}`);
+      // Import modular Firebase libraries
+      const { getApp } = await import('@react-native-firebase/app');
+      const { getMessaging, unsubscribeFromTopic } = await import('@react-native-firebase/messaging');
+      
+      // Use modular API
+      const app = getApp();
+      const messagingInstance = getMessaging(app);
+      await unsubscribeFromTopic(messagingInstance, `conversation_${conversationId}`);
+      
       console.log(`Unsubscribed from conversation: ${conversationId}`);
     } catch (error) {
       console.error(`Error unsubscribing from conversation ${conversationId}:`, error);
@@ -385,7 +418,16 @@ export default class NotificationService {
     try {
       // Format email to be valid for FCM topic (replace @ and . with _)
       const formattedEmail = email.replace(/[@.]/g, '_');
-      await messaging().subscribeToTopic(`user_${formattedEmail}`);
+      
+      // Import modular Firebase libraries
+      const { getApp } = await import('@react-native-firebase/app');
+      const { getMessaging, subscribeToTopic } = await import('@react-native-firebase/messaging');
+      
+      // Use modular API
+      const app = getApp();
+      const messagingInstance = getMessaging(app);
+      await subscribeToTopic(messagingInstance, `user_${formattedEmail}`);
+      
       console.log(`Subscribed to notifications for user: ${email}`);
     } catch (error) {
       console.error(`Error subscribing to user notifications for ${email}:`, error);
@@ -403,8 +445,14 @@ export default class NotificationService {
         console.log(`Topic name sanitized from "${topic}" to "${sanitizedTopic}"`);
       }
       
-      await messaging().subscribeToTopic(sanitizedTopic);
-    //   console.log(`Subscribed to topic: ${sanitizedTopic}`);
+      // Import modular Firebase libraries
+      const { getApp } = await import('@react-native-firebase/app');
+      const { getMessaging, subscribeToTopic } = await import('@react-native-firebase/messaging');
+      
+      // Use modular API
+      const app = getApp();
+      const messagingInstance = getMessaging(app);
+      await subscribeToTopic(messagingInstance, sanitizedTopic);
     } catch (error) {
       console.error(`Error subscribing to topic ${topic}:`, error);
       throw error;
@@ -531,5 +579,21 @@ export default class NotificationService {
     } catch (error) {
       console.error('Error sending chat notification:', error);
     }
+  }
+  
+  // Add a cleanup method to unsubscribe from Firebase listeners
+  cleanup(): void {
+    if (this.unsubscribeTokenRefresh) {
+      this.unsubscribeTokenRefresh();
+      this.unsubscribeTokenRefresh = null;
+    }
+    
+    if (this.unsubscribeMessages) {
+      this.unsubscribeMessages();
+      this.unsubscribeMessages = null;
+    }
+    
+    this.initialized = false;
+    console.log('NotificationService cleaned up');
   }
 } 

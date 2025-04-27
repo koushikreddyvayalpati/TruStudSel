@@ -1423,12 +1423,10 @@ const ProfileScreen: React.FC = () => {
 
   // Render the profile screen
   return (
-    <>
-      <StatusBar
-        translucent={true}
-        backgroundColor="transparent"
-        barStyle="dark-content"
-      />
+    <SafeAreaView
+      style={styles.container}
+      edges={Platform.OS === 'ios' ? ['top', 'bottom', 'left', 'right'] : ['bottom', 'left', 'right']}
+    >
       <View style={styles.container}>
         {/* Animated Header */}
         <View style={styles.headerBar}>
@@ -1516,7 +1514,7 @@ const ProfileScreen: React.FC = () => {
           )}
         </SafeAreaView>
       </View>
-    </>
+    </SafeAreaView>
   );
 };
 
@@ -1524,14 +1522,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
-    ...Platform.select({
-      android: {
-        paddingTop: StatusBar.currentHeight,
-      },
-      ios: {
-        paddingTop: 0,
-      },
-    }),
   },
   contentContainer: {
     flex: 1,

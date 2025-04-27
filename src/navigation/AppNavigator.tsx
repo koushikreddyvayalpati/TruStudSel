@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
+import React, { useEffect, forwardRef, ForwardRefRenderFunction } from 'react';
+import { NavigationContainer, LinkingOptions, NavigationContainerRef } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Linking } from 'react-native';
 
@@ -10,14 +10,19 @@ import { useAuth } from '../contexts';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
 
+// Import status bar manager
+import { configureStatusBar } from '../utils/statusBarManager';
+
 // Create app stack
 const Stack = createStackNavigator();
 
 /**
  * Root navigator that handles authentication flow
  * Shows either AuthNavigator or MainNavigator based on auth state
+ * 
+ * Uses forwardRef to properly handle navigation references from parent components
  */
-const AppNavigator: React.FC = () => {
+const AppNavigatorBase: ForwardRefRenderFunction<NavigationContainerRef<any>, {}> = (_, ref) => {
   const { isAuthenticated, loading } = useAuth();
 
   // Handle deep links
@@ -82,7 +87,15 @@ const AppNavigator: React.FC = () => {
   }
 
   return (
-    <NavigationContainer linking={linking}>
+    <NavigationContainer 
+      ref={ref}
+      linking={linking}
+      onStateChange={(_state) => {
+        // Configure status bar on every navigation state change
+        // This ensures consistent appearance regardless of how screens are opened
+        configureStatusBar();
+      }}
+    >
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
           // User is signed in - show main app
@@ -95,5 +108,7 @@ const AppNavigator: React.FC = () => {
     </NavigationContainer>
   );
 };
+
+const AppNavigator = forwardRef(AppNavigatorBase);
 
 export default AppNavigator;

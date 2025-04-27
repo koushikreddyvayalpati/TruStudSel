@@ -5,6 +5,7 @@ import { db } from '../services/firebaseService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Auth } from 'aws-amplify';
 import { NavigationContainerRef } from '@react-navigation/native';
+import { configureStatusBar } from './statusBarManager';
 
 // Push notification module
 const PushNotification = require('react-native-push-notification');
@@ -436,17 +437,29 @@ export const handleNotificationNavigation = (data: any) => {
   }
   
   try {
-    // Handle different navigation scenarios based on notification type
-    if (data.conversationId) {
-      // Navigate to specific conversation
-      navigationRef.navigate('Conversation', { 
-        conversationId: data.conversationId,
-        otherUserName: data.senderName || 'Chat' 
-      });
-    } else if (data.navigateTo) {
-      // Navigate to screen specified in notification
-      navigationRef.navigate(data.navigateTo, data.params || {});
-    }
+    // Configure status bar with consistent settings
+    configureStatusBar();
+    
+    console.log('Navigating from notification with data:', data);
+    
+    // Give React Navigation enough time to complete its initial layout
+    // This longer delay helps ensure the UI is stable before navigation
+    setTimeout(() => {
+      // At this point we know navigationRef is not null from the check above
+      const nav = navigationRef!;
+      
+      // Handle different navigation scenarios based on notification type
+      if (data.conversationId) {
+        // Navigate to specific conversation
+        nav.navigate('FirebaseChatScreen', { 
+          recipientEmail: data.senderEmail,
+          recipientName: data.senderName || 'Chat' 
+        });
+      } else if (data.navigateTo) {
+        // Navigate to screen specified in notification
+        nav.navigate(data.navigateTo, data.params || {});
+      }
+    }, 300); // Increased from 50ms to 300ms for more stability
   } catch (error) {
     console.error('Error navigating from notification:', error);
   }
@@ -457,9 +470,14 @@ export const handleNotificationNavigation = (data: any) => {
  */
 export const checkInitialNotification = async () => {
   try {
+    // Configure status bar for consistent appearance
+    configureStatusBar();
+    
     const initialNotificationData = await AsyncStorage.getItem('INITIAL_NOTIFICATION');
     
     if (initialNotificationData) {
+      console.log('Found initial notification data');
+      
       // Clear the stored notification
       await AsyncStorage.removeItem('INITIAL_NOTIFICATION');
       

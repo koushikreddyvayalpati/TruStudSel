@@ -137,8 +137,10 @@ const CustomDrawerContent = (props: DrawerContentComponentProps) => {
   // }, [user]);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['right', 'bottom']}>
-      <View style={styles.statusBarFill} />
+    <SafeAreaView
+      style={styles.safeArea}
+      edges={Platform.OS === 'ios' ? ['top', 'right', 'bottom', 'left'] : ['right', 'bottom', 'left']}
+    >
       <DrawerContentScrollView
         {...props}
         contentContainerStyle={styles.drawerContent}
@@ -169,10 +171,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#ffffff',
   },
-  statusBarFill: {
-    height: 0,
-    backgroundColor: '#ffffff',
-  },
   drawerContent: {
     flexGrow: 1,
     paddingTop: 0,
@@ -180,7 +178,7 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 20,
     marginTop: 20,
-    paddingTop: Platform.OS === 'ios' ? 50 : 50, // Increase top padding to move content down
+    paddingTop: 20,
     marginBottom: 10,
   },
   headerTitle: {

@@ -6,9 +6,7 @@ import {
   TouchableOpacity,
   FlatList,
   Image,
-  SafeAreaView,
   Platform,
-  StatusBar,
   RefreshControl,
   Dimensions,
   TextInput,
@@ -16,6 +14,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Icon from 'react-native-vector-icons/FontAwesome';
 
@@ -688,7 +687,10 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
   }, [isFilterDropdownVisible, isSortDropdownVisible, setFilterDropdownVisible, setSortDropdownVisible]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: '#fff' }}
+      edges={Platform.OS === 'ios' ? ['top', 'bottom', 'left', 'right'] : ['bottom', 'left', 'right']}
+    >
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
@@ -871,11 +873,6 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: 'white',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-  },
   container: {
     flex: 1,
     backgroundColor: '#f8f8f8',

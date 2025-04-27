@@ -9,15 +9,14 @@ import {
   Platform,
   ScrollView,
   Image,
-  SafeAreaView,
   InteractionManager,
   ActivityIndicator,
   LogBox,
-  StatusBar,
   Linking,
   PermissionsAndroid,
   type Permission,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -264,13 +263,6 @@ const EditProfileScreen = () => {
       }
       // --- End Permission Check ---
 
-      // Only modify StatusBar on Android *after* potential permission dialogs
-      if (Platform.OS === 'android') {
-        StatusBar.setTranslucent(false);
-        StatusBar.setBackgroundColor('#000000');
-        StatusBar.setBarStyle('light-content');
-      }
-      
       // Use react-native-image-crop-picker for selecting and cropping with improved UI
       const image = await ImagePicker.openPicker({
         width: 500,
@@ -399,12 +391,6 @@ const EditProfileScreen = () => {
       
       Alert.alert('Error', 'Failed to select image. Please try again.');
     } finally {
-      // Reset StatusBar on Android
-      if (Platform.OS === 'android') {
-        StatusBar.setTranslucent(true);
-        StatusBar.setBackgroundColor('transparent');
-        StatusBar.setBarStyle('dark-content');
-      }
       setUploadingImage(false);
     }
   };
@@ -420,19 +406,11 @@ const EditProfileScreen = () => {
     return 'U'; // Default if no name is available
   };
 
-  useEffect(() => {
-    // Reset StatusBar on Android when leaving the screen
-    return () => {
-      if (Platform.OS === 'android') {
-        StatusBar.setTranslucent(true);
-        StatusBar.setBackgroundColor('transparent');
-        StatusBar.setBarStyle('dark-content');
-      }
-    };
-  }, []);
-
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: '#fff' }}
+      edges={Platform.OS === 'ios' ? ['top', 'bottom', 'left', 'right'] : ['bottom', 'left', 'right']}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
@@ -609,11 +587,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 20,
     paddingTop: 10,
-    ...Platform.select({
-      android: {
-        marginTop: 20,
-      },
-    }),
   },
   headerTitle: {
     fontSize: 16,
