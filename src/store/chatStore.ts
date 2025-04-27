@@ -9,6 +9,7 @@ import {
   getCurrentUser,
   subscribeToUserConversations,
 } from '../services/firebaseChatService';
+import NotificationService from '../utils/notificationService';
 
 // AsyncStorage keys
 const CONVERSATIONS_STORAGE_KEY = '@TruStudSel_conversations';
@@ -33,7 +34,7 @@ interface ChatStore extends ChatState {
   setIsSearchActive: (active: boolean) => void;
   setSearchQuery: (query: string) => void;
   fetchCurrentUser: () => Promise<void>;
-  fetchConversations: () => Promise<void>;
+  fetchConversations: (forceRefresh?: boolean) => Promise<void>;
   cacheConversations: (conversations: Conversation[]) => Promise<void>;
   loadCachedConversations: () => Promise<Conversation[] | null>;
   setupConversationSubscription: () => void;
@@ -44,6 +45,8 @@ interface ChatStore extends ChatState {
   getTimeDisplay: (timeString?: string) => string;
   clearConversationsCache: () => Promise<boolean>;
   markAllConversationsAsRead: () => Promise<void>;
+  markConversationAsRead: (conversationId: string) => Promise<void>;
+  sendMessage: (conversationId: string, messageContent: string, otherUserEmail: string) => Promise<void>;
 }
 
 const useChatStore = create<ChatStore>((set, get) => ({
@@ -83,7 +86,7 @@ const useChatStore = create<ChatStore>((set, get) => ({
       const user = await getCurrentUser();
       if (user && user.email) {
         set({ currentUserEmail: user.email });
-        console.log('[chatStore] Current user email:', user.email);
+        // console.log('[chatStore] Current user email:', user.email);
       }
     } catch (error) {
       console.error('[chatStore] Error fetching current user:', error);
@@ -205,7 +208,7 @@ const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   // Fetch conversations
-  fetchConversations: async () => {
+  fetchConversations: async (forceRefresh = false) => {
     const { currentUserEmail, loadCachedConversations, cacheConversations, clearConversationsCache } = get();
 
     if (!currentUserEmail) {return;}
@@ -239,6 +242,31 @@ const useChatStore = create<ChatStore>((set, get) => ({
           isLoading: false,
           isRefreshing: false,
         });
+
+        // After successfully fetching conversations, subscribe to topics for each conversation
+        try {
+          // Subscribe to notification topics for each conversation
+          const userEmail = get().currentUserEmail;
+          if (userEmail && fetchedConversations.length > 0) {
+            // Subscribe to a user-specific topic for direct messages
+            // Sanitize the email to conform to Firebase topic name rules
+            const sanitizedEmail = userEmail.replace(/[.@]/g, '_');
+            await NotificationService.subscribeToTopic(`user_${sanitizedEmail}`);
+            
+            // Subscribe to topics for each conversation
+            for (const conversation of fetchedConversations) {
+              // Create a unique topic ID for each conversation that's valid for Firebase
+              // Use conversation.id which should be safer, or sanitize it if necessary
+              if (conversation.id) {
+                const sanitizedId = conversation.id.replace(/[^a-zA-Z0-9-_.~%]/g, '_');
+                const topicId = `chat_${sanitizedId}`;
+                await NotificationService.subscribeToTopic(topicId);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error subscribing to notification topics:', error);
+        }
       } catch (fetchError: any) {
         console.error('[chatStore] Error fetching conversations:', fetchError);
 
@@ -460,6 +488,83 @@ const useChatStore = create<ChatStore>((set, get) => ({
       
     } catch (error) {
       console.error('[chatStore] Error marking conversations as read:', error);
+    }
+  },
+
+  // Send message
+  sendMessage: async (conversationId, messageContent, otherUserEmail) => {
+    // ... existing code for sending the message ...
+
+    // After successfully sending the message, send a notification
+    try {
+      // Get user information
+      const currentUserEmail = get().currentUserEmail;
+      if (!currentUserEmail || !otherUserEmail) {
+        return;
+      }
+      
+      // Get sender display name
+      const currentUsername = currentUserEmail.split('@')[0] || 'User';
+      const senderName = currentUsername.charAt(0).toUpperCase() + currentUsername.slice(1);
+      
+      // Send notification to the other user
+      await NotificationService.sendChatNotification(
+        otherUserEmail,
+        senderName,
+        messageContent,
+        conversationId
+      );
+      
+    } catch (error) {
+      console.error('Error sending notification:', error);
+    }
+    
+    // ... rest of the function ...
+  },
+
+  // Mark a single conversation as read
+  markConversationAsRead: async (conversationId) => {
+    try {
+      const { conversations, currentUserEmail } = get();
+      
+      if (!currentUserEmail || !conversationId) {
+        return;
+      }
+      
+      // Find the conversation
+      const conversation = conversations.find(conv => conv.id === conversationId);
+      
+      if (!conversation || !conversation.unreadCount || conversation.unreadCount <= 0) {
+        console.log(`[chatStore] No unread messages in conversation ${conversationId}`);
+        return;
+      }
+      
+      console.log(`[chatStore] Marking conversation ${conversationId} as read`);
+      
+      // Update the conversation to reset unread count
+      const db = (await import('../services/firebaseService')).db;
+      const { doc, updateDoc, serverTimestamp } = await import('firebase/firestore');
+      
+      const conversationRef = doc(db, 'conversations', conversationId);
+      const unreadCountKey = `unreadCount_${currentUserEmail.replace(/[.@]/g, '_')}`;
+      
+      await updateDoc(conversationRef, {
+        [unreadCountKey]: 0,
+        updatedAt: serverTimestamp(),
+      });
+      
+      console.log(`[chatStore] Successfully marked conversation ${conversationId} as read`);
+      
+      // Update the local state as well
+      const updatedConversations = conversations.map(conv => 
+        conv.id === conversationId ? { ...conv, unreadCount: 0 } : conv
+      );
+      
+      set({ conversations: updatedConversations });
+      get().cacheConversations(updatedConversations);
+      
+    } catch (error) {
+      console.error(`[chatStore] Error marking conversation ${conversationId} as read:`, error);
     }
   },
 }));

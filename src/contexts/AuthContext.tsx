@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { Auth } from 'aws-amplify';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as PushNotificationHelper from '../utils/pushNotificationHelper';
 
 // User data type
 export interface UserAttributes {
@@ -151,6 +152,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   user: freshUserData,
                 });
               }
+
+              // Update FCM tokens since we have an authenticated user
+              try {
+                PushNotificationHelper.updateTokensAfterLogin();
+              } catch (error) {
+                console.error('[AuthContext] Failed to update FCM tokens during session refresh:', error);
+              }
             })
             .catch(error => {
               console.log('[AuthContext] Token refresh failed:', error);
@@ -195,6 +203,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loading: false,
         error: null,
       });
+
+      // Update FCM tokens since we found a valid session
+      try {
+        await PushNotificationHelper.updateTokensAfterLogin();
+      } catch (error) {
+        console.error('[AuthContext] Failed to update FCM tokens after session check:', error);
+      }
     } catch (error) {
       // Clear any cached data on error
       try {
@@ -244,6 +259,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // loading: false, // Don't change global loading here
         error: null,
       });
+
+      // Update FCM tokens after successful login
+      try {
+        await PushNotificationHelper.updateTokensAfterLogin();
+      } catch (error) {
+        console.error('Failed to update FCM tokens after login:', error);
+        // Non-fatal error, don't throw
+      }
 
       return cognitoUser;
     } catch (error) {

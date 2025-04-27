@@ -1,0 +1,40 @@
+diff --git a/node_modules/react-native-image-manipulator/android/build.gradle b/node_modules/react-native-image-manipulator/android/build.gradle
+index 67a7fc2..89fb97e 100644
+--- a/node_modules/react-native-image-manipulator/android/build.gradle
++++ b/node_modules/react-native-image-manipulator/android/build.gradle
+@@ -3,20 +3,26 @@ buildscript {
+     repositories {
+         google()
+         jcenter()
+     }
+ 
+     dependencies {
+-        classpath 'com.android.tools.build:gradle:3.3.1'
++        classpath 'com.android.tools.build:gradle:7.4.2'
+     }
+ }
+ 
+ apply plugin: 'com.android.library'
+ 
++def safeExtGet(prop, fallback) {
++    rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
++}
++
+ android {
+-    compileSdkVersion 28
+-    buildToolsVersion "28.0.3"
++    compileSdkVersion safeExtGet('compileSdkVersion', 30)
++    buildToolsVersion safeExtGet('buildToolsVersion', '30.0.3')
+ 
+     defaultConfig {
+-        minSdkVersion 16
+-        targetSdkVersion 28
++        minSdkVersion safeExtGet('minSdkVersion', 16)
++        targetSdkVersion safeExtGet('targetSdkVersion', 30)
+         versionCode 1
+         versionName "1.0"
+     }
+     lintOptions {
+         abortOnError false
+     }
+ } 

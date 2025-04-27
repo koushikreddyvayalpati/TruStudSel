@@ -144,7 +144,7 @@ export const getConversations = async (): Promise<Conversation[]> => {
     const user = await getCurrentUser();
     if (!user) {throw new Error('User not authenticated');}
 
-    console.log('[firebaseChatService] Getting conversations for user:', user.email);
+    // console.log('[firebaseChatService] Getting conversations for user:', user.email);
 
     // Query conversations where the user's email is in participants
     const conversationsRef = collection(db, 'conversations');
@@ -766,7 +766,7 @@ export const subscribeToUserConversations = (
   userEmail: string,
   callback: (conversations: Conversation[]) => void
 ): Unsubscribe => {
-  console.log(`Setting up subscription for user ${userEmail}`);
+  // console.log(`Setting up subscription for user ${userEmail}`);
 
   // Query conversations where the user is a participant
   const q = query(

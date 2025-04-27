@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">TruStudSel</string>
+    <string name="default_notification_channel_id">trustudsel_notifications</string>
 </resources>

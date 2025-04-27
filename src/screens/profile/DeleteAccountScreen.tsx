@@ -15,9 +15,10 @@ import { useNavigation, DrawerActions } from '@react-navigation/native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { Auth } from 'aws-amplify';
 import { useAuth } from '../../contexts/AuthContext';
+import { DeleteAccountScreenNavigationProp } from '../../types/navigation.types';
 
 const DeleteAccountScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<DeleteAccountScreenNavigationProp>();
   const { user, signOut } = useAuth();
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -698,6 +699,36 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  descriptionContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  descriptionText: {
+    fontSize: 15,
+    color: '#555',
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+  testButton: {
+    backgroundColor: '#f7b305',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 10,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+    }),
   },
 });
 

@@ -22,6 +22,8 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { MainStackParamList } from '../../types/navigation.types';
 import { Conversation } from '../../types/chat.types';
 import useChatStore from '../../store/chatStore';
+import * as PushNotificationHelper from '../../utils/pushNotificationHelper';
+import messaging from '@react-native-firebase/messaging';
 
 // Navigation prop type with stack methods
 type MessagesScreenNavigationProp = StackNavigationProp<MainStackParamList, 'MessagesScreen'>;
@@ -45,10 +47,10 @@ const MessagesScreen = () => {
     fetchConversations,
     setupConversationSubscription,
     cleanupConversationSubscription,
-    handleRefresh,
     getConversationDisplayName,
     getTimeDisplay,
     markAllConversationsAsRead,
+    markConversationAsRead,
   } = useChatStore();
 
   // Animation values
@@ -125,27 +127,23 @@ const MessagesScreen = () => {
     }).start();
   }, [isSearchActive, searchBarAnim]);
 
-  // Initial load and mark conversations as read
+  // Initial load - remove auto-marking as read
   useEffect(() => {
     if (currentUserEmail) {
-      fetchConversations().then(() => {
-        // Mark all conversations as read when screen opens
-        markAllConversationsAsRead();
-      });
+      fetchConversations();
     }
-  }, [fetchConversations, currentUserEmail, markAllConversationsAsRead]);
+  }, [fetchConversations, currentUserEmail]);
 
-  // Mark conversations as read when screen receives focus
+  // Remove auto-marking as read when screen focuses
   useFocusEffect(
     useCallback(() => {
       if (currentUserEmail && conversations.length > 0) {
-        console.log('[MessagesScreen] Screen focused, marking conversations as read');
-        markAllConversationsAsRead();
+        console.log('[MessagesScreen] Screen focused');
       }
       return () => {
         // Cleanup when screen loses focus (optional)
       };
-    }, [currentUserEmail, conversations.length, markAllConversationsAsRead])
+    }, [currentUserEmail, conversations.length])
   );
 
   // Memoize filtered conversations for performance
@@ -208,12 +206,18 @@ const MessagesScreen = () => {
         undefined,
     });
 
+    // Mark only this specific conversation as read
+    if (conversation.unreadCount && conversation.unreadCount > 0) {
+      // Mark this specific conversation as read in the store
+      markConversationAsRead(conversation.id);
+    }
+
     // Navigate to Firebase chat screen with recipient info
     navigation.navigate('FirebaseChatScreen', {
       recipientEmail: otherParticipantEmail,
       recipientName: otherParticipantName,
     });
-  }, [navigation, currentUserEmail, getConversationDisplayName]);
+  }, [navigation, currentUserEmail, getConversationDisplayName, markConversationAsRead]);
 
   // Conversation item separator
   const ItemSeparator = useCallback(() => (
@@ -340,7 +344,7 @@ const MessagesScreen = () => {
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity
             style={styles.retryButton}
-            onPress={fetchConversations}
+            onPress={() => fetchConversations()}
           >
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
@@ -366,6 +370,133 @@ const MessagesScreen = () => {
     offset: 80 * index,
     index,
   }), []);
+
+  // FCM Token and notification setup
+  useEffect(() => {
+    // Request permission and register for push notifications
+    const setupMessaging = async () => {
+      try {
+        // Get FCM token
+        const token = await messaging().getToken();
+        // console.log('FCM Token:', token);
+        
+        // Register the token with Firestore via PushNotificationHelper
+        PushNotificationHelper.saveTokenToFirestore(token);
+        
+        // Subscribe to the messages topic
+        await messaging().subscribeToTopic('messages');
+      } catch (error) {
+        console.error('Failed to get FCM token:', error);
+      }
+    };
+    
+    setupMessaging();
+    
+    // Listen for token refresh
+    const unsubscribeTokenRefresh = messaging().onTokenRefresh(token => {
+      console.log('FCM Token refreshed:', token);
+      // Update token in Firestore
+      PushNotificationHelper.saveTokenToFirestore(token);
+    });
+    
+    // Handle notifications when app is in foreground
+    const unsubscribeForegroundMessage = messaging().onMessage(async remoteMessage => {
+      console.log('Foreground Message received:', remoteMessage);
+      
+      // Check if notification is related to messages
+      if (remoteMessage.data?.type === 'message') {
+        // Refresh conversations to show new message
+        fetchConversations(true);
+        
+        // Show a local notification
+        PushNotificationHelper.showLocalNotification({
+          title: remoteMessage.notification?.title || 'New Message',
+          body: remoteMessage.notification?.body || 'You have received a new message',
+          data: remoteMessage.data,
+        });
+      } else if (remoteMessage.data?.type === 'conversation') {
+        // Handle new conversation notifications
+        fetchConversations(true);
+        
+        PushNotificationHelper.showLocalNotification({
+          title: remoteMessage.notification?.title || 'New Conversation',
+          body: remoteMessage.notification?.body || 'A new conversation has been started',
+          data: remoteMessage.data,
+        });
+      }
+    });
+    
+    return () => {
+      // Clean up listeners
+      unsubscribeTokenRefresh();
+      unsubscribeForegroundMessage();
+    };
+  }, [fetchConversations]);
+  
+  // Set up notification opened handler
+  useEffect(() => {
+    // Handle notification open events (when app is in background)
+    const unsubscribe = messaging().onNotificationOpenedApp(remoteMessage => {
+      console.log('Notification opened app:', remoteMessage);
+      
+      // Check if notification has data
+      if (remoteMessage.data) {
+        const data = remoteMessage.data;
+        
+        // Check if notification is related to messages
+        if (data.type === 'message' && data.conversationId) {
+          // Navigate to the specific conversation
+          navigation.navigate('FirebaseChatScreen', {
+            recipientEmail: String(data.conversationId),
+            recipientName: String(data.senderName || 'Chat'),
+          });
+        } else if (data.type === 'conversation' && data.conversationId) {
+          // Navigate to the new conversation
+          navigation.navigate('FirebaseChatScreen', {
+            recipientEmail: String(data.conversationId),
+            recipientName: String(data.creatorName || 'Chat'),
+          });
+        }
+      }
+    });
+    
+    // Check if app was opened from a notification
+    messaging()
+      .getInitialNotification()
+      .then(remoteMessage => {
+        if (remoteMessage && remoteMessage.data) {
+          console.log('App opened from notification:', remoteMessage);
+          
+          const data = remoteMessage.data;
+          // Check notification type
+          if (data.type === 'message' && data.conversationId) {
+            // Wait a short time to ensure navigation is ready
+            setTimeout(() => {
+              navigation.navigate('FirebaseChatScreen', {
+                recipientEmail: String(data.conversationId),
+                recipientName: String(data.senderName || 'Chat'),
+              });
+            }, 1000);
+          } else if (data.type === 'conversation' && data.conversationId) {
+            // Wait a short time to ensure navigation is ready
+            setTimeout(() => {
+              navigation.navigate('FirebaseChatScreen', {
+                recipientEmail: String(data.conversationId),
+                recipientName: String(data.creatorName || 'Chat'),
+              });
+            }, 1000);
+          }
+        }
+      });
+      
+    return unsubscribe;
+  }, [navigation]);
+
+  // Properly type the onRefresh handler to work with RefreshControl
+  const onRefresh = useCallback(() => {
+    // Use fetchConversations which will internally handle the refreshing state
+    fetchConversations(true);
+  }, [fetchConversations]);
 
   return (
     <>
@@ -465,7 +596,7 @@ const MessagesScreen = () => {
               refreshControl={
                 <RefreshControl
                   refreshing={isRefreshing}
-                  onRefresh={handleRefresh}
+                  onRefresh={onRefresh}
                   colors={[COLORS.primary]}
                   tintColor={COLORS.primary}
                 />

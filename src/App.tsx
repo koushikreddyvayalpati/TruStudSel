@@ -2,11 +2,12 @@
  * TruStudSel App
  */
 import 'react-native-gesture-handler';
-import React, { useEffect } from 'react';
-import { StatusBar, StatusBarStyle } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { StatusBar, StatusBarStyle, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Amplify, Auth } from 'aws-amplify';
+import { Amplify } from 'aws-amplify';
 import Config from 'react-native-config';
+import { NavigationContainerRef } from '@react-navigation/native';
 
 // Import crypto polyfills before Amplify
 import '@azure/core-asynciterator-polyfill';
@@ -47,6 +48,9 @@ import { useTheme } from './hooks';
 // Import navigation
 import AppNavigator from './navigation/AppNavigator';
 
+// Import push notification helper
+import * as PushNotificationHelper from './utils/pushNotificationHelper';
+
 // Build the Amplify config object from environment variables
 const amplifyConfig = {
   Auth: {
@@ -58,13 +62,52 @@ const amplifyConfig = {
   // pulling values from Config.
 };
 
-// Log the configuration being used (for debugging)
-// console.log('[App.tsx] Configuring Amplify with:', JSON.stringify(amplifyConfig, null, 2));
-
 // Configure Amplify with the dynamically built config
 Amplify.configure(amplifyConfig);
 
 const App: React.FC = () => {
+  const navigationRef = useRef<NavigationContainerRef<any>>(null);
+
+  useEffect(() => {
+    // Initialize push notifications
+    const initNotifications = async () => {
+      try {
+        // Set navigation reference for push notification navigations
+        if (navigationRef.current) {
+          PushNotificationHelper.setNavigationReference(navigationRef.current);
+        }
+        
+        // Initialize push notifications with a short delay to ensure the UI is ready first
+        // This helps Android show the permission dialog properly
+        setTimeout(async () => {
+          // Initialize push notifications
+          await PushNotificationHelper.initPushNotifications();
+          
+          // Check if app was opened from a notification
+          if (navigationRef.current?.isReady()) {
+            PushNotificationHelper.checkInitialNotification();
+          }
+        }, 1500);
+      } catch (error) {
+        console.error('Error initializing push notifications:', error);
+      }
+    };
+    
+    initNotifications();
+    
+    // Update device activity when app opens
+    PushNotificationHelper.updateDeviceActivity();
+    
+    // Set up an interval to periodically update device activity
+    const activityInterval = setInterval(() => {
+      PushNotificationHelper.updateDeviceActivity();
+    }, 30 * 60 * 1000); // Update every 30 minutes
+    
+    return () => {
+      clearInterval(activityInterval);
+    };
+  }, []);
+
   return (
     <SafeAreaProvider>
       <ThemeProvider>
@@ -73,7 +116,7 @@ const App: React.FC = () => {
             <WishlistProvider>
               <CartProvider>
                 <MessagingProvider>
-                  <AppContent />
+                  <AppContent navigationRef={navigationRef} />
                 </MessagingProvider>
               </CartProvider>
             </WishlistProvider>
@@ -85,34 +128,17 @@ const App: React.FC = () => {
 };
 
 // Separate component to access theme context
-const AppContent: React.FC = () => {
+const AppContent: React.FC<{ navigationRef: React.RefObject<NavigationContainerRef<any>> }> = ({ navigationRef }) => {
   // We can now use the useTheme hook here because we're inside ThemeProvider
   const { theme } = useTheme();
-// Add useEffect to log the token
-// useEffect(() => {
-//   const logToken = async () => {
-//     try {
-//       const session = await Auth.currentSession();
-//       const token = session.getIdToken().getJwtToken();
-//       console.log('--- JWT Token for Testing ---');
-//       console.log(token);
-//       console.log('-----------------------------');
-//     } catch (error) {
-//       console.log('No active session found, user likely not logged in.');
-//       // console.error('Error fetching JWT token:', error);
-//     }
-//   };
-
-//   logToken();
-// }, []); // Em
+  
+  // Determine status bar style based on theme
+  const barStyle: StatusBarStyle = theme.dark ? 'light-content' : 'dark-content';
 
   return (
     <>
-      <StatusBar
-        barStyle={theme.colors.statusBar as StatusBarStyle}
-        backgroundColor={theme.colors.background}
-      />
-      <AppNavigator />
+      <StatusBar barStyle={barStyle} backgroundColor={theme.colors.background} />
+      <AppNavigator ref={navigationRef} />
     </>
   );
 };

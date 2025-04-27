@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+// import { getAuth } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import Config from 'react-native-config';
 
@@ -17,7 +17,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const auth = getAuth(app);
+// const auth = getAuth(app);
 
 // We're not using Firebase Auth for authentication as per user request
 // The app will continue using AWS Cognito for authentication
@@ -64,4 +64,4 @@ export const addUserToFirebase = async (
   }
 };
 
-export { app, db, auth };
+export { app, db };
