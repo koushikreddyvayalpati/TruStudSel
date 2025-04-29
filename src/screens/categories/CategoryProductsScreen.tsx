@@ -50,10 +50,8 @@ interface FilterOption {
 // Memoized ProductItem component for better performance
 const ProductItem = React.memo<{
   item: Product;
-  wishlist: string[];
-  onToggleWishlist: (id: string) => void;
   onPress: (product: Product) => void;
-}>(({ item, wishlist, onToggleWishlist, onPress }) => {
+}>(({ item, onPress }) => {
   const [imageError, setImageError] = useState(false);
 
   // Get the appropriate image URL - primaryImage, first image from images array, or placeholder
@@ -77,14 +75,6 @@ const ProductItem = React.memo<{
 
   // Format price display
   const formattedPrice = `$${item.price}`;
-
-  // Memoize the wishlist status to prevent unnecessary re-renders
-  const isInWishlist = wishlist.includes(item.id);
-
-  // Handle the wishlist toggle specifically for this item
-  const handleWishlistToggle = useCallback(() => {
-    onToggleWishlist(item.id);
-  }, [item.id, onToggleWishlist]);
 
   // Handle the product press
   const handlePress = useCallback(() => {
@@ -242,49 +232,16 @@ const ProductsGridSkeleton = React.memo(() => {
 
 // ErrorState component
 const ErrorState = React.memo<{
-  error: string,
-  onRetry: () => void
-}>(({ error, onRetry }) => (
-  <View style={styles.errorContainer}>
-    <Text style={styles.errorText}>{error}</Text>
-    <TouchableOpacity
-      style={styles.retryButton}
-      onPress={onRetry}
-    >
-      <Text style={styles.retryButtonText}>Retry</Text>
-    </TouchableOpacity>
-  </View>
-));
-
-// SearchBar component for product search
-const SearchBar = React.memo<{
-  value: string;
-  onChangeText: (text: string) => void;
-  onSubmitEditing: () => void;
-}>(({ value, onChangeText, onSubmitEditing }) => {
+  message: string;
+  onRetry: () => void;
+}>(({ message, onRetry }) => {
   return (
-    <View style={styles.searchBarContainer}>
-      <View style={styles.searchInputContainer}>
-        <MaterialIcons name="search" size={24} color="#666" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search products..."
-          placeholderTextColor="#888"
-          value={value}
-          onChangeText={onChangeText}
-          onSubmitEditing={onSubmitEditing}
-          returnKeyType="search"
-          autoCapitalize="none"
-        />
-        {value.length > 0 && (
-          <TouchableOpacity
-            style={styles.clearButton}
-            onPress={() => onChangeText('')}
-          >
-            <MaterialIcons name="clear" size={18} color="#888" />
-          </TouchableOpacity>
-        )}
-      </View>
+    <View style={styles.errorContainer}>
+      <MaterialIcons name="error-outline" size={48} color="#e74c3c" />
+      <Text style={styles.errorText}>{message}</Text>
+      <TouchableOpacity style={styles.retryButton} onPress={onRetry}>
+        <Text style={styles.retryButtonText}>Retry</Text>
+      </TouchableOpacity>
     </View>
   );
 });
@@ -324,13 +281,12 @@ const LoadingOverlay: React.FC<{ visible: boolean, message: string }> = ({ visib
 // Main component
 const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigation, route }) => {
   const { user } = useAuth();
-  const { categoryName, categoryId, userUniversity: routeUniversity, userCity: routeCity } = route.params;
+  const { categoryName, categoryId, userUniversity: routeUniversity, userCity } = route.params;
 
   // Determine what type of products to load based on the category name
   const isFeatured = categoryName === 'Featured Products';
   const isNewArrivals = categoryName === 'New Arrivals';
   const isUniversity = categoryName.includes('University') || categoryName.endsWith('Products');
-  const isCity = !isUniversity && !isFeatured && !isNewArrivals && categoryId === 0;
 
   // FlatList ref for scrolling to top
   const flatListRef = useRef<FlatList<Product>>(null);
@@ -402,11 +358,6 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
 
   // Extract user location data - prioritize route params over user context
   const userUniversity = routeUniversity || user?.university || '';
-  const userCity = useMemo(() => {
-    const cityFromRoute = route.params.userCity;
-    console.log('[CategoryProducts] City from route params:', cityFromRoute, 'User city:', user?.city);
-    return cityFromRoute || user?.city || '';
-  }, [route.params.userCity, user?.city]);
 
   // At the top of the CategoryProductsScreen component
   // Add a new initialLoad ref to track the first load
@@ -443,18 +394,24 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
 
   // Handler for search submission
   const handleSearchSubmit = useCallback(() => {
-    if (searchQuery.trim().length > 0) {
-      // Call the store's searchProducts function
-      searchProducts(searchQuery);
-    }
+    // Simply call searchProducts with current query - it now filters client-side
+    console.log('[CategoryProducts] Submitting search for:', searchQuery);
+    searchProducts(searchQuery);
   }, [searchQuery, searchProducts]);
+
+  // Handler for clearing search
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
+    // Trigger search with empty string to restore original products
+    searchProducts('');
+  }, [setSearchQuery, searchProducts]);
 
   // Handler for refresh
   const handleRefresh = useCallback(() => {
     // Wrap refreshProducts to pass the correct parameters
     // Use the userUniversity and userCity determined for this screen
-    console.log(`[CategoryProducts] Calling refresh with University: ${userUniversity}, City: ${userCity}`);
-    refreshProducts(userUniversity, userCity);
+    console.log(`[CategoryProducts] Calling refresh with University: ${userUniversity}, City: ${userCity || ''}`);
+    refreshProducts(userUniversity, userCity || '');
   }, [refreshProducts, userUniversity, userCity]);
 
   // Add a loading state for sort operations
@@ -576,13 +533,20 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     // Force immediate load on mount
     const loadInitialData = async () => {
       try {
-        console.log('[CategoryProducts] Initial load - Category:', categoryName, 'City:', userCity);
+        console.log('[CategoryProducts] Initial load - Category:', categoryName, 'City:', userCity || '');
         
         // Set the current category context first
-        setCurrentCategory(categoryName, categoryId, userUniversity, userCity);
+        setCurrentCategory(categoryName, categoryId, userUniversity, userCity || '');
 
-        // Then load the products
-        await loadCategoryProducts(categoryName, categoryId, userUniversity, userCity, 0, false);
+        // Then load the products - make sure types match correctly
+        await loadCategoryProducts(
+          categoryName,      // category name
+          categoryId,        // category id
+          userUniversity,    // university
+          userCity || '',    // use the city parameter from route or empty string if undefined
+          0,                 // page
+          false              // shouldAppend
+        );
         isInitialLoadRef.current = false;
       } catch (error) {
         console.error('[CategoryProducts] Error in initial load:', error);
@@ -598,11 +562,9 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
   const renderItem = useCallback(({ item }: { item: Product }) => (
     <ProductItem
       item={item}
-      wishlist={wishlist}
-      onToggleWishlist={toggleWishlist}
       onPress={handleProductPress}
     />
-  ), [wishlist, toggleWishlist, handleProductPress]);
+  ), [handleProductPress]);
 
   // Optimize keyExtractor to prevent recreating function on each render
   const keyExtractor = useCallback((item: Product) => item.id, []);
@@ -686,6 +648,34 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     }
   }, [isFilterDropdownVisible, isSortDropdownVisible, setFilterDropdownVisible, setSortDropdownVisible]);
 
+  // Update the SearchBar component to use the new clear handler
+  // Replace the existing SearchBar rendering with this updated one
+  const renderSearchBar = () => (
+    <View style={styles.searchBarContainer}>
+      <View style={styles.searchInputContainer}>
+        <MaterialIcons name="search" size={24} color="#666" style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search products..."
+          placeholderTextColor="#888"
+          value={searchQuery}
+          onChangeText={handleSearchChange}
+          onSubmitEditing={handleSearchSubmit}
+          returnKeyType="search"
+          autoCapitalize="none"
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity
+            style={styles.clearButton}
+            onPress={handleClearSearch}
+          >
+            <MaterialIcons name="clear" size={18} color="#888" />
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+
   return (
     <SafeAreaView
       style={{ flex: 1, backgroundColor: '#fff' }}
@@ -706,11 +696,7 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
         </View>
 
         {/* Search bar component */}
-        <SearchBar
-          value={searchQuery}
-          onChangeText={handleSearchChange}
-          onSubmitEditing={handleSearchSubmit}
-        />
+        {renderSearchBar()}
 
         {/* Filters row */}
         <View style={styles.filtersRow}>
@@ -824,9 +810,9 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
         {loading && !refreshing ? (
           <ProductsGridSkeleton />
         ) : error ? (
-          <EmptyState
+          <ErrorState
             message="Error loading products"
-            subMessage={error}
+            onRetry={handleRefresh}
           />
         ) : products.length === 0 ? (
           <EmptyState

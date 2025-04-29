@@ -286,8 +286,8 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
 
       // Add search query if present
       if (searchQuery) {
-        // @ts-ignore - API might accept 'query' even if not in type definition
-        apiSearchFilters.query = searchQuery;
+        // API expects 'keyword' not 'query'
+        apiSearchFilters.keyword = searchQuery;
       }
 
       // Determine if this is a featured, new arrivals, university, city or regular category
@@ -333,6 +333,17 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
       } else if (isCity && userCity) {
         console.log(`[CategoryStore] Fetching city products for city: "${userCity}" with pagination, page ${page}`);
         console.log(`[CategoryStore] API search filters:`, JSON.stringify(apiSearchFilters));
+        
+        // Always include the userCity parameter in the apiSearchFilters for city products
+        if (userCity) {
+          apiSearchFilters.city = userCity;
+        }
+        
+        // Add university parameter if available
+        if (userUniversity) {
+          apiSearchFilters.university = userUniversity;
+        }
+        
         result = await getProductsByCity(userCity, apiSearchFilters);
         console.log(`[CategoryStore] City products API response received:`, 
                     `${result && 'products' in result ? result.products.length : 0} products`);
@@ -451,16 +462,31 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
   searchProducts: async (query) => {
     set({ searchQuery: query });
     const currentState = get();
+    const { productsOriginal } = currentState;
 
-    // Restart from page 0 when searching
-    await currentState.loadCategoryProducts(
-      currentState.searchQuery,
-      0, // categoryId not used for search
-      '', // userUniversity not used for search
-      '', // userCity not used for search
-      0, // Start from page 0
-      false // Replace existing products, don't append
-    );
+    console.log(`[CategoryStore] Searching for "${query}" in current products`);
+    
+    if (!query.trim()) {
+      // If query is empty, restore original products
+      set({ products: productsOriginal });
+      return;
+    }
+    
+    // Front-end filtering - convert query to lowercase for case-insensitive search
+    const lowercaseQuery = query.trim().toLowerCase();
+    
+    // Filter products that match the search query in name or description
+    const filteredProducts = productsOriginal.filter(product => {
+      const name = product.name?.toLowerCase() || '';
+      const description = product.description?.toLowerCase() || '';
+      
+      return name.includes(lowercaseQuery) || description.includes(lowercaseQuery);
+    });
+    
+    console.log(`[CategoryStore] Found ${filteredProducts.length} products matching "${query}"`);
+    
+    // Update the products in state with the filtered results
+    set({ products: filteredProducts });
   },
 
   // Handle refresh

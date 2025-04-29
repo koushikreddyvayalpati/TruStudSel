@@ -906,61 +906,67 @@ const useProductStore = create<ProductState>((set, get) => ({
         return;
       }
 
-      // Try to get from cache first
-      const cachedProducts = await get().getCachedProducts(CITY_PRODUCTS_CACHE_KEY, undefined, city);
-
-      if (cachedProducts) {
-        // Use cached data
-        if (Array.isArray(cachedProducts)) {
-          // Legacy cached data format
-          set({
-            cityProducts: cachedProducts,
-            cityProductsOriginal: cachedProducts,
-            cityFilterMaps: cachedProducts.length > 0
-              ? createFilterMaps(cachedProducts)
-              : {},
-            loadingCity: false,
-            cityNextPageToken: null,
-            cityHasMorePages: false
-          });
-        } else if (cachedProducts.products) {
-          // New paginated cached data format
-          set({
-            cityProducts: cachedProducts.products,
-            cityProductsOriginal: cachedProducts.products,
-            cityFilterMaps: cachedProducts.products.length > 0
-              ? createFilterMaps(cachedProducts.products)
-              : {},
-            loadingCity: false,
-            cityNextPageToken: cachedProducts.nextPageToken || null,
-            cityHasMorePages: cachedProducts.hasMorePages || false
-          });
-        } else {
-          console.warn('[ProductStore] Unexpected cached city products format');
-          set({ loadingCity: false });
+      // Try to get from cache first - only use cache when NOT directly called via city selection
+      // For direct city selection calls, always fetch fresh data
+      const isRefreshAction = true; // Always fetch fresh data when city changes
+      
+      if (!isRefreshAction) {
+        const cachedProducts = await get().getCachedProducts(CITY_PRODUCTS_CACHE_KEY, undefined, city);
+        
+        if (cachedProducts) {
+          // Use cached data
+          if (Array.isArray(cachedProducts)) {
+            // Legacy cached data format
+            set({
+              cityProducts: cachedProducts,
+              cityProductsOriginal: cachedProducts,
+              cityFilterMaps: cachedProducts.length > 0
+                ? createFilterMaps(cachedProducts)
+                : {},
+              loadingCity: false,
+              cityNextPageToken: null,
+              cityHasMorePages: false
+            });
+            return; // Return early after using cached data
+          } else if (cachedProducts.products) {
+            // New paginated cached data format
+            set({
+              cityProducts: cachedProducts.products,
+              cityProductsOriginal: cachedProducts.products,
+              cityFilterMaps: cachedProducts.products.length > 0
+                ? createFilterMaps(cachedProducts.products)
+                : {},
+              loadingCity: false,
+              cityNextPageToken: cachedProducts.nextPageToken || null,
+              cityHasMorePages: cachedProducts.hasMorePages || false
+            });
+            return; // Return early after using cached data
+          } else {
+            console.warn('[ProductStore] Unexpected cached city products format');
+          }
         }
-      } else {
-        // Fetch from API
-        console.log(`[ProductStore] Fetching fresh city products: city=${city}`);
-        const response = await getProductsByCity(city, {
-          pageToken: undefined // Use undefined instead of null to avoid type issues
-        });
-
-        set({
-          cityProducts: response.products || [],
-          cityProductsOriginal: response.products || [],
-          cityFilterMaps: response.products && response.products.length > 0
-            ? createFilterMaps(response.products)
-            : {},
-          cityNextPageToken: response.nextPageToken || null,
-          cityHasMorePages: response.hasMorePages || false
-        });
-
-        // Cache the result
-        await get().cacheProducts(CITY_PRODUCTS_CACHE_KEY, response, undefined, city);
-
-        set({ loadingCity: false });
       }
+      
+      // Fetch from API - always execute for direct city changes
+      console.log(`[ProductStore] Fetching fresh city products: city=${city}`);
+      const response = await getProductsByCity(city, {
+        pageToken: undefined // Use undefined instead of null to avoid type issues
+      });
+
+      set({
+        cityProducts: response.products || [],
+        cityProductsOriginal: response.products || [],
+        cityFilterMaps: response.products && response.products.length > 0
+          ? createFilterMaps(response.products)
+          : {},
+        cityNextPageToken: response.nextPageToken || null,
+        cityHasMorePages: response.hasMorePages || false
+      });
+
+      // Cache the result
+      await get().cacheProducts(CITY_PRODUCTS_CACHE_KEY, response, undefined, city);
+
+      set({ loadingCity: false });
     } catch (err) {
       console.error('Error loading city products:', err);
       set({

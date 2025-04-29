@@ -88,6 +88,7 @@ export interface ProductFilters {
   page?: number; // Legacy pagination - will be deprecated
   size?: number;
   pageToken?: string; // Token-based pagination
+  keyword?: string; // Search term for filtering products
 }
 
 export interface ProductListResponse {
@@ -179,6 +180,9 @@ export const getProductsByUniversity = async (university: string, filters: Produ
   if (filters.category) queryParams.append('category', filters.category);
   if (filters.sortBy) queryParams.append('sortBy', filters.sortBy);
   if (filters.sortDirection) queryParams.append('sortDirection', filters.sortDirection);
+  
+  // Add search keyword if present
+  if (filters.keyword) queryParams.append('keyword', filters.keyword);
   
   // Handle array parameters
   if (filters.condition) {
@@ -316,6 +320,9 @@ export const getProductsByCity = async (city: string, filters: ProductFilters = 
   if (filters.sortBy) queryParams.append('sortBy', filters.sortBy);
   if (filters.university) queryParams.append('university', filters.university);
   if (filters.sortDirection) queryParams.append('sortDirection', filters.sortDirection);
+  
+  // Add search keyword if present
+  if (filters.keyword) queryParams.append('keyword', filters.keyword);
   
   // Handle array parameters
   if (filters.condition) {
@@ -522,6 +529,9 @@ export const getProductsByCategory = async (category: string, filters: ProductFi
   if (filters.city) queryParams.append('city', filters.city);
   if (filters.sortBy) queryParams.append('sortBy', filters.sortBy);
   if (filters.sortDirection) queryParams.append('sortDirection', filters.sortDirection);
+  
+  // Add search keyword if present
+  if (filters.keyword) queryParams.append('keyword', filters.keyword);
   
   // Handle array parameters
   if (filters.condition) {

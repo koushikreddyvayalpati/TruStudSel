@@ -636,14 +636,8 @@ const ProductsScreen = () => {
   return (
     <SafeAreaViewContext 
       style={styles.safeArea}
-      edges={Platform.OS === 'android' ? ['bottom', 'left', 'right'] : ['top', 'bottom', 'left', 'right']}
+      edges={Platform.OS === 'ios' ? ['top', 'bottom', 'left', 'right'] : ['bottom', 'left', 'right']}
     >
-      <StatusBar
-        translucent={true}
-        backgroundColor="transparent"
-        barStyle="dark-content"
-      />
-
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -983,7 +977,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#eeeeee',
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 12 : 10,
+    paddingTop: Platform.OS === 'android' ? 10 : 10,
     ...Platform.select({
       android: {
         elevation: 3,
