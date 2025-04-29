@@ -118,7 +118,7 @@ const WishlistScreen: React.FC = () => {
       const currentSession = await Auth.currentSession();
       const token = currentSession.getIdToken().getJwtToken();
 
-      console.log(`[WishlistScreen] Fetching wishlist for user: ${user.email}`);
+      // console.log(`[WishlistScreen] Fetching wishlist for user: ${user.email}`);
       const apiUrl = `${API_BASE_URL}/api/wishlist/${user.email}`;
 
       const response = await fetch(apiUrl, {

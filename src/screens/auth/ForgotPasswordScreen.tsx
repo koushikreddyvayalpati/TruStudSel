@@ -212,7 +212,7 @@ const ForgotPasswordScreen: React.FC = () => {
         <ScrollView
           contentContainerStyle={[
             styles.scrollContainer,
-            Platform.OS === 'android' && { paddingTop: StatusBar.currentHeight || 0 },
+            Platform.OS === 'android' && { paddingTop: 0 },
           ]}
           showsVerticalScrollIndicator={false}
         >

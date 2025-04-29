@@ -243,7 +243,7 @@ const ProductSection: React.FC<{
       />
     ) : (
       <View style={styles.emptySection}>
-        <Text style={styles.emptyText}>No products available</Text>
+        <Text style={styles.emptyText}>No products available in this category</Text>
       </View>
     )}
   </View>

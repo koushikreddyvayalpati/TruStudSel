@@ -47,7 +47,7 @@ export const getSellerReviews = async (
   size: number = 10
 ): Promise<ReviewsResponse> => {
   try {
-    console.log(`[API:reviews] Fetching reviews for seller: ${sellerEmail}`);
+    // console.log(`[API:reviews] Fetching reviews for seller: ${sellerEmail}`);
 
     const url = `${REVIEWS_API_URL}/seller/${encodeURIComponent(sellerEmail)}?page=${page}&size=${size}`;
     const response = await fetchWithTimeout(url, { method: 'GET' });

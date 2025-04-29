@@ -1335,6 +1335,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 20,
+    paddingTop: 0,
     flex: 1,
     minHeight: '100%',
   },

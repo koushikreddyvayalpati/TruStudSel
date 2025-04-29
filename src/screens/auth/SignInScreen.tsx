@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    paddingTop: Platform.OS === 'android' ? 40 : 10,
+    paddingTop: Platform.OS === 'android' ? 10 : 10,
     paddingBottom: 0,
   },
   logoContainerCompressed: {

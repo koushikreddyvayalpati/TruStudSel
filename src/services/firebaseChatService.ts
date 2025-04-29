@@ -18,6 +18,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { db } from './firebaseService';
 import { Conversation, Message, MessageStatus, ReceiptStatus } from '../types/chat.types';
 import { Auth } from 'aws-amplify';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
  * Helper function to sanitize objects for Firestore
@@ -65,15 +66,48 @@ const sanitizeDataForFirestore = (data: Record<string, any>): Record<string, any
  */
 export const getCurrentUser = async () => {
   try {
-    const user = await Auth.currentAuthenticatedUser();
-    return {
-      id: user.attributes.sub,
-      username: user.username,
-      name: user.attributes.name || user.username,
-      email: user.attributes.email,
-    };
+    // First check if we have a stored user in AsyncStorage to avoid auth errors
+    const cachedUserData = await AsyncStorage.getItem('@cached_user_data');
+    if (cachedUserData) {
+      try {
+        const { userData } = JSON.parse(cachedUserData);
+        if (userData && userData.email) {
+          console.log('[firebaseChatService] Using cached user data');
+          return {
+            id: userData.attributes?.sub || 'unknown',
+            username: userData.username || userData.email,
+            name: userData.name || userData.email,
+            email: userData.email,
+          };
+        }
+      } catch (cacheError) {
+        console.log('[firebaseChatService] Failed to parse cached user data:', cacheError);
+        // Continue to try Auth.currentAuthenticatedUser
+      }
+    }
+    
+    // Try to get the authenticated user from Amplify Auth
+    try {
+      const user = await Auth.currentAuthenticatedUser();
+      
+      // Ensure user and attributes exist before accessing them
+      if (!user || !user.attributes) {
+        console.error('[firebaseChatService] User or user attributes missing');
+        return null;
+      }
+      
+      return {
+        id: user.attributes.sub,
+        username: user.username,
+        name: user.attributes.name || user.username,
+        email: user.attributes.email,
+      };
+    } catch (authError) {
+      console.log('[firebaseChatService] User not authenticated:', authError);
+      return null;
+    }
   } catch (error) {
-    console.error('Error getting current user:', error);
+    console.error('[firebaseChatService] Error getting current user:', error);
     return null;
   }
 };

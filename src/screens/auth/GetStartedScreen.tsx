@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 20 : 60,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 60,
   },
   image: {
     width: width * 1.1,

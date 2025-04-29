@@ -395,7 +395,7 @@ const useProductDetailsStore = create<ProductDetailsState>((set, get) => ({
 
         const productIdString = productId.toString();
         const apiUrl = `${API_BASE_URL}/api/wishlist/${userEmail}/check/${productIdString}`;
-        console.log(`[ProductDetailsStore] Checking wishlist status: ${apiUrl}`);
+        // console.log(`[ProductDetailsStore] Checking wishlist status: ${apiUrl}`);
 
         const response = await fetch(apiUrl, {
           headers: {

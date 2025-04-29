@@ -788,30 +788,48 @@ export const updateDeviceActivity = async (): Promise<void> => {
     const fcmToken = await AsyncStorage.getItem(FCM_TOKEN_KEY);
     if (!fcmToken) return;
     
-    try {
-      const user = await Auth.currentAuthenticatedUser();
-      if (!user || !user.attributes.email) {
-        console.log('No authenticated user found, skipping device activity update');
+    // First check for cached user data to avoid authentication errors
+    const cachedUserData = await AsyncStorage.getItem('@cached_user_data');
+    let userEmail = null;
+    
+    if (cachedUserData) {
+      try {
+        const { userData } = JSON.parse(cachedUserData);
+        if (userData && userData.email) {
+          userEmail = userData.email;
+        }
+      } catch (cacheError) {
+        // Silently handle cache errors and continue with Auth check
+      }
+    }
+    
+    // If we don't have a cached email, try getting it from Auth
+    if (!userEmail) {
+      try {
+        const user = await Auth.currentAuthenticatedUser();
+        if (user && user.attributes && user.attributes.email) {
+          userEmail = user.attributes.email;
+        }
+      } catch (authError) {
+        // Expected behavior when not authenticated - log quietly
+        console.log('User not authenticated, skipping device activity update');
         return;
       }
-      
-      const deviceRef = doc(db, 'users', user.attributes.email, 'devices', fcmToken);
+    }
+    
+    // Only proceed if we have a user email
+    if (userEmail) {
+      const deviceRef = doc(db, 'users', userEmail, 'devices', fcmToken);
       
       await setDoc(deviceRef, {
         updatedAt: serverTimestamp(),
         lastActive: serverTimestamp()
       }, { merge: true });
       
-    //   console.log('Device activity updated for user:', user.attributes.email);
-    } catch (error) {
-      // If not authenticated, silently skip - this is expected behavior
-      if ((error as Error).toString().includes('not authenticated')) {
-        console.log('User not authenticated, skipping device activity update');
-        return;
-      }
-      throw error;
+      // console.log('Device activity updated for user:', userEmail);
     }
   } catch (error) {
+    // Log error but don't crash the app
     console.error('Error updating device activity:', error);
   }
 };

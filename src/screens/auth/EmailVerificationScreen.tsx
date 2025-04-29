@@ -255,7 +255,7 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
           <Entypo name="chevron-left" size={32} color={theme.colors.secondary} />
         ) : (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Entypo name="chevron-left" size={24} color="black" />
+            <Entypo name="chevron-left" size={28} color="black" />
           </View>
         )}
       </TouchableOpacity>
@@ -598,7 +598,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 20,
-    paddingTop: Platform.OS === 'android' ? 65 : 35,
+    paddingTop: Platform.OS === 'android' ? 35 : 35,
     flex: 1,
   },
   title: {
@@ -756,7 +756,7 @@ const styles = StyleSheet.create({
         backgroundColor: '',
         paddingVertical: 10,
         paddingHorizontal: 6,
-        marginTop: 16,
+        marginTop: 0,
         borderRadius: 30,
         elevation: 0,
       },

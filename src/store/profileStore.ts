@@ -342,7 +342,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
     try {
       // Check if we should force refresh
       const shouldForceRefresh = forceRefresh || get().refreshCount >= 2;
-      console.log(`[ProfileStore] Fetching user products - forceRefresh: ${forceRefresh}, shouldForceRefresh: ${shouldForceRefresh}`);
+      // console.log(`[ProfileStore] Fetching user products - forceRefresh: ${forceRefresh}, shouldForceRefresh: ${shouldForceRefresh}`);
 
       // Rate limiting check
       const currentTime = Date.now();
@@ -351,7 +351,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       // Try to get from cache first if not forcing refresh
       if (!shouldForceRefresh && !get().isRefreshing) {
         if (lastRequestTime && (currentTime - lastRequestTime < MIN_API_REQUEST_INTERVAL)) {
-          console.log(`[ProfileStore] Rate limiting products API request for ${email}`);
+          // console.log(`[ProfileStore] Rate limiting products API request for ${email}`);
 
           if (productsCache.has(email)) {
             const { data, nextPageToken, hasMorePages } = productsCache.get(email);

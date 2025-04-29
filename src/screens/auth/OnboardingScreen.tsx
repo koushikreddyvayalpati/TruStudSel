@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     ...Platform.select({
       android: {
-        marginTop: 30,
+        marginTop: 0,
       }
     })
   },

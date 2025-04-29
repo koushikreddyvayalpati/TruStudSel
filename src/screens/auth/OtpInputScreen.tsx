@@ -763,8 +763,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     ...Platform.select({
       android: {
-        marginTop: 15,
-        paddingTop: 15,
+        marginTop: 0,
+        paddingTop: 0,
       },
     }),
   },

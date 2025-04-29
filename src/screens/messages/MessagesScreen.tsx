@@ -204,15 +204,15 @@ const MessagesScreen = () => {
       }
     }
 
-    console.log('[MessagesScreen] Navigating to chat with:', {
-      otherParticipant: otherParticipantEmail,
-      displayName: otherParticipantName,
-      conversationName: conversation.name,
-      // For debugging, also log user-specific name mapping if available
-      nameMapping: currentUserEmail ?
-        conversation[`name_${currentUserEmail.replace(/[.@]/g, '_')}`] :
-        undefined,
-    });
+    // console.log('[MessagesScreen] Navigating to chat with:', {
+    //   otherParticipant: otherParticipantEmail,
+    //   displayName: otherParticipantName,
+    //   conversationName: conversation.name,
+    //   // For debugging, also log user-specific name mapping if available
+    //   nameMapping: currentUserEmail ?
+    //     conversation[`name_${currentUserEmail.replace(/[.@]/g, '_')}`] :
+    //     undefined,
+    // });
 
     // Mark this specific conversation as read immediately in the UI and database
     if (conversation.unreadCount && conversation.unreadCount > 0) {

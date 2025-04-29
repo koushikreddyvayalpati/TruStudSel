@@ -353,10 +353,10 @@ export const getProductsByCity = async (city: string, filters: ProductFilters = 
   const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
   const url = `${API_URL}/api/products/city/${encodeURIComponent(city)}${queryString}`;
 
-  console.log(`[API:products] City products URL: ${url}`);
+  // console.log(`[API:products] City products URL: ${url}`);
 
   try {
-    console.log(`[API:products] Sending request to city endpoint: ${url}`);
+    // console.log(`[API:products] Sending request to city endpoint: ${url}`);
 
     // Use explicit headers matching the README example
     const fetchOptions = {
@@ -366,7 +366,7 @@ export const getProductsByCity = async (city: string, filters: ProductFilters = 
       },
     };
 
-    console.log('[API:products] Request headers:', JSON.stringify(fetchOptions.headers));
+    // console.log('[API:products] Request headers:', JSON.stringify(fetchOptions.headers));
     const response = await fetchWithTimeout(url, fetchOptions);
 
     // console.log('[API:products] City products response status:', response.status);
@@ -565,7 +565,7 @@ export const getProductsByCategory = async (category: string, filters: ProductFi
     // Get the response as text first for better error handling
     const responseClone = response.clone();
     const responseText = await responseClone.text();
-    console.log(`[API:products] Category response raw text (first 100 chars): ${responseText.substring(0, 100)}`);
+    // console.log(`[API:products] Category response raw text (first 100 chars): ${responseText.substring(0, 100)}`);
 
     // Parse the JSON manually
     const data = JSON.parse(responseText);
@@ -903,7 +903,7 @@ export const fetchUserProducts = async (
   size: number = 20
 ): Promise<ProductListResponse> => {
   try {
-    console.log(`[API] Fetching products for user: ${email}, pageToken: ${pageToken || 'null'}, size: ${size}`);
+    // console.log(`[API] Fetching products for user: ${email}, pageToken: ${pageToken || 'null'}, size: ${size}`);
 
     // Import Auth from Amplify inside the function to avoid circular dependencies
     const { Auth } = require('aws-amplify');
@@ -943,7 +943,7 @@ export const fetchUserProducts = async (
           nextPageToken: null
         };
       } else {
-        console.log(`[API] Successfully fetched ${response.data.products?.length || 0} products for user (paginated response)`);
+        // console.log(`[API] Successfully fetched ${response.data.products?.length || 0} products for user (paginated response)`);
         
         // Handle paginated response
         const result: ProductListResponse = {

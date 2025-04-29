@@ -142,13 +142,25 @@ const useChatStore = create<ChatStore>((set, get) => ({
   // Fetch current user
   fetchCurrentUser: async () => {
     try {
+      // First check if we already have a user email set
+      const currentEmail = get().currentUserEmail;
+      if (currentEmail) {
+        // We already have a user, no need to fetch again
+        return;
+      }
+      
       const user = await getCurrentUser();
       if (user && user.email) {
         set({ currentUserEmail: user.email });
         // console.log('[chatStore] Current user email:', user.email);
+      } else {
+        // Clear the current user email if we got null back
+        set({ currentUserEmail: null });
       }
     } catch (error) {
       console.error('[chatStore] Error fetching current user:', error);
+      // Make sure we're in a clean state after an error
+      set({ currentUserEmail: null });
     }
   },
 
@@ -214,56 +226,68 @@ const useChatStore = create<ChatStore>((set, get) => ({
 
     // Clean up existing subscription
     if (conversationSubscription) {
-      conversationSubscription.unsubscribe();
+      try {
+        conversationSubscription.unsubscribe();
+      } catch (error) {
+        console.error('[chatStore] Error cleaning up previous subscription:', error);
+      }
     }
 
-    if (!currentUserEmail) {return;}
+    if (!currentUserEmail) {
+      console.log('[chatStore] No authenticated user, skipping conversation subscription');
+      return;
+    }
 
     try {
       console.log('[chatStore] Setting up real-time conversation subscription');
 
       const unsubscribe = subscribeToUserConversations(currentUserEmail, (updatedConversations: Conversation[]) => {
-        // Get previous conversations to compare for new messages
-        const prevConversations = get().conversations;
+        try {
+          // Get previous conversations to compare for new messages
+          const prevConversations = get().conversations;
 
-        // Compare with current conversations to see if there are new messages
-        const hasNewMessages = updatedConversations.some((newConv: Conversation) => {
-          const existingConv = prevConversations.find(conv => conv.id === newConv.id);
+          // Compare with current conversations to see if there are new messages
+          const hasNewMessages = updatedConversations.some((newConv: Conversation) => {
+            const existingConv = prevConversations.find(conv => conv.id === newConv.id);
 
-          // New conversation or more recent message in existing conversation
-          if (!existingConv ||
-             (existingConv.lastMessageTime && newConv.lastMessageTime &&
-              new Date(newConv.lastMessageTime) > new Date(existingConv.lastMessageTime))) {
-            return true;
+            // New conversation or more recent message in existing conversation
+            if (!existingConv ||
+               (existingConv.lastMessageTime && newConv.lastMessageTime &&
+                new Date(newConv.lastMessageTime) > new Date(existingConv.lastMessageTime))) {
+              return true;
+            }
+
+            // Check unread count
+            return (newConv.unreadCount || 0) > (existingConv?.unreadCount || 0);
+          });
+
+          if (hasNewMessages) {
+            console.log('[chatStore] New messages detected in subscription update');
           }
 
-          // Check unread count
-          return (newConv.unreadCount || 0) > (existingConv?.unreadCount || 0);
-        });
+          // Calculate total unread count from all conversations
+          const totalUnread = updatedConversations.reduce((count, conversation) => {
+            return count + (conversation.unreadCount || 0);
+          }, 0);
 
-        if (hasNewMessages) {
-          console.log('[chatStore] New messages detected in subscription update');
+          // Update store with new conversations and unread count
+          set({
+            conversations: updatedConversations,
+            unreadMessagesCount: totalUnread,
+          });
+
+          // Cache the updated conversations
+          get().cacheConversations(updatedConversations);
+          get().persistUnreadCount(totalUnread);
+        } catch (error) {
+          console.error('[chatStore] Error processing conversation update:', error);
         }
-
-        // Calculate total unread count from all conversations
-        const totalUnread = updatedConversations.reduce((count, conversation) => {
-          return count + (conversation.unreadCount || 0);
-        }, 0);
-
-        // Update state and cache with new unread count
-        set({ 
-          conversations: updatedConversations,
-          unreadMessagesCount: totalUnread 
-        });
-        
-        // Cache conversations and unread count
-        get().cacheConversations(updatedConversations);
-        get().persistUnreadCount(totalUnread);
       });
 
       set({ conversationSubscription: { unsubscribe } });
     } catch (error) {
       console.error('[chatStore] Error setting up conversation subscription:', error);
+      set({ conversationSubscription: null });
     }
   },
 
@@ -627,7 +651,7 @@ const useChatStore = create<ChatStore>((set, get) => ({
         return;
       }
       
-      console.log(`[chatStore] Marking conversation ${conversationId} as read`);
+      // console.log(`[chatStore] Marking conversation ${conversationId} as read`);
       
       // Update the conversation to reset unread count
       const db = (await import('../services/firebaseService')).db;

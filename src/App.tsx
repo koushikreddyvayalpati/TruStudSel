@@ -189,21 +189,29 @@ const App: React.FC = () => {
         // First load the persisted count for immediate display
         await chatStore.loadPersistedUnreadCount();
         
-        // Then fetch current user and set up real-time subscription
-        await chatStore.fetchCurrentUser();
-        
-        // If user is authenticated, fetch fresh conversations to get accurate count
-        if (chatStore.currentUserEmail) {
-          // Set up real-time subscription which will update counts
-          chatStore.setupConversationSubscription();
+        // Then try to fetch current user, but don't throw if it fails
+        try {
+          await chatStore.fetchCurrentUser();
           
-          // Fetch conversations to get the latest unread count
-          chatStore.fetchConversations();
-          
-          console.log('[App] Initialized unread message count with fresh data');
+          // Only proceed with real-time functionality if user is authenticated
+          if (chatStore.currentUserEmail) {
+            // Set up real-time subscription which will update counts
+            chatStore.setupConversationSubscription();
+            
+            // Fetch conversations to get the latest unread count
+            await chatStore.fetchConversations();
+            
+            console.log('[App] Initialized unread message count with fresh data');
+          } else {
+            console.log('[App] User not authenticated, skipping real-time chat features');
+          }
+        } catch (authError) {
+          console.warn('[App] Authentication error during chat initialization, will retry after login:', authError);
+          // Don't rethrow - app should continue initializing even if chat features aren't available yet
         }
       } catch (error) {
         console.error('[App] Error initializing unread message count:', error);
+        // Don't crash the app for chat initialization errors
       }
     };
     
@@ -211,8 +219,12 @@ const App: React.FC = () => {
     
     // Clean up subscription when app unmounts
     return () => {
-      const chatStore = useChatStore.getState();
-      chatStore.cleanupConversationSubscription();
+      try {
+        const chatStore = useChatStore.getState();
+        chatStore.cleanupConversationSubscription();
+      } catch (error) {
+        console.error('[App] Error cleaning up chat subscription:', error);
+      }
     };
   }, []);
 

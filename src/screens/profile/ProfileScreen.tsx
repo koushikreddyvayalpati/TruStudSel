@@ -1222,7 +1222,7 @@ const ProfileScreen: React.FC = () => {
       return;
     }
     
-    console.log('[ProfileScreen] Navigating to EditProfile with data:', backendUserData);
+    // console.log('[ProfileScreen] Navigating to EditProfile with data:', backendUserData);
     
     navigation.navigate({
       name: 'EditProfile',
@@ -1290,7 +1290,7 @@ const ProfileScreen: React.FC = () => {
         const emailToFetch = sellerEmail || user?.email;
         if (!emailToFetch) {return;}
 
-        console.log(`[ProfileScreen] Loading data for ${emailToFetch}`);
+        // console.log(`[ProfileScreen] Loading data for ${emailToFetch}`);
 
         try {
           // Load profile and products in parallel with error handling
