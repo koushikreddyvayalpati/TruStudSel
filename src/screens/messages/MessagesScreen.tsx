@@ -50,6 +50,7 @@ const MessagesScreen = () => {
     getConversationDisplayName,
     getTimeDisplay,
     markConversationAsRead,
+    updateUnreadCount,
   } = useChatStore();
 
   // Animation values
@@ -136,19 +137,21 @@ const MessagesScreen = () => {
     }
   }, [fetchConversations, currentUserEmail]);
 
-  // Remove auto-marking as read when screen focuses
+  // Update the useFocusEffect callback to not mark all conversations as read
   useFocusEffect(
     useCallback(() => {
       if (currentUserEmail && conversations.length > 0) {
         console.log('[MessagesScreen] Screen focused');
         
-        // Refresh conversations when returning to this screen to update read statuses
+        // Just refresh conversations and update the unread count
+        // but don't mark them as read automatically
         fetchConversations(true);
+        updateUnreadCount();
       }
       return () => {
         // Cleanup when screen loses focus (optional)
       };
-    }, [currentUserEmail, conversations.length, fetchConversations])
+    }, [currentUserEmail, conversations.length, fetchConversations, updateUnreadCount])
   );
 
   // Memoize filtered conversations for performance

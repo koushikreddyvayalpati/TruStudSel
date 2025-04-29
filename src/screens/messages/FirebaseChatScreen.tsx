@@ -18,7 +18,7 @@ import {
   AppState,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { MainStackParamList } from '../../types/navigation.types';
@@ -32,6 +32,7 @@ import {
 import { Message, ReceiptStatus, MessageStatus } from '../../types/chat.types';
 import { formatMessageTime, formatMessageDate, isSameDay } from '../../utils/timestamp';
 import { configureStatusBar } from '../../utils/statusBarManager';
+import useChatStore from '../../store/chatStore';
 
 // Define route params type
 type FirebaseChatScreenRouteProp = RouteProp<MainStackParamList, 'FirebaseChatScreen'>;
@@ -40,13 +41,14 @@ type FirebaseChatScreenNavigationProp = StackNavigationProp<MainStackParamList, 
 // Window dimensions for responsive sizing
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// AsyncStorage key prefixes
+// AsyncStorage keys
 const MESSAGES_STORAGE_KEY_PREFIX = '@TruStudSel_messages_';
 const CONVERSATION_STORAGE_KEY_PREFIX = '@TruStudSel_conversation_';
 
 const FirebaseChatScreen = () => {
   const navigation = useNavigation<FirebaseChatScreenNavigationProp>();
   const route = useRoute<FirebaseChatScreenRouteProp>();
+  const { markConversationAsRead } = useChatStore();
 
   // Get parameters from navigation
   const { recipientEmail, recipientName } = route.params || {};
@@ -63,6 +65,40 @@ const FirebaseChatScreen = () => {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [_keyboardVisible, setKeyboardVisible] = useState(false);
   const [_error, _setError] = useState<string | null>(null);
+
+  // Mark messages as read when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      // This runs when screen comes into focus
+      if (conversationId) {
+        console.log('[FirebaseChatScreen] Screen focused, marking conversation as read:', conversationId);
+        markConversationAsRead(conversationId).then(() => {
+          // Update the global unread count after marking conversation as read
+          const chatStore = useChatStore.getState();
+          
+          // First calculate the total from all conversations
+          const totalUnread = chatStore.conversations.reduce((count, conversation) => {
+            // Skip the current conversation since we just marked it as read
+            if (conversation.id === conversationId) {
+              return count;
+            }
+            return count + (conversation.unreadCount || 0);
+          }, 0);
+          
+          // Set the updated count and persist it
+          chatStore.persistUnreadCount(totalUnread);
+          
+          // Make sure to update the state as well
+          chatStore.setupConversationSubscription();
+        }).catch(error => {
+          console.error('[FirebaseChatScreen] Error marking conversation as read:', error);
+        });
+      }
+      return () => {
+        // This runs when screen loses focus
+      };
+    }, [conversationId, markConversationAsRead])
+  );
 
   // Format the recipient name consistently
   const getFormattedRecipientName = useCallback(() => {

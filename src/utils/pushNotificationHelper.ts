@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Auth } from 'aws-amplify';
 import { NavigationContainerRef } from '@react-navigation/native';
 import { configureStatusBar } from './statusBarManager';
+import useChatStore from '../store/chatStore';
 
 // Push notification module
 const PushNotification = require('react-native-push-notification');
@@ -100,7 +101,7 @@ export const configureLocalNotifications = () => {
 
     PushNotification.createChannel(
       {
-        channelId: 'chat-channel',
+        channelId: 'chat-messages',
         channelName: 'Chat Messages',
         channelDescription: 'Notifications for chat messages',
         soundName: 'default',
@@ -108,6 +109,19 @@ export const configureLocalNotifications = () => {
         vibrate: true,
       },
       (created: boolean) => console.log(`Chat channel created: ${created}`)
+    );
+    
+    // Add promotional channel
+    PushNotification.createChannel(
+      {
+        channelId: 'promotional-messages',
+        channelName: 'Promotions',
+        channelDescription: 'Promotional offers and marketing messages',
+        soundName: 'default',
+        importance: 3, // Medium importance
+        vibrate: true,
+      },
+      (created: boolean) => console.log(`Promotional channel created: ${created}`)
     );
   }
 };
@@ -257,32 +271,64 @@ export const setupMessageListeners = () => {
   // Handle foreground messages
   const unsubscribeForeground = messaging().onMessage(async remoteMessage => {
     console.log('Foreground message received:', remoteMessage);
-    
-    // Extract notification details
+
+    // Process notification data
     const notification = remoteMessage.notification || {};
     const data = remoteMessage.data || {};
     
-    // Get the notification type to ensure proper handling
-    const notificationType = data.type || 
-      (data.conversationId ? 'message' : 'general');
+    // Default to 'default' type for fallback behavior
+    const notificationType = data.type || 'default';
     
-    // Log notification details for debugging
-    console.log(`Processing foreground notification of type: ${notificationType}`, {
-      title: notification.title,
-      body: notification.body,
-      data: data
-    });
+    // Check if this is a promotional message
+    const isPromoMessage = notificationType === 'promo' || notificationType === 'promotional' || notificationType === 'PROMO' || notificationType === 'PROMOTIONAL';
+    
+    // Extract image URL if present in the notification payload
+    const imageUrl = data.image || remoteMessage.notification?.android?.imageUrl || null;
+    
+    console.log(`Processing ${notificationType} notification${imageUrl ? ' with image' : ''}`);
+    
+    // Update conversation data if this is a message notification
+    if ((notificationType === 'message' || data.conversationId) && !isPromoMessage) {
+      try {
+        // Update unread count
+        const chatStore = useChatStore.getState();
+        
+        // If user has a current email (is logged in), fetch new data
+        if (chatStore.currentUserEmail) {
+          console.log('[Foreground] Updating conversations due to incoming message');
+          
+          // Refresh conversations to update unread count in the store
+          await chatStore.fetchConversations(true);
+          
+          // Force a re-calculation of the unread count
+          const totalUnread = chatStore.getTotalUnreadCount();
+          
+          // Update the badge count
+          if (Platform.OS === 'ios') {
+            PushNotification.setApplicationIconBadgeNumber(totalUnread);
+          }
+          
+          // Persist the updated count for next app launch
+          await chatStore.persistUnreadCount(totalUnread);
+          
+          console.log(`[Foreground] Updated unread count to ${totalUnread}`);
+        }
+      } catch (error) {
+        console.error('Error processing foreground message:', error);
+      }
+    }
     
     // Display even if app is in foreground with high priority
     showLocalNotification({
-      title: notification.title || (notificationType === 'message' ? 'New Message' : 'New Notification'),
-      body: notification.body || (notificationType === 'message' ? 'You have a new message' : 'New notification'),
+      title: notification.title || (notificationType === 'message' ? 'New Message' : isPromoMessage ? 'Special Offer' : 'New Notification'),
+      body: notification.body || (notificationType === 'message' ? 'You have a new message' : isPromoMessage ? 'Check out our latest offers' : 'New notification'),
       data: {
         ...data,
         // Ensure these fields are present for navigation
         id: `${Date.now()}`,
         type: notificationType,
-        foreground: true // Flag that this was received in foreground
+        foreground: true, // Flag that this was received in foreground
+        image: imageUrl, // Pass the image URL if present
       }
     });
   });
@@ -298,8 +344,22 @@ export const setupMessageListeners = () => {
     // Update conversation data if this is a message notification
     if (data.type === 'message' || data.conversationId) {
       try {
-        // We can perform background tasks here if needed
-        console.log('Processing background message notification for conversation:', data.conversationId);
+        // Update unread message count in background
+        const chatStore = useChatStore.getState();
+        
+        // If we have a current user, update the count
+        if (chatStore.currentUserEmail) {
+          console.log('[Background] Updating conversations due to incoming message');
+          
+          // Fetch conversations to refresh the unread count
+          await chatStore.fetchConversations(true);
+          
+          // Force a re-calculation of the unread count
+          const totalUnread = chatStore.getTotalUnreadCount();
+          
+          // Persist the updated count
+          await chatStore.persistUnreadCount(totalUnread);
+        }
       } catch (error) {
         console.error('Error processing background message:', error);
       }
@@ -316,6 +376,27 @@ export const setupMessageListeners = () => {
       // Log before navigating
       console.log('Navigating from notification tap:', remoteMessage.data);
       
+      // Check if this is a message notification and update unread count
+      const data = remoteMessage.data;
+      if (data.type === 'message' || data.conversationId) {
+        try {
+          // Update unread counts when notification is tapped
+          const chatStore = useChatStore.getState();
+          if (chatStore.currentUserEmail) {
+            console.log('[NotificationOpen] Updating conversations due to notification tap');
+            
+            // Fetch fresh conversations and update counts
+            setTimeout(() => {
+              chatStore.fetchConversations(true);
+              
+              // The navigation to the chat screen will handle marking as read
+            }, 300);
+          }
+        } catch (error) {
+          console.error('Error updating data after notification tap:', error);
+        }
+      }
+      
       // Handle navigation
       handleNotificationNavigation(remoteMessage.data);
     }
@@ -326,13 +407,61 @@ export const setupMessageListeners = () => {
     .getInitialNotification()
     .then(remoteMessage => {
       if (remoteMessage) {
-        console.log('App opened from quit state notification:', remoteMessage);
+        console.log('[PushNotification] App opened from quit state notification:', 
+            JSON.stringify(remoteMessage, null, 2));
         
         if (remoteMessage.data) {
-          // Store the notification data to handle after navigation is ready
-          AsyncStorage.setItem('INITIAL_NOTIFICATION', JSON.stringify(remoteMessage.data));
+          // Process the notification data more carefully
+          try {
+            // Check for critical fields
+            const data = remoteMessage.data;
+            
+            // Ensure we have either a conversationId or senderEmail for chat navigation
+            if (data.type === 'message' || data.type === 'chat' || data.type === 'NEW_MESSAGE') {
+              // For chat messages, explicitly add senderEmail from available data
+              if (!data.senderEmail && data.conversationId) {
+                console.log('[PushNotification] Using conversationId as senderEmail for navigation');
+                data.senderEmail = data.conversationId;
+              }
+              
+              if (!data.senderName && remoteMessage.notification?.title) {
+                const title = remoteMessage.notification.title;
+                if (title.includes('from')) {
+                  // If title has format "Message from XYZ", extract XYZ as senderName
+                  const match = title.match(/from\s+(.+)/i);
+                  if (match && match[1]) {
+                    data.senderName = match[1];
+                    console.log('[PushNotification] Extracted senderName from notification title:', data.senderName);
+                  }
+                }
+              }
+            }
+            
+            // Store enhanced data and set explicit navigation flag for cold start
+            const enhancedData = {
+              ...data,
+              // Flag this as a cold start notification
+              _coldStart: true,
+              _notificationTitle: remoteMessage.notification?.title || 'Notification',
+              _notificationBody: remoteMessage.notification?.body || '',
+              // Ensure we preserve sender data for navigation
+              senderEmail: data.senderEmail || data.conversationId || '',
+              senderName: data.senderName || 'Chat'
+            };
+            
+            // Store the notification data to handle after navigation is ready
+            AsyncStorage.setItem('INITIAL_NOTIFICATION', JSON.stringify(enhancedData));
+            console.log('[PushNotification] Stored enhanced notification data for cold start navigation');
+          } catch (error) {
+            console.error('[PushNotification] Error processing cold start notification:', error);
+            // Store original data as fallback
+            AsyncStorage.setItem('INITIAL_NOTIFICATION', JSON.stringify(remoteMessage.data));
+          }
         }
       }
+    })
+    .catch(error => {
+      console.error('[PushNotification] Error checking for initial notification:', error);
     });
     
   // Listen for token refreshes and update stored token
@@ -396,7 +525,7 @@ export const showLocalNotification = ({
   const isMessageNotification = data.type === 'message' || data.conversationId;
   
   // Make sure the channelId is set properly
-  const channelId = isMessageNotification ? 'chat-channel' : 'default-channel';
+  const channelId = isMessageNotification ? 'chat-messages' : 'default-channel';
   
   // Create notification configuration with maximum priority
   PushNotification.localNotification({
@@ -413,6 +542,11 @@ export const showLocalNotification = ({
     autoCancel: true, // Auto cancel when clicked
     largeIcon: "ic_launcher", // Use app icon
     smallIcon: "ic_notification", // Use notification icon
+    // Add image support for promotional messages
+    bigPictureUrl: data.image || null, // Support for image in notification (Android)
+    bigLargeIcon: data.image ? "ic_launcher" : null, // Use app icon in expanded layout
+    // iOS image support
+    attachments: data.image ? [{ url: data.image }] : null,
     // Make notification appear even when app is in foreground
     ignoreInForeground: false,
     // Ensure notification wakes up device when screen is off
@@ -440,28 +574,139 @@ export const handleNotificationNavigation = (data: any) => {
     // Configure status bar with consistent settings
     configureStatusBar();
     
-    console.log('Navigating from notification with data:', data);
+    console.log('[PushNotification] Navigating from notification with data:', JSON.stringify(data, null, 2));
     
-    // Give React Navigation enough time to complete its initial layout
-    // This longer delay helps ensure the UI is stable before navigation
-    setTimeout(() => {
+    // Check if we have the essential data needed for navigation
+    if (!data) {
+      console.error('[PushNotification] No data provided for navigation');
+      return;
+    }
+    
+    // Get current user email for comparison with conversation ID
+    const getCurrentUserEmail = async () => {
+      try {
+        // First check chatStore (fastest)
+        const chatStore = (await import('../store/chatStore')).default.getState();
+        if (chatStore.currentUserEmail) {
+          return chatStore.currentUserEmail;
+        }
+        
+        // Otherwise try to get it from Firebase
+        const getCurrentUser = (await import('../services/firebaseChatService')).getCurrentUser;
+        const user = await getCurrentUser();
+        return user?.email || null;
+      } catch (error) {
+        console.error('[PushNotification] Error getting current user email:', error);
+        return null;
+      }
+    };
+
+    // Improve extraction from conversation ID (format: user1_user2)
+    const extractOtherUserEmail = (conversationId: string, currentUserEmail: string): string => {
+      if (!conversationId || !currentUserEmail) return conversationId;
+      
+      // Check if the conversationId contains the userEmail
+      if (!conversationId.includes(currentUserEmail)) {
+        console.log('[PushNotification] Current user email not found in conversationId, using conversationId as fallback');
+        return conversationId;
+      }
+      
+      // If conversationId contains underscore, it's likely in the format user1_user2
+      if (conversationId.includes('_')) {
+        const parts = conversationId.split('_');
+        
+        // Find the part that doesn't match current user's email
+        for (const part of parts) {
+          // Skip empty parts
+          if (!part) continue;
+          
+          // Skip parts that match current user email
+          if (part === currentUserEmail) continue;
+          
+          // If part contains @ symbol, it's likely an email
+          if (part.includes('@')) {
+            console.log('[PushNotification] Extracted recipient email from conversationId:', part);
+            return part;
+          }
+        }
+      }
+      
+      // Return the entire conversationId as fallback
+      return conversationId;
+    };
+    
+    // Delay navigation to ensure the UI is ready and give time to extract user email
+    setTimeout(async () => {
       // At this point we know navigationRef is not null from the check above
       const nav = navigationRef!;
       
-      // Handle different navigation scenarios based on notification type
-      if (data.conversationId) {
-        // Navigate to specific conversation
+      // Provide detailed debugging for what's available
+      console.log('[PushNotification] Navigation data check:');
+      console.log('- Has conversationId:', !!data.conversationId);
+      console.log('- Has senderEmail:', !!data.senderEmail);
+      console.log('- Has senderId:', !!data.senderId);
+      console.log('- Has navigateTo:', !!data.navigateTo);
+      console.log('- Has type:', data.type);
+      
+      // If we have a senderId that looks like an email, use it directly
+      if (data.senderId && data.senderId.includes('@') && data.senderId !== await getCurrentUserEmail()) {
+        console.log('[PushNotification] Using senderId as recipient email:', data.senderId);
         nav.navigate('FirebaseChatScreen', { 
-          recipientEmail: data.senderEmail,
-          recipientName: data.senderName || 'Chat' 
+          recipientEmail: data.senderId,
+          recipientName: data.senderName || 'Chat'
         });
-      } else if (data.navigateTo) {
-        // Navigate to screen specified in notification
+        return;
+      }
+      
+      // Check for conversation with proper recipient extraction
+      if (data.conversationId) {
+        const currentUserEmail = await getCurrentUserEmail();
+        console.log('[PushNotification] Current user email:', currentUserEmail);
+        
+        // Extract the other user's email from the conversation ID
+        const recipientEmail = data.senderId || extractOtherUserEmail(data.conversationId, currentUserEmail);
+        const recipientName = data.senderName || 'Chat';
+        
+        console.log(`[PushNotification] Navigation params: recipientEmail=${recipientEmail}, recipientName=${recipientName}`);
+        
+        // Navigate to FirebaseChatScreen with available data
+        nav.navigate('FirebaseChatScreen', { 
+          recipientEmail,
+          recipientName
+        });
+      } 
+      // If we have sender email but no conversation ID, still navigate to chat
+      else if (data.senderEmail) {
+        // Try to extract correct email from senderEmail if it looks like a conversation ID
+        const currentUserEmail = await getCurrentUserEmail();
+        const recipientEmail = data.senderEmail.includes('_') ? 
+          extractOtherUserEmail(data.senderEmail, currentUserEmail) : 
+          data.senderEmail;
+        
+        console.log('[PushNotification] Navigating to chat with extracted sender email:', recipientEmail);
+        nav.navigate('FirebaseChatScreen', { 
+          recipientEmail,
+          recipientName: data.senderName || 'Chat'
+        });
+      }
+      // If we have explicit navigateTo parameter, use that
+      else if (data.navigateTo) {
+        console.log(`[PushNotification] Navigating to specified screen: ${data.navigateTo}`);
         nav.navigate(data.navigateTo, data.params || {});
       }
-    }, 300); // Increased from 50ms to 300ms for more stability
+      // For other chat-type notifications without enough data, try to go to messages
+      else if (data.type === 'message' || data.type === 'chat' || data.type === 'NEW_MESSAGE') {
+        console.log('[PushNotification] Generic chat notification - navigating to MessagesScreen');
+        nav.navigate('MessagesScreen');
+      }
+      // Fallback for any other notification
+      else {
+        console.log('[PushNotification] No specific navigation target found, navigating to Home');
+        nav.navigate('Home');
+      }
+    }, 500); // Increased from 300ms to 500ms for more reliability
   } catch (error) {
-    console.error('Error navigating from notification:', error);
+    console.error('[PushNotification] Error navigating from notification:', error);
   }
 };
 
@@ -473,20 +718,65 @@ export const checkInitialNotification = async () => {
     // Configure status bar for consistent appearance
     configureStatusBar();
     
+    console.log('[PushNotification] Checking for initial notification data in storage');
     const initialNotificationData = await AsyncStorage.getItem('INITIAL_NOTIFICATION');
     
     if (initialNotificationData) {
-      console.log('Found initial notification data');
+      console.log('[PushNotification] Found initial notification data:', initialNotificationData);
       
-      // Clear the stored notification
-      await AsyncStorage.removeItem('INITIAL_NOTIFICATION');
-      
-      // Handle the navigation
-      const data = JSON.parse(initialNotificationData);
-      handleNotificationNavigation(data);
+      try {
+        // Parse the notification data
+        const data = JSON.parse(initialNotificationData);
+        console.log('[PushNotification] Parsed notification data:', JSON.stringify(data, null, 2));
+        
+        // Check if payload contains the necessary fields
+        if (!data) {
+          console.error('[PushNotification] Invalid notification data format');
+          await AsyncStorage.removeItem('INITIAL_NOTIFICATION');
+          return;
+        }
+        
+        // Clear the stored notification
+        await AsyncStorage.removeItem('INITIAL_NOTIFICATION');
+        console.log('[PushNotification] Cleared initial notification from storage');
+        
+        // Make sure fields are strings where needed
+        if (data.conversationId && typeof data.conversationId !== 'string') {
+          data.conversationId = String(data.conversationId);
+        }
+        
+        if (data.senderEmail && typeof data.senderEmail !== 'string') {
+          data.senderEmail = String(data.senderEmail);
+        }
+        
+        // Check if this is a message notification with a conversation ID but no sender email
+        if (data.conversationId && !data.senderEmail) {
+          console.log('[PushNotification] Found conversationId but no senderEmail, using conversationId as recipientEmail');
+          // For compatibility, add senderEmail field using conversationId when missing
+          data.senderEmail = data.conversationId;
+        }
+        
+        // Handle the navigation with enhanced data
+        console.log('[PushNotification] Handling initial notification navigation');
+        setTimeout(() => {
+          handleNotificationNavigation(data);
+        }, 500); // Small delay to ensure navigation is stable
+      } catch (parseError) {
+        console.error('[PushNotification] Error parsing initial notification data:', parseError);
+        await AsyncStorage.removeItem('INITIAL_NOTIFICATION');
+      }
+    } else {
+      console.log('[PushNotification] No initial notification data found');
     }
   } catch (error) {
-    console.error('Error checking initial notification:', error);
+    console.error('[PushNotification] Error checking initial notification:', error);
+    
+    // Clean up if there was an error to avoid persistent bad notification data
+    try {
+      await AsyncStorage.removeItem('INITIAL_NOTIFICATION');
+    } catch {
+      // Ignore cleanup errors
+    }
   }
 };
 
@@ -576,7 +866,7 @@ export const initPushNotifications = async () => {
       // Ensure chat notifications have the highest priority
       PushNotification.createChannel(
         {
-          channelId: 'chat-channel',
+          channelId: 'chat-messages',
           channelName: 'Chat Messages',
           channelDescription: 'Notifications for new chat messages',
           soundName: 'default',
@@ -598,6 +888,19 @@ export const initPushNotifications = async () => {
           vibrate: true,
         },
         (created: boolean) => console.log(`Default channel created: ${created}`)
+      );
+      
+      // Promotional channel for marketing messages
+      PushNotification.createChannel(
+        {
+          channelId: 'promotional-messages',
+          channelName: 'Promotions',
+          channelDescription: 'Promotional offers and marketing messages',
+          soundName: 'default',
+          importance: 3, // Medium importance
+          vibrate: true,
+        },
+        (created: boolean) => console.log(`Promotional channel created: ${created}`)
       );
     }
     

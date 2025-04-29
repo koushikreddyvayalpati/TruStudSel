@@ -14,6 +14,7 @@ import NotificationService from '../utils/notificationService';
 // AsyncStorage keys
 const CONVERSATIONS_STORAGE_KEY = '@TruStudSel_conversations';
 const CONVERSATIONS_TIMESTAMP_KEY = '@TruStudSel_conversations_timestamp';
+const UNREAD_MESSAGES_COUNT_KEY = '@TruStudSel_unread_messages_count';
 
 // Set cache expiry time to 1 hour
 const CACHE_EXPIRY_TIME = 60 * 60 * 1000; // 1 hour in milliseconds
@@ -25,6 +26,7 @@ interface ChatStore extends ChatState {
   isRefreshing: boolean;
   isLoading: boolean;
   currentUserEmail: string | null;
+  unreadMessagesCount: number;
 
   // Subscription reference (not stored in state)
   conversationSubscription: { unsubscribe: () => void } | null;
@@ -47,6 +49,10 @@ interface ChatStore extends ChatState {
   markAllConversationsAsRead: () => Promise<void>;
   markConversationAsRead: (conversationId: string) => Promise<void>;
   sendMessage: (conversationId: string, messageContent: string, otherUserEmail: string) => Promise<void>;
+  getTotalUnreadCount: () => number;
+  updateUnreadCount: () => void;
+  persistUnreadCount: (count: number) => Promise<void>;
+  loadPersistedUnreadCount: () => Promise<void>;
 }
 
 const useChatStore = create<ChatStore>((set, get) => ({
@@ -62,6 +68,7 @@ const useChatStore = create<ChatStore>((set, get) => ({
   isRefreshing: false,
   isLoading: true,
   currentUserEmail: null,
+  unreadMessagesCount: 0,
 
   // Subscription (not stored in state)
   conversationSubscription: null,
@@ -79,6 +86,58 @@ const useChatStore = create<ChatStore>((set, get) => ({
 
   // Set search query
   setSearchQuery: (query) => set({ searchQuery: query }),
+
+  // Get total unread count
+  getTotalUnreadCount: () => {
+    const { conversations } = get();
+    if (!conversations || conversations.length === 0) {
+      return get().unreadMessagesCount;
+    }
+    
+    const totalUnread = conversations.reduce((count, conversation) => {
+      return count + (conversation.unreadCount || 0);
+    }, 0);
+    
+    // Update the stored unread count if different
+    if (totalUnread !== get().unreadMessagesCount) {
+      set({ unreadMessagesCount: totalUnread });
+      get().persistUnreadCount(totalUnread);
+    }
+    
+    return totalUnread;
+  },
+  
+  // Update unread count based on conversations
+  updateUnreadCount: () => {
+    const count = get().getTotalUnreadCount();
+    set({ unreadMessagesCount: count });
+  },
+  
+  // Persist unread count to AsyncStorage
+  persistUnreadCount: async (count) => {
+    try {
+      await AsyncStorage.setItem(UNREAD_MESSAGES_COUNT_KEY, count.toString());
+      console.log(`[AsyncStorage] Persisted unread count: ${count}`);
+    } catch (error) {
+      console.error('[AsyncStorage] Error persisting unread count:', error);
+    }
+  },
+  
+  // Load persisted unread count from AsyncStorage
+  loadPersistedUnreadCount: async () => {
+    try {
+      const countStr = await AsyncStorage.getItem(UNREAD_MESSAGES_COUNT_KEY);
+      if (countStr) {
+        const count = parseInt(countStr, 10);
+        if (!isNaN(count)) {
+          set({ unreadMessagesCount: count });
+          console.log(`[AsyncStorage] Loaded persisted unread count: ${count}`);
+        }
+      }
+    } catch (error) {
+      console.error('[AsyncStorage] Error loading persisted unread count:', error);
+    }
+  },
 
   // Fetch current user
   fetchCurrentUser: async () => {
@@ -99,6 +158,14 @@ const useChatStore = create<ChatStore>((set, get) => ({
       await AsyncStorage.setItem(CONVERSATIONS_STORAGE_KEY, JSON.stringify(conversationsToCache));
       await AsyncStorage.setItem(CONVERSATIONS_TIMESTAMP_KEY, new Date().toISOString());
       console.log(`[AsyncStorage] Cached ${conversationsToCache.length} conversations`);
+      
+      // Update and persist unread count whenever we cache conversations
+      const totalUnread = conversationsToCache.reduce((count, conversation) => {
+        return count + (conversation.unreadCount || 0);
+      }, 0);
+      
+      set({ unreadMessagesCount: totalUnread });
+      get().persistUnreadCount(totalUnread);
     } catch (error) {
       console.error('[AsyncStorage] Error caching conversations:', error);
     }
@@ -120,6 +187,13 @@ const useChatStore = create<ChatStore>((set, get) => ({
         console.log(`[AsyncStorage] Found cached conversations (${cachedConversations.length}) from ${cacheAgeMinutes.toFixed(1)} minutes ago`);
 
         if (cacheAge < CACHE_EXPIRY_TIME) {
+          // Also update the unread count from cached conversations
+          const totalUnread = cachedConversations.reduce((count, conversation) => {
+            return count + (conversation.unreadCount || 0);
+          }, 0);
+          
+          set({ unreadMessagesCount: totalUnread });
+          
           return cachedConversations;
         } else {
           console.log('[AsyncStorage] Cache too old, will fetch fresh data');
@@ -171,9 +245,20 @@ const useChatStore = create<ChatStore>((set, get) => ({
           console.log('[chatStore] New messages detected in subscription update');
         }
 
-        // Update state and cache
-        set({ conversations: updatedConversations });
+        // Calculate total unread count from all conversations
+        const totalUnread = updatedConversations.reduce((count, conversation) => {
+          return count + (conversation.unreadCount || 0);
+        }, 0);
+
+        // Update state and cache with new unread count
+        set({ 
+          conversations: updatedConversations,
+          unreadMessagesCount: totalUnread 
+        });
+        
+        // Cache conversations and unread count
         get().cacheConversations(updatedConversations);
+        get().persistUnreadCount(totalUnread);
       });
 
       set({ conversationSubscription: { unsubscribe } });
@@ -192,7 +277,10 @@ const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   // Set conversations
-  setConversations: (conversations) => set({ conversations }),
+  setConversations: (conversations) => {
+    set({ conversations });
+    get().updateUnreadCount();
+  },
 
   // Clear cached conversations
   clearConversationsCache: async () => {

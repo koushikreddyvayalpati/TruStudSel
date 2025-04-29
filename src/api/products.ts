@@ -1018,8 +1018,31 @@ export const searchProducts = async (searchParams: SearchProductsParams): Promis
     // Build query parameters
     const queryParams = new URLSearchParams();
 
-    // Add required search parameters
-    queryParams.append('keyword', searchParams.keyword);
+    // Process and add search keywords - handle multiple terms
+    // Split the keyword into individual terms and filter out any that are too short
+    const searchTerms = searchParams.keyword
+      .split(/\s+/)  // Split by one or more spaces
+      .filter(term => term.length >= 2)  // Only include terms with 2+ characters
+      .map(term => term.trim());  // Trim whitespace
+    
+    // Add each search term as a separate 'keywords' parameter for better matching
+    if (searchTerms.length > 0) {
+      // Log the parsed search terms
+      console.log('[API:products] Parsed search terms:', searchTerms);
+      
+      // First add the original full keyword for exact phrase matching
+      queryParams.append('keyword', searchParams.keyword);
+      
+      // Then add individual terms as keywords[] array parameters if your API supports it
+      searchTerms.forEach(term => {
+        if (term !== searchParams.keyword) {  // Avoid duplicating the full phrase
+          queryParams.append('keywords[]', term);
+        }
+      });
+    } else {
+      // If no valid terms after filtering, use the original keyword
+      queryParams.append('keyword', searchParams.keyword);
+    }
 
     // Location parameters (university takes precedence if both are provided)
     if (searchParams.university) {

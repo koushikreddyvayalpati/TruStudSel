@@ -16,14 +16,22 @@ import { configureStatusBar } from '../utils/statusBarManager';
 // Create app stack
 const Stack = createStackNavigator();
 
+// Update the props type to accept onReady
+interface AppNavigatorProps {
+  onReady?: () => void;
+  initialRouteName?: string;
+  initialParams?: any;
+}
+
 /**
  * Root navigator that handles authentication flow
  * Shows either AuthNavigator or MainNavigator based on auth state
  * 
  * Uses forwardRef to properly handle navigation references from parent components
  */
-const AppNavigatorBase: ForwardRefRenderFunction<NavigationContainerRef<any>, {}> = (_, ref) => {
+const AppNavigatorBase: ForwardRefRenderFunction<NavigationContainerRef<any>, AppNavigatorProps> = (props, ref) => {
   const { isAuthenticated, loading } = useAuth();
+  const { onReady, initialRouteName, initialParams } = props;
 
   // Handle deep links
   useEffect(() => {
@@ -90,6 +98,7 @@ const AppNavigatorBase: ForwardRefRenderFunction<NavigationContainerRef<any>, {}
     <NavigationContainer 
       ref={ref}
       linking={linking}
+      onReady={onReady}
       onStateChange={(_state) => {
         // Configure status bar on every navigation state change
         // This ensures consistent appearance regardless of how screens are opened
@@ -99,7 +108,14 @@ const AppNavigatorBase: ForwardRefRenderFunction<NavigationContainerRef<any>, {}
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
           // User is signed in - show main app
-          <Stack.Screen name="Main" component={MainNavigator} />
+          <Stack.Screen 
+            name="Main" 
+            component={MainNavigator} 
+            initialParams={initialRouteName && initialParams ? { 
+              initialRouteName, 
+              initialParams 
+            } : undefined}
+          />
         ) : (
           // User is not signed in - show auth flow
           <Stack.Screen name="Auth" component={AuthNavigator} />

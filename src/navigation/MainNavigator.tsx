@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
 import { createDrawerNavigator } from '@react-navigation/drawer';
-import { MainStackParamList } from '../types/navigation.types';
+import { MainStackParamList, RootStackParamList } from '../types/navigation.types';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { LogBox } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -134,11 +134,15 @@ const MainStack = () => {
  * Main navigator component that handles all authenticated app screens
  * Now uses a drawer navigator as the root
  */
-const MainNavigator: React.FC = () => {
+const MainNavigator = ({ route }: StackScreenProps<RootStackParamList, 'Main'>) => {
+  // Get custom route params from AppNavigator if they exist
+  const initialRouteName = route?.params?.initialRouteName;
+  const initialParams = route?.params?.initialParams;
+
   return (
     <LocationProvider>
       <Drawer.Navigator
-        initialRouteName="MainStack"
+        initialRouteName={initialRouteName || 'MainStack'}
         drawerContent={(props) => <CustomDrawerContent {...props} />}
         screenOptions={{
           headerShown: false,
@@ -157,11 +161,13 @@ const MainNavigator: React.FC = () => {
           name="MainStack"
           component={MainStack}
           options={{ drawerLabel: 'Home' }}
+          initialParams={initialRouteName === 'Home' ? initialParams : undefined}
         />
         <Drawer.Screen
           name="Profile"
           component={ProfileScreen}
           options={{ drawerLabel: 'Profile', drawerItemStyle: { display: 'none' } }}
+          initialParams={initialRouteName === 'Profile' ? initialParams : undefined}
         />
         <Drawer.Screen
           name="Settings"
@@ -172,16 +178,19 @@ const MainNavigator: React.FC = () => {
           name="MessagesScreen"
           component={MessagesScreen}
           options={{ drawerLabel: 'Messages', drawerItemStyle: { display: 'none' } }}
+          initialParams={initialRouteName === 'MessagesScreen' ? initialParams : undefined}
         />
         <Drawer.Screen
           name="FirebaseChatScreen"
           component={FirebaseChatScreen}
           options={{ drawerLabel: 'Firebase Chat', drawerItemStyle: { display: 'none' } }}
+          initialParams={initialRouteName === 'FirebaseChatScreen' ? initialParams : undefined}
         />
         <Drawer.Screen
           name="Wishlist"
           component={WishlistScreen}
           options={{ drawerLabel: 'Wishlist', drawerItemStyle: { display: 'none' } }}
+          initialParams={initialRouteName === 'Wishlist' ? initialParams : undefined}
         />
       </Drawer.Navigator>
     </LocationProvider>

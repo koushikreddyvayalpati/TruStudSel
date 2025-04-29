@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 import Antdesign from 'react-native-vector-icons/AntDesign';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { StackNavigationProp } from '@react-navigation/stack';
+import useChatStore from '../../store/chatStore';
 
 // Update navigation type to be more general
 type NavigationProp = StackNavigationProp<any>;
@@ -20,6 +21,7 @@ type BottomNavItem = {
   icon: React.ReactNode;
   onPress: () => void;
   isCenter?: boolean;
+  badge?: number;
 };
 
 interface BottomNavigationProps {
@@ -33,6 +35,29 @@ interface BottomNavigationProps {
  */
 const BottomNavigation: React.FC<BottomNavigationProps> = ({ userUniversity, userCity = '' }) => {
   const navigation = useNavigation<NavigationProp>();
+  const { getTotalUnreadCount, conversations, unreadMessagesCount } = useChatStore();
+  const [badgeCount, setBadgeCount] = useState(0);
+
+  // Update badge count whenever conversations or unreadMessagesCount change
+  useEffect(() => {
+    // Get the latest count directly from the store
+    const count = getTotalUnreadCount();
+    console.log('[BottomNavigation] Updating badge count:', count);
+    setBadgeCount(count);
+  }, [getTotalUnreadCount, conversations, unreadMessagesCount]);
+
+  // Also poll for updates every 3 seconds to ensure we never miss a count update
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      const count = getTotalUnreadCount();
+      if (count !== badgeCount) {
+        console.log('[BottomNavigation] Updating badge count from interval:', count);
+        setBadgeCount(count);
+      }
+    }, 3000);
+
+    return () => clearInterval(intervalId);
+  }, [getTotalUnreadCount, badgeCount]);
 
   // Log university and city values
   useEffect(() => {
@@ -41,7 +66,7 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({ userUniversity, use
   }, [userUniversity, userCity]);
 
   // Memoize navigation items for better performance
-  const navigationItems = useMemo<BottomNavItem[]>(() => [
+  const navigationItems = React.useMemo<BottomNavItem[]>(() => [
     {
       key: 'home',
       label: 'Home',
@@ -113,8 +138,9 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({ userUniversity, use
       label: 'Chat',
       icon: <Ionicons name="chatbubbles-outline" size={24} color="black" />,
       onPress: () => navigation.navigate('MessagesScreen'),
+      badge: badgeCount,
     },
-  ], [navigation, userUniversity, userCity]);
+  ], [navigation, userUniversity, userCity, badgeCount]);
 
   // Memoize the render function to prevent unnecessary re-renders
   const renderNavItem = useCallback((item: BottomNavItem) => {
@@ -140,7 +166,16 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({ userUniversity, use
         onPress={item.onPress}
         accessibilityLabel={item.label}
       >
-        {item.icon}
+        <View style={styles.iconContainer}>
+          {item.icon}
+          {item.badge !== undefined && item.badge > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {item.badge > 99 ? '99+' : item.badge}
+              </Text>
+            </View>
+          )}
+        </View>
         <Text style={styles.navText}>{item.label}</Text>
       </TouchableOpacity>
     );
@@ -173,6 +208,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flex: 1,
   },
+  iconContainer: {
+    position: 'relative',
+  },
   navText: {
     fontSize: 12,
     marginTop: 2,
@@ -191,6 +229,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 15,
     backgroundColor: 'black',
+  },
+  badge: {
+    position: 'absolute',
+    right: -10,
+    top: -5,
+    backgroundColor: '#ff6b6b',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
+  },
+  badgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
 });
 

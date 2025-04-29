@@ -8,7 +8,7 @@ const PushNotification = require('react-native-push-notification');
 const NOTIFICATION_STORAGE_KEY = '@notifications';
 
 // Define notification types
-type NotificationType = 'NEW_MESSAGE' | 'NEW_CONVERSATION' | 'GENERAL';
+type NotificationType = 'NEW_MESSAGE' | 'NEW_CONVERSATION' | 'GENERAL' | 'PROMO' | 'PROMOTIONAL';
 
 // Define notification data structure
 interface NotificationData {
@@ -224,6 +224,31 @@ export default class NotificationService {
         case 'NEW_CONVERSATION':
           await NotificationService.handleNewConversationNotification(data);
           break;
+        case 'PROMO':
+        case 'PROMOTIONAL':
+          console.log('Handling promotional notification:', data);
+          // Show promotional notification with image support
+          PushNotification.localNotification({
+            channelId: 'promotional-messages',
+            title: remoteMessage.notification?.title || 'Special Offer',
+            message: remoteMessage.notification?.body || 'Check out our latest offers',
+            playSound: true,
+            soundName: 'default',
+            // Image support
+            bigPictureUrl: data.image || null,
+            bigLargeIcon: data.image ? "ic_launcher" : null,
+            attachments: data.image ? [{ url: data.image }] : null,
+            // Other settings
+            priority: 'high',
+            importance: 'high',
+            userInfo: {
+              ...data,
+              type: 'PROMO',
+              id: `promo_${Date.now()}`,
+              navigateTo: data.navigateTo || 'Home'
+            }
+          });
+          break;
         default:
           console.log('Handling general notification:', data);
           // Show local notification
@@ -233,6 +258,10 @@ export default class NotificationService {
             message: remoteMessage.notification?.body || 'You have a new notification',
             playSound: true,
             soundName: 'default',
+            // Check if there's an image in the payload
+            bigPictureUrl: data.image || null,
+            bigLargeIcon: data.image ? "ic_launcher" : null,
+            attachments: data.image ? [{ url: data.image }] : null,
           });
       }
     } catch (error) {
