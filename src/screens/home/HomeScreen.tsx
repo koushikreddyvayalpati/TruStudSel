@@ -665,17 +665,24 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
     setLocationModalVisible(false);
     setCitySearchQuery('');
     
-    // Only refresh city-based products with the new city
-    // Don't reload other product types that aren't city-specific
+    // Always refresh city-based products with the selected city - IMPORTANT fix
     loadCityProducts(city);
     
-    // We don't call these anymore to keep other product sections unchanged:
-    // loadFeaturedProducts(userUniversity, city);
-    // loadInterestedCategoryProducts(selectedInterestCategory, userUniversity, city);
+    // Also refresh featured products with the new city to keep them consistent
+    loadFeaturedProducts(userUniversity, city);
+    
+    // If we have an interested category, update those products too
+    if (selectedInterestCategory) {
+      loadInterestedCategoryProducts(selectedInterestCategory, userUniversity, city);
+    }
     
     console.log('[HomeScreen] City changed to:', city);
   }, [
     loadCityProducts,
+    loadFeaturedProducts,
+    loadInterestedCategoryProducts,
+    selectedInterestCategory,
+    userUniversity,
     setUserCity
   ]);
 
@@ -1877,8 +1884,14 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
               <CitySelector
                 isVisible={locationModalVisible}
                 onClose={() => {
-                  setLocationModalVisible(false);
-                  setCitySearchQuery('');
+                  // On close, ensure we reset to the default city if no selection was made
+                  const defaultCity = userProfileData?.city || user?.city || '';
+                  if (defaultCity && defaultCity !== cityFromContext) {
+                    handleCitySelection(defaultCity);
+                  } else {
+                    setLocationModalVisible(false);
+                    setCitySearchQuery('');
+                  }
                 }}
                 onSelectCity={handleCitySelection}
                 currentCity={cityFromContext}

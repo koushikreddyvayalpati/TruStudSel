@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
+import { createStackNavigator } from '@react-navigation/stack';
 import { createDrawerNavigator } from '@react-navigation/drawer';
-import { MainStackParamList, RootStackParamList } from '../types/navigation.types';
+import { MainStackParamList } from '../types/navigation.types';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { LogBox } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -56,6 +56,40 @@ const Drawer = createDrawerNavigator();
 const LocationProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
   const [userUniversity, setUserUniversity] = useState<string>('');
   const [userCity, setUserCity] = useState<string>('');
+  const { user } = useAuth();
+  
+  // Reset to default values on component mount
+  useEffect(() => {
+    const resetToDefaults = async () => {
+      try {
+        // Get default values from user object
+        const defaultUniversity = user?.university || '';
+        const defaultCity = user?.city || '';
+        
+        console.log('[LocationProvider] Resetting to default values:', { 
+          defaultUniversity, 
+          defaultCity 
+        });
+        
+        // Set in state
+        setUserUniversity(defaultUniversity);
+        setUserCity(defaultCity);
+        
+        // Also update AsyncStorage for consistency
+        if (defaultUniversity) {
+          await AsyncStorage.setItem('@user_university', defaultUniversity);
+        }
+        
+        if (defaultCity) {
+          await AsyncStorage.setItem('@user_city', defaultCity);
+        }
+      } catch (error) {
+        console.error('[LocationProvider] Error resetting location data:', error);
+      }
+    };
+    
+    resetToDefaults();
+  }, [user]);
 
   return (
     <UniversityContext.Provider value={{ userUniversity, setUserUniversity }}>
@@ -134,7 +168,16 @@ const MainStack = () => {
  * Main navigator component that handles all authenticated app screens
  * Now uses a drawer navigator as the root
  */
-const MainNavigator = ({ route }: StackScreenProps<RootStackParamList, 'Main'>) => {
+const MainNavigator = ({ 
+  route 
+}: { 
+  route: { 
+    params?: { 
+      initialRouteName?: string; 
+      initialParams?: any; 
+    } 
+  } 
+}) => {
   // Get custom route params from AppNavigator if they exist
   const initialRouteName = route?.params?.initialRouteName;
   const initialParams = route?.params?.initialParams;
@@ -202,106 +245,52 @@ const ModifiedHomeScreen = () => {
   const { user } = useAuth();
   const { userUniversity, setUserUniversity } = useUniversity();
   const { userCity, setUserCity } = useCity();
-  const [hasInitialized, setHasInitialized] = useState(false);
+  const [_hasInitialized, setHasInitialized] = useState(false);
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
-  // First try to load from AsyncStorage
+  // Always prioritize using default values from user object
   useEffect(() => {
-    const loadFromCache = async () => {
+    const applyDefaultValues = async () => {
       try {
-        // Only fetch from cache if values are not already set
-        if ((!userUniversity || userUniversity === 'University not available') ||
-            (!userCity || userCity === 'City not available')) {
-          
-          setIsFetchingLocation(true);
-          const cachedUniversity = await AsyncStorage.getItem('@user_university');
-          const cachedCity = await AsyncStorage.getItem('@user_city');
-          
-          console.log('[ModifiedHomeScreen] Loaded from cache:', { cachedUniversity, cachedCity });
-          
-          if (cachedUniversity && (!userUniversity || userUniversity === 'University not available')) {
-            setUserUniversity(cachedUniversity);
-          }
-          
-          if (cachedCity && (!userCity || userCity === 'City not available')) {
-            setUserCity(cachedCity);
-          }
-          
-          setIsFetchingLocation(false);
+        // Don't proceed if we're already in the process of fetching
+        if (isFetchingLocation) return;
+        
+        setIsFetchingLocation(true);
+        
+        // Extract default values from user object
+        const defaultUniversity = user?.university || '';
+        const defaultCity = user?.city || '';
+        
+        console.log('[ModifiedHomeScreen] Applying default values:', { 
+          defaultUniversity, 
+          defaultCity 
+        });
+        
+        // Set values in context
+        if (defaultUniversity) {
+          setUserUniversity(defaultUniversity);
+        } else if (!userUniversity) {
+          console.warn('[ModifiedHomeScreen] No default university available');
+          setUserUniversity('University not available');
         }
+        
+        if (defaultCity) {
+          setUserCity(defaultCity);
+        } else if (!userCity) {
+          console.warn('[ModifiedHomeScreen] No default city available');
+          setUserCity('City not available');
+        }
+        
+        setHasInitialized(true);
+        setIsFetchingLocation(false);
       } catch (error) {
-        console.error('[ModifiedHomeScreen] Error loading from cache:', error);
+        console.error('[ModifiedHomeScreen] Error applying default values:', error);
         setIsFetchingLocation(false);
       }
     };
     
-    loadFromCache();
-  }, [userUniversity, userCity, setUserUniversity, setUserCity]);
-
-  useEffect(() => {
-    const setAndCacheValues = async () => {
-      // Don't do anything if already fetching or initialized
-      if (isFetchingLocation || hasInitialized) return;
-      
-      // Don't override if there's already a university value in context
-      if (userUniversity && userUniversity !== 'University not available') {
-        console.log(`[ModifiedHomeScreen] Context already has university value: ${userUniversity}, not overriding`);
-        // Cache the value for future use
-        await AsyncStorage.setItem('@user_university', userUniversity);
-      } else {
-        // Try to extract university data from user object
-        const universityValue = user?.university || '';
-        console.log('[ModifiedHomeScreen] Setting university from user context:', universityValue);
-
-        if (universityValue) {
-          setUserUniversity(universityValue);
-          // Cache the value for future use
-          await AsyncStorage.setItem('@user_university', universityValue);
-        } else if (!hasInitialized) {
-          console.warn('[ModifiedHomeScreen] No university found in user context, will try to get it from HomeScreen');
-        }
-      }
-
-      // Don't override if there's already a city value in context
-      if (userCity && userCity !== 'City not available') {
-        console.log(`[ModifiedHomeScreen] Context already has city value: ${userCity}, not overriding`);
-        // Cache the value for future use
-        await AsyncStorage.setItem('@user_city', userCity);
-      } else {
-        // Try to extract city data from user object
-        const cityValue = user?.city || '';
-        console.log('[ModifiedHomeScreen] Setting city from user context:', cityValue);
-
-        if (cityValue) {
-          setUserCity(cityValue);
-          // Cache the value for future use
-          await AsyncStorage.setItem('@user_city', cityValue);
-        } else if (!hasInitialized) {
-          console.warn('[ModifiedHomeScreen] No city found in user context, will try to get it from HomeScreen');
-        }
-      }
-
-      // If we have both values or this is our first init, mark as initialized
-      if ((userUniversity && userCity) || !hasInitialized) {
-        // This is a last resort fallback to prevent navigation with empty values
-        const timer = setTimeout(() => {
-          if (!userUniversity) {
-            console.warn('[ModifiedHomeScreen] Still no university after timeout, using fallback');
-            setUserUniversity('University not available');
-          }
-          if (!userCity) {
-            console.warn('[ModifiedHomeScreen] Still no city after timeout, using fallback');
-            setUserCity('City not available');
-          }
-          setHasInitialized(true);
-        }, 1000); // Reduced from 3000ms to 1000ms
-
-        return () => clearTimeout(timer);
-      }
-    };
-    
-    setAndCacheValues();
-  }, [user, setUserUniversity, userUniversity, setUserCity, userCity, hasInitialized, isFetchingLocation]);
+    applyDefaultValues();
+  }, [user, isFetchingLocation, setUserUniversity, setUserCity, userUniversity, userCity]);
 
   return <HomeScreen />;
 };
