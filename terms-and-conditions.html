@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms and Conditions - TruStudSel</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #ffb300;
+            --primary-dark: #f57c00;
+            --text: #333333;
+            --text-light: #666666;
+            --background: #ffffff;
+            --background-alt: #f8f9fa;
+            --border: #e9ecef;
+            --shadow: rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            line-height: 1.7;
+            color: var(--text);
+            background-color: #f5f7fa;
+            padding: 40px 20px;
+        }
+
+        .container {
+            background-color: var(--background);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px var(--shadow);
+            width: 100%;
+            max-width: 900px;
+            overflow: hidden;
+            margin: 0 auto 40px auto;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .header {
+            padding: 30px 40px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2.2rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            margin-top: 10px;
+            opacity: 0.9;
+            font-weight: 300;
+            font-size: 1.1rem;
+        }
+
+        .last-updated {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 5px 15px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .toc {
+            background-color: var(--background-alt);
+            border-radius: 8px;
+            padding: 25px;
+            margin: 25px 0;
+            border-left: 4px solid var(--primary);
+        }
+
+        .toc h2 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .toc-list {
+            list-style: none;
+            padding-left: 10px;
+        }
+
+        .toc-list li {
+            margin-bottom: 12px;
+        }
+
+        .toc-list a {
+            display: flex;
+            align-items: center;
+            padding: 8px 15px;
+            background-color: white;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        .toc-list a:hover {
+            background-color: var(--primary);
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .toc-list a i {
+            margin-right: 10px;
+            color: var(--primary-dark);
+        }
+
+        .toc-list a:hover i {
+            color: white;
+        }
+
+        h2 {
+            color: var(--primary-dark);
+            margin: 30px 0 20px;
+            font-weight: 600;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            letter-spacing: -0.5px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        h2 i {
+            margin-right: 12px;
+            opacity: 0.8;
+        }
+
+        h3 {
+            color: var(--text);
+            margin: 25px 0 15px;
+            font-weight: 600;
+        }
+
+        p {
+            margin-bottom: 20px;
+            color: var(--text);
+            font-size: 1rem;
+        }
+
+        .section {
+            margin-bottom: 40px;
+            background-color: white;
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 2px 8px var(--shadow);
+            transition: transform 0.2s ease;
+        }
+
+        .section:hover {
+            transform: translateY(-3px);
+        }
+
+        .section h2 {
+            margin-top: 0;
+        }
+
+        ul, ol {
+            margin: 20px 0;
+            padding-left: 25px;
+        }
+
+        li {
+            margin-bottom: 12px;
+        }
+
+        ul li::marker {
+            color: var(--primary-dark);
+        }
+
+        a {
+            color: var(--primary-dark);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        a:hover {
+            color: var(--primary);
+            text-decoration: underline;
+        }
+
+        .important {
+            background-color: rgba(255, 179, 0, 0.1);
+            border-left: 3px solid var(--primary);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .footer {
+            background-color: #f8f9fa;
+            border-top: 1px solid var(--border);
+            padding: 20px 40px;
+            color: var(--text-light);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .footer p {
+            margin: 0;
+        }
+
+        .contact-us {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            padding: 30px;
+            border-radius: 8px;
+            color: white;
+            margin: 40px 0 20px;
+            text-align: center;
+        }
+
+        .contact-us h3 {
+            color: white;
+            margin-top: 0;
+            font-size: 1.5rem;
+        }
+
+        .btn {
+            display: inline-block;
+            background-color: white;
+            color: var(--primary-dark);
+            padding: 10px 25px;
+            border-radius: 30px;
+            margin-top: 15px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            text-decoration: none;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                border-radius: 8px;
+            }
+            
+            .header, .content, .footer {
+                padding: 20px;
+            }
+            
+            .section {
+                padding: 20px;
+            }
+            
+            .footer {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .footer p:first-child {
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Terms and Conditions</h1>
+            <p>Please read these terms carefully before using TruStudSel</p>
+            <span class="last-updated"><i class="fas fa-calendar-alt"></i> Last Updated: May 30, 2024</span>
+        </div>
+
+        <div class="content">
+            <p>
+                Welcome to TruStudSel. These Terms and Conditions govern your use of the TruStudSel mobile application 
+                and related services (collectively referred to as the "Service"). By accessing or using our Service, 
+                you agree to be bound by these Terms. If you disagree with any part of the Terms, please do not use our Service.
+            </p>
+
+            <div class="toc">
+                <h2><i class="fas fa-list"></i> Table of Contents</h2>
+                <ul class="toc-list">
+                    <li><a href="#acceptance"><i class="fas fa-check-circle"></i> Acceptance of Terms</a></li>
+                    <li><a href="#changes"><i class="fas fa-sync-alt"></i> Changes to Terms</a></li>
+                    <li><a href="#access"><i class="fas fa-mobile-alt"></i> Access to the Service</a></li>
+                    <li><a href="#accounts"><i class="fas fa-user-circle"></i> User Accounts</a></li>
+                    <li><a href="#content"><i class="fas fa-file-alt"></i> User Content</a></li>
+                    <li><a href="#intellectual"><i class="fas fa-copyright"></i> Intellectual Property</a></li>
+                    <li><a href="#prohibited"><i class="fas fa-exclamation-triangle"></i> Prohibited Uses</a></li>
+                    <li><a href="#conduct"><i class="fas fa-users"></i> User Conduct</a></li>
+                    <li><a href="#privacy"><i class="fas fa-shield-alt"></i> Privacy Policy</a></li>
+                    <li><a href="#termination"><i class="fas fa-door-open"></i> Termination</a></li>
+                    <li><a href="#disclaimer"><i class="fas fa-exclamation-circle"></i> Disclaimer</a></li>
+                    <li><a href="#liability"><i class="fas fa-balance-scale"></i> Limitation of Liability</a></li>
+                    <li><a href="#governing"><i class="fas fa-gavel"></i> Governing Law</a></li>
+                    <li><a href="#contact"><i class="fas fa-envelope"></i> Contact Us</a></li>
+                </ul>
+            </div>
+
+            <div class="section" id="acceptance">
+                <h2><i class="fas fa-check-circle"></i> 1. Acceptance of Terms</h2>
+                <p>
+                    By accessing or using the TruStudSel application, you acknowledge that you have read, understood, and agree to be bound by
+                    these Terms and Conditions, regardless of whether you are a registered user. If you are using the Service on behalf of an
+                    organization, you are agreeing to these Terms on behalf of that organization.
+                </p>
+            </div>
+
+            <div class="section" id="changes">
+                <h2><i class="fas fa-sync-alt"></i> 2. Changes to Terms</h2>
+                <p>
+                    We reserve the right to modify these Terms at any time. We will always post the most current version on our website and may
+                    notify you through the Service. Your continued use of the Service after the changes have been made will constitute your
+                    acceptance of the revised Terms.
+                </p>
+                <div class="important">
+                    <p>
+                        <strong>Important:</strong> It is your responsibility to review these Terms periodically for changes. If you do not agree to any 
+                        of the revised terms, please stop using our Service immediately.
+                    </p>
+                </div>
+            </div>
+
+            <div class="section" id="access">
+                <h2><i class="fas fa-mobile-alt"></i> 3. Access to the Service</h2>
+                <p>
+                    TruStudSel grants you a limited, non-exclusive, non-transferable, revocable license to use the Service for your personal,
+                    non-commercial purposes. This license is subject to these Terms and does not include:
+                </p>
+                <ul>
+                    <li>Modifying or copying the materials</li>
+                    <li>Using the materials for any commercial purpose</li>
+                    <li>Attempting to decompile or reverse engineer any software contained in the Service</li>
+                    <li>Removing any copyright or other proprietary notations from the materials</li>
+                    <li>Transferring the materials to another person or "mirroring" the materials on any other server</li>
+                </ul>
+                <p>
+                    This license shall automatically terminate if you violate any of these restrictions and may be terminated by TruStudSel at any time.
+                </p>
+            </div>
+
+            <div class="section" id="accounts">
+                <h2><i class="fas fa-user-circle"></i> 4. User Accounts</h2>
+                <p>
+                    To access certain features of the Service, you may be required to create a user account. You are responsible for:
+                </p>
+                <ul>
+                    <li>Maintaining the confidentiality of your account credentials</li>
+                    <li>Restricting access to your device</li>
+                    <li>Assuming responsibility for all activities that occur under your account</li>
+                </ul>
+                <p>
+                    You must provide accurate, current, and complete information during the registration process and update such information to
+                    keep it accurate, current, and complete. We reserve the right to suspend or terminate your account if any information
+                    provided proves to be inaccurate, not current, or incomplete.
+                </p>
+            </div>
+
+            <div class="section" id="content">
+                <h2><i class="fas fa-file-alt"></i> 5. User Content</h2>
+                <p>
+                    Our Service allows you to post, link, store, share and otherwise make available certain information, text, graphics, videos, or
+                    other material ("Content"). You are responsible for the Content that you post on or through the Service, including its legality,
+                    reliability, and appropriateness.
+                </p>
+                <p>
+                    By posting Content on or through the Service, you represent and warrant that:
+                </p>
+                <ul>
+                    <li>The Content is yours and/or you have the right to use it and grant us the rights and license as provided in these Terms</li>
+                    <li>The posting of your Content on or through the Service does not violate the privacy rights, publicity rights, copyrights, contract rights, or any other rights of any person or entity</li>
+                </ul>
+                <p>
+                    We reserve the right to remove any Content from the Service at our discretion, without prior notice, for any reason whatsoever.
+                </p>
+            </div>
+
+            <div class="section" id="intellectual">
+                <h2><i class="fas fa-copyright"></i> 6. Intellectual Property</h2>
+                <p>
+                    The Service and its original content (excluding Content provided by users), features, and functionality are and will remain the
+                    exclusive property of TruStudSel and its licensors. The Service is protected by copyright, trademark, and other laws of both the
+                    United States and foreign countries. Our trademarks and trade dress may not be used in connection with any product or service
+                    without the prior written consent of TruStudSel.
+                </p>
+            </div>
+
+            <div class="section" id="prohibited">
+                <h2><i class="fas fa-exclamation-triangle"></i> 7. Prohibited Uses</h2>
+                <p>
+                    You agree not to use the Service:
+                </p>
+                <ul>
+                    <li>In any way that violates any applicable national or international law or regulation</li>
+                    <li>To exploit, harm, or attempt to exploit or harm minors in any way</li>
+                    <li>To transmit, or procure the sending of, any advertising or promotional material, including any "junk mail", "chain letter," "spam," or any other similar solicitation</li>
+                    <li>To impersonate or attempt to impersonate TruStudSel, a TruStudSel employee, another user, or any other person or entity</li>
+                    <li>To engage in any other conduct that restricts or inhibits anyone's use or enjoyment of the Service, or which may harm TruStudSel or users of the Service or expose them to liability</li>
+                </ul>
+            </div>
+
+            <div class="section" id="conduct">
+                <h2><i class="fas fa-users"></i> 8. User Conduct</h2>
+                <p>
+                    As a TruStudSel user, you agree not to:
+                </p>
+                <ul>
+                    <li>Post or sell illegal, harmful, or fraudulent items</li>
+                    <li>Upload or share offensive, abusive, or obscene content</li>
+                    <li>Spam, harass, or impersonate other users</li>
+                    <li>Attempt to breach the security or functionality of the Service</li>
+                    <li>Post or share nudity or sexually explicit content</li>
+                </ul>
+                <p>
+                    TruStudSel reserves the right to remove content that violates these guidelines and to suspend or terminate accounts of users who repeatedly violate these terms.
+                </p>
+            </div>
+
+            <div class="section" id="privacy">
+                <h2><i class="fas fa-shield-alt"></i> 9. Privacy Policy</h2>
+                <p>
+                    Your use of the Service is also governed by our Privacy Policy, which is incorporated into these Terms by reference. Please
+                    review our Privacy Policy for information on how we collect, use, and share your information.
+                </p>
+                <p>
+                    By using the Service, you acknowledge that you have read and understood our Privacy Policy and agree to the collection, use, and
+                    disclosure of your information as described therein.
+                </p>
+            </div>
+
+            <div class="section" id="termination">
+                <h2><i class="fas fa-door-open"></i> 10. Termination</h2>
+                <p>
+                    We may terminate or suspend your account and bar access to the Service immediately, without prior notice or liability, under our
+                    sole discretion, for any reason whatsoever, including, but not limited to, a breach of the Terms.
+                </p>
+                <p>
+                    If you wish to terminate your account, you may simply discontinue using the Service, or follow the account deletion process
+                    within the application settings. All provisions of the Terms which by their nature should survive termination shall survive
+                    termination, including, without limitation, ownership provisions, warranty disclaimers, indemnity, and limitations of liability.
+                </p>
+            </div>
+
+            <div class="section" id="disclaimer">
+                <h2><i class="fas fa-exclamation-circle"></i> 11. Disclaimer</h2>
+                <p>
+                    Your use of the Service is at your sole risk. The Service is provided on an "AS IS" and "AS AVAILABLE" basis. The Service is
+                    provided without warranties of any kind, whether express or implied, including, but not limited to, implied warranties of
+                    merchantability, fitness for a particular purpose, non-infringement, or course of performance.
+                </p>
+                <p>
+                    TruStudSel does not warrant that (a) the Service will function uninterrupted, secure, or available at any particular time or
+                    location; (b) any errors or defects will be corrected; (c) the Service is free of viruses or other harmful components; or (d)
+                    the results of using the Service will meet your requirements.
+                </p>
+            </div>
+
+            <div class="section" id="liability">
+                <h2><i class="fas fa-balance-scale"></i> 12. Limitation of Liability</h2>
+                <p>
+                    In no event shall TruStudSel, nor its directors, employees, partners, agents, suppliers, or affiliates, be liable for any
+                    indirect, incidental, special, consequential, or punitive damages, including without limitation, loss of profits, data, use,
+                    goodwill, or other intangible losses, resulting from (a) your access to or use of or inability to access or use the Service; (b)
+                    any conduct or content of any third party on the Service; (c) any content obtained from the Service; and (d) unauthorized access,
+                    use, or alteration of your transmissions or content.
+                </p>
+            </div>
+
+            <div class="section" id="governing">
+                <h2><i class="fas fa-gavel"></i> 13. Governing Law</h2>
+                <p>
+                    These Terms shall be governed and construed in accordance with the laws of the United States, without regard to its conflict of
+                    law provisions. Our failure to enforce any right or provision of these Terms will not be considered a waiver of those rights.
+                </p>
+                <p>
+                    If any provision of these Terms is held to be invalid or unenforceable by a court, the remaining provisions of these Terms will
+                    remain in effect. These Terms constitute the entire agreement between us regarding our Service, and supersede and replace any
+                    prior agreements we might have had between us regarding the Service.
+                </p>
+            </div>
+
+            <div class="section" id="contact">
+                <h2><i class="fas fa-envelope"></i> 14. Contact Us</h2>
+                <p>
+                    If you have any questions about these Terms, please contact us at:
+                </p>
+                <ul>
+                    <li>Email: <a href="mailto:trustudsel@gmail.com">trustudsel@gmail.com</a></li>
+                </ul>
+            </div>
+
+            <div class="contact-us">
+                <h3>Have Questions or Concerns?</h3>
+                <p>If you need clarification on any part of our Terms and Conditions, our support team is here to help.</p>
+                <a href="mailto:trustudsel@gmail.com" class="btn">Contact Support</a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>© 2024 TruStudSel. All rights reserved.</p>
+            <p><a href="data-deletion-request.html">Data Deletion</a> | <a href="#">Privacy Policy</a></p>
+        </div>
+    </div>
+</body>
+</html> 

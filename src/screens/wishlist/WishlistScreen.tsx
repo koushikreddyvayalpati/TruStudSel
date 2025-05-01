@@ -12,7 +12,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -400,7 +400,14 @@ const WishlistScreen: React.FC = () => {
             </Text>
             <TouchableOpacity
               style={[styles.browseButton, { backgroundColor: colors.primary }]}
-              onPress={() => navigation.navigate('Home')}
+              onPress={() => {
+                navigation.dispatch(
+                  CommonActions.reset({
+                    index: 0,
+                    routes: [{ name: 'Home' }]
+                  })
+                );
+              }}
             >
               <Text style={[styles.browseButtonText, { color: colors.buttonText }]}>Browse Products</Text>
             </TouchableOpacity>

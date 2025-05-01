@@ -30,6 +30,7 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   // Animated values
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -243,6 +244,10 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
     setShowPrivacyModal(!showPrivacyModal);
   };
 
+  const toggleTermsModal = () => {
+    setShowTermsModal(!showTermsModal);
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Fixed position back button */}
@@ -367,12 +372,149 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
 
             <View style={styles.legalTextContainer}>
               <Text style={styles.legalText}>
-                By continuing, you agree to our <Text style={styles.highlightedText}>Terms of Service</Text> and <Text style={styles.highlightedText} onPress={togglePrivacyModal}>Privacy Policy</Text>
+                By continuing, you agree to our <Text style={styles.highlightedText} onPress={toggleTermsModal}>Terms of Service</Text> and <Text style={styles.highlightedText} onPress={togglePrivacyModal}>Privacy Policy</Text>
               </Text>
             </View>
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Terms of Service Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showTermsModal}
+        onRequestClose={toggleTermsModal}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Terms of Service</Text>
+              <TouchableOpacity onPress={toggleTermsModal} style={styles.closeButton}>
+                <Entypo name="cross" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalScrollView}>
+              <Text style={styles.privacyTitle}>Terms and Conditions</Text>
+              <Text style={styles.privacyDate}>Last updated: April 28, 2025</Text>
+
+              <Text style={styles.privacyText}>
+                Welcome to TruStudSel. These Terms and Conditions govern your use of the TruStudSel mobile application 
+                and related services (collectively referred to as the "Service"). By accessing or using our Service, 
+                you agree to be bound by these Terms. If you disagree with any part of the Terms, please do not use our Service.
+              </Text>
+
+              <Text style={styles.privacySectionTitle}>1. Acceptance of Terms</Text>
+              <Text style={styles.privacyText}>
+                By accessing or using the TruStudSel application, you acknowledge that you have read, understood, and agree to be bound by
+                these Terms and Conditions, regardless of whether you are a registered user. If you are using the Service on behalf of an
+                organization, you are agreeing to these Terms on behalf of that organization.
+              </Text>
+
+              <Text style={styles.privacySectionTitle}>2. Changes to Terms</Text>
+              <Text style={styles.privacyText}>
+                We reserve the right to modify these Terms at any time. We will always post the most current version on our website and may
+                notify you through the Service. Your continued use of the Service after the changes have been made will constitute your
+                acceptance of the revised Terms.
+              </Text>
+
+              <Text style={styles.privacySectionTitle}>3. Access to the Service</Text>
+              <Text style={styles.privacyText}>
+                TruStudSel grants you a limited, non-exclusive, non-transferable, revocable license to use the Service for your personal,
+                non-commercial purposes. This license is subject to these Terms and does not include:
+              </Text>
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Modifying or copying the materials</Text>
+              </View>
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Using the materials for any commercial purpose</Text>
+              </View>
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Attempting to decompile or reverse engineer any software contained in the Service</Text>
+              </View>
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Removing any copyright or other proprietary notations from the materials</Text>
+              </View>
+
+              <Text style={styles.privacySectionTitle}>4. User Accounts</Text>
+              <Text style={styles.privacyText}>
+                To access certain features of the Service, you may be required to create a user account. You are responsible for:
+              </Text>
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Maintaining the confidentiality of your account credentials</Text>
+              </View>
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Restricting access to your device</Text>
+              </View>
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Assuming responsibility for all activities that occur under your account</Text>
+              </View>
+
+              <Text style={styles.privacySectionTitle}>5. User Content</Text>
+              <Text style={styles.privacyText}>
+                Our Service allows you to post, link, store, share and otherwise make available certain information, text, graphics, videos, or
+                other material ("Content"). You are responsible for the Content that you post on or through the Service, including its legality,
+                reliability, and appropriateness.
+              </Text>
+
+              <Text style={styles.privacySectionTitle}>6. User Conduct</Text>
+              <Text style={styles.privacyText}>
+                As a TruStudSel user, you agree not to:
+              </Text>
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Post or sell illegal, harmful, or fraudulent items</Text>
+              </View>
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Upload or share offensive, abusive, or obscene content</Text>
+              </View>
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Post or share nudity or sexually explicit content</Text>
+              </View>
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Spam, harass, or impersonate other users</Text>
+              </View>
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• Attempt to breach the security or functionality of the Service</Text>
+              </View>
+
+              <Text style={styles.privacySectionTitle}>7. Intellectual Property</Text>
+              <Text style={styles.privacyText}>
+                The Service and its original content (excluding Content provided by users), features, and functionality are and will remain the
+                exclusive property of TruStudSel and its licensors. The Service is protected by copyright, trademark, and other laws of both the
+                United States and foreign countries.
+              </Text>
+
+              <Text style={styles.privacySectionTitle}>8. Termination</Text>
+              <Text style={styles.privacyText}>
+                We may terminate or suspend your account and bar access to the Service immediately, without prior notice or liability, under our
+                sole discretion, for any reason whatsoever, including, but not limited to, a breach of the Terms.
+              </Text>
+
+              <Text style={styles.privacySectionTitle}>9. Disclaimer</Text>
+              <Text style={styles.privacyText}>
+                Your use of the Service is at your sole risk. The Service is provided on an "AS IS" and "AS AVAILABLE" basis. The Service is
+                provided without warranties of any kind, whether express or implied, including, but not limited to, implied warranties of
+                merchantability, fitness for a particular purpose, non-infringement, or course of performance.
+              </Text>
+
+              <Text style={styles.privacySectionTitle}>10. Limitation of Liability</Text>
+              <Text style={styles.privacyText}>
+                In no event shall TruStudSel, nor its directors, employees, partners, agents, suppliers, or affiliates, be liable for any
+                indirect, incidental, special, consequential, or punitive damages, including without limitation, loss of profits, data, use,
+                goodwill, or other intangible losses.
+              </Text>
+
+              <Text style={styles.privacySectionTitle}>11. Contact Us</Text>
+              <Text style={styles.privacyText}>
+                If you have any questions about these Terms, please contact us:
+              </Text>
+              <View style={styles.bulletPoint}>
+                <Text style={styles.privacyText}>• By email: trustudsel@gmail.com</Text>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Privacy Policy Modal */}
       <Modal

@@ -117,21 +117,21 @@ const CategoryItem: React.FC<{
   const renderIcon = () => {
     switch (item.icon) {
       case 'electronics':
-        return <Entypoicon name="game-controller" size={28} color="black" />;
+        return <Entypoicon name="game-controller" size={24} color="black" />;
       case 'furniture':
-        return <Icon name="bed" size={28} color="black" />;
+        return <Icon name="bed" size={24} color="black" />;
       case 'auto':
-        return <MaterialIcons name="directions-car" size={28} color="black" />;
+        return <MaterialIcons name="directions-car" size={24} color="black" />;
       case 'fashion':
-        return <FontAwesome name="shopping-bag" size={28} color="black" />;
+        return <FontAwesome name="shopping-bag" size={24} color="black" />;
       case 'sports':
-        return <MaterialIcons name="sports-cricket" size={28} color="black" />;
+        return <MaterialIcons name="sports-cricket" size={24} color="black" />;
       case 'stationery':
-        return <MaterialIcons name="book" size={28} color="black" />;
+        return <MaterialIcons name="book" size={24} color="black" />;
       case 'eventpass':
-        return <FontAwesome name="ticket" size={28} color="black" />;
+        return <FontAwesome name="ticket" size={24} color="black" />;
       default:
-        return <Icon name="question" size={28} color="black" />;
+        return <Icon name="question" size={24} color="black" />;
     }
   };
 
@@ -1640,10 +1640,15 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                   styles.sortButton,
                   selectedSort !== 'default' && styles.activeFilterButton,
                 ]}
-                onPress={() => setSortDropdownVisible(!sortDropdownVisible)}
+                onPress={() => {
+                  if (filterDropdownVisible) {
+                    setFilterDropdownVisible(false);
+                  }
+                  setSortDropdownVisible(!sortDropdownVisible);
+                }}
                 activeOpacity={0.7}
               >
-                <Icon name="sort" size={14} color="black" />
+                <Icon name="sort" size={12} color="black" />
                 <Text style={[styles.buttonText, { color: 'black' }]}>Sort</Text>
               </TouchableOpacity>
 
@@ -1668,10 +1673,15 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
                   styles.filterButton,
                   selectedFilters.length > 0 && styles.activeFilterButton,
                 ]}
-                onPress={() => setFilterDropdownVisible(!filterDropdownVisible)}
+                onPress={() => {
+                  if (sortDropdownVisible) {
+                    setSortDropdownVisible(false);
+                  }
+                  setFilterDropdownVisible(!filterDropdownVisible);
+                }}
                 activeOpacity={0.7}
               >
-                <Icon name="filter" size={14} color="black" />
+                <Icon name="filter" size={12} color="black" />
                 <Text style={[styles.buttonText, { color: 'black' }]}>Filter</Text>
               </TouchableOpacity>
 
@@ -1957,7 +1967,8 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     flexDirection: 'row',
-    marginVertical: 12,
+    marginTop: 6,
+    marginBottom: 9,
     paddingHorizontal: 1,
     alignItems: 'center',
   },
@@ -1968,7 +1979,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     alignItems: 'center',
     paddingHorizontal: 15,
-    height: 45,
+    height: 40,
   },
   searchIcon: {
     marginRight: 8,
@@ -1997,10 +2008,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 5,
   },
   plainText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     fontFamily: 'Montserrat',
     marginLeft: 5,
@@ -2011,7 +2022,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   smallButton: {
-    paddingVertical: 3,
+    paddingVertical: 2,
     paddingHorizontal: 8,
     borderRadius: 20,
     marginLeft: 10,
@@ -2040,20 +2051,20 @@ const styles = StyleSheet.create({
     borderColor: '#e69b00',
   },
   buttonText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
     marginLeft: 5,
     marginRight: 5,
     color: '#333',
   },
   categoryContainer: {
-    height: 100,
-    paddingTop: 5,
+    height: 80,
+    paddingTop: 0,
     paddingBottom: 0,
   },
   categoryItem: {
     alignItems: 'center',
-    marginHorizontal: 7,
+    marginHorizontal: 0,
     width: 65,
   },
   categoryCircleWrapper: {
@@ -2061,8 +2072,8 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   categoryCircle: {
-    width: 55,
-    height: 55,
+    width: 45,
+    height: 45,
     borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
@@ -2089,7 +2100,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: 10,
+    marginBottom: 10,
   },
   sectionHeader: {
     fontSize: 16,
@@ -2131,14 +2142,25 @@ const styles = StyleSheet.create({
   },
   productInfo: {
     padding: 10,
+    backgroundColor: 'white',
+    minHeight: 80,
   },
   productName: {
     fontSize: 14,
     marginBottom: 5,
+    color: '#333',
+    fontWeight: '500',
   },
   productPrice: {
     fontSize: 16,
     fontWeight: 'bold',
+    color: 'black',
+  },
+  productCondition: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+    textTransform: 'capitalize',
   },
   wishlistButton: {
     position: 'absolute',
@@ -2260,12 +2282,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
   },
-  productCondition: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-    textTransform: 'capitalize',
-  },
   closeButton: {
     padding: 5,
   },
@@ -2348,7 +2364,7 @@ const styles = StyleSheet.create({
   clearFiltersButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 3,
+    paddingVertical: 2,
     paddingHorizontal: 8,
     borderRadius: 20,
     backgroundColor: '#FFF9E6',
@@ -2364,16 +2380,14 @@ const styles = StyleSheet.create({
   },
   messageButton: {
     position: 'absolute',
-    top: 33,
+    bottom: 10,
     right: 10,
-    backgroundColor: 'white',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 15,
+    width: 30,
+    height: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -2478,7 +2492,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 0,
-    marginBottom: 10,
+    marginBottom: 7,
     paddingHorizontal: 4,
   },
   locationContainer: {

@@ -41,6 +41,8 @@ export interface Conversation {
   owner?: string;
   unreadCount?: number;     // Number of unread messages
   lastReadMessageId?: string; // ID of the last message read by current user
+  blockedBy?: string;       // Email of the user who has blocked the conversation
+  deletedBy?: string[];     // Array of user emails who have deleted this conversation
   // Add dynamic index signature for user-specific name mappings
   [key: string]: any;
 }

@@ -67,11 +67,11 @@ export const uploadProductImages = async (
     // Detailed logging for each image
     console.log('[API:fileUpload] Images to upload:');
     images.forEach((image, index) => {
-      console.log(`[API:fileUpload] Image ${index + 1}:`, JSON.stringify({
-        uri: image.uri,
-        type: image.type || 'image/jpeg',
-        name: image.name || `image_${Date.now()}.jpg`,
-      }));
+      // console.log(`[API:fileUpload] Image ${index + 1}:`, JSON.stringify({
+      //   uri: image.uri,
+      //   type: image.type || 'image/jpeg',
+      //   name: image.name || `image_${Date.now()}.jpg`,
+      // }));
 
       // Verify the URI is valid
       if (!image.uri || !image.uri.startsWith('file://')) {
@@ -115,13 +115,13 @@ export const uploadProductImages = async (
     }
 
     const endpoint = `${FILE_UPLOAD_API_URL}/product-images`;
-    console.log('[API:fileUpload] Sending request to endpoint:', endpoint);
+    // console.log('[API:fileUpload] Sending request to endpoint:', endpoint);
 
-    // Log request headers
-    console.log('[API:fileUpload] Request headers:', {
-      'Content-Type': 'multipart/form-data',
-      'Authorization': `Bearer ${token.substring(0, 15)}...`, // Only log part of token for security
-    });
+    // // Log request headers
+    // console.log('[API:fileUpload] Request headers:', {
+    //   'Content-Type': 'multipart/form-data',
+    //   'Authorization': `Bearer ${token.substring(0, 15)}...`, // Only log part of token for security
+    // });
 
     const response = await fetchWithTimeout(
       endpoint,
@@ -135,16 +135,16 @@ export const uploadProductImages = async (
       }
     );
 
-    console.log('[API:fileUpload] Response status:', response.status);
-    console.log('[API:fileUpload] Response status text:', response.statusText);
+    // console.log('[API:fileUpload] Response status:', response.status);
+    // console.log('[API:fileUpload] Response status text:', response.statusText);
 
     // For successful responses
     if (response.ok) {
       try {
         const responseText = await response.text();
-        console.log('[API:fileUpload] Raw response text:', responseText.length > 200
-          ? responseText.substring(0, 200) + '...'
-          : responseText);
+        // console.log('[API:fileUpload] Raw response text:', responseText.length > 200
+        //   ? responseText.substring(0, 200) + '...'
+        //   : responseText);
 
         // Try to parse as JSON
         const result = JSON.parse(responseText) as ProductImagesUploadResponse;

@@ -28,6 +28,9 @@ import {
   sendMessage,
   getOrCreateConversation,
   getCurrentUser,
+  blockConversation,
+  unblockConversation,
+  isConversationBlocked
 } from '../../services/firebaseChatService';
 import { Message, ReceiptStatus, MessageStatus } from '../../types/chat.types';
 import { formatMessageTime, formatMessageDate, isSameDay } from '../../utils/timestamp';
@@ -61,17 +64,18 @@ const FirebaseChatScreen = () => {
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [_currentUserName, setCurrentUserName] = useState<string>('');
   const [otherUserName, setOtherUserName] = useState<string>('');
-  const [isTyping, setIsTyping] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [_keyboardVisible, setKeyboardVisible] = useState(false);
   const [_error, _setError] = useState<string | null>(null);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockedBy, setBlockedBy] = useState<string | null>(null);
 
   // Mark messages as read when screen is focused
   useFocusEffect(
     useCallback(() => {
       // This runs when screen comes into focus
       if (conversationId) {
-        console.log('[FirebaseChatScreen] Screen focused, marking conversation as read:', conversationId);
+        // console.log('[FirebaseChatScreen] Screen focused, marking conversation as read:', conversationId);
         markConversationAsRead(conversationId).then(() => {
           // Update the global unread count after marking conversation as read
           const chatStore = useChatStore.getState();
@@ -327,7 +331,7 @@ const FirebaseChatScreen = () => {
         timestamp: new Date().toISOString(),
       });
       await AsyncStorage.setItem(storageKey, dataToStore);
-      console.log(`[AsyncStorage] Cached ${messages.length} messages for conversation ${conversationId}`);
+      // console.log(`[AsyncStorage] Cached ${messages.length} messages for conversation ${conversationId}`);
     } catch (error) {
       console.error('[AsyncStorage] Error caching messages:', error);
       // Don't throw - this is a background operation
@@ -336,7 +340,7 @@ const FirebaseChatScreen = () => {
 
   // Subscribe to new messages with improved handling for real-time updates
   const subscribeToNewMessages = useCallback((conversationId: string) => {
-    console.log(`[FirebaseChatScreen] Setting up message subscription for conversation ${conversationId}`);
+    // console.log(`[FirebaseChatScreen] Setting up message subscription for conversation ${conversationId}`);
 
     // Store previous messages in a ref to avoid dependency issues
     const subscription = subscribeToMessages(conversationId, (updatedMessages) => {
@@ -723,11 +727,183 @@ const FirebaseChatScreen = () => {
     };
   }, [recipientEmail, recipientName, navigation, subscribeToNewMessages, displayName, conversationId, loadCachedMessages, cacheMessages, loadCachedConversation, cacheConversation, messages]);
 
-  // Send a message - premium style with AsyncStorage
+  // Check if conversation is blocked
+  const checkIfBlocked = useCallback(async (conversationId: string | null) => {
+    try {
+      if (!conversationId) {
+        console.log('[FirebaseChatScreen] No conversation ID available yet to check block status');
+        setIsBlocked(false);
+        setBlockedBy(null);
+        return { blocked: false, blockedBy: null };
+      }
+      
+      const blockStatus = await isConversationBlocked(conversationId);
+      setIsBlocked(blockStatus.blocked);
+      setBlockedBy(blockStatus.blockedBy);
+      return blockStatus;
+    } catch (error) {
+      console.error('[FirebaseChatScreen] Error checking if conversation is blocked:', error);
+      // Set default state in case of error
+      setIsBlocked(false);
+      setBlockedBy(null);
+      return { blocked: false, blockedBy: null };
+    }
+  }, []);
+
+  // Check for block status during initialization
+  useEffect(() => {
+    // Only check if we have a valid conversation ID
+    if (conversationId) {
+      // console.log('[FirebaseChatScreen] Checking block status for conversation:', conversationId);
+      checkIfBlocked(conversationId);
+    } else {
+      // Reset block status when we don't have a conversation yet
+      setIsBlocked(false);
+      setBlockedBy(null);
+    }
+  }, [conversationId, checkIfBlocked]);
+
+  // Handle blocking conversation
+  const handleBlockConversation = useCallback(async () => {
+    if (!conversationId) {
+      console.warn('[FirebaseChatScreen] Cannot block: No valid conversation ID available');
+      Alert.alert('Error', 'Cannot block conversation. Please try again later.');
+      return;
+    }
+    
+    try {
+      Alert.alert(
+        'Block Conversation',
+        'Are you sure you want to block this conversation? You will not be able to send or receive messages until you unblock it.',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Block',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await blockConversation(conversationId);
+                // Update local state
+                setIsBlocked(true);
+                setBlockedBy(currentUserEmail);
+                
+                // Show confirmation to user
+                Alert.alert(
+                  'Conversation Blocked',
+                  'You have blocked this conversation. You can unblock it anytime.'
+                );
+              } catch (error: any) {
+                console.error('[FirebaseChatScreen] Error blocking conversation:', error);
+                
+                // Handle specific errors
+                if (error.message?.includes('not found')) {
+                  Alert.alert('Error', 'Cannot block this conversation. The conversation may not exist yet.');
+                  
+                  // Reset block state
+                  setIsBlocked(false);
+                  setBlockedBy(null);
+                } else {
+                  Alert.alert('Error', error.message || 'Failed to block conversation');
+                }
+              }
+            },
+          },
+        ]
+      );
+    } catch (error: any) {
+      console.error('[FirebaseChatScreen] Error in block conversation flow:', error);
+      Alert.alert('Error', error.message || 'Something went wrong');
+    }
+  }, [conversationId, currentUserEmail]);
+
+  // Handle unblocking conversation
+  const handleUnblockConversation = useCallback(async () => {
+    if (!conversationId) {
+      console.warn('[FirebaseChatScreen] Cannot unblock: No valid conversation ID available');
+      Alert.alert('Error', 'Cannot unblock conversation. Please try again later.');
+      return;
+    }
+    
+    try {
+      Alert.alert(
+        'Unblock Conversation',
+        'Are you sure you want to unblock this conversation?',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Unblock',
+            onPress: async () => {
+              try {
+                await unblockConversation(conversationId);
+                // Update local state
+                setIsBlocked(false);
+                setBlockedBy(null);
+                
+                // Show confirmation to user
+                Alert.alert(
+                  'Conversation Unblocked',
+                  'You have unblocked this conversation.'
+                );
+              } catch (error: any) {
+                console.error('[FirebaseChatScreen] Error unblocking conversation:', error);
+                
+                // Handle specific errors
+                if (error.message?.includes('not found')) {
+                  Alert.alert('Error', 'Cannot unblock this conversation. The conversation may not exist anymore.');
+                  
+                  // Reset block state anyway since conversation doesn't exist
+                  setIsBlocked(false);
+                  setBlockedBy(null);
+                } else if (error.message?.includes('Only the user who blocked')) {
+                  Alert.alert('Error', 'Only the user who blocked this conversation can unblock it.');
+                } else {
+                  Alert.alert('Error', error.message || 'Failed to unblock conversation');
+                }
+              }
+            },
+          },
+        ]
+      );
+    } catch (error: any) {
+      console.error('[FirebaseChatScreen] Error in unblock conversation flow:', error);
+      Alert.alert('Error', error.message || 'Something went wrong');
+    }
+  }, [conversationId]);
+
+  // Send a message - Update to check for blocked status
   const handleSendMessage = useCallback(async () => {
     if (!inputText.trim() || !conversationId) {return;}
 
     try {
+      // Check if conversation is blocked before attempting to send
+      if (isBlocked) {
+        if (blockedBy === currentUserEmail) {
+          Alert.alert(
+            'Conversation Blocked',
+            'You have blocked this conversation. Unblock it to send messages.',
+            [
+              {
+                text: 'Cancel',
+                style: 'cancel'
+              },
+              {
+                text: 'Unblock',
+                onPress: handleUnblockConversation
+              }
+            ]
+          );
+        } else {
+          Alert.alert('Conversation Blocked', 'This conversation has been blocked by the recipient.');
+        }
+        return;
+      }
+
       // Store message content before clearing
       const messageContent = inputText.trim();
 
@@ -768,9 +944,37 @@ const FirebaseChatScreen = () => {
         await sendMessage(conversationId, messageContent);
       } catch (error: any) {
         console.error('Error sending message:', error);
-
+        
+        // Handle blocking errors specifically
+        if (error.message?.includes('blocked')) {
+          // The server confirms the conversation is blocked - update our UI state
+          if (conversationId) {
+            const checkResult = await checkIfBlocked(conversationId);
+            
+            if (checkResult.blocked) {
+              if (checkResult.blockedBy === currentUserEmail) {
+                Alert.alert(
+                  'Conversation Blocked',
+                  'You have blocked this conversation. Unblock it to send messages.',
+                  [
+                    {
+                      text: 'Cancel',
+                      style: 'cancel'
+                    },
+                    {
+                      text: 'Unblock',
+                      onPress: handleUnblockConversation
+                    }
+                  ]
+                );
+              } else {
+                Alert.alert('Conversation Blocked', 'This conversation has been blocked by the recipient.');
+              }
+            }
+          }
+        } 
         // Handle "Conversation not found" error specifically
-        if (error?.message?.includes('Conversation not found')) {
+        else if (error?.message?.includes('Conversation not found')) {
           console.log('Conversation not found in database. Clearing cache and recreating conversation...');
 
           // Clear cached conversation and messages
@@ -841,12 +1045,13 @@ const FirebaseChatScreen = () => {
         }
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in message sending flow:', error);
       Alert.alert('Error', 'Failed to send message. Please try again.');
     }
   }, [inputText, conversationId, currentUserEmail, _currentUserName, messages, cacheMessages,
-      recipientEmail, displayName, cacheConversation, subscribeToNewMessages]);
+      recipientEmail, displayName, cacheConversation, subscribeToNewMessages, 
+      isBlocked, blockedBy, handleUnblockConversation, checkIfBlocked]);
 
   // Scroll to bottom
   const scrollToBottom = useCallback(() => {
@@ -1075,14 +1280,6 @@ const FirebaseChatScreen = () => {
             value={inputText}
             onChangeText={(text) => {
               setInputText(text);
-              // Simulate typing indicator
-              if (text.length > 0 && !isTyping) {
-                setIsTyping(true);
-                // In a real app, you would send typing status to Firebase here
-              } else if (text.length === 0 && isTyping) {
-                setIsTyping(false);
-                // In a real app, you would clear typing status in Firebase here
-              }
             }}
             placeholder="Type a message..."
             placeholderTextColor="#999"
@@ -1109,7 +1306,7 @@ const FirebaseChatScreen = () => {
         </View>
       </KeyboardAvoidingView>
     );
-  }, [inputText, isTyping, handleSendMessage]);
+  }, [inputText, handleSendMessage]);
 
   // Modify the renderContent function to avoid animation issues
   const renderContent = useCallback(() => {
@@ -1256,9 +1453,6 @@ const FirebaseChatScreen = () => {
             <Text style={styles.headerTitle} numberOfLines={1}>
               {otherUserName || displayName}
             </Text>
-            {isTyping && (
-              <Text style={styles.typingIndicator}>typing...</Text>
-            )}
           </View>
         </TouchableOpacity>
 
@@ -1267,22 +1461,68 @@ const FirebaseChatScreen = () => {
             style={styles.profileButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             onPress={() => {
-              try {
-                // Navigate to user profile using the recipient email
-                (navigation as any).navigate('Profile', {
-                  sellerEmail: recipientEmail,
-                });
-              } catch (error) {
-                console.error('Navigation error when viewing profile:', error);
-              }
+              // Show options menu
+              Alert.alert(
+                otherUserName || displayName,
+                '',
+                [
+                  {
+                    text: 'View Profile',
+                    onPress: () => {
+                      try {
+                        // Navigate to user profile using the recipient email
+                        (navigation as any).navigate('Profile', {
+                          sellerEmail: recipientEmail,
+                        });
+                      } catch (error) {
+                        console.error('Navigation error when viewing profile:', error);
+                      }
+                    },
+                  },
+                  isBlocked && blockedBy === currentUserEmail
+                    ? {
+                        text: 'Unblock Conversation',
+                        onPress: handleUnblockConversation,
+                      }
+                    : {
+                        text: 'Block Conversation',
+                        style: 'destructive',
+                        onPress: handleBlockConversation,
+                      },
+                  {
+                    text: 'Cancel',
+                    style: 'cancel',
+                  },
+                ]
+              );
             }}
           >
-            {/* <Icon name="ellipsis-vertical" size={20} color="#000" /> */}
+            <Icon name="ellipsis-vertical" size={20} color="#000" />
           </TouchableOpacity>
         </View>
       </View>
 
       {renderContent()}
+
+      {/* Show blocked banner when conversation is blocked */}
+      {isBlocked && (
+        <View style={styles.blockedBanner}>
+          <Icon name="ban" size={20} color="#fff" />
+          <Text style={styles.blockedText}>
+            {blockedBy === currentUserEmail 
+              ? 'You blocked this conversation' 
+              : 'This conversation has been blocked'}
+          </Text>
+          {blockedBy === currentUserEmail && (
+            <TouchableOpacity 
+              style={styles.unblockButton}
+              onPress={handleUnblockConversation}
+            >
+              <Text style={styles.unblockText}>Unblock</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -1391,16 +1631,6 @@ const styles = StyleSheet.create({
         color: '#333',
         fontSize: 18,
         fontWeight: '700',
-      },
-    }),
-  },
-  typingIndicator: {
-    fontSize: 13,
-    color: '#666',
-    fontStyle: 'italic',
-    ...Platform.select({
-      android: {
-        color: '#333',
       },
     }),
   },
@@ -1687,6 +1917,44 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // Add new styles for blocking UI
+  blockedBanner: {
+    backgroundColor: '#FF3B30',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(0,0,0,0.1)',
+        shadowOffset: { width: 0, height: -1 },
+        shadowOpacity: 1,
+        shadowRadius: 1,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  blockedText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  unblockButton: {
+    marginLeft: 'auto',
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 15,
+  },
+  unblockText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
 

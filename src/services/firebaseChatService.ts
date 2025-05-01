@@ -134,7 +134,8 @@ const safeTimestampToISOString = (timestamp: any): string => {
 
     // Check if timestamp exists and has toDate method (Firestore Timestamp)
     if (timestamp && typeof timestamp.toDate === 'function') {
-      return timestamp.toDate().toISOString();
+      const date = timestamp.toDate();
+      return normalizeFutureDate(date).toISOString();
     }
 
     // Handle server timestamp objects with seconds and nanoseconds
@@ -143,7 +144,7 @@ const safeTimestampToISOString = (timestamp: any): string => {
       const milliseconds = (timestamp.seconds * 1000) +
         (timestamp.nanoseconds ? timestamp.nanoseconds / 1000000 : 0);
       const date = new Date(milliseconds);
-      return date.toISOString();
+      return normalizeFutureDate(date).toISOString();
     }
 
     // If timestamp is a string that looks like an ISO date
@@ -151,13 +152,14 @@ const safeTimestampToISOString = (timestamp: any): string => {
       // Ensure it's a valid date
       const date = new Date(timestamp);
       if (!isNaN(date.getTime())) {
-        return timestamp; // Already a valid ISO string
+        return normalizeFutureDate(date).toISOString(); // Check and fix future dates
       }
     }
 
     // If timestamp is a number (milliseconds since epoch)
     if (typeof timestamp === 'number') {
-      return new Date(timestamp).toISOString();
+      const date = new Date(timestamp);
+      return normalizeFutureDate(date).toISOString();
     }
 
     // Return current date as fallback
@@ -167,6 +169,157 @@ const safeTimestampToISOString = (timestamp: any): string => {
   } catch (error) {
     console.error('[firebaseChatService] Error converting timestamp:', error, timestamp);
     return new Date().toISOString();
+  }
+};
+
+// Helper function to normalize future dates
+const normalizeFutureDate = (date: Date): Date => {
+  const now = new Date();
+  // If date is more than a day in the future or is in a future year
+  if (date.getTime() > now.getTime() + 86400000 || date.getFullYear() > now.getFullYear()) {
+    console.log('[firebaseChatService] Normalizing future date:', date.toISOString());
+    // Create a new date to avoid modifying the original
+    const normalizedDate = new Date(date);
+    // Set the year to current year
+    normalizedDate.setFullYear(now.getFullYear());
+    return normalizedDate;
+  }
+  return date;
+};
+
+/**
+ * Delete a conversation for a specific user
+ * The conversation will still exist for other users
+ */
+export const deleteConversationForUser = async (conversationId: string): Promise<void> => {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {throw new Error('User not authenticated');}
+
+    // Get the conversation to ensure it exists
+    const conversationRef = doc(db, 'conversations', conversationId);
+    const conversationDoc = await getDoc(conversationRef);
+
+    if (!conversationDoc.exists()) {
+      throw new Error('Conversation not found');
+    }
+
+    const data = conversationDoc.data();
+    
+    // Create or update the deletedBy array
+    let deletedBy = data.deletedBy || [];
+    
+    // Check if the user has already deleted this conversation
+    if (deletedBy.includes(user.email)) {
+      console.log(`[firebaseChatService] Conversation ${conversationId} already deleted by ${user.email}`);
+      return;
+    }
+    
+    // Add the user's email to the deletedBy array
+    deletedBy.push(user.email);
+    
+    // Update the conversation with the new deletedBy array
+    await updateDoc(conversationRef, {
+      deletedBy,
+      updatedAt: serverTimestamp(),
+    });
+
+    console.log(`[firebaseChatService] Conversation ${conversationId} deleted by ${user.email}`);
+  } catch (error) {
+    console.error('[firebaseChatService] Error deleting conversation:', error);
+    throw error;
+  }
+};
+
+/**
+ * Delete conversation history for a specific user
+ * This keeps the conversation but marks a timestamp from which older messages are hidden
+ */
+export const deleteConversationHistoryForUser = async (conversationId: string): Promise<void> => {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {throw new Error('User not authenticated');}
+
+    // Get the conversation to ensure it exists
+    const conversationRef = doc(db, 'conversations', conversationId);
+    const conversationDoc = await getDoc(conversationRef);
+
+    if (!conversationDoc.exists()) {
+      throw new Error('Conversation not found');
+    }
+    
+    // Create a user-specific field name for the deletion timestamp
+    const deletionTimestampField = `deletedAtTimestamp_${user.email.replace(/[.@]/g, '_')}`;
+    
+    // Set the current time as the deletion timestamp for this user
+    const now = new Date();
+    const deletionTimestamp = now.toISOString();
+    
+    // Update the conversation with the new deletion timestamp
+    await updateDoc(conversationRef, {
+      [deletionTimestampField]: deletionTimestamp,
+      updatedAt: serverTimestamp(),
+    });
+
+    console.log(`[firebaseChatService] Conversation history ${conversationId} deleted by ${user.email} at ${deletionTimestamp}`);
+    
+    // Remove user from deletedBy array if they were in it
+    // This makes the conversation visible again, but with history deleted
+    const data = conversationDoc.data();
+    const deletedBy = data.deletedBy || [];
+    if (deletedBy.includes(user.email)) {
+      const updatedDeletedBy = deletedBy.filter((email: string) => email !== user.email);
+      await updateDoc(conversationRef, {
+        deletedBy: updatedDeletedBy,
+      });
+    }
+    
+  } catch (error) {
+    console.error('[firebaseChatService] Error deleting conversation history:', error);
+    throw error;
+  }
+};
+
+/**
+ * Restore a deleted conversation for a user
+ */
+export const restoreConversationForUser = async (conversationId: string): Promise<void> => {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {throw new Error('User not authenticated');}
+
+    // Get the conversation
+    const conversationRef = doc(db, 'conversations', conversationId);
+    const conversationDoc = await getDoc(conversationRef);
+
+    if (!conversationDoc.exists()) {
+      throw new Error('Conversation not found');
+    }
+
+    const data = conversationDoc.data();
+    
+    // Get the current deletedBy array
+    let deletedBy = data.deletedBy || [];
+    
+    // Check if the user has deleted this conversation
+    if (!deletedBy.includes(user.email)) {
+      console.log(`[firebaseChatService] Conversation ${conversationId} not deleted by ${user.email}`);
+      return;
+    }
+    
+    // Remove the user's email from the deletedBy array
+    deletedBy = deletedBy.filter((email: string) => email !== user.email);
+    
+    // Update the conversation
+    await updateDoc(conversationRef, {
+      deletedBy,
+      updatedAt: serverTimestamp(),
+    });
+
+    console.log(`[firebaseChatService] Conversation ${conversationId} restored for ${user.email}`);
+  } catch (error) {
+    console.error('[firebaseChatService] Error restoring conversation:', error);
+    throw error;
   }
 };
 
@@ -193,6 +346,12 @@ export const getConversations = async (): Promise<Conversation[]> => {
     const conversations: Conversation[] = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
+
+      // Skip conversations that the user has deleted
+      const deletedBy = data.deletedBy || [];
+      if (deletedBy.includes(user.email)) {
+        return;
+      }
 
       // Get user-specific unread count
       const unreadCountKey = `unreadCount_${user.email.replace(/[.@]/g, '_')}`;
@@ -221,6 +380,8 @@ export const getConversations = async (): Promise<Conversation[]> => {
         lastSenderId: data.lastSenderId,
         unreadCount: unreadCount,
         lastReadMessageId: data[`lastReadMessageId_${user.email.replace(/[.@]/g, '_')}`],
+        blockedBy: data.blockedBy || null, // Include blocked status
+        deletedBy: data.deletedBy || [], // Include deleted status
         ...userSpecificFields, // Include all name mappings
       };
 
@@ -273,6 +434,7 @@ export const getConversation = async (conversationId: string): Promise<Conversat
       createdAt: safeTimestampToISOString(data.createdAt),
       updatedAt: safeTimestampToISOString(data.updatedAt),
       owner: data.owner,
+      blockedBy: data.blockedBy || null, // Include blocked status
       ...userSpecificFields, // Include all name mappings
     };
   } catch (error) {
@@ -339,7 +501,7 @@ export const getOrCreateConversation = async (
 
         await updateDoc(conversationRef, updates);
 
-        console.log(`[firebaseChatService] Updated conversation with user-specific names: ${currentUserNameKey}=${formattedOtherUserName}, ${otherUserNameKey}=${formattedCurrentUserName}`);
+        // console.log(`[firebaseChatService] Updated conversation with user-specific names: ${currentUserNameKey}=${formattedOtherUserName}, ${otherUserNameKey}=${formattedCurrentUserName}`);
 
         // Add the user-specific name mappings to the returned conversation
         return {
@@ -400,7 +562,7 @@ export const getOrCreateConversation = async (
       participants,
       productId,
       productName,
-      createdAt: new Date().toISOString(),
+      createdAt: normalizeFutureDate(new Date()).toISOString(),
       owner: currentUser.email,
     };
   } catch (error) {
@@ -414,8 +576,35 @@ export const getOrCreateConversation = async (
  */
 export const getMessages = async (conversationId: string): Promise<Message[]> => {
   try {
+    const user = await getCurrentUser();
+    if (!user) {throw new Error('User not authenticated');}
+    
+    // First check if the user has a deletion timestamp for this conversation
+    const conversationRef = doc(db, 'conversations', conversationId);
+    const conversationDoc = await getDoc(conversationRef);
+    
+    if (!conversationDoc.exists()) {
+      console.log(`[firebaseChatService] Conversation ${conversationId} not found, returning empty messages array`);
+      // Return empty array instead of throwing error for fresh conversations
+      return [];
+    }
+    
+    const conversationData = conversationDoc.data();
+    const deletionTimestampField = `deletedAtTimestamp_${user.email.replace(/[.@]/g, '_')}`;
+    const deletionTimestamp = conversationData[deletionTimestampField];
+    
+    // Set up the messages query
     const messagesRef = collection(db, 'conversations', conversationId, 'messages');
-    const q = query(messagesRef, orderBy('createdAt', 'asc'));
+    let q = query(messagesRef, orderBy('createdAt', 'asc'));
+    
+    // If there's a deletion timestamp, only get messages created after that time
+    if (deletionTimestamp) {
+      console.log(`[firebaseChatService] Filtering messages after ${deletionTimestamp} for user ${user.email}`);
+      q = query(messagesRef, 
+        orderBy('createdAt', 'asc'), 
+        where('createdAt', '>', deletionTimestamp)
+      );
+    }
 
     const querySnapshot = await getDocs(q);
     const messages: Message[] = [];
@@ -433,13 +622,13 @@ export const getMessages = async (conversationId: string): Promise<Message[]> =>
         : new Date().toISOString();
 
       // Log the timestamp conversion for debugging
-      console.log('[firebaseChatService] Message timestamp conversion:', {
-        original: data.createdAt,
-        convertedString: createdAtStr,
-        parsedDate: parsedDate.toString(),
-        valid: !isNaN(parsedDate.getTime()),
-        finalCreatedAt: validCreatedAt,
-      });
+      // console.log('[firebaseChatService] Message timestamp conversion:', {
+      //   original: data.createdAt,
+      //   convertedString: createdAtStr,
+      //   parsedDate: parsedDate.toString(),
+      //   valid: !isNaN(parsedDate.getTime()),
+      //   finalCreatedAt: validCreatedAt,
+      // });
 
       // Add message with validated timestamp
       messages.push({
@@ -464,12 +653,126 @@ export const getMessages = async (conversationId: string): Promise<Message[]> =>
 };
 
 /**
+ * Block a conversation
+ * Only the user who blocks can unblock the conversation
+ */
+export const blockConversation = async (conversationId: string): Promise<void> => {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {throw new Error('User not authenticated');}
+
+    // Get the conversation to ensure it exists
+    const conversationRef = doc(db, 'conversations', conversationId);
+    const conversationDoc = await getDoc(conversationRef);
+
+    if (!conversationDoc.exists()) {
+      throw new Error('Conversation not found');
+    }
+
+    // Update the conversation to mark it as blocked by this user
+    await updateDoc(conversationRef, {
+      blockedBy: user.email,
+      updatedAt: serverTimestamp(),
+    });
+
+    console.log(`[firebaseChatService] Conversation ${conversationId} blocked by ${user.email}`);
+  } catch (error) {
+    console.error('[firebaseChatService] Error blocking conversation:', error);
+    throw error;
+  }
+};
+
+/**
+ * Unblock a conversation
+ * Only the user who blocked can unblock the conversation
+ */
+export const unblockConversation = async (conversationId: string): Promise<void> => {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {throw new Error('User not authenticated');}
+
+    // Get the conversation to check who blocked it
+    const conversationRef = doc(db, 'conversations', conversationId);
+    const conversationDoc = await getDoc(conversationRef);
+
+    if (!conversationDoc.exists()) {
+      throw new Error('Conversation not found');
+    }
+
+    const data = conversationDoc.data();
+    
+    // Only the user who blocked can unblock
+    if (data.blockedBy !== user.email) {
+      throw new Error('Only the user who blocked this conversation can unblock it');
+    }
+
+    // Update the conversation to remove the block
+    await updateDoc(conversationRef, {
+      blockedBy: null, // Remove the blockedBy field
+      updatedAt: serverTimestamp(),
+    });
+
+    console.log(`[firebaseChatService] Conversation ${conversationId} unblocked by ${user.email}`);
+  } catch (error) {
+    console.error('[firebaseChatService] Error unblocking conversation:', error);
+    throw error;
+  }
+};
+
+/**
+ * Check if a conversation is blocked and by whom
+ */
+export const isConversationBlocked = async (conversationId: string): Promise<{blocked: boolean, blockedBy: string | null}> => {
+  try {
+    // Check if there's a valid conversationId
+    if (!conversationId) {
+      console.log('[firebaseChatService] No conversation ID provided for block check');
+      return { blocked: false, blockedBy: null };
+    }
+    
+    // Get the conversation
+    const conversationRef = doc(db, 'conversations', conversationId);
+    const conversationDoc = await getDoc(conversationRef);
+
+    if (!conversationDoc.exists()) {
+      // Conversation doesn't exist yet, so it's not blocked
+      console.log('[firebaseChatService] Conversation not found when checking block status, assuming not blocked');
+      return { blocked: false, blockedBy: null };
+    }
+
+    const data = conversationDoc.data();
+    
+    return {
+      blocked: !!data.blockedBy,
+      blockedBy: data.blockedBy || null
+    };
+  } catch (error) {
+    console.error('[firebaseChatService] Error checking block status:', error);
+    // Return not blocked in case of any errors
+    return { blocked: false, blockedBy: null };
+  }
+};
+
+/**
  * Send a message in a conversation
  */
 export const sendMessage = async (conversationId: string, content: string): Promise<void> => {
   try {
     const user = await getCurrentUser();
     if (!user) {throw new Error('User not authenticated');}
+
+    // Check if the conversation is blocked before sending
+    const blockStatus = await isConversationBlocked(conversationId);
+    if (blockStatus.blocked) {
+      // If conversation is blocked by the current user, they can't send messages
+      if (blockStatus.blockedBy === user.email) {
+        throw new Error('You have blocked this conversation. Unblock to send messages.');
+      } 
+      // If blocked by the other user, current user can't send messages
+      else {
+        throw new Error('This conversation has been blocked by the recipient.');
+      }
+    }
 
     // Format the user's name properly
     const senderName = user.name ||
@@ -483,17 +786,27 @@ export const sendMessage = async (conversationId: string, content: string): Prom
     // Create an explicit date object for the current time
     // Ensure we use the exact system time rather than Firebase's serverTimestamp
     const now = new Date();
-    const nowISO = now.toISOString();
+    
+    // Date normalization: Check if the date is suspiciously in the future
+    // This can happen with misconfigured device clocks
+    const normalizedNow = new Date();
+    const currentYear = new Date().getFullYear();
+    if (now.getFullYear() > currentYear) {
+      console.log('[firebaseChatService] Detected future date, normalizing timestamp');
+      normalizedNow.setFullYear(currentYear);
+    }
+    
+    const nowISO = normalizedNow.toISOString();
 
     // Log the exact timestamp we're using for debugging
     console.log('[firebaseChatService] Creating message with explicit timestamp:', {
       iso: nowISO,
-      localTime: now.toLocaleString(),
-      year: now.getFullYear(),
-      month: now.getMonth(),
-      day: now.getDate(),
-      hours: now.getHours(),
-      minutes: now.getMinutes(),
+      localTime: normalizedNow.toLocaleString(),
+      year: normalizedNow.getFullYear(),
+      month: normalizedNow.getMonth(),
+      day: normalizedNow.getDate(),
+      hours: normalizedNow.getHours(),
+      minutes: normalizedNow.getMinutes(),
     });
 
     // Get the conversation to find the other participant
@@ -530,17 +843,40 @@ export const sendMessage = async (conversationId: string, content: string): Prom
     const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
     batch.set(messageRef, messageData);
 
-    // Increment unread count for the recipient
-    const recipientUnreadCountKey = `unreadCount_${otherParticipant.replace(/[.@]/g, '_')}`;
+    // Check if the recipient has previously deleted this conversation and restore it
+    const deletedBy = conversationData.deletedBy || [];
+    let updatedDeletedBy = deletedBy;
+    
+    // If recipient previously deleted the conversation, remove them from deletedBy array
+    if (deletedBy.includes(otherParticipant)) {
+      console.log(`[firebaseChatService] Recipient ${otherParticipant} previously deleted conversation, restoring it`);
+      updatedDeletedBy = deletedBy.filter((email: string) => email !== otherParticipant);
+    }
 
-    // Update conversation with last message details and increment unread count
-    batch.update(conversationRef, {
+    // Create the update object for the conversation
+    const updateData: Record<string, any> = {
       lastMessageContent: content,
       lastMessageTime: nowISO,
       updatedAt: nowISO,
       lastSenderId: user.email,
-      [recipientUnreadCountKey]: increment(1),  // Import increment from firebase/firestore
-    });
+      deletedBy: updatedDeletedBy, // Update the deletedBy array to restore for recipient if needed
+    };
+    
+    // Increment unread count for the recipient
+    const recipientUnreadCountKey = `unreadCount_${otherParticipant.replace(/[.@]/g, '_')}`;
+    updateData[recipientUnreadCountKey] = increment(1);
+    
+    // If the recipient has an active deletion timestamp, clear it so they can see new messages
+    const recipientDeletionTimestampField = `deletedAtTimestamp_${otherParticipant.replace(/[.@]/g, '_')}`;
+    if (conversationData[recipientDeletionTimestampField]) {
+      console.log(`[firebaseChatService] Recipient ${otherParticipant} has history deletion timestamp, not changing it`);
+      // We don't update the timestamp anymore - we keep the original deletion timestamp
+      // This allows all messages after the original deletion to remain visible
+      // updateData[recipientDeletionTimestampField] = adjustedTime.toISOString();
+    }
+    
+    // Update the conversation with all our changes
+    batch.update(conversationRef, updateData);
 
     // Commit all changes at once
     await batch.commit();
@@ -580,146 +916,262 @@ export const subscribeToMessages = (
   callback: (messages: Message[]) => void
 ) => {
   try {
-    console.log(`[firebaseChatService] Setting up optimized message subscription for conversation ${conversationId}`);
+    // console.log(`[firebaseChatService] Setting up message subscription for conversation ${conversationId}`);
     const messagesRef = collection(db, 'conversations', conversationId, 'messages');
-    const q = query(messagesRef, orderBy('createdAt', 'asc'));
-
-    // Store the last processed snapshot for deduplication
-    let lastProcessedSnapshot = '';
-
-    // Use snapshot metadata to efficiently detect various update types
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      try {
-        // Skip processing if we're getting duplicate snapshots (can happen with poor connections)
-        const snapshotId = querySnapshot.metadata.hasPendingWrites ? 'pending' : 'server';
-        const currentSnapshotKey = `${snapshotId}-${querySnapshot.size}`;
-
-        if (currentSnapshotKey === lastProcessedSnapshot && !querySnapshot.metadata.hasPendingWrites) {
-          console.log('[firebaseChatService] Skipping duplicate snapshot update');
-          return;
-        }
-
-        lastProcessedSnapshot = currentSnapshotKey;
-
-        const messages: Message[] = [];
-        let hasChanges = false;
-        let hasNewMessages = false;
-
-        // Don't process document changes unless we need them to optimize performance
-        if (querySnapshot.docChanges().length > 0) {
-          // Track which messages have changed to log details
-          const changedMessages: string[] = [];
-
-          querySnapshot.docChanges().forEach(change => {
-            if (change.type === 'added' || change.type === 'modified') {
-              hasChanges = true;
-              changedMessages.push(`${change.doc.id} (${change.type})`);
-            }
-          });
-
-          if (hasChanges) {
-            console.log(`[firebaseChatService] Detected ${changedMessages.length} changed messages:`,
-              changedMessages.join(', '));
-          }
-        }
-
-        querySnapshot.forEach((doc) => {
-          try {
-            const data = doc.data();
-
-            // Parse the createdAt timestamp and ensure it's valid
-            const createdAtStr = safeTimestampToISOString(data.createdAt);
-
-            // Get real-time state tracking for this message
-            const isPendingWrite = doc.metadata.hasPendingWrites;
-
-            // If this document is newly added or pending, count it as a new message
-            if (isPendingWrite || querySnapshot.docChanges().some(change =>
-                change.type === 'added' && change.doc.id === doc.id)) {
-              hasNewMessages = true;
-            }
-
-            // Add message with pending state tracking for UI feedback
-            messages.push({
-              id: doc.id,
-              conversationId,
-              senderId: data.senderId || '',
-              senderName: data.senderName || '',
-              content: data.content || '',
-              status: isPendingWrite ? MessageStatus.SENDING : (data.status || MessageStatus.SENT),
-              receiptStatus: isPendingWrite ? ReceiptStatus.SENDING : (data.receiptStatus || ReceiptStatus.NONE),
-              readAt: data.readAt ? safeTimestampToISOString(data.readAt) : undefined,
-              createdAt: createdAtStr,
-              updatedAt: safeTimestampToISOString(data.updatedAt),
-              isPending: isPendingWrite,
-            });
-          } catch (docError) {
-            console.error('[firebaseChatService] Error processing message document:', docError, doc.id);
-          }
-        });
-
-        // Sort messages by timestamp to ensure correct display order
-        messages.sort((a, b) => {
-          const dateA = new Date(a.createdAt).getTime();
-          const dateB = new Date(b.createdAt).getTime();
-          return dateA - dateB;
-        });
-
-        // If new messages detected, log for debugging
-        if (hasNewMessages) {
-          console.log('[firebaseChatService] New messages detected in real-time update');
-        }
-
-        // Return messages immediately for real-time UI update
-        callback(messages);
-
-        // Only mark messages as read if:
-        // 1. There are actually messages to process
-        // 2. This is a server-side (not cached or pending) snapshot
-        // 3. There are actual changes in the messages
-        // 4. This is not a duplicate from a bad connection
-        if (messages.length > 0 &&
-            !querySnapshot.metadata.fromCache &&
-            !querySnapshot.metadata.hasPendingWrites &&
-            hasChanges) {
-          setTimeout(() => {
-            markMessagesAsRead(conversationId, messages).catch(error => {
-              console.error('[firebaseChatService] Error marking messages as read:', error);
-            });
-          }, 100); // Small delay to prioritize UI updates
-        }
-      } catch (snapshotError) {
-        console.error('[firebaseChatService] Error processing message snapshot:', snapshotError);
-        // Return empty array in case of error to avoid UI crashes
+    let currentDeletionTimestamp: string | null = null;
+    let messageUnsubscribe: () => void = () => {};
+    let conversationUnsubscribe: () => void = () => {};
+    
+    // First get the current user and check for deletion timestamps
+    getCurrentUser().then(user => {
+      if (!user) {
+        console.error('[firebaseChatService] Cannot subscribe to messages - user not authenticated');
         callback([]);
+        return;
       }
-    }, (error) => {
-      console.error('[firebaseChatService] Error in messages subscription:', error);
-      // Try to recover from subscription errors if possible
-      setTimeout(() => {
-        try {
-          // Notify UI that we're in error state
-          callback([]);
-          console.log('[firebaseChatService] Attempting to recover from subscription error');
 
-          // Attempt to get messages via regular fetch as fallback
-          getMessages(conversationId)
-            .then(messages => {
-              if (messages.length > 0) {
-                callback(messages);
-                console.log('[firebaseChatService] Successfully recovered messages via fallback fetch');
+      // Check if we need to create the conversation first
+      // This handles the case of fresh conversations that don't exist yet
+      if (conversationId && conversationId.includes('_') && !conversationId.includes('/')) {
+        // This looks like a valid conversation ID (email_email format)
+        const possibleParticipants = conversationId.split('_');
+        if (possibleParticipants.length === 2) {
+          const otherParticipant = possibleParticipants[0] === user.email ? 
+            possibleParticipants[1] : possibleParticipants[0];
+            
+          // Check if conversation exists first
+          const conversationRef = doc(db, 'conversations', conversationId);
+          getDoc(conversationRef).then(doc => {
+            if (!doc.exists()) {
+              console.log(`[firebaseChatService] Conversation ${conversationId} does not exist yet, initializing it`);
+              
+              // Extract recipient name from email
+              let recipientName = '';
+              if (otherParticipant.includes('@')) {
+                const username = otherParticipant.split('@')[0];
+                recipientName = username.charAt(0).toUpperCase() + username.slice(1);
+              } else {
+                recipientName = otherParticipant;
               }
-            })
-            .catch(fallbackError => {
-              console.error('[firebaseChatService] Failed to recover via fallback fetch:', fallbackError);
-            });
-        } catch (recoveryError) {
-          console.error('[firebaseChatService] Error during subscription recovery attempt:', recoveryError);
+              
+              // Initialize the conversation
+              getOrCreateConversation(otherParticipant, recipientName)
+                .then(() => {
+                  console.log(`[firebaseChatService] Successfully created conversation ${conversationId}`);
+                  setupSubscription();
+                })
+                .catch(error => {
+                  console.error(`[firebaseChatService] Failed to create conversation: ${error.message}`);
+                  callback([]);
+                });
+            } else {
+              // Conversation exists, set up subscription normally
+              setupSubscription();
+            }
+          }).catch(error => {
+            console.error(`[firebaseChatService] Error checking conversation: ${error.message}`);
+            callback([]);
+          });
+        } else {
+          // Not a valid conversation ID format, proceed with normal subscription
+          setupSubscription();
         }
-      }, 2000);
+      } else {
+        // Not a conversation ID we can parse, proceed with normal subscription
+        setupSubscription();
+      }
+      
+      // Set up the actual subscription to messages
+      function setupSubscription() {
+        // We know user is not null here because we checked at the beginning of the promise
+        const userEmail = user!.email; // Use non-null assertion since we've already checked
+        
+        // Set up a subscription to the conversation document to detect changes to the deletion timestamp
+        const conversationRef = doc(db, 'conversations', conversationId);
+        conversationUnsubscribe = onSnapshot(conversationRef, (conversationDoc) => {
+          if (!conversationDoc.exists()) {
+            console.log(`[firebaseChatService] Cannot subscribe to messages - conversation ${conversationId} not found, but not throwing error`);
+            // Return empty array for fresh conversations instead of error
+            callback([]);
+            return;
+          }
+          
+          const conversationData = conversationDoc.data();
+          const deletionTimestampField = `deletedAtTimestamp_${userEmail.replace(/[.@]/g, '_')}`;
+          const deletionTimestamp = conversationData[deletionTimestampField];
+          
+          // If the deletion timestamp has changed, we need to update our message query
+          if (deletionTimestamp !== currentDeletionTimestamp) {
+            console.log(`[firebaseChatService] Deletion timestamp changed from ${currentDeletionTimestamp} to ${deletionTimestamp}`);
+            currentDeletionTimestamp = deletionTimestamp;
+            
+            // Unsubscribe from the current message subscription (if any)
+            if (messageUnsubscribe) {
+              messageUnsubscribe();
+            }
+            
+            // Base query with sorting
+            let q = query(messagesRef, orderBy('createdAt', 'asc'));
+            
+            // If user has deletion timestamp, only show messages after that time
+            if (deletionTimestamp) {
+              console.log(`[firebaseChatService] Filtering real-time messages after ${deletionTimestamp}`);
+              q = query(messagesRef, 
+                orderBy('createdAt', 'asc'), 
+                where('createdAt', '>', deletionTimestamp)
+              );
+            }
+      
+            // Store the last processed snapshot for deduplication
+            let lastProcessedSnapshot = '';
+      
+            // Use snapshot metadata to efficiently detect various update types
+            messageUnsubscribe = onSnapshot(q, (querySnapshot) => {
+              try {
+                // Skip processing if we're getting duplicate snapshots (can happen with poor connections)
+                const snapshotId = querySnapshot.metadata.hasPendingWrites ? 'pending' : 'server';
+                const currentSnapshotKey = `${snapshotId}-${querySnapshot.size}`;
+      
+                if (currentSnapshotKey === lastProcessedSnapshot && !querySnapshot.metadata.hasPendingWrites) {
+                  console.log('[firebaseChatService] Skipping duplicate snapshot update');
+                  return;
+                }
+      
+                lastProcessedSnapshot = currentSnapshotKey;
+      
+                const messages: Message[] = [];
+                let hasChanges = false;
+                let hasNewMessages = false;
+      
+                // Don't process document changes unless we need them to optimize performance
+                if (querySnapshot.docChanges().length > 0) {
+                  // Track which messages have changed to log details
+                  const changedMessages: string[] = [];
+      
+                  querySnapshot.docChanges().forEach(change => {
+                    if (change.type === 'added' || change.type === 'modified') {
+                      hasChanges = true;
+                      changedMessages.push(`${change.doc.id} (${change.type})`);
+                    }
+                  });
+      
+                  if (hasChanges) {
+                    // console.log(`[firebaseChatService] Detected ${changedMessages.length} changed messages:`,changedMessages.join(', '));
+                  }
+                }
+      
+                querySnapshot.forEach((doc) => {
+                  try {
+                    const data = doc.data();
+      
+                    // Parse the createdAt timestamp and ensure it's valid
+                    const createdAtStr = safeTimestampToISOString(data.createdAt);
+      
+                    // Get real-time state tracking for this message
+                    const isPendingWrite = doc.metadata.hasPendingWrites;
+      
+                    // If this document is newly added or pending, count it as a new message
+                    if (isPendingWrite || querySnapshot.docChanges().some(change =>
+                        change.type === 'added' && change.doc.id === doc.id)) {
+                      hasNewMessages = true;
+                    }
+      
+                    // Add message with pending state tracking for UI feedback
+                    messages.push({
+                      id: doc.id,
+                      conversationId,
+                      senderId: data.senderId || '',
+                      senderName: data.senderName || '',
+                      content: data.content || '',
+                      status: isPendingWrite ? MessageStatus.SENDING : (data.status || MessageStatus.SENT),
+                      receiptStatus: isPendingWrite ? ReceiptStatus.SENDING : (data.receiptStatus || ReceiptStatus.NONE),
+                      readAt: data.readAt ? safeTimestampToISOString(data.readAt) : undefined,
+                      createdAt: createdAtStr,
+                      updatedAt: safeTimestampToISOString(data.updatedAt),
+                      isPending: isPendingWrite,
+                    });
+                  } catch (docError) {
+                    console.error('[firebaseChatService] Error processing message document:', docError, doc.id);
+                  }
+                });
+      
+                // Sort messages by timestamp to ensure correct display order
+                messages.sort((a, b) => {
+                  const dateA = new Date(a.createdAt).getTime();
+                  const dateB = new Date(b.createdAt).getTime();
+                  return dateA - dateB;
+                });
+      
+                // If new messages detected, log for debugging
+                if (hasNewMessages) {
+                  console.log('[firebaseChatService] New messages detected in real-time update');
+                }
+      
+                // Return messages immediately for real-time UI update
+                callback(messages);
+      
+                // Only mark messages as read if:
+                // 1. There are actually messages to process
+                // 2. This is a server-side (not cached or pending) snapshot
+                // 3. There are actual changes in the messages
+                // 4. This is not a duplicate from a bad connection
+                if (messages.length > 0 &&
+                    !querySnapshot.metadata.fromCache &&
+                    !querySnapshot.metadata.hasPendingWrites &&
+                    hasChanges) {
+                  setTimeout(() => {
+                    markMessagesAsRead(conversationId, messages).catch(error => {
+                      console.error('[firebaseChatService] Error marking messages as read:', error);
+                    });
+                  }, 100); // Small delay to prioritize UI updates
+                }
+              } catch (snapshotError) {
+                console.error('[firebaseChatService] Error processing message snapshot:', snapshotError);
+                // Return empty array in case of error to avoid UI crashes
+                callback([]);
+              }
+            }, (error) => {
+              console.error('[firebaseChatService] Error in messages subscription:', error);
+              // Try to recover from subscription errors if possible
+              setTimeout(() => {
+                try {
+                  // Notify UI that we're in error state
+                  callback([]);
+                  console.log('[firebaseChatService] Attempting to recover from subscription error');
+      
+                  // Attempt to get messages via regular fetch as fallback
+                  getMessages(conversationId)
+                    .then(messages => {
+                      if (messages.length > 0) {
+                        callback(messages);
+                        console.log('[firebaseChatService] Successfully recovered messages via fallback fetch');
+                      }
+                    })
+                    .catch(fallbackError => {
+                      console.error('[firebaseChatService] Failed to recover via fallback fetch:', fallbackError);
+                    });
+                } catch (recoveryError) {
+                  console.error('[firebaseChatService] Error during subscription recovery attempt:', recoveryError);
+                }
+              }, 2000);
+            });
+          }
+        });
+      }
     });
 
-    return { unsubscribe };
+    // Return a function that unsubscribes from both the conversation and message listeners
+    return {
+      unsubscribe: () => {
+        try {
+          if (messageUnsubscribe) messageUnsubscribe();
+          if (conversationUnsubscribe) conversationUnsubscribe();
+          console.log('[firebaseChatService] Unsubscribed from conversation and messages');
+        } catch (error) {
+          console.error('[firebaseChatService] Error unsubscribing:', error);
+        }
+      },
+    };
   } catch (error) {
     console.error('[firebaseChatService] Error setting up message subscription:', error);
     return {
@@ -816,6 +1268,12 @@ export const subscribeToUserConversations = (
       querySnapshot.forEach((doc) => {
         const data = doc.data();
 
+        // Skip conversations that the user has deleted
+        const deletedBy = data.deletedBy || [];
+        if (deletedBy.includes(userEmail)) {
+          return;
+        }
+
         // Convert timestamps to strings
         const lastMessageTime = data.lastMessageTime
           ? safeTimestampToISOString(data.lastMessageTime)
@@ -854,6 +1312,8 @@ export const subscribeToUserConversations = (
           lastReadMessageId: data[`lastReadMessageId_${userEmail.replace(/[.@]/g, '_')}`],
           productId: data.productId,
           productName: data.productName,
+          blockedBy: data.blockedBy || null, // Make sure to include blocked status
+          deletedBy: data.deletedBy || [], // Include deleted status
           ...userSpecificFields, // Include all name mappings
         });
       });

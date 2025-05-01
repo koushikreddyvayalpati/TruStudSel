@@ -94,7 +94,7 @@ const useChatStore = create<ChatStore>((set, get) => ({
       return get().unreadMessagesCount;
     }
     
-    const totalUnread = conversations.reduce((count, conversation) => {
+    const totalUnread = conversations.reduce((count: number, conversation: Conversation) => {
       return count + (conversation.unreadCount || 0);
     }, 0);
     
@@ -250,10 +250,17 @@ const useChatStore = create<ChatStore>((set, get) => ({
           const hasNewMessages = updatedConversations.some((newConv: Conversation) => {
             const existingConv = prevConversations.find(conv => conv.id === newConv.id);
 
+            // Check if conversation block status changed
+            const blockStatusChanged = existingConv?.blockedBy !== newConv.blockedBy;
+            if (blockStatusChanged) {
+              console.log('[chatStore] Block status changed for conversation:', newConv.id);
+            }
+
             // New conversation or more recent message in existing conversation
             if (!existingConv ||
                (existingConv.lastMessageTime && newConv.lastMessageTime &&
-                new Date(newConv.lastMessageTime) > new Date(existingConv.lastMessageTime))) {
+                new Date(newConv.lastMessageTime) > new Date(existingConv.lastMessageTime)) ||
+                blockStatusChanged) {
               return true;
             }
 
@@ -266,7 +273,7 @@ const useChatStore = create<ChatStore>((set, get) => ({
           }
 
           // Calculate total unread count from all conversations
-          const totalUnread = updatedConversations.reduce((count, conversation) => {
+          const totalUnread = updatedConversations.reduce((count: number, conversation: Conversation) => {
             return count + (conversation.unreadCount || 0);
           }, 0);
 
@@ -320,7 +327,7 @@ const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   // Fetch conversations
-  fetchConversations: async (forceRefresh = false) => {
+  fetchConversations: async (_forceRefresh = false) => {
     const { currentUserEmail, loadCachedConversations, cacheConversations, clearConversationsCache } = get();
 
     if (!currentUserEmail) {return;}
@@ -647,7 +654,7 @@ const useChatStore = create<ChatStore>((set, get) => ({
       const conversation = conversations.find(conv => conv.id === conversationId);
       
       if (!conversation || !conversation.unreadCount || conversation.unreadCount <= 0) {
-        console.log(`[chatStore] No unread messages in conversation ${conversationId}`);
+        // console.log(`[chatStore] No unread messages in conversation ${conversationId}`);
         return;
       }
       

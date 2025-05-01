@@ -776,14 +776,14 @@ export const getNewArrivals = async (
 export const createProductWithImageFilenames = async (
   productData: CreateProductWithImagesRequest
 ): Promise<Product> => {
-  console.log('[API:products] Starting createProductWithImageFilenames with data:',
-    JSON.stringify({
-      ...productData,
-      description: productData.description.length > 50
-        ? productData.description.substring(0, 50) + '...'
-        : productData.description,
-    })
-  );
+  // console.log('[API:products] Starting createProductWithImageFilenames with data:',
+  //   JSON.stringify({
+  //     ...productData,
+  //     description: productData.description.length > 50
+  //       ? productData.description.substring(0, 50) + '...'
+  //       : productData.description,
+  //   })
+  // );
 
   try {
     // Import Auth from Amplify inside the function to avoid circular dependencies
@@ -794,18 +794,18 @@ export const createProductWithImageFilenames = async (
     const token = currentSession.getIdToken().getJwtToken();
 
     const endpoint = `${API_URL}/api/products/with-image-filenames`;
-    console.log('[API:products] Sending request to endpoint:', endpoint);
+    // console.log('[API:products] Sending request to endpoint:', endpoint);
 
     const requestBody = JSON.stringify(productData);
-    console.log('[API:products] Request payload size:', requestBody.length, 'bytes');
-    console.log('[API:products] Request headers:', {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token.substring(0, 15)}...`, // Only log part of token for security
-    });
+    // console.log('[API:products] Request payload size:', requestBody.length, 'bytes');
+    //   console.log('[API:products] Request headers:', {
+    //     'Content-Type': 'application/json',
+    //     'Authorization': `Bearer ${token.substring(0, 15)}...`, // Only log part of token for security
+    //   });
 
     // Log first 200 characters of request body for debugging
-    console.log('[API:products] Request body (truncated):',
-      requestBody.length > 200 ? requestBody.substring(0, 200) + '...' : requestBody);
+    // console.log('[API:products] Request body (truncated):',
+    //   requestBody.length > 200 ? requestBody.substring(0, 200) + '...' : requestBody);
 
     const response = await fetchWithTimeout(
       endpoint,

@@ -443,7 +443,7 @@ const useProductDetailsStore = create<ProductDetailsState>((set, get) => ({
       const token = currentSession.getIdToken().getJwtToken();
 
       const productIdString = productId.toString();
-      console.log(`[ProductDetailsStore] Adding product ${productIdString} to wishlist for user ${userEmail}`);
+      // console.log(`[ProductDetailsStore] Adding product ${productIdString} to wishlist for user ${userEmail}`);
       const apiUrl = `${API_BASE_URL}/api/wishlist/${userEmail}?productId=${productIdString}`;
 
       try {

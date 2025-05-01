@@ -69,7 +69,7 @@ export const postReview = async (
   token: string
 ): Promise<Review> => {
   try {
-    console.log(`[API:reviews] Posting review for seller: ${reviewData.sellerEmail}`);
+    // console.log(`[API:reviews] Posting review for seller: ${reviewData.sellerEmail}`);
 
     const response = await fetchWithTimeout(
       REVIEWS_API_URL,

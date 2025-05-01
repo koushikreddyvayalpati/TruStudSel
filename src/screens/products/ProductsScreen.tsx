@@ -848,7 +848,7 @@ const ProductsScreen = () => {
                   });
                 }}
               >
-                  <Text style={styles.manageButtonText}>Edit Details</Text>
+                  <Text style={styles.manageButtonText}>Edit</Text>
                   <Ionicons name="chevron-forward" size={16} color="#f7b305" />
               </TouchableOpacity>
               </View>
@@ -1264,10 +1264,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sellerName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#222',
-    marginBottom: 6,
+    marginBottom: 4,
     marginTop: 0,
   },
   sellerRating: {
@@ -1571,7 +1571,7 @@ const styles = StyleSheet.create({
     color: 'white',
   },
   sellerDetails: {
-    marginLeft: 16,
+    marginLeft: 8,
     flex: 1,
   },
   sellerMetaInfo: {
@@ -1907,7 +1907,7 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   ratingLabel: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
     color: '#333',
     marginBottom: 10,

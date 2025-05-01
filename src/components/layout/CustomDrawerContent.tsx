@@ -64,8 +64,8 @@ const CustomDrawerContent = (props: DrawerContentComponentProps) => {
       key: 'wishlist',
       label: 'Wishlist',
       icon: 'favorite',
-      navigateTo: 'Wishlist',
-      params: { wishlist: [] },
+      navigateTo: 'MainStack',
+      params: { screen: 'Wishlist' },
     },
     {
       key: 'settings',

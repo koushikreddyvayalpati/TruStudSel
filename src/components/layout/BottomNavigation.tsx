@@ -10,6 +10,7 @@ import Antdesign from 'react-native-vector-icons/AntDesign';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import useChatStore from '../../store/chatStore';
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
 
 // Update navigation type to be more general
 type NavigationProp = StackNavigationProp<any>;
@@ -69,8 +70,8 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({ userUniversity, use
   const navigationItems = React.useMemo<BottomNavItem[]>(() => [
     {
       key: 'home',
-      label: 'Home',
-      icon: <Antdesign name="home" size={24} color="black" />,
+      label: '',
+      icon: <FontAwesome name="home" size={28} color="black" />,
       onPress: () => {
         try {
           // Use popToTop to return to home from any nested stack
@@ -89,8 +90,8 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({ userUniversity, use
     },
     {
       key: 'wishlist',
-      label: 'Wishlist',
-      icon: <Ionicons name="heart-outline" size={24} color="black" />,
+      label: '',
+      icon: <FontAwesome name="heart" size={27} color="black" />,
       onPress: () => navigation.navigate('Wishlist', { wishlist: [] }),
     },
     {
@@ -120,8 +121,8 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({ userUniversity, use
     },
     {
       key: 'profile',
-      label: 'Profile',
-      icon: <Antdesign name="user" size={24} color="black" />,
+      label: '',
+      icon: <FontAwesome name="user" size={28} color="black" />,
       onPress: () => {
         try {
           // Navigate to the Profile screen - use direct navigation
@@ -135,8 +136,8 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({ userUniversity, use
     },
     {
       key: 'chat',
-      label: 'Chat',
-      icon: <Ionicons name="chatbubbles-outline" size={24} color="black" />,
+      label: '',
+      icon: <FontAwesome name="wechat" size={28} color="black" />,
       onPress: () => navigation.navigate('MessagesScreen'),
       badge: badgeCount,
     },
@@ -176,7 +177,6 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({ userUniversity, use
             </View>
           )}
         </View>
-        <Text style={styles.navText}>{item.label}</Text>
       </TouchableOpacity>
     );
   }, []);
@@ -195,13 +195,15 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: '#f7b305',
-    height: 70,
+    height: 55,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
-    paddingBottom: 10,
+    borderTopLeftRadius: 40,
+    borderTopRightRadius: 40,
+    width: '100%',
   },
   navButton: {
     alignItems: 'center',
@@ -222,9 +224,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   centerCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 15,

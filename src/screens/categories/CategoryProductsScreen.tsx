@@ -51,7 +51,8 @@ interface FilterOption {
 const ProductItem = React.memo<{
   item: Product;
   onPress: (product: Product) => void;
-}>(({ item, onPress }) => {
+  onMessageSeller?: (product: Product) => void;
+}>(({ item, onPress, onMessageSeller }) => {
   const [imageError, setImageError] = useState(false);
 
   // Get the appropriate image URL - primaryImage, first image from images array, or placeholder
@@ -124,6 +125,14 @@ const ProductItem = React.memo<{
           <Text style={styles.productCondition}>
             {item.productage.replace(/-/g, ' ')}
           </Text>
+        )}
+        {onMessageSeller && (
+          <TouchableOpacity
+            style={styles.messageButton}
+            onPress={() => onMessageSeller(item)}
+          >
+            <Icon name="comment" size={18} color="#f7b305" />
+          </TouchableOpacity>
         )}
       </View>
     </TouchableOpacity>
@@ -558,13 +567,34 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Add a message seller handler function similar to HomeScreen
+  const handleMessageSeller = useCallback((product: Product) => {
+    // Get seller information from the product
+    const sellerName = product.sellerName || (product.seller && product.seller.name) || 'Seller';
+    const sellerEmail = product.email || (product.seller && (product.seller as any).email);
+
+    if (!sellerEmail) {
+      Alert.alert('Error', 'Seller contact information is not available');
+      return;
+    }
+
+    console.log(`[CategoryProducts] Messaging seller: ${sellerName} (${sellerEmail})`);
+
+    // Navigate to the Firebase Chat screen
+    navigation.navigate('FirebaseChatScreen', {
+      recipientEmail: sellerEmail,
+      recipientName: sellerName,
+    });
+  }, [navigation]);
+
   // Memoize renderItem function to optimize FlatList performance
   const renderItem = useCallback(({ item }: { item: Product }) => (
     <ProductItem
       item={item}
       onPress={handleProductPress}
+      onMessageSeller={handleMessageSeller}
     />
-  ), [handleProductPress]);
+  ), [handleProductPress, handleMessageSeller]);
 
   // Optimize keyExtractor to prevent recreating function on each render
   const keyExtractor = useCallback((item: Product) => item.id, []);
@@ -907,7 +937,7 @@ const styles = StyleSheet.create({
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 7,
+    paddingVertical: 3,
     paddingHorizontal: 12,
     borderRadius: 20,
     marginLeft: 10,
@@ -1283,6 +1313,17 @@ const styles = StyleSheet.create({
     color: 'white',
     textAlign: 'center',
     paddingHorizontal: 3,
+  },
+  messageButton: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

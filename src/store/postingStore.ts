@@ -357,20 +357,20 @@ const usePostingStore = create<PostingState>((set, get) => ({
 
     const state = get();
 
-    console.log('[PostingStore] Product data:', JSON.stringify({
-      title: state.title,
-      category: state.selectedType?.id,
-      subcategory: state.selectedSubcategory || '',
-      description: state.description.length > 50 ? state.description.substring(0, 50) + '...' : state.description,
-      price: state.price,
-      email: userEmail,
-      sellerName: userName || 'Anonymous User',
-      city: state.cityToUse || '',
-      zipcode: userZipcode || '',
-      university: state.universityToUse,
-      productage: state.selectedCondition?.id,
-      sellingtype: state.isSell ? 'sell' : 'rent',
-    }));
+    // console.log('[PostingStore] Product data:', JSON.stringify({
+    //   title: state.title,
+    //   category: state.selectedType?.id,
+    //   subcategory: state.selectedSubcategory || '',
+    //   description: state.description.length > 50 ? state.description.substring(0, 50) + '...' : state.description,
+    //   price: state.price,
+    //   email: userEmail,
+    //   sellerName: userName || 'Anonymous User',
+    //   city: state.cityToUse || '',
+    //   zipcode: userZipcode || '',
+    //   university: state.universityToUse,
+    //   productage: state.selectedCondition?.id,
+    //   sellingtype: state.isSell ? 'sell' : 'rent',
+    // }));
 
     set({ isLoading: true, uploadProgress: 10 });
 
@@ -419,7 +419,7 @@ const usePostingStore = create<PostingState>((set, get) => ({
           primaryImage: fullImageUrls.length > 0 ? fullImageUrls[0] : '',
         };
 
-        console.log('[PostingStore] Creating product with data:', JSON.stringify(productData));
+        // console.log('[PostingStore] Creating product with data:', JSON.stringify(productData));
         set({ uploadProgress: 80 });
 
         // Create the product with the image filenames

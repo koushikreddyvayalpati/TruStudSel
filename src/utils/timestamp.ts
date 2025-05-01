@@ -54,11 +54,43 @@ export const formatMessageTime = (timestamp: string | Date): string => {
 
     // Check if the date is valid
     if (isNaN(date.getTime())) {
+      console.warn('[timestampUtils] Invalid date in formatMessageTime:', timestamp);
       return '';
     }
 
-    // Format to hours:minutes with AM/PM
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    // Always format the time consistently
+    const timeFormat = { hour: '2-digit' as const, minute: '2-digit' as const };
+    const timeString = date.toLocaleTimeString([], timeFormat);
+
+    const now = new Date();
+    const isToday = isSameDay(date, now);
+    
+    // Set up yesterday date for comparison
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = isSameDay(date, yesterday);
+    
+    // Set up current year comparison
+    const isCurrentYear = date.getFullYear() === now.getFullYear();
+    
+    // For today's messages, just show time
+    if (isToday) {
+      return timeString;
+    } 
+    // For yesterday's messages, show "Yesterday" with time
+    else if (isYesterday) {
+      return `Yesterday ${timeString}`;
+    }
+    // For messages from current year, show month/day with time
+    else if (isCurrentYear) {
+      const dateString = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      return `${dateString}, ${timeString}`;
+    } 
+    // For older messages, show full date with time
+    else {
+      const dateString = date.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+      return `${dateString}, ${timeString}`;
+    }
   } catch (error) {
     console.error('[timestampUtils] Error formatting message time:', error);
     return '';

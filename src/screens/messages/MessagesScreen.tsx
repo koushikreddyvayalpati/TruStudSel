@@ -12,6 +12,7 @@ import {
   Platform,
   KeyboardAvoidingView,
   Keyboard,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -19,11 +20,13 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
+import { Swipeable } from 'react-native-gesture-handler';
 import { MainStackParamList } from '../../types/navigation.types';
 import { Conversation } from '../../types/chat.types';
 import useChatStore from '../../store/chatStore';
 import * as PushNotificationHelper from '../../utils/pushNotificationHelper';
 import { configureStatusBar } from '../../utils/statusBarManager';
+import { deleteConversationForUser } from '../../services/firebaseChatService';
 
 // Navigation prop type with stack methods
 type MessagesScreenNavigationProp = StackNavigationProp<MainStackParamList, 'MessagesScreen'>;
@@ -227,6 +230,79 @@ const MessagesScreen = () => {
     });
   }, [navigation, currentUserEmail, getConversationDisplayName, markConversationAsRead]);
 
+  // Handle deleting a conversation
+  const handleDeleteConversation = useCallback((conversation: Conversation) => {
+    Alert.alert(
+      'Delete Options',
+      'Choose an option:',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Hide Conversation',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteConversationForUser(conversation.id);
+              // Refresh conversations after deletion
+              fetchConversations(true);
+            } catch (error) {
+              console.error('Error hiding conversation:', error);
+              Alert.alert('Error', 'Failed to hide conversation. Please try again.');
+            }
+          },
+        },
+        {
+          text: 'Delete History',
+          style: 'destructive',
+          onPress: async () => {
+            Alert.alert(
+              'Delete Conversation History',
+              'This will delete all existing messages, but keep the conversation and any new messages. This action cannot be undone.',
+              [
+                {
+                  text: 'Cancel',
+                  style: 'cancel',
+                },
+                {
+                  text: 'Delete History',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      // Import the function for deleting history
+                      const { deleteConversationHistoryForUser } = await import('../../services/firebaseChatService');
+                      await deleteConversationHistoryForUser(conversation.id);
+                      // Navigate to the conversation to show the cleared history
+                      goToConversation(conversation);
+                    } catch (error) {
+                      console.error('Error deleting conversation history:', error);
+                      Alert.alert('Error', 'Failed to delete conversation history. Please try again.');
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  }, [fetchConversations, goToConversation]);
+
+  // Render right actions for swipeable
+  const renderRightActions = useCallback((conversation: Conversation) => {
+    return (
+      <TouchableOpacity
+        style={styles.deleteAction}
+        onPress={() => handleDeleteConversation(conversation)}
+      >
+        <Ionicons name="trash-outline" size={24} color="#fff" />
+        <Text style={styles.deleteActionText}>Delete</Text>
+      </TouchableOpacity>
+    );
+  }, [handleDeleteConversation]);
+
   // Conversation item separator
   const ItemSeparator = useCallback(() => (
     <View style={styles.separator} />
@@ -234,6 +310,9 @@ const MessagesScreen = () => {
 
   // Key extractor for FlatList
   const keyExtractor = useCallback((item: Conversation) => item.id, []);
+
+  // Refs for swipeable components
+  const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
 
   // Render each conversation item
   const renderItem = useCallback(({ item }: { item: Conversation }) => {
@@ -257,53 +336,72 @@ const MessagesScreen = () => {
     const hasUnreadMessages = !!(item.unreadCount && item.unreadCount > 0);
 
     return (
-      <TouchableOpacity
-        style={[
-          styles.conversationItem,
-          hasUnreadMessages && styles.unreadConversationItem,
-        ]}
-        onPress={() => goToConversation(item)}
-        activeOpacity={0.7}
+      <Swipeable
+        ref={(ref) => {
+          if (ref && item.id) {
+            swipeableRefs.current.set(item.id, ref);
+          }
+        }}
+        renderRightActions={() => renderRightActions(item)}
+        friction={2}
+        rightThreshold={40}
+        onSwipeableOpen={() => {
+          // Close after a delay to ensure the user sees the action
+          setTimeout(() => {
+            if (item.id && swipeableRefs.current.has(item.id)) {
+              swipeableRefs.current.get(item.id)?.close();
+            }
+          }, 3000);
+        }}
       >
-        {/* Unread indicator */}
-        {hasUnreadMessages && <View style={styles.unreadIndicator} />}
+        <TouchableOpacity
+          style={[
+            styles.conversationItem,
+            hasUnreadMessages && styles.unreadConversationItem,
+          ]}
+          onPress={() => goToConversation(item)}
+          activeOpacity={0.7}
+        >
+          {/* Unread indicator */}
+          {hasUnreadMessages && <View style={styles.unreadIndicator} />}
 
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initials}</Text>
-        </View>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initials}</Text>
+          </View>
 
-        <View style={styles.conversationContent}>
-          <View style={styles.conversationHeader}>
-            <Text style={[styles.conversationName, hasUnreadMessages && styles.unreadText]}>
-              {displayName}
-              {hasUnreadMessages && <View style={styles.dotIndicator} />}
-            </Text>
-            <Text style={[styles.conversationTime, hasUnreadMessages && styles.unreadTime]}>
-              {timeDisplay}
-            </Text>
+          <View style={styles.conversationContent}>
+            <View style={styles.conversationHeader}>
+              <Text style={[styles.conversationName, hasUnreadMessages && styles.unreadText]}>
+                {displayName}
+                {hasUnreadMessages && <View style={styles.dotIndicator} />}
+              </Text>
+              <Text style={[styles.conversationTime, hasUnreadMessages && styles.unreadTime]}>
+                {timeDisplay}
+              </Text>
+            </View>
+            <View style={styles.conversationPreview}>
+              <Text
+                style={[
+                  styles.conversationMessage,
+                  hasUnreadMessages && styles.unreadText,
+                ]}
+                numberOfLines={2}
+              >
+                {truncatedMessage}
+              </Text>
+              {hasUnreadMessages && item.unreadCount && item.unreadCount > 0 && (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadBadgeText}>
+                    {item.unreadCount > 9 ? '9+' : item.unreadCount}
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
-          <View style={styles.conversationPreview}>
-            <Text
-              style={[
-                styles.conversationMessage,
-                hasUnreadMessages && styles.unreadText,
-              ]}
-              numberOfLines={2}
-            >
-              {truncatedMessage}
-            </Text>
-            {hasUnreadMessages && item.unreadCount && item.unreadCount > 0 && (
-              <View style={styles.unreadBadge}>
-                <Text style={styles.unreadBadgeText}>
-                  {item.unreadCount > 9 ? '9+' : item.unreadCount}
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </Swipeable>
     );
-  }, [getConversationDisplayName, getTimeDisplay, goToConversation]);
+  }, [getConversationDisplayName, getTimeDisplay, goToConversation, renderRightActions]);
 
   // Empty state component
   const renderEmptyComponent = useCallback(() => (
@@ -1048,6 +1146,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 4,
     elevation: 4,
+  },
+  deleteAction: {
+    backgroundColor: '#ff6b6b',
+    padding: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteActionText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });
 

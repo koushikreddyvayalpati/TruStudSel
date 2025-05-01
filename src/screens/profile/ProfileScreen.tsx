@@ -30,8 +30,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import useProfileStore from '../../store/profileStore';
 
 // Constants
-const PROFILE_BANNER_HEIGHT = 160;
-const PROFILE_IMAGE_SIZE = 100;
+const PROFILE_BANNER_HEIGHT = 120;
+const PROFILE_IMAGE_SIZE = 140;
 const HEADER_MAX_HEIGHT = Platform.OS === 'ios' ? 60 : 56;
 const HEADER_MIN_HEIGHT = Platform.OS === 'ios' ? 60 : 56;
 const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;// Estimated post item height for better FlatList performance
@@ -189,10 +189,8 @@ const ProfileHeader = React.memo(({
             <View style={styles.iconContainer}>
               <FontAwesome5 name="university" size={16} color="black" />
             </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>UNIVERSITY</Text>
-              <Text style={styles.userInfoText}>{userData.university}</Text>
-            </View>
+            
+            <Text style={styles.userInfoText}>{userData.university}</Text>
           </View>
 
           {/* Only show email if viewing own profile, not someone else's */}
@@ -201,10 +199,7 @@ const ProfileHeader = React.memo(({
               <View style={styles.iconContainer}>
                 <MaterialCommunityIcons name="email-outline" size={18} color="black" />
               </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>EMAIL</Text>
-                <Text style={styles.userInfoText} numberOfLines={1}>{userData.email}</Text>
-              </View>
+              <Text style={styles.userInfoText} numberOfLines={1}>{userData.email}</Text>
             </View>
           )}
 
@@ -213,10 +208,8 @@ const ProfileHeader = React.memo(({
               <View style={styles.iconContainer}>
                 <FontAwesome5 name="map-marker-alt" size={16} color="#f7b305" />
               </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>LOCATION</Text>
-                <Text style={styles.userInfoText}>{backendUserData.city}, {backendUserData.state}</Text>
-              </View>
+              <Text style={styles.infoLabel}>LOCATION</Text>
+              <Text style={styles.userInfoText}>{backendUserData.city}, {backendUserData.state}</Text>
             </View>
           )}
         </View>
@@ -1111,7 +1104,7 @@ const ProfileScreen: React.FC = () => {
   // For logging purposes
   useEffect(() => {
     if (sellerEmail) {
-      console.log(`[ProfileScreen] Viewing profile for email: ${sellerEmail}`);
+      // console.log(`[ProfileScreen] Viewing profile for email: ${sellerEmail}`);
       console.log(`[ProfileScreen] Is viewing seller profile: ${isViewingSeller}`);
     }
   }, [sellerEmail, isViewingSeller]);
@@ -1591,7 +1584,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 16,
+    padding: 5,
     paddingTop: Platform.OS === 'android' ? 1 : StatusBar.currentHeight ? StatusBar.currentHeight + 1 : 1,
   },
   profileContainer: {
@@ -1752,23 +1745,11 @@ const styles = StyleSheet.create({
   },
   userInfoRow: {
     width: '100%',
-    marginBottom: 12,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  userInfoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    marginBottom: 10,
+    flexDirection: 'column',
+    paddingHorizontal: 5,
     backgroundColor: '#ffffff',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    marginBottom: 8,
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
-    borderLeftWidth: 3,
+    borderRadius: 8,
     ...Platform.select({
       ios: {
         shadowColor: 'rgba(0, 0, 0, 0.05)',
@@ -1778,42 +1759,52 @@ const styles = StyleSheet.create({
       },
       android: {
         elevation: 0,
-        borderColor: '#e5e5e5',
       },
     }),
+  },
+  userInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginBottom: 0,
+    width: '100%',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   iconContainer: {
     width: 32,
     height: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
-    backgroundColor: '#f9f9f9',
+    marginRight: 12,
+    marginLeft: 5,
+    backgroundColor: 'rgba(247, 179, 5, 0.05)',
     borderRadius: 16,
   },
-  infoContent: {
-    flex: 1,
-  },
   userInfoText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#333',
     fontWeight: '500',
+    flex: 1,
+    textAlign: 'left',
+    paddingRight: 10,
   },
   infoLabel: {
-    fontSize: 11,
-    color: '#777',
-    marginBottom: 2,
+    fontSize: 13,
+    color: '#888',
     fontWeight: '500',
+    marginLeft: 5,
+    flex: 1,
   },
   statsCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     backgroundColor: '#ffffff',
     borderRadius: 12,
-    paddingVertical: 14,
+    paddingVertical: 10,
     paddingHorizontal: 12,
-    marginTop: 2,
-    marginBottom: 12,
+    marginTop: 0,
+    marginBottom: 10,
     marginHorizontal: 4,
     borderWidth: 1,
     borderColor: '#eeeeee',
@@ -1836,13 +1827,13 @@ const styles = StyleSheet.create({
   statItem: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 2,
+    paddingVertical: 0,
   },
   statNumber: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '700',
     color: '#000000',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   statLabelRow: {
     flexDirection: 'row',
@@ -2153,16 +2144,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   universityItem: {
-    borderLeftColor: '#f7b305',
     width: '100%',
   },
   emailItem: {
-    borderLeftColor: '#f7b305',
     width: '100%',
   },
   locationItem: {
-    borderLeftColor: '#f7b305',
     width: '100%',
+    borderBottomWidth: 0,
   },
   productActionButtons: {
     position: 'absolute',

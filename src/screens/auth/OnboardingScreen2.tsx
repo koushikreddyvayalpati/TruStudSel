@@ -76,7 +76,7 @@ const OnboardingScreen2: React.FC<OnboardingScreen2Props> = ({ navigation }) => 
       <View style={styles.contentContainer}>
         <Text style={styles.title}>Instant Chat</Text>
         <Text style={styles.description}>
-          Message the seller directly from product listing and get the best price for your product
+          Message the seller directly from product listing and get the best price for the product
         </Text>
       </View>
 
