@@ -265,6 +265,79 @@ export const saveTokenToFirestore = async (fcmToken: string): Promise<void> => {
 };
 
 /**
+ * Remove FCM token from Firestore when user logs out
+ */
+export const removeTokenFromFirestore = async (): Promise<void> => {
+  console.log('===== FCM TOKEN REMOVAL =====');
+  try {
+    // Get current FCM token from storage
+    const fcmToken = await AsyncStorage.getItem(FCM_TOKEN_KEY);
+    if (!fcmToken || fcmToken.trim() === '') {
+      console.log('No valid FCM token found in storage, nothing to remove');
+      return;
+    }
+
+    let userEmail = null;
+
+    // Try to get user email from cached data first
+    const cachedUserData = await AsyncStorage.getItem('@cached_user_data');
+    if (cachedUserData) {
+      try {
+        const { userData } = JSON.parse(cachedUserData);
+        if (userData && userData.email) {
+          userEmail = userData.email;
+          console.log('Using cached user email for token removal:', userEmail);
+        }
+      } catch (error) {
+        console.error('Error parsing cached user data:', error);
+      }
+    }
+
+    // If no cached email, try getting from Auth
+    if (!userEmail) {
+      try {
+        const user = await Auth.currentAuthenticatedUser();
+        if (user && user.attributes && user.attributes.email) {
+          userEmail = user.attributes.email;
+          console.log('Using authenticated user email for token removal:', userEmail);
+        }
+      } catch (error) {
+        console.log('Could not get authenticated user for token removal');
+      }
+    }
+
+    if (!userEmail) {
+      console.log('Could not determine user email, skipping Firestore token removal');
+      return;
+    }
+
+    // Import Firestore functionality dynamically
+    const { deleteDoc } = await import('firebase/firestore');
+    
+    // Delete the token document
+    const deviceRef = doc(db, 'users', userEmail, 'devices', fcmToken);
+    await deleteDoc(deviceRef);
+    
+    console.log(`FCM token removed from Firestore for user: ${userEmail}`);
+
+    // Set authentication state flag
+    isAuthenticated = false;
+    
+    // Clear pending operations
+    pendingFirestoreOperations = [];
+    
+    // Optionally clear token from AsyncStorage too
+    // await AsyncStorage.removeItem(FCM_TOKEN_KEY);
+    // console.log('FCM token removed from AsyncStorage');
+    
+    console.log('===== FCM TOKEN REMOVAL COMPLETE =====');
+  } catch (error) {
+    console.error('Error removing FCM token from Firestore:', error);
+    console.log('===== FCM TOKEN REMOVAL FAILED =====');
+  }
+};
+
+/**
  * Set up message handlers for both foreground and background messages
  */
 export const setupMessageListeners = () => {

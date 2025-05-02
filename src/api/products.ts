@@ -1521,6 +1521,94 @@ export const updateProduct = async (id: string, updates: Partial<CreateProductWi
   }
 };
 
+/**
+ * Special function for filtering university products by category
+ * Uses the structure /api/products/university/SUNY%20Buffalo/filters?category=textbooks&sortBy=newest&page=0&size=10
+ */
+export const getUniversityProductsWithCategory = async (
+  university: string, 
+  categoryName: string, 
+  page: number = 0, 
+  size: number = 10,
+  sortBy: string = 'newest'
+): Promise<ProductListResponse> => {
+  console.log(`[API:products] Getting university products with category filter: university=${university}, category=${categoryName}`);
+
+  // Build query string with requested parameters
+  const queryParams = new URLSearchParams();
+  
+  // Always include these parameters
+  queryParams.append('page', page.toString());
+  queryParams.append('size', size.toString());
+  
+  // Add category filter (lowercase as required)
+  if (categoryName) {
+    queryParams.append('category', categoryName.toLowerCase());
+  }
+  
+  // Add sort parameter
+  if (sortBy) {
+    queryParams.append('sortBy', sortBy);
+  }
+  
+  const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+  const url = `${API_URL}/api/products/university/${encodeURIComponent(university)}/filters${queryString}`;
+
+  // console.log(`[API:products] University products with category URL: ${url}`);
+
+  try {
+    const response = await fetchWithTimeout(url, { method: 'GET' });
+    
+    console.log(`[API:products] University products with category response status: ${response.status}`);
+    
+    // Clone response for text extraction to avoid consumption
+    const responseClone = response.clone();
+    const responseText = await responseClone.text();
+    
+    // Try to parse as JSON
+    try {
+      const data = JSON.parse(responseText);
+      
+      // Process the response with proper pagination
+      const result: ProductListResponse = {
+        products: data.products || [],
+        totalItems: data.totalItems || 0,
+        nextPageToken: data.nextPageToken || null,
+        hasMorePages: data.hasMorePages || false,
+        // Include legacy pagination fields for backward compatibility
+        currentPage: data.currentPage || page,
+        totalPages: data.totalPages || 1,
+      };
+
+      // Process products and add full image URLs
+      if (Array.isArray(result.products)) {
+        console.log(`[API:products] University products with category returned ${result.products.length} items`);
+        result.products = result.products.map(product => processProductImages(product));
+      } else {
+        console.warn(`[API:products] Products is not an array: ${typeof result.products}`);
+        result.products = [];
+      }
+
+      return result;
+    } catch (error) {
+      console.error('[API:products] Error parsing university products with category response:', error);
+      throw error;
+    }
+  } catch (error) {
+    console.error(`[API:products] Error fetching university products with category for ${university}:`, error);
+    
+    // Return an empty result structure to avoid breaking the app
+    return { 
+      products: [], 
+      totalItems: 0, 
+      nextPageToken: null,
+      hasMorePages: false,
+      currentPage: page,
+      totalPages: 1
+    };
+  }
+};
+
 export default {
   getProducts,
   getProductsByUniversity,
@@ -1536,4 +1624,5 @@ export default {
   clearProductCache,
   deleteProduct,
   updateProduct,
+  getUniversityProductsWithCategory,
 };

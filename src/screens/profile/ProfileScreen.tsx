@@ -1493,16 +1493,6 @@ const ProfileScreen: React.FC = () => {
                 setActiveTab={setActiveTab}
               />
 
-              {/* Add Listing FAB - only show if viewing own profile */}
-              {!isViewingSeller && (
-                <TouchableOpacity
-                  style={styles.floatingButton}
-                  onPress={handleAddListing}
-                  activeOpacity={0.8}
-                >
-                  <MaterialIcons name="add" size={30} color="white" />
-                </TouchableOpacity>
-              )}
             </>
           )}
         </SafeAreaView>
@@ -1519,6 +1509,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     backgroundColor: '#f8f9fa', // Content background color
+    paddingBottom: 60, // Added padding to account for bottom navigation
   },
   scrollContent: {
     paddingBottom: 20,
@@ -1704,7 +1695,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 0,
     width: '100%',
     position: 'relative',
   },
@@ -1765,7 +1756,7 @@ const styles = StyleSheet.create({
   userInfoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 10,
     marginBottom: 0,
     width: '100%',
     borderBottomWidth: 1,
@@ -2043,7 +2034,7 @@ const styles = StyleSheet.create({
   },
   floatingButton: {
     position: 'absolute',
-    bottom: 24,
+    bottom: 84, // Adjusted to account for bottom navigation
     right: 24,
     width: 56,
     height: 56,
@@ -2066,7 +2057,7 @@ const styles = StyleSheet.create({
     }),
   },
   bottomSpacing: {
-    height: 30,
+    height: 80, // Increased to account for bottom navigation
   },
   loadingContainer: {
     flex: 1,

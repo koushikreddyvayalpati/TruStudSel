@@ -52,6 +52,8 @@ interface CustomTextInputProps {
   editable?: boolean;
   containerStyle?: any;
   keyboardType?: 'default' | 'number-pad' | 'decimal-pad' | 'numeric' | 'email-address' | 'phone-pad';
+  onFocus?: () => void;
+  onBlur?: () => void;
 }
 
 const TextInput: React.FC<CustomTextInputProps> = ({
@@ -62,6 +64,8 @@ const TextInput: React.FC<CustomTextInputProps> = ({
   editable = true,
   containerStyle = {},
   keyboardType = 'default',
+  onFocus,
+  onBlur,
 }) => {
   const { theme } = useTheme();
 
@@ -92,6 +96,8 @@ const TextInput: React.FC<CustomTextInputProps> = ({
           placeholderTextColor={theme.colors.placeholder || '#999'}
           editable={editable}
           keyboardType={keyboardType}
+          onFocus={onFocus}
+          onBlur={onBlur}
         />
       </View>
     </View>
@@ -134,6 +140,30 @@ const textInputStyles = StyleSheet.create({
     height: '100%',
     paddingHorizontal: 14,
     fontSize: 14,
+  },
+  simpleSuggestionsList: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    maxHeight: 200,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+    borderRadius: 8,
+    padding: 8,
+    zIndex: 1000,
+    backgroundColor: 'white',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
 });
 
@@ -245,6 +275,9 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
   const scrollIndicatorY = useRef(new Animated.Value(0)).current;
   const scrollOpacity = useRef(new Animated.Value(1)).current;
   const [showScrollIndicator, setShowScrollIndicator] = useState(true);
+
+  // Add a new state to track if any dropdown or keyboard is active
+  const [isFormFocused, setIsFormFocused] = useState<boolean>(false);
 
   // Setup scroll indicator animation
   useEffect(() => {
@@ -384,20 +417,30 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
   // Handle university input change
   const handleUniversityChange = (text: string) => {
     setUniversity(text);
-    // Always show the dropdown
-    setShowUniversityModal(true);
+    // Always show the dropdown when typing
+    if (!showUniversityModal) {
+      setShowUniversityModal(true);
+    }
   };
 
   // Handle selecting a university from the dropdown
   const selectUniversity = (name: string) => {
     setUniversity(name);
     setShowUniversityModal(false);
+    
+    // Check if any other dropdown is open
+    if (!showStateModal && !showCityModal) {
+      setIsFormFocused(false);
+    }
   };
 
   // --- State Selection Handlers ---
   const handleStateInputChange = (text: string) => {
     setStateSearchQuery(text);
-    if (!showStateModal) setShowStateModal(true); // Show modal on input change
+    setSelectedState(text); // Update the selected state immediately
+    if (!showStateModal) {
+      setShowStateModal(true); // Show modal on input change
+    }
   };
 
   const selectState = (stateName: string) => {
@@ -406,19 +449,35 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
     setShowStateModal(false);
     setSelectedCity(''); // Reset city when state changes
     setCitySearchQuery(''); // Reset city search query
+    if (showCityModal) {
+      setShowCityModal(false); // Close city modal if open
+    }
     setFilteredCities((stateCitiesData as StateCitiesMap)[stateName] || []); // <-- Typed access
+    
+    // Check if any other dropdown is open
+    if (!showUniversityModal && !showCityModal) {
+      setIsFormFocused(false);
+    }
   };
 
   // --- City Selection Handlers ---
   const handleCityInputChange = (text: string) => {
     setCitySearchQuery(text);
-     if (!showCityModal) setShowCityModal(true); // Show modal on input change
+    setSelectedCity(text); // Update the selected city immediately
+    if (!showCityModal && selectedState) {
+      setShowCityModal(true); // Show modal on input change
+    }
   };
 
   const selectCity = (cityName: string) => {
     setSelectedCity(cityName);
     setCitySearchQuery(cityName); // Update search query to reflect selection
     setShowCityModal(false);
+    
+    // Check if any other dropdown is open
+    if (!showUniversityModal && !showStateModal) {
+      setIsFormFocused(false);
+    }
   };
 
   // --- End Selection Handlers ---
@@ -486,6 +545,13 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
       console.log('User authenticated from previous step');
     }
   }, [wasAuthenticated]);
+
+  // Update useEffect to manage the form focus state
+  useEffect(() => {
+    // Form is focused if any dropdown is open
+    const dropdownOpen = showUniversityModal || showStateModal || showCityModal;
+    setIsFormFocused(dropdownOpen);
+  }, [showUniversityModal, showStateModal, showCityModal]);
 
   const handleSubmit = async () => {
     if (!fullName.trim()) {
@@ -995,7 +1061,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
 
             <TouchableOpacity
               style={[styles.uploadButton, {
-                backgroundColor: '#f7b305',
+                backgroundColor: 'black',
                 paddingVertical: 6,
                 paddingHorizontal: 16,
                 borderRadius: 16,
@@ -1050,38 +1116,37 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
                   University
                 </Text>
                 <View style={styles.universityContainer}>
-                  <View style={styles.universityInputWrapper}>
+                  <TouchableOpacity 
+                    activeOpacity={0.8}
+                    style={styles.universityInputWrapper}
+                    onPress={() => setShowUniversityModal(true)}
+                  >
                     <RNTextInput
-                      style={[styles.input, { color: theme.colors.text }]}
+                      style={[textInputStyles.input, { color: theme.colors.text }]}
                       value={university}
-                      onChangeText={handleUniversityChange}
                       placeholder="Search for your university"
                       placeholderTextColor={theme.colors.placeholder || '#999'}
-                      editable={false} // Make input non-editable
-                      onTouchStart={() => setShowUniversityModal(true)} // Show dropdown on touch
+                      editable={true}
+                      onFocus={() => {
+                        setShowUniversityModal(true);
+                        setIsFormFocused(true);
+                      }}
+                      onBlur={() => {
+                        // Only update focus if no dropdown is showing
+                        if (!showUniversityModal && !showStateModal && !showCityModal) {
+                          setIsFormFocused(false);
+                        }
+                      }}
+                      onChangeText={handleUniversityChange}
                     />
-                    <TouchableOpacity
-                      style={styles.universityDropdownButton}
-                      onPress={() => setShowUniversityModal(true)}
-                    >
+                    <View style={styles.universityDropdownButton}>
                       <Entypo name="chevron-down" size={18} color={theme.colors.textSecondary} />
-                    </TouchableOpacity>
-                  </View>
+                    </View>
+                  </TouchableOpacity>
 
                   {/* Simple dropdown list that appears beneath the input */}
                   {showUniversityModal && (
-                    <View style={[styles.simpleSuggestionsList, { backgroundColor: theme.colors.background }]}>
-                      <View style={styles.searchInputContainer}>
-                        <RNTextInput
-                          style={[styles.searchInput, { color: theme.colors.text }]}
-                          placeholder="Type to search universities..."
-                          placeholderTextColor={theme.colors.placeholder || '#999'}
-                          onChangeText={handleUniversityChange}
-                          value={university}
-                          autoFocus={true}
-                        />
-                      </View>
-
+                    <View style={[styles.suggestionsList, { backgroundColor: theme.colors.background }]}>
                       {filteredUniversities.length > 0 ? (
                         <ScrollView
                           nestedScrollEnabled={true}
@@ -1123,35 +1188,37 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
                   State
                 </Text>
                 <View style={styles.dropdownContainer}>
-                  <View style={styles.dropdownInputWrapper}>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    style={styles.dropdownInputWrapper}
+                    onPress={() => { setStateSearchQuery(''); setShowStateModal(true); }}
+                  >
                     <RNTextInput
-                      style={[styles.input, { color: theme.colors.text }]}
+                      style={[textInputStyles.input, { color: theme.colors.text }]}
                       value={selectedState} // Display selected state
                       placeholder="Select your state"
                       placeholderTextColor={theme.colors.placeholder || '#999'}
-                      editable={false} // Make input non-editable
-                      onTouchStart={() => { setStateSearchQuery(''); setShowStateModal(true); }} // Show dropdown on touch
+                      editable={true} // Allow direct editing for search
+                      onFocus={() => {
+                        setStateSearchQuery('');
+                        setShowStateModal(true);
+                        setIsFormFocused(true);
+                      }}
+                      onBlur={() => {
+                        // Only update focus if no dropdown is showing
+                        if (!showUniversityModal && !showStateModal && !showCityModal) {
+                          setIsFormFocused(false);
+                        }
+                      }}
+                      onChangeText={handleStateInputChange}
                     />
-                    <TouchableOpacity
-                      style={styles.dropdownButton}
-                      onPress={() => { setStateSearchQuery(''); setShowStateModal(true); }}
-                    >
+                    <View style={styles.dropdownButton}>
                       <Entypo name="chevron-down" size={18} color={theme.colors.textSecondary} />
-                    </TouchableOpacity>
-                  </View>
+                    </View>
+                  </TouchableOpacity>
 
                   {showStateModal && (
                     <View style={[styles.suggestionsList, { backgroundColor: theme.colors.background }]}>
-                      <View style={styles.searchInputContainer}>
-                        <RNTextInput
-                          style={[styles.searchInput, { color: theme.colors.text }]}
-                          placeholder="Search for state..."
-                          placeholderTextColor={theme.colors.placeholder || '#999'}
-                          onChangeText={handleStateInputChange}
-                          value={stateSearchQuery}
-                          autoFocus={true}
-                        />
-                      </View>
                       <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 250 }} keyboardShouldPersistTaps="handled">
                         {filteredStates.length > 0 ? filteredStates.map((item, index) => (
                           <TouchableOpacity key={`${item}-${index}`} style={styles.suggestionItem} onPress={() => selectState(item)}>
@@ -1181,59 +1248,84 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
                     City
                  </Text>
                  <View style={styles.dropdownContainer}>
-                    <View style={styles.dropdownInputWrapper}>
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      style={styles.dropdownInputWrapper}
+                      onPress={() => {
+                        if (selectedState) {
+                          setCitySearchQuery('');
+                          setShowCityModal(true);
+                        } else {
+                          Alert.alert("Select State", "Please select a state before choosing a city.");
+                        }
+                      }}
+                      disabled={!selectedState}
+                    >
                        <RNTextInput
-                          style={[styles.input, { color: theme.colors.text, opacity: selectedState ? 1 : 0.5 }]} // Dim if no state selected
+                          style={[textInputStyles.input, { color: theme.colors.text, opacity: selectedState ? 1 : 0.5 }]}
                           value={selectedCity}
                           placeholder={selectedState ? "Select your city" : "Select state first"}
                           placeholderTextColor={theme.colors.placeholder || '#999'}
-                          editable={false} // Make input non-editable
-                          onTouchStart={() => {
+                          editable={!!selectedState} // Only editable if state is selected
+                          onFocus={() => {
                             if (selectedState) {
-                              setCitySearchQuery(''); // Reset search on open
                               setShowCityModal(true);
+                              setIsFormFocused(true);
                             } else {
                               Alert.alert("Select State", "Please select a state before choosing a city.");
                             }
                           }}
+                          onBlur={() => {
+                            // Only update focus if no dropdown is showing
+                            if (!showUniversityModal && !showStateModal && !showCityModal) {
+                              setIsFormFocused(false);
+                            }
+                          }}
+                          onChangeText={handleCityInputChange}
                        />
-                       <TouchableOpacity
-                          style={styles.dropdownButton}
-                          onPress={() => {
-                            if (selectedState) {
-                              setCitySearchQuery(''); // Reset search on open
-                              setShowCityModal(true);
-                            } else {
-                              Alert.alert("Select State", "Please select a state before choosing a city.");
-                            }
-                          }}
-                          disabled={!selectedState} // Disable button if no state selected
-                       >
+                       <View style={styles.dropdownButton}>
                           <Entypo name="chevron-down" size={18} color={selectedState ? theme.colors.textSecondary : '#ccc'} />
-                       </TouchableOpacity>
-                    </View>
+                       </View>
+                    </TouchableOpacity>
 
                     {showCityModal && selectedState && (
-                       <View style={[styles.suggestionsList, { backgroundColor: theme.colors.background, zIndex: 1100 }]}>
-                          <View style={styles.searchInputContainer}>
-                             <RNTextInput
-                                style={[styles.searchInput, { color: theme.colors.text }]}
-                                placeholder={`Search cities in ${selectedState}...`}
-                                placeholderTextColor={theme.colors.placeholder || '#999'}
-                                onChangeText={handleCityInputChange}
-                                value={citySearchQuery}
-                                autoFocus={true}
-                             />
-                          </View>
-                          <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 250 }} keyboardShouldPersistTaps="handled">
+                       <View 
+                         style={[
+                           styles.suggestionsList, 
+                           { 
+                             backgroundColor: theme.colors.background, 
+                             zIndex: 2000, 
+                             elevation: 8,
+                             maxHeight: 280,
+                             ...(Platform.OS === 'ios' ? {
+                               shadowColor: '#000',
+                               shadowOffset: { width: 0, height: 5 },
+                               shadowOpacity: 0.3,
+                               shadowRadius: 8,
+                             } : {})
+                           }
+                         ]}
+                       >
+                          <ScrollView 
+                            nestedScrollEnabled={true} 
+                            style={{ maxHeight: 270 }} 
+                            keyboardShouldPersistTaps="handled"
+                            showsVerticalScrollIndicator={true}
+                          >
                              {filteredCities.length > 0 ? filteredCities.map((item, index) => (
-                                <TouchableOpacity key={`${item}-${index}`} style={styles.suggestionItem} onPress={() => selectCity(item)}>
-                                   <Text style={[styles.suggestionText, { color: theme.colors.text }]} numberOfLines={1}>
-                                      {item}
-                                   </Text>
+                                <TouchableOpacity 
+                                  key={`${item}-${index}`} 
+                                  style={[styles.suggestionItem, { backgroundColor: index % 2 === 0 ? 'rgba(247, 179, 5, 0.03)' : 'white' }]} 
+                                  onPress={() => selectCity(item)}
+                                >
+                                  <Text style={[styles.suggestionText, { color: theme.colors.text }]} numberOfLines={1}>
+                                    {item}
+                                  </Text>
                                 </TouchableOpacity>
                              )) : (
-                                <Text style={[styles.emptyMessage, { color: theme.colors.textSecondary }]}>No cities found for "{citySearchQuery}" in {selectedState}.</Text>
+                                <Text style={[styles.emptyMessage, { color: theme.colors.textSecondary }]}>
+                                  No cities found for "{citySearchQuery}" in {selectedState}.
+                                </Text>
                              )}
                           </ScrollView>
                        </View>
@@ -1257,48 +1349,58 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
                   placeholder="Enter your zipcode"
                   keyboardType="numeric"
                   containerStyle={styles.inputContainer}
+                  onFocus={() => setIsFormFocused(true)}
+                  onBlur={() => {
+                    // Only update focus if no dropdown is showing
+                    if (!showUniversityModal && !showStateModal && !showCityModal) {
+                      setIsFormFocused(false);
+                    }
+                  }}
                 />
               </View>
             </View>
           </View>
 
-          <View style={styles.formSection}>
-            <Text style={styles.formSectionTitle}>Your Interests</Text>
-            <Text style={styles.helperText}>
-              Select categories that interest you to personalize your experience
-            </Text>
-
-            <View style={styles.categoriesContainer}>
-              <View style={styles.categoriesGrid}>
-                {PRODUCT_CATEGORIES.map((item) => (
-                  <View key={item.id} style={styles.categoryItemWrapper}>
-                    {renderCategoryItem({item})}
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.progressContainer}>
-              <View style={styles.progressTrack}>
-                <LinearGradient
-                  colors={progressGradientColors}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={[
-                    styles.progressBar,
-                    { width: `${calculateCompletionPercentage()}%` },
-                  ]}
-                />
-              </View>
+          {/* Your Interests Section - hide when form is focused */}
+          {!isFormFocused && (
+            <View style={styles.formSection}>
+              <Text style={styles.formSectionTitle}>Your Interests</Text>
               <Text style={styles.helperText}>
-                {selectedCategories.length < minCategoriesRequired
-                  ? `Select at least ${minCategoriesRequired} categories to continue`
-                  : `${selectedCategories.length} categories selected`}
+                Select categories that interest you to personalize your experience
               </Text>
-            </View>
-          </View>
 
-          {renderGradientButton(
+              <View style={styles.categoriesContainer}>
+                <View style={styles.categoriesGrid}>
+                  {PRODUCT_CATEGORIES.map((item) => (
+                    <View key={item.id} style={styles.categoryItemWrapper}>
+                      {renderCategoryItem({item})}
+                    </View>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.progressContainer}>
+                <View style={styles.progressTrack}>
+                  <LinearGradient
+                    colors={progressGradientColors}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[
+                      styles.progressBar,
+                      { width: `${calculateCompletionPercentage()}%` },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.helperText}>
+                  {selectedCategories.length < minCategoriesRequired
+                    ? `Select at least ${minCategoriesRequired} categories to continue`
+                    : `${selectedCategories.length} categories selected`}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {!isFormFocused && renderGradientButton(
             loading ? 'Processing...' : 'Complete Profile',
             handleSubmit,
             loading || navigating
@@ -1352,9 +1454,10 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    marginBottom: 10,
+    marginBottom: 0,
     textAlign: 'center',
     maxWidth: '80%',
+    fontWeight: '500',
   },
   formSection: {
     marginBottom: 16,
@@ -1367,13 +1470,11 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.08,
         shadowRadius: 6,
-        borderWidth: 1,
-        borderColor: 'rgba(240,240,240,0.8)',
       },
       android: {
-        elevation: 1,
+        elevation: 0,
         backgroundColor: 'rgba(255,255,255,0.95)',
-        borderWidth: 0.2,
+        borderWidth: 1,
         borderColor: 'rgba(230,230,230,0.5)',
       },
     }),
@@ -1468,7 +1569,7 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
       },
       android: {
-        elevation: 2,
+        elevation: 0,
       },
     }),
   },
@@ -1525,7 +1626,7 @@ const styles = StyleSheet.create({
         shadowRadius: 2,
       },
       android: {
-        elevation: 1,
+        elevation: 0,
         shadowColor: 'transparent',
         backgroundColor: '#fff',
         borderWidth: 0.2,
@@ -1580,7 +1681,7 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
       },
       android: {
-        elevation: 2,
+        elevation: 0,
         backgroundColor: '#fff',
       },
     }),
@@ -1773,14 +1874,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   universityContainer: {
+    width: '100%',
     position: 'relative',
   },
   universityInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 42,
+    height: 48,
     borderWidth: Platform.OS === 'ios' ? 1 : 0.5,
     borderRadius: 10,
+    borderColor: 'rgba(150, 150, 150, 0.3)',
+    backgroundColor: '#fff',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -1795,49 +1899,79 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  input: {
-    flex: 1,
-    height: '100%',
-    paddingHorizontal: 14,
-    fontSize: 14,
+  universityDropdownButton: {
+    padding: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  simpleSuggestionsList: {
+  dropdownContainer: {
+    width: '100%',
+    position: 'relative',
+  },
+  dropdownInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 48,
+    borderWidth: Platform.OS === 'ios' ? 1 : 0.5,
+    borderRadius: 10,
+    borderColor: 'rgba(150, 150, 150, 0.3)',
+    backgroundColor: '#fff',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 1,
+      },
+      android: {
+        elevation: 0,
+        backgroundColor: '#fff',
+        borderColor: 'rgba(224, 224, 224, 0.5)',
+      },
+    }),
+  },
+  dropdownButton: {
+    padding: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  suggestionsList: {
     position: 'absolute',
     top: '100%',
     left: 0,
     right: 0,
-    maxHeight: 200,
+    maxHeight: 250,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.1)',
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 8,
     zIndex: 1000,
+    elevation: 5,
     backgroundColor: 'white',
+    marginTop: 4,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
       },
       android: {
-        elevation: 3,
+        elevation: 5,
       },
     }),
   },
   suggestionItem: {
-    paddingVertical: 10,
+    paddingVertical: 15,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 6,
+    marginBottom: 2,
   },
   suggestionText: {
-    fontSize: 14,
-  },
-  universityDropdownButton: {
-    padding: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
+    fontSize: 15,
+    fontWeight: '500',
   },
   searchInputContainer: {
     padding: 8,
@@ -1893,58 +2027,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#ddd',
     borderRadius: 2,
     marginBottom: 4,
-  },
-  dropdownContainer: {
-    position: 'relative',
-  },
-  dropdownInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 42,
-    borderWidth: Platform.OS === 'ios' ? 1 : 0.5,
-    borderRadius: 10,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.04,
-        shadowRadius: 1,
-      },
-      android: {
-        elevation: 0,
-        backgroundColor: '#fff',
-        borderColor: 'rgba(224, 224, 224, 0.5)',
-      },
-    }),
-  },
-  dropdownButton: {
-    padding: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  suggestionsList: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    maxHeight: 200,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
-    borderRadius: 8,
-    padding: 8,
-    zIndex: 1000,
-    backgroundColor: 'white',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
   },
 });
 

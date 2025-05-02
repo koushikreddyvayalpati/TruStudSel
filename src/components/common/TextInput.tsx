@@ -9,6 +9,7 @@ import {
   ViewStyle,
   TextStyle,
   TouchableOpacity,
+  Platform,
 } from 'react-native';
 import { colors } from '../../constants';
 import Entypo from 'react-native-vector-icons/Entypo';
@@ -61,6 +62,7 @@ const TextInput: React.FC<TextInputProps> = ({
   };
 
   const hasError = touched && error;
+  const hasContent = rest.value && rest.value.toString().length > 0;
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -70,6 +72,7 @@ const TextInput: React.FC<TextInputProps> = ({
         styles.inputContainer,
         isFocused && styles.focusedInputContainer,
         hasError && styles.errorInputContainer,
+        hasContent && styles.filledInputContainer,
         inputStyle,
       ]}>
         {leftIcon && <View style={styles.leftIcon}>{leftIcon}</View>}
@@ -127,18 +130,39 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#f8f8f8',
     height: 58,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 0,
+        borderColor: '#e0e0e0',
+      },
+    }),
   },
   focusedInputContainer: {
     borderColor: colors.primary,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        borderColor: colors.primary,
+        borderWidth: 1,
+      },
+    }),
+  },
+  filledInputContainer: {
+    ...Platform.select({
+      android: {
+        borderColor: 'rgba(0,0,0,0.2)',
+      }
+    }),
   },
   errorInputContainer: {
     borderColor: colors.error,
@@ -149,6 +173,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 16,
     color: colors.textPrimary,
+    ...Platform.select({
+      android: {
+        pointerEvents: 'auto',
+      }
+    }),
   },
   leftIcon: {
     paddingLeft: 16,

@@ -23,6 +23,7 @@ import { useTheme } from '../../hooks';
 import { MainStackParamList } from '../../types/navigation.types';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { API_URL } from '../../api/config';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 // Add API base URL
 const API_BASE_URL = API_URL;
@@ -363,7 +364,7 @@ const WishlistScreen: React.FC = () => {
             style={styles.profileButton}
             onPress={() => navigation.navigate('Profile', { sellerEmail: user?.email })}
           >
-            <View style={[styles.profileCircle, { backgroundColor: "black", borderColor: colors.border }]}>
+            <View style={[styles.profileCircle, { backgroundColor: "#f7b305", borderColor: colors.border }]}>
               <Text style={[styles.profileText, { color: "white" }]}>{getInitial()}</Text>
             </View>
           </TouchableOpacity>
@@ -393,13 +394,13 @@ const WishlistScreen: React.FC = () => {
           />
         ) : (
           <View style={styles.emptyWishlist}>
-            <FontAwesome name="heart-o" size={50} color={colors.textDisabled} />
+            <Ionicons name="heart-outline" size={50} color={colors.textDisabled} />
             <Text style={[styles.emptyWishlistTitle, { color: colors.text }]}>Your wishlist is empty</Text>
             <Text style={[styles.emptyWishlistText, { color: colors.textSecondary }]}>
               Items you save to your wishlist will appear here
             </Text>
             <TouchableOpacity
-              style={[styles.browseButton, { backgroundColor: colors.primary }]}
+              style={[styles.browseButton, { backgroundColor: colors.secondaryDark }]}
               onPress={() => {
                 navigation.dispatch(
                   CommonActions.reset({
@@ -471,6 +472,7 @@ const styles = StyleSheet.create({
     elevation: 3,
     overflow: 'hidden',
     maxWidth: '45%',
+    borderWidth: 0.1,
   },
   imageContainer: {
     position: 'relative',
@@ -544,7 +546,7 @@ const styles = StyleSheet.create({
   browseButton: {
     paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: 6,
+    borderRadius: 26,
   },
   browseButtonText: {
     fontWeight: 'bold',

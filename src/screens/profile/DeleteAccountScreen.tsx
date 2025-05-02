@@ -387,8 +387,10 @@ const styles = StyleSheet.create({
         shadowRadius: 3,
       },
       android: {
-        elevation: 4,
+        elevation: 0,
         backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#e0e0e0',
       },
     }),
   },
@@ -456,8 +458,10 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
       },
       android: {
-        elevation: 4,
+        elevation: 0,
         backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.1)',
       },
     }),
   },
@@ -519,7 +523,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...Platform.select({
       android: {
-        elevation: 2,
+        elevation: 0,
       },
       ios: {
         shadowColor: '#000',
@@ -559,7 +563,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     ...Platform.select({
       android: {
-        elevation: 2,
+        elevation: 0,
       },
       ios: {
         shadowColor: '#000',
@@ -593,7 +597,7 @@ const styles = StyleSheet.create({
     width: '100%',
     ...Platform.select({
       android: {
-        elevation: 1,
+        elevation: 0,
         borderColor: '#ccc',
       },
     }),
@@ -614,7 +618,7 @@ const styles = StyleSheet.create({
     width: '100%',
     ...Platform.select({
       android: {
-        elevation: 1,
+        elevation: 0,
         borderColor: '#ccc',
       },
     }),
@@ -630,7 +634,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...Platform.select({
       android: {
-        elevation: 2,
+        elevation: 0,
       },
       ios: {
         shadowColor: '#000',
@@ -684,7 +688,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...Platform.select({
       android: {
-        elevation: 2,
+        elevation: 0,
       },
       ios: {
         shadowColor: '#000',

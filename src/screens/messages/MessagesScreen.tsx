@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useCallback, useMemo, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -75,6 +75,10 @@ const MessagesScreen = () => {
 
   // State to track keyboard visibility
   const [_keyboardVisible, setKeyboardVisible] = React.useState(false);
+
+  // Add new state for modal visibility and selected conversation
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
 
   // Fetch current user email only once
   useEffect(() => {
@@ -167,12 +171,43 @@ const MessagesScreen = () => {
     if (!searchQuery.trim()) {return conversationsWithMessages;}
 
     const normalizedQuery = searchQuery.toLowerCase();
-    return conversationsWithMessages.filter(
-      conversation =>
-        conversation.name?.toLowerCase().includes(normalizedQuery) ||
-        conversation.lastMessageContent?.toLowerCase().includes(normalizedQuery)
-    );
-  }, [searchQuery, conversations]);
+    return conversationsWithMessages.filter(conversation => {
+      // Search by conversation name (display name)
+      if (conversation.name?.toLowerCase().includes(normalizedQuery)) {
+        return true;
+      }
+      
+      // Search by message content
+      if (conversation.lastMessageContent?.toLowerCase().includes(normalizedQuery)) {
+        return true;
+      }
+      
+      // Search by participant emails
+      if (conversation.participants && conversation.participants.length > 0) {
+        for (const participant of conversation.participants) {
+          if (participant.toLowerCase().includes(normalizedQuery)) {
+            return true;
+          }
+          
+          // Extract username from email for more intuitive search
+          const username = participant.split('@')[0];
+          if (username.toLowerCase().includes(normalizedQuery)) {
+            return true;
+          }
+        }
+      }
+      
+      // Search in user-specific name mappings
+      if (currentUserEmail) {
+        const nameKey = `name_${currentUserEmail.replace(/[.@]/g, '_')}`;
+        if (conversation[nameKey]?.toLowerCase().includes(normalizedQuery)) {
+          return true;
+        }
+      }
+      
+      return false;
+    });
+  }, [searchQuery, conversations, currentUserEmail]);
 
   // Toggle search mode
   const toggleSearch = useCallback(() => {
@@ -232,63 +267,43 @@ const MessagesScreen = () => {
 
   // Handle deleting a conversation
   const handleDeleteConversation = useCallback((conversation: Conversation) => {
-    Alert.alert(
-      'Delete Options',
-      'Choose an option:',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Hide Conversation',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteConversationForUser(conversation.id);
-              // Refresh conversations after deletion
-              fetchConversations(true);
-            } catch (error) {
-              console.error('Error hiding conversation:', error);
-              Alert.alert('Error', 'Failed to hide conversation. Please try again.');
-            }
-          },
-        },
-        {
-          text: 'Delete History',
-          style: 'destructive',
-          onPress: async () => {
-            Alert.alert(
-              'Delete Conversation History',
-              'This will delete all existing messages, but keep the conversation and any new messages. This action cannot be undone.',
-              [
-                {
-                  text: 'Cancel',
-                  style: 'cancel',
-                },
-                {
-                  text: 'Delete History',
-                  style: 'destructive',
-                  onPress: async () => {
-                    try {
-                      // Import the function for deleting history
-                      const { deleteConversationHistoryForUser } = await import('../../services/firebaseChatService');
-                      await deleteConversationHistoryForUser(conversation.id);
-                      // Navigate to the conversation to show the cleared history
-                      goToConversation(conversation);
-                    } catch (error) {
-                      console.error('Error deleting conversation history:', error);
-                      Alert.alert('Error', 'Failed to delete conversation history. Please try again.');
-                    }
-                  },
-                },
-              ]
-            );
-          },
-        },
-      ]
-    );
-  }, [fetchConversations, goToConversation]);
+    setSelectedConversation(conversation);
+    setDeleteModalVisible(true);
+  }, []);
+
+  // Handle hiding conversation
+  const handleHideConversation = useCallback(async () => {
+    if (!selectedConversation) return;
+    
+    try {
+      await deleteConversationForUser(selectedConversation.id);
+      // Refresh conversations after deletion
+      fetchConversations(true);
+    } catch (error) {
+      console.error('Error hiding conversation:', error);
+      Alert.alert('Error', 'Failed to hide conversation. Please try again.');
+    } finally {
+      setDeleteModalVisible(false);
+    }
+  }, [selectedConversation, fetchConversations]);
+
+  // Handle deleting conversation history
+  const handleDeleteHistory = useCallback(async () => {
+    if (!selectedConversation) return;
+    
+    try {
+      // Import the function for deleting history
+      const { deleteConversationHistoryForUser } = await import('../../services/firebaseChatService');
+      await deleteConversationHistoryForUser(selectedConversation.id);
+      // Navigate to the conversation to show the cleared history
+      goToConversation(selectedConversation);
+    } catch (error) {
+      console.error('Error deleting conversation history:', error);
+      Alert.alert('Error', 'Failed to delete conversation history. Please try again.');
+    } finally {
+      setDeleteModalVisible(false);
+    }
+  }, [selectedConversation, goToConversation]);
 
   // Render right actions for swipeable
   const renderRightActions = useCallback((conversation: Conversation) => {
@@ -772,6 +787,55 @@ const MessagesScreen = () => {
             />
           </Animated.View>
         </SafeAreaView>
+
+        {/* Custom Delete Modal */}
+        {deleteModalVisible && (
+          <View style={styles.modalOverlay}>
+            <TouchableOpacity 
+              style={styles.modalBackdrop} 
+              activeOpacity={1}
+              onPress={() => setDeleteModalVisible(false)}
+            />
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Conversation Options</Text>
+                <TouchableOpacity 
+                  style={styles.modalCloseButton}
+                  onPress={() => setDeleteModalVisible(false)}
+                >
+                  <Text style={styles.modalCloseText}>CANCEL</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity 
+                style={styles.modalOption}
+                onPress={handleHideConversation}
+              >
+                <View style={styles.modalOptionContent}>
+                  <Ionicons name="eye-off" size={24} color="#FF3B30" style={styles.modalOptionIcon} />
+                  <Text style={[styles.modalOptionText, { color: '#FF3B30' }]}>
+                    HIDE CONVERSATION
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.modalOption}
+                onPress={handleDeleteHistory}
+              >
+                <View style={styles.modalOptionContent}>
+                  <Ionicons name="trash" size={24} color="#FF3B30" style={styles.modalOptionIcon} />
+                  <Text style={[styles.modalOptionText, { color: '#FF3B30' }]}>
+                    DELETE HISTORY
+                  </Text>
+                </View>
+                <Text style={styles.modalOptionSubtext}>
+                  Deletes all existing messages, but keeps the conversation. New messages will still appear.
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </>
   );
@@ -1148,14 +1212,96 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   deleteAction: {
-    backgroundColor: '#ff6b6b',
-    padding: 10,
+    backgroundColor: 'red',
+    padding: 6,
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 12,
   },
   deleteActionText: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  // Modal styles
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    width: '85%',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  modalHeader: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalCloseText: {
+    color: '#888',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  modalOption: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modalOptionIcon: {
+    marginRight: 16,
+  },
+  modalOptionText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+  },
+  modalOptionSubtext: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 6,
+    marginLeft: 40,
   },
 });
 

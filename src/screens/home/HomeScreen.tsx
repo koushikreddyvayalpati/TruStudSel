@@ -1540,7 +1540,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation }) =
         {/* Search Bar */}
         <View style={styles.searchContainer}>
           <View style={styles.searchInputContainer}>
-            <FontAwesome name="search" size={20} color="#999" style={styles.searchIcon} />
+            <FontAwesome name="search" size={16} color="#999" style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search products..."
@@ -1995,7 +1995,7 @@ const styles = StyleSheet.create({
   },
   searchButton: {
     backgroundColor: '#f7b305',
-    padding: 8,
+    padding: 5,
     borderRadius: 20,
     marginLeft: 6,
   },

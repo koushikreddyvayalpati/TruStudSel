@@ -60,6 +60,8 @@ interface CategoryState {
   setFilterDropdownVisible: (isVisible: boolean) => void;
   setSelectedSortOption: (option: string) => void;
   setSelectedFilters: (filters: string[]) => void;
+  setLoading: (isLoading: boolean) => void;
+  setState: (partialState: Partial<CategoryState>) => void;
 
   // Load category products, supporting both initial load and pagination
   loadCategoryProducts: (
@@ -68,7 +70,8 @@ interface CategoryState {
     userUniversity: string,
     userCity: string,
     page?: number,
-    shouldAppend?: boolean
+    shouldAppend?: boolean,
+    options?: any
   ) => Promise<void>;
 
   // Handle search
@@ -145,6 +148,8 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
   setFilterDropdownVisible: (isVisible) => set({ isFilterDropdownVisible: isVisible }),
   setSelectedSortOption: (option) => set({ selectedSortOption: option }),
   setSelectedFilters: (filters) => set({ selectedFilters: filters }),
+  setLoading: (isLoading) => set({ loading: isLoading }),
+  setState: (partialState) => set(state => ({ ...state, ...partialState })),
 
   // Helper function to generate cache key
   generateCacheKey: (categoryName, params) => {
@@ -235,7 +240,15 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
   },
 
   // Load category products
-  loadCategoryProducts: async (categoryName, categoryId, userUniversity, userCity, page = 0, shouldAppend = false) => {
+  loadCategoryProducts: async (
+    categoryName, 
+    categoryId, 
+    userUniversity, 
+    userCity, 
+    page = 0, 
+    shouldAppend = false,
+    options = {}
+  ) => {
     // Don't set loading true if we're loading more data (pagination)
     if (!shouldAppend) {
       console.log(`[CategoryStore] Loading initial products for ${categoryName}`);
@@ -258,8 +271,12 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
         page,
       };
 
-      // Only check cache for first page and when no search query is provided
-      const cachedData = page === 0 && !searchQuery ?
+      // Check if this is a university filtered request
+      const isUniversityFiltered = userUniversity && userUniversity.length > 0;
+      
+      // Only check cache for first page, when no search query is provided, and not a university filtered request
+      const shouldCheckCache = page === 0 && !searchQuery && !isUniversityFiltered;
+      const cachedData = shouldCheckCache ? 
         await get().getCachedProducts(categoryName, userParams) : null;
 
       if (cachedData && !shouldAppend) {
@@ -290,12 +307,23 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
         apiSearchFilters.keyword = searchQuery;
       }
 
+      // Check if special options for university filtering were provided
+      const useUniversityEndpoint = options?.useUniversityEndpoint === true;
+      const categoryFilter = options?.categoryFilter;
+      
+      // Add category filter if provided
+      if (categoryFilter) {
+        console.log(`[CategoryStore] Adding category filter: ${categoryFilter}`);
+        apiSearchFilters.category = categoryFilter.toLowerCase(); // Ensure category is lowercase
+      }
+
       // Determine if this is a featured, new arrivals, university, city or regular category
       const isFeatured = categoryName === 'Featured Products';
       const isNewArrivals = categoryName === 'New Arrivals';
-      const isUniversity = (categoryName.includes('University') || 
+      const isUniversity = useUniversityEndpoint || 
+                         ((categoryName.includes('University') || 
                           (categoryName.endsWith('Products') && !categoryName.match(/^[A-Z][a-z]+ Products$/))) && 
-                          userUniversity && userUniversity.length > 0;
+                          userUniversity && userUniversity.length > 0);
       const isCity = (categoryId === 0 && 
                      userCity && 
                      userCity.length > 0 && 
@@ -315,6 +343,12 @@ const useCategoryStore = create<CategoryState>((set, get) => ({
         isUniversity: ${isUniversity}
         isCity: ${isCity}
       `);
+
+      // Always include university in API filters if provided
+      if (userUniversity && userUniversity.length > 0) {
+        console.log(`[CategoryStore] Including university filter: ${userUniversity}`);
+        apiSearchFilters.university = userUniversity;
+      }
 
       let result;
       // Determine which API to call based on the type

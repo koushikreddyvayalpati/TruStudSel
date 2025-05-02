@@ -77,11 +77,11 @@ const SignInScreen: React.FC = () => {
       setTimeout(() => setLoadingStep(1), 800);
 
       const user = await signIn(username, password);
-      console.log('Login successful:', user);
+      // console.log('Login successful:', user);
 
       // Get user attributes if available
       const userAttributes = user.attributes || {};
-      console.log('User attributes:', userAttributes);
+      // console.log('User attributes:', userAttributes);
 
       // Set the email as username if email is empty
       if (!userAttributes.email && username.includes('@')) {

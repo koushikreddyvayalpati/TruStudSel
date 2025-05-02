@@ -5,6 +5,7 @@ import { MainStackParamList } from '../types/navigation.types';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { LogBox } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { View } from 'react-native';
 
 // Import screens from barrel files
 import { HomeScreen } from '../screens/home';
@@ -120,7 +121,7 @@ const MainStack = () => {
       />
       <Stack.Screen
         name="Profile"
-        component={ProfileScreen}
+        component={ProfileScreenWithBottomNav}
       />
       <Stack.Screen
         name="EditProfile"
@@ -150,11 +151,11 @@ const MainStack = () => {
       />
       <Stack.Screen
         name="ProductInfoPage"
-        component={ProductsScreen}
+        component={ProductsScreenWithBottomNav}
       />
       <Stack.Screen
         name="Wishlist"
-        component={WishlistScreen}
+        component={WishlistScreenWithBottomNav}
       />
       <Stack.Screen
         name="CategoryProducts"
@@ -299,12 +300,12 @@ const ModifiedHomeScreen = () => {
 const HomeWithBottomNav: React.FC = () => {
   const { userUniversity } = useUniversity();
   const { userCity } = useCity();
-
+  
   return (
-    <>
+    <View style={{ flex: 1 }}>
       <ModifiedHomeScreen />
       <BottomNavigation userUniversity={userUniversity} userCity={userCity} />
-    </>
+    </View>
   );
 };
 
@@ -323,6 +324,45 @@ const CategoryProductsWithBottomNav: React.FC = () => {
       <CategoryProductsScreen navigation={navigation} route={route} />
       <BottomNavigation userUniversity={userUniversity} userCity={cityToUse} />
     </>
+  );
+};
+
+// Wrapper for Profile screen with bottom navigation
+const ProfileScreenWithBottomNav: React.FC = () => {
+  const { userUniversity } = useUniversity();
+  const { userCity } = useCity();
+  
+  return (
+    <View style={{ flex: 1 }}>
+      <ProfileScreen />
+      <BottomNavigation userUniversity={userUniversity} userCity={userCity} />
+    </View>
+  );
+};
+
+// Wrapper for Products screen with bottom navigation
+const ProductsScreenWithBottomNav: React.FC = () => {
+  const { userUniversity } = useUniversity();
+  const { userCity } = useCity();
+  
+  return (
+    <View style={{ flex: 1 }}>
+      <ProductsScreen />
+      <BottomNavigation userUniversity={userUniversity} userCity={userCity} />
+    </View>
+  );
+};
+
+// Wrapper for Wishlist screen with bottom navigation
+const WishlistScreenWithBottomNav: React.FC = () => {
+  const { userUniversity } = useUniversity();
+  const { userCity } = useCity();
+  
+  return (
+    <View style={{ flex: 1 }}>
+      <WishlistScreen />
+      <BottomNavigation userUniversity={userUniversity} userCity={userCity} />
+    </View>
   );
 };
 

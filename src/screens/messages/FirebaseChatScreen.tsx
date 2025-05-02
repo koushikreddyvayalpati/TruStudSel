@@ -69,6 +69,7 @@ const FirebaseChatScreen = () => {
   const [_error, _setError] = useState<string | null>(null);
   const [isBlocked, setIsBlocked] = useState(false);
   const [blockedBy, setBlockedBy] = useState<string | null>(null);
+  const [optionsModalVisible, setOptionsModalVisible] = useState(false);
 
   // Mark messages as read when screen is focused
   useFocusEffect(
@@ -1460,48 +1461,87 @@ const FirebaseChatScreen = () => {
           <TouchableOpacity
             style={styles.profileButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            onPress={() => {
-              // Show options menu
-              Alert.alert(
-                otherUserName || displayName,
-                '',
-                [
-                  {
-                    text: 'View Profile',
-                    onPress: () => {
-                      try {
-                        // Navigate to user profile using the recipient email
-                        (navigation as any).navigate('Profile', {
-                          sellerEmail: recipientEmail,
-                        });
-                      } catch (error) {
-                        console.error('Navigation error when viewing profile:', error);
-                      }
-                    },
-                  },
-                  isBlocked && blockedBy === currentUserEmail
-                    ? {
-                        text: 'Unblock Conversation',
-                        onPress: handleUnblockConversation,
-                      }
-                    : {
-                        text: 'Block Conversation',
-                        style: 'destructive',
-                        onPress: handleBlockConversation,
-                      },
-                  {
-                    text: 'Cancel',
-                    style: 'cancel',
-                  },
-                ]
-              );
-            }}
+            onPress={() => setOptionsModalVisible(true)}
           >
-            <Icon name="ellipsis-vertical" size={20} color="#000" />
+            <Icon name="ellipsis-vertical" size={20} color="#333" />
           </TouchableOpacity>
         </View>
       </View>
 
+      {/* Custom Options Modal */}
+      {optionsModalVisible && (
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity 
+            style={styles.modalBackdrop} 
+            activeOpacity={1}
+            onPress={() => setOptionsModalVisible(false)}
+          />
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{otherUserName || displayName}</Text>
+              <TouchableOpacity 
+                style={styles.modalCloseButton}
+                onPress={() => setOptionsModalVisible(false)}
+              >
+                <Text style={styles.modalCloseText}>CANCEL</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity 
+              style={styles.modalOption}
+              onPress={() => {
+                setOptionsModalVisible(false);
+                try {
+                  // Navigate to user profile using the recipient email
+                  (navigation as any).navigate('Profile', {
+                    sellerEmail: recipientEmail,
+                  });
+                } catch (error) {
+                  console.error('Navigation error when viewing profile:', error);
+                }
+              }}
+            >
+              <View style={styles.modalOptionContent}>
+                <Icon name="person" size={24} color="#333" style={styles.modalOptionIcon} />
+                <Text style={styles.modalOptionText}>VIEW PROFILE</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.modalOption}
+              onPress={() => {
+                setOptionsModalVisible(false);
+                if (isBlocked && blockedBy === currentUserEmail) {
+                  handleUnblockConversation();
+                } else {
+                  handleBlockConversation();
+                }
+              }}
+            >
+              <View style={styles.modalOptionContent}>
+                <Icon 
+                  name={isBlocked && blockedBy === currentUserEmail ? "lock-open" : "lock-closed"} 
+                  size={24} 
+                  color={isBlocked && blockedBy === currentUserEmail ? "#4CAF50" : "#FF3B30"} 
+                  style={styles.modalOptionIcon} 
+                />
+                <Text 
+                  style={[
+                    styles.modalOptionText, 
+                    { 
+                      color: isBlocked && blockedBy === currentUserEmail ? "#4CAF50" : "#FF3B30" 
+                    }
+                  ]}
+                >
+                  {isBlocked && blockedBy === currentUserEmail ? "UNBLOCK CONVERSATION" : "BLOCK CONVERSATION"}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Content */}
       {renderContent()}
 
       {/* Show blocked banner when conversation is blocked */}
@@ -1955,6 +1995,81 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',
+  },
+  // Modal styles
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    width: '80%',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  modalHeader: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalCloseText: {
+    color: '#888',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  modalOption: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modalOptionIcon: {
+    marginRight: 16,
+  },
+  modalOptionText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
   },
 });
 

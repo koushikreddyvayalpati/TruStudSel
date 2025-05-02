@@ -11,7 +11,6 @@ import {
   Alert,
   FlatList,
   Modal,
-  StatusBar,
   Platform,
   Pressable,
   ActivityIndicator,
@@ -208,10 +207,19 @@ const SimilarProducts: React.FC<{
   products: any[];
   onProductPress: (product: any) => void;
 }> = React.memo(({ products, onProductPress }) => {
+  // Group products into pairs for better layout control
+  const groupedProducts = useMemo(() => {
+    const result = [];
+    for (let i = 0; i < products.length; i += 2) {
+      result.push(products.slice(i, i + 2));
+    }
+    return result;
+  }, [products]);
+
   // Memoized render item function
-  const renderItem = useCallback(({ item }: { item: any }) => (
+  const renderItem = useCallback((item: any) => (
     <TouchableOpacity
-      style={styles.similarProductItem}
+      style={styles.similarProductGridItem}
       onPress={() => onProductPress(item)}
     >
       <Image
@@ -222,9 +230,8 @@ const SimilarProducts: React.FC<{
       />
       <View style={styles.similarProductInfo}>
         <Text style={styles.similarProductName} numberOfLines={1}>{item.name}</Text>
-
-        {/* Property status tags (condition and selling type) */}
-        <View style={styles.similarTagsRow}>
+        
+        <View style={styles.similarTagsContainer}>
           {/* Show condition if available */}
           {item.condition && (
             <View style={styles.similarProductCondition}>
@@ -241,32 +248,51 @@ const SimilarProducts: React.FC<{
             </View>
           )}
         </View>
-
-        {/* Price tag */}
-        <View style={styles.similarProductPriceContainer}>
-          <Text style={styles.similarProductPrice}>{item.price}</Text>
-        </View>
+      </View>
+      
+      {/* Price tag - positioned absolutely at bottom */}
+      <View style={styles.similarProductPriceContainer}>
+        <Text style={styles.similarProductPrice}>${item.price}</Text>
       </View>
     </TouchableOpacity>
   ), [onProductPress]);
 
+  // If no products or only one product, use a different layout
+  if (products.length <= 1) {
+    return (
+      <View style={[styles.similarProductsContainer, { backgroundColor: 'white', borderRadius: 12, padding: 15, paddingBottom: 20 }]}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <Text style={styles.sectionTitle}>Similar Products</Text>
+        </View>
+        <View style={styles.similarProductsCenteredContainer}>
+          {products.length === 1 && renderItem(products[0])}
+          {products.length === 0 && (
+            <Text style={styles.noSimilarProductsText}>No similar products found</Text>
+          )}
+        </View>
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.similarProductsContainer}>
-      <Text style={styles.sectionTitle}>Similar Products</Text>
-      <FlatList
-        data={products}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(item) => `similar_${item.id}`}
-        renderItem={renderItem}
-        style={styles.similarProductScrollView}
-        contentContainerStyle={styles.similarProductListContainer}
-        nestedScrollEnabled={true}
-        scrollEnabled={true}
-        onStartShouldSetResponder={() => true}
-        onStartShouldSetResponderCapture={() => true}
-        disableScrollViewPanResponder={true}
-      />
+    <View style={[styles.similarProductsContainer, { backgroundColor: 'white', borderRadius: 12, padding: 15, paddingBottom: 20 }]}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+        <Text style={styles.sectionTitle}>Similar Products</Text>
+        <Text style={styles.similarProductCount}>{products.length} items</Text>
+      </View>
+      <View style={styles.similarProductsGrid}>
+        {groupedProducts.map((pair, index) => (
+          <View key={`row_${index}`} style={styles.productRow}>
+            {pair.map((item) => (
+              <View key={`similar_${item.id}`} style={styles.similarProductGridWrapper}>
+                {renderItem(item)}
+              </View>
+            ))}
+            {/* If we have an odd number of items, add an empty space for the last row */}
+            {pair.length === 1 && <View style={styles.similarProductGridWrapper} />}
+          </View>
+        ))}
+      </View>
     </View>
   );
 });
@@ -661,7 +687,7 @@ const ProductsScreen = () => {
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
-        removeClippedSubviews={false}
+        keyboardShouldPersistTaps="handled"
       >
         <ImageGallery
           images={productImages}
@@ -1354,16 +1380,29 @@ const styles = StyleSheet.create({
   },
   similarProductsContainer: {
     marginTop: 24,
-    marginBottom: 100, // Extra space at bottom for the action bar
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#eeeeee',
   },
-  similarProductItem: {
-    width: 160,
-    marginRight: 12,
-    borderRadius: 16,
+  similarProductsGrid: {
+    flexDirection: 'column',
+  },
+  productRow: {
+    flexDirection: 'row',
+    marginBottom: 15,
+  },
+  similarProductGridWrapper: {
+    flex: 1,
+    paddingHorizontal: 5,
+  },
+  similarProductGridItem: {
+    borderRadius: 12,
     backgroundColor: 'white',
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#eeeeee',
+    height: 240,
+    position: 'relative',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -1378,55 +1417,75 @@ const styles = StyleSheet.create({
   },
   similarProductImage: {
     width: '100%',
-    height: 120,
+    height: 140,
   },
   similarProductInfo: {
     padding: 12,
   },
   similarProductName: {
-    fontSize: 15,
+    fontSize: 16,
     color: '#333',
-    marginBottom: 6,
+    marginBottom: 8,
     fontWeight: '500',
   },
-  similarTagsRow: {
+  similarTagsContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
+    flexWrap: 'wrap',
   },
   similarProductCondition: {
     backgroundColor: '#f8f8f8',
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+    paddingVertical: 2,
+    borderRadius: 15,
     marginRight: 5,
+    marginBottom: 5,
     borderWidth: 1,
     borderColor: '#eeeeee',
   },
   similarSellingTypeTag: {
     backgroundColor: '#e8f4fd',
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+    paddingVertical: 2,
+    borderRadius: 15,
+    marginRight: 5,
+    marginBottom: 5,
     borderWidth: 1,
     borderColor: '#c5e0f5',
   },
   similarConditionText: {
     fontSize: 10,
     color: '#555',
-    fontWeight: '600',
+    fontWeight: '500',
   },
   similarProductPriceContainer: {
+    position: 'absolute',
+    bottom: 6,
+    left: 12,
     backgroundColor: 'black',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+    marginTop: 10,
   },
   similarProductPrice: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
     color: 'white',
+  },
+  similarProductCount: {
+    fontSize: 14,
+    color: '#777',
+    fontWeight: '500',
+  },
+  similarProductsCenteredContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  noSimilarProductsText: {
+    fontSize: 14,
+    color: '#777',
+    fontStyle: 'italic',
   },
   bottomPadding: {
     height: 100, // Adjust this value based on your design
@@ -2113,10 +2172,11 @@ const styles = StyleSheet.create({
   // Add styles copied from HomeScreen
   similarProductScrollView: {
     marginBottom: 20,
+    overflow: 'visible',
+    minHeight: 180,  // Add minimum height to ensure touch area
   },
   similarProductListContainer: {
-    paddingRight: 20, // Padding only on the right
-    // Maybe add left padding too for consistency?
-    paddingLeft: 10, // Let's add a small left padding
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
 });

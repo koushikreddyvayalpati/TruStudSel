@@ -956,6 +956,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
                 onChangeText={setTitle}
                 placeholder="Enter item title"
                 containerStyle={styles.inputContainer}
+                inputStyle={Platform.OS === 'android' ? styles.androidInputStyle : {}}
                 error={errors.title}
                 maxLength={100}
               />
@@ -1075,7 +1076,9 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
                 multiline
                 textAlignVertical="top"
                 containerStyle={styles.textAreaContainer}
-                inputStyle={styles.textArea}
+                inputStyle={Platform.OS === 'android' ? 
+                  {...styles.textArea, ...styles.androidInputStyle} : 
+                  styles.textArea}
                 error={errors.description}
                 maxLength={1000}
               />
@@ -1092,7 +1095,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
                 placeholder={`Enter price in $${isSell ? '' : ' per day'}`}
                 keyboardType="numeric"
                 containerStyle={styles.inputContainer}
-                inputStyle={Platform.OS === 'android' ? {backgroundColor: 'white', borderColor: 'rgba(0,0,0,0.15)'} : {}}
+                inputStyle={Platform.OS === 'android' ? styles.androidInputStyle : {}}
                 error={errors.price}
                 maxLength={12}
               />
@@ -1384,6 +1387,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     letterSpacing: -0.3,
+    justifyContent: 'center',
   },
   sectionWrapper: {
     marginBottom: 20,
@@ -1428,7 +1432,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f7b305',
     borderRadius: 16,
     paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingVertical: 3,
     marginTop: 4,
   },
   photoCount: {
@@ -1993,6 +1997,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  androidInputStyle: {
+    backgroundColor: 'white',
+    borderColor: 'rgba(0,0,0,0.15)',
+    elevation: 0,
   },
 });
 

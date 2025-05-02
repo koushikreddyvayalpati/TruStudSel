@@ -137,10 +137,10 @@ const App: React.FC = () => {
       try {
         // Configure status bar again to ensure consistent appearance
         configureStatusBar();
-        // Initialize push notifications with a short delay to ensure the UI is ready first
+        // Initialize push notifications with a shorter delay
         setTimeout(async () => {
           await PushNotificationHelper.initPushNotifications();
-        }, 1500);
+        }, 500); // Reduced from 1500ms to 500ms for faster initialization
       } catch (error) {
         console.error('Error initializing push notifications:', error);
       }
@@ -171,7 +171,7 @@ const App: React.FC = () => {
         setTimeout(() => {
           console.log('[App] Checking initial notification after navigation is ready');
           PushNotificationHelper.checkInitialNotification();
-        }, 1000); // Increased from 300ms to 1000ms
+        }, 300); // Reduced from 1000ms to 300ms for faster notification handling
       } else {
         console.log('[App] Using direct navigation from initial notification');
       }

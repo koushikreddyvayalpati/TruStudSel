@@ -159,18 +159,23 @@ const useProductDetailsStore = create<ProductDetailsState>((set, get) => ({
 
   // Set product from route params
   setProductFromRoute: (productFromRoute, productId) => {
+    // Always set initial product data if available to show something immediately
     if (productFromRoute) {
-      // If we have a product from route, use it
       set({
         product: productFromRoute as ExtendedProduct,
         productImages: get().getProductImages(productFromRoute as ExtendedProduct),
       });
-
-      // Fetch similar products when product changes
-      get().fetchSimilarProducts();
-    } else if (productId) {
-      // If we only have an ID, fetch the product
+    }
+    
+    // If we have a productId, always fetch fresh data from the API
+    // This ensures we have complete and up-to-date product information
+    if (productId) {
+      console.log(`[ProductDetailsStore] Fetching fresh product data for ID: ${productId}`);
       get().fetchProductData(productId);
+    } else if (productFromRoute && !productId) {
+      // Only rely on route product data if no productId is provided
+      // and fetch similar products
+      get().fetchSimilarProducts();
     }
   },
 

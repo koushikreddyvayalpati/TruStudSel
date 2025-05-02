@@ -467,6 +467,7 @@ const EditProfileScreen = () => {
                   onChangeText={setName}
                   placeholder="Enter your full name"
                   containerStyle={styles.inputContainer}
+                  inputStyle={Platform.OS === 'android' ? styles.androidInputStyle : {}}
                   leftIcon={<MaterialIcons name="account-outline" size={22} color="#222" />}
                 />
               </View>
@@ -519,6 +520,7 @@ const EditProfileScreen = () => {
                   onChangeText={setCity}
                   placeholder="Enter your city"
                   containerStyle={styles.inputContainer}
+                  inputStyle={Platform.OS === 'android' ? styles.androidInputStyle : {}}
                   leftIcon={<FontAwesome5 name="city" size={18} color="#222" />}
                 />
               </View>
@@ -532,6 +534,7 @@ const EditProfileScreen = () => {
                   onChangeText={setZipcode}
                   placeholder="Enter your zipcode"
                   containerStyle={styles.inputContainer}
+                  inputStyle={Platform.OS === 'android' ? styles.androidInputStyle : {}}
                   leftIcon={<FontAwesome5 name="map-pin" size={18} color="#222" />}
                   keyboardType="number-pad"
                 />
@@ -580,6 +583,7 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
     padding: 20,
+    paddingTop: 0,
   },
   header: {
     flexDirection: 'row',
@@ -589,11 +593,11 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   headerTitle: {
-    fontSize: 16,
+    fontSize: 19,
     fontWeight: '600',
     color: '#111',
+    fontFamily: 'Montserrat-Bold',
     letterSpacing: 1,
-    textTransform: 'uppercase',
   },
   backButton: {
     padding: 8,
@@ -847,6 +851,11 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     opacity: 1,
+  },
+  androidInputStyle: {
+    backgroundColor: 'white',
+    borderColor: 'rgba(0,0,0,0.15)',
+    elevation: 0,
   },
 });
 

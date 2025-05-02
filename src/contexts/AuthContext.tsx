@@ -379,6 +379,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateState({ loading: true, error: null });
 
     try {
+      // Remove FCM token from Firestore before signing out
+      await PushNotificationHelper.removeTokenFromFirestore();
+      
+      // Clear user-related cached data
+      await AsyncStorage.removeItem('@cached_user_data');
+      await AsyncStorage.removeItem('@user_university');
+      await AsyncStorage.removeItem('@user_city');
+      
+      // Clear recent searches cache
+      await AsyncStorage.removeItem('recent_searches_cache');
+      
+      // Clear user profile and products cache
+      const keys = await AsyncStorage.getAllKeys();
+      const userRelatedKeys = keys.filter(key => 
+        key.startsWith('user_profile_cache_') || 
+        key.startsWith('user_products_cache_') ||
+        key.startsWith('CONVERSATION_') ||
+        key.startsWith('MESSAGES_')
+      );
+      
+      if (userRelatedKeys.length > 0) {
+        await AsyncStorage.multiRemove(userRelatedKeys);
+        console.log(`[AuthContext] Cleared ${userRelatedKeys.length} user-related cache items`);
+      }
+      
       await Auth.signOut();
       updateState({
         isAuthenticated: false,

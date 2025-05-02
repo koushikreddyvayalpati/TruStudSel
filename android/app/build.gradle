@@ -93,8 +93,8 @@ android {
         applicationId "com.trustudsel"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 10001
-        versionName "1.0.1"
+        versionCode 10003
+        versionName "1.0.3"
         
         // Add multidex support for large apps
         multiDexEnabled true
@@ -121,20 +121,26 @@ android {
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
+            minifyEnabled false
+            shrinkResources false
         }
         release {
             // Use release signing config instead of debug
             signingConfig signingConfigs.release
-            minifyEnabled enableProguardInReleaseBuilds
-            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
-            
-            // Enable R8 optimization
+            minifyEnabled true
             shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            
+            // Enable optimization for faster startup
+            manifestPlaceholders = [usesCleartextTraffic: "false"]
+            
+            // Optimize for faster startup and performance
+            matchingFallbacks = ['release']
         }
     }
     
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = JavaVersion.VERSION_17.toString()
         languageVersion = "2.0"
     }
     

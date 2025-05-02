@@ -1,4 +1,4 @@
-import React, { useEffect, forwardRef, ForwardRefRenderFunction } from 'react';
+import React, { forwardRef, ForwardRefRenderFunction } from 'react';
 import { NavigationContainer, LinkingOptions, NavigationContainerRef } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Linking } from 'react-native';
@@ -7,6 +7,9 @@ import { Linking } from 'react-native';
 import { useAuth } from '../contexts';
 
 // Import navigators
+// Note: We considered using React.lazy() for code splitting here, but it led to 
+// compatibility issues with React Navigation. The performance gain would be minor 
+// compared to the complexity introduced.
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
 
@@ -24,8 +27,13 @@ interface AppNavigatorProps {
 }
 
 /**
- * Root navigator that handles authentication flow
- * Shows either AuthNavigator or MainNavigator based on auth state
+ * Main navigation container component
+ * 
+ * This component is responsible for:
+ * 1. Setting up the navigation container
+ * 2. Handling conditional rendering based on authentication state
+ * 3. Configuring deep linking
+ * 4. Enforcing status bar appearance on navigation changes
  * 
  * Uses forwardRef to properly handle navigation references from parent components
  */
@@ -34,58 +42,61 @@ const AppNavigatorBase: ForwardRefRenderFunction<NavigationContainerRef<any>, Ap
   const { onReady, initialRouteName, initialParams } = props;
 
   // Handle deep links
-  useEffect(() => {
-    // Function to handle deep links
-    const handleDeepLink = async (event: { url: string }) => {
-      const { url } = event;
-      console.log('Deep link received:', url);
-      
-      // Handle product deep links: trustudsel://product/{productId}
-      if (url.startsWith('trustudsel://product/')) {
-        const productId = url.split('trustudsel://product/')[1];
-        
-        // Navigate to product details page with the extracted productId
-        if (productId) {
-          console.log('Navigating to product:', productId);
-          // The navigation reference is not directly accessible here, so we'll use a global navigation method
-          // if you have one, or store this productId to be handled after navigation is ready
-          
-          // For now, we'll just log this and implement the actual navigation later
-          // We will access this via the linking config below
-        }
-      }
-    };
-
-    // Set up listeners for deep links
-    const linkingListener = Linking.addEventListener('url', handleDeepLink);
-
-    // Check for initial URL (app opened from deep link)
-    const getInitialURL = async () => {
-      const initialURL = await Linking.getInitialURL();
-      if (initialURL) {
-        handleDeepLink({ url: initialURL });
-      }
-    };
-    
-    getInitialURL();
-
-    // Clean up listener on unmount
-    return () => {
-      linkingListener.remove();
-    };
-  }, []);
-
-  // Configure deep linking
-  const linking: LinkingOptions<ReactNavigation.RootParamList> = {
-    prefixes: ['trustudsel://'],
+  const linking: LinkingOptions<{}> = {
+    prefixes: ['trustudsel://', 'https://trustudsel.com', 'https://www.trustudsel.com'],
     config: {
-      // Screens defined directly in RootParamList (merged from AuthStack and MainStack)
       screens: {
-        ProductInfoPage: 'product/:productId',
-        // Add other screens directly if needed for deep linking
-        // e.g., SignIn: 'signin'
-        // Home: 'home' // Note: Home might be the initial route, often handled differently
+        Main: {
+          screens: {
+            ProductsStack: {
+              screens: {
+                ProductInfo: 'product/:id',
+              },
+            },
+            MessagesStack: {
+              screens: {
+                MessagesScreen: 'messages',
+                FirebaseChatScreen: 'chat/:recipientEmail',
+              },
+            },
+            ProfileStack: {
+              screens: {
+                ProfileScreen: 'profile',
+                UserProducts: 'user/:email/products',
+              },
+            },
+          },
+        },
       },
+    },
+    // Custom getInitialURL implementation
+    getInitialURL: async () => {
+      try {
+        // First, check if app was opened from a deep link
+        const url = await Linking.getInitialURL();
+        
+        if (url) {
+          console.log('[AppNavigator] App opened from deep link:', url);
+          return url;
+        }
+        
+        // If no deep link, check if we have stored a notification path to handle
+        return null;
+      } catch (error) {
+        console.error('[AppNavigator] Error getting initial URL:', error);
+        return null;
+      }
+    },
+    // Custom subscribe implementation to handle deep links while the app is running
+    subscribe: (listener) => {
+      // Listen to incoming links from deep linking
+      const linkingSubscription = Linking.addEventListener('url', ({ url }) => {
+        listener(url);
+      });
+      
+      return () => {
+        linkingSubscription.remove();
+      };
     },
   };
 

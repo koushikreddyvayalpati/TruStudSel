@@ -17,12 +17,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import types
 import { CategoryProductsScreenProps } from '../../types/navigation.types';
 
 // Import API methods
 import { Product } from '../../api/products';
+import { getUniversityProductsWithCategory } from '../../api/products';
 
 // Import context
 import { useAuth } from '../../contexts';
@@ -293,9 +295,12 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
   const { categoryName, categoryId, userUniversity: routeUniversity, userCity } = route.params;
 
   // Determine what type of products to load based on the category name
-  const isFeatured = categoryName === 'Featured Products';
-  const isNewArrivals = categoryName === 'New Arrivals';
-  const isUniversity = categoryName.includes('University') || categoryName.endsWith('Products');
+  const _isFeatured = categoryName === 'Featured Products';
+  const _isNewArrivals = categoryName === 'New Arrivals';
+  const _isUniversity = categoryName.includes('University') || categoryName.endsWith('Products');
+
+  // Extract user location data - prioritize route params over user context
+  const userUniversity = routeUniversity || user?.university || '';
 
   // FlatList ref for scrolling to top
   const flatListRef = useRef<FlatList<Product>>(null);
@@ -311,6 +316,7 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
 
   // Memoize filter options
   const filterOptions = useMemo<FilterOption[]>(() => [
+    ...(userUniversity ? [{ id: 'near-university', label: `Near ${userUniversity}` }] : []),
     { id: 'brand-new', label: 'Brand New' },
     { id: 'like-new', label: 'Like New' },
     { id: 'very-good', label: 'Very Good' },
@@ -319,7 +325,9 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     { id: 'rent', label: 'For Rent' },
     { id: 'sell', label: 'For Sale' },
     { id: 'free', label: 'Free Items' },
-  ], []);
+    // Add Near University filter option, but only if the user's university is available
+    
+  ], [userUniversity]);
 
   // Use Zustand store instead of local state
   const {
@@ -351,6 +359,7 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     setFilterDropdownVisible,
     setSelectedSortOption,
     setSelectedFilters,
+    setError,
 
     // API functions
     loadCategoryProducts,
@@ -361,12 +370,13 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     loadMore,
   } = useCategoryStore();
 
-  // Local state for UI elements that don't need to be in the store
-  const [wishlist, setWishlist] = useState<string[]>([]);
-  const [showBackToTop, setShowBackToTop] = useState(false);
+  // Add the setLoading and setStoreState functions from useCategoryStore
+  const setLoading = useCategoryStore(state => state.setLoading);
+  const setStoreState = useCategoryStore(state => state.setState);
 
-  // Extract user location data - prioritize route params over user context
-  const userUniversity = routeUniversity || user?.university || '';
+  // Local state for UI elements that don't need to be in the store
+  const [_wishlist, setWishlist] = useState<string[]>([]);
+  const [showBackToTop, setShowBackToTop] = useState(false);
 
   // At the top of the CategoryProductsScreen component
   // Add a new initialLoad ref to track the first load
@@ -381,7 +391,7 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
   }, [navigation]);
 
   // Helper function to toggle wishlist
-  const toggleWishlist = useCallback((id: string) => {
+  const _toggleWishlist = useCallback((id: string) => {
     setWishlist(prev => {
       if (prev.includes(id)) {
         return prev.filter(itemId => itemId !== id);
@@ -460,17 +470,83 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     // We'll only apply filters when the "Apply Filters" button is clicked
   }, [selectedFilters, setSelectedFilters]);
 
-  // Add an Apply Filters button handler
+  // Update the handleApplyFilters callback to handle the university filter
   const handleApplyFilters = useCallback(() => {
     setIsFiltering(true);
     setFilterDropdownVisible(false);
 
     // Apply filters after a short delay to allow UI to update
     setTimeout(() => {
-      applyFilters();
+      // Check if we need to make a new API call for university filtering
+      const hasUniversityFilter = selectedFilters.includes('near-university');
+      
+      if (hasUniversityFilter && userUniversity) {
+        console.log(`[CategoryProducts] Applying near university filter for: ${userUniversity}`);
+        
+        // First we clear all selected filters except university
+        setSelectedFilters(['near-university']);
+        
+        // Show loading state
+        setLoading(true);
+        
+        // Clear any existing cached data
+        AsyncStorage.getAllKeys().then(keys => {
+          const filterKeys = keys.filter(key => key.includes('category_products_cache_'));
+          return AsyncStorage.multiRemove(filterKeys);
+        }).then(async () => {
+          console.log(`[CategoryProducts] Cache cleared, calling university API with category filter`);
+          
+          // Call the new API function directly with the correct format
+          const categoryFilterValue = categoryId !== 0 ? categoryName.toLowerCase() : undefined;
+          console.log(`[CategoryProducts] Direct API call to university=${userUniversity} with categoryFilter=${categoryFilterValue || 'none'} using /filters endpoint`);
+          
+          // Make the direct API call with the specific structure requested
+          try {
+            const result = await getUniversityProductsWithCategory(
+              userUniversity,
+              categoryFilterValue || '',
+              0, // page
+              10, // size
+              'newest' // sortBy
+            );
+            
+            // Update the store with the results
+            setStoreState({
+              products: result.products,
+              productsOriginal: result.products,
+              totalCount: result.totalItems || result.products.length,
+              totalPages: result.totalPages || 1,
+              hasMoreData: result.hasMorePages || false,
+              currentPage: 0,
+              loading: false,
+            });
+            
+            console.log(`[CategoryProducts] University filter API returned ${result.products.length} products`);
+          } catch (error) {
+            console.error(`[CategoryProducts] Error fetching university filtered products:`, error);
+            setError('Failed to load university filtered products');
+            setLoading(false);
+          }
+        });
+      } else {
+        // Apply client-side filters normally
+        applyFilters();
+      }
+      
       setIsFiltering(false);
     }, 100);
-  }, [applyFilters, setFilterDropdownVisible]);
+  }, [
+    applyFilters, 
+    selectedFilters, 
+    userUniversity, 
+    categoryId, 
+    categoryName, 
+    setLoading, 
+    setStoreState, 
+    setError,
+    setSelectedFilters,
+    setFilterDropdownVisible
+  ]);
 
   // Update Clear Filters to restore original products
   const handleClearFilters = useCallback(() => {
@@ -938,7 +1014,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 3,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     borderRadius: 20,
     marginLeft: 10,
     backgroundColor: '#f7b305',
@@ -1163,10 +1239,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginRight: 10,
-    paddingHorizontal: 15,
-    paddingVertical: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
     backgroundColor: 'rgba(247, 179, 5, 0.08)',
-    borderRadius: 5,
+    borderRadius: 15,
     borderWidth: 1,
     borderColor: '#f7b305',
   },
