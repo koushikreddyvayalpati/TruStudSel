@@ -56,8 +56,6 @@ import StatusBarManager from './components/StatusBarManager';
 
 // Import chat store
 import useChatStore from './store/chatStore';
-
-// Build the Amplify config object from environment variables
 const amplifyConfig = {
   Auth: {
     region: Config.AMPLIFY_AUTH_REGION,
@@ -68,8 +66,21 @@ const amplifyConfig = {
   // pulling values from Config.
 };
 
+
+// Import the Amplify configuration from our hardcoded config file
+// import getAmplifyConfig from './config/amplifyConfig';
+
+// // For debugging purposes, log the Config object to see what's available
+// console.log('ReactNativeConfig:', Config);
+
+// // Use our platform-specific configuration (hardcoded for iOS, env vars for Android)
+// const amplifyConfig = getAmplifyConfig();
+
 // Configure Amplify with the dynamically built config
 Amplify.configure(amplifyConfig);
+
+// After configuration, log what was used (for development debugging)
+console.log('Using Amplify config:', amplifyConfig);
 
 const App: React.FC = () => {
   const navigationRef = useRef<NavigationContainerRef<any>>(null);

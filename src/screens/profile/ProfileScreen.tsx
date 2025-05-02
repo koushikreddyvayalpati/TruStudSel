@@ -1509,7 +1509,14 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     backgroundColor: '#f8f9fa', // Content background color
-    paddingBottom: 60, // Added padding to account for bottom navigation
+    ...Platform.select({
+      ios: {
+        paddingBottom: 0,
+      },
+      android: {
+        paddingBottom: 60,
+      },
+    }),
   },
   scrollContent: {
     paddingBottom: 20,
@@ -1532,7 +1539,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 1,
         shadowRadius: 1,
-        marginTop: 60,
+        marginTop: 0,
       },
       android: {
         elevation: 2,

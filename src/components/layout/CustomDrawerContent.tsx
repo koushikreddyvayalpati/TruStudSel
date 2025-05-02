@@ -174,6 +174,11 @@ const styles = StyleSheet.create({
   drawerContent: {
     flexGrow: 1,
     paddingTop: 0,
+    ...Platform.select({
+      ios: {
+        marginTop: 50,
+      },
+    })
   },
   header: {
     paddingHorizontal: 20,

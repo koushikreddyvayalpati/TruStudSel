@@ -2125,8 +2125,10 @@ const styles = StyleSheet.create({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
+        shadowOpacity: 0.3,
         shadowRadius: 4,
+        borderColor: '#e0e0e0',
+        borderWidth: 0.4,
       },
       android: {
         borderWidth: 1,
@@ -2666,6 +2668,14 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 20,
+    ...Platform.select({
+      ios: {
+        marginBottom: 0,
+      },
+      android: {
+        marginBottom: 20,
+      },
+    }),
   },
   emptySection: {
     padding: 15,

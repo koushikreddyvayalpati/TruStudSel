@@ -10,8 +10,8 @@ import Antdesign from 'react-native-vector-icons/AntDesign';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import useChatStore from '../../store/chatStore';
+import { Platform } from 'react-native';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
-
 // Update navigation type to be more general
 type NavigationProp = StackNavigationProp<any>;
 
@@ -204,6 +204,12 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
     width: '100%',
+    ...Platform.select({
+      ios: {
+        marginBottom: 20,
+        height: 60,
+      }
+    })
   },
   navButton: {
     alignItems: 'center',

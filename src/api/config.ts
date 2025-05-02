@@ -10,7 +10,7 @@ const isDevelopment = __DEV__;
 // In development, use localhost for the emulator
 // Note: On Android emulator, localhost refers to the emulator itself, not your machine
 // Use 10.0.2.2 for Android emulator to reach your machine's localhost
-const devBaseUrl = Platform.OS === 'android' ? 'https://r3ucx02lih.execute-api.us-east-2.amazonaws.com' : 'http://localhost:8080';
+const devBaseUrl = Platform.OS === 'android' ? 'https://r3ucx02lih.execute-api.us-east-2.amazonaws.com' : 'https://r3ucx02lih.execute-api.us-east-2.amazonaws.com';
 
 // API base URLs
 export const API_URL = isDevelopment ? devBaseUrl : 'https://r3ucx02lih.execute-api.us-east-2.amazonaws.com';
