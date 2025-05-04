@@ -348,7 +348,7 @@ const WishlistScreen: React.FC = () => {
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <MaterialIcons name="arrow-back" size={24} color={colors.text} />
+            <Ionicons name={Platform.OS === 'android' ? 'arrow-back' : 'chevron-back'} size={24} color={colors.text} />
           </TouchableOpacity>
 
           <View style={styles.titleContainer}>

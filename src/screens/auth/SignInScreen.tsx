@@ -19,8 +19,7 @@ import { useAuth } from '../../contexts';
 import { TextInput, LoadingOverlay } from '../../components/common';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
-import Config from 'react-native-config';
-console.log('Config:', Config);
+
 const SignInScreen: React.FC = () => {
   const navigation = useNavigation<SignInScreenNavigationProp>();
   const [username, setUsername] = useState('');

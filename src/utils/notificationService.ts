@@ -56,6 +56,26 @@ export default class NotificationService {
         requestPermissions: true,
       });
       
+      // iOS specific setup for rich notifications
+      if (Platform.OS === 'ios') {
+        // Import iOS specific notification module
+        const PushNotificationIOS = require('@react-native-community/push-notification-ios');
+        
+        // Register notification categories for iOS
+        PushNotificationIOS.setNotificationCategories([
+          {
+            id: 'PROMOTIONAL',
+            actions: [
+              {
+                id: 'view',
+                title: 'View',
+                options: { foreground: true }
+              }
+            ]
+          }
+        ]);
+      }
+      
       // Create notification channels for Android
       if (Platform.OS === 'android') {
         PushNotification.createChannel(
@@ -80,6 +100,19 @@ export default class NotificationService {
             vibrate: true,
           },
           (created: boolean) => console.log(`Channel 'general-notifications' created: ${created}`)
+        );
+        
+        // Add promotional notification channel
+        PushNotification.createChannel(
+          {
+            channelId: 'promotional-messages',
+            channelName: 'Promotional Messages',
+            channelDescription: 'Promotions and special offers',
+            soundName: 'default',
+            importance: 4, // High importance for promotions
+            vibrate: true,
+          },
+          (created: boolean) => console.log(`Channel 'promotional-messages' created: ${created}`)
         );
       }
       
@@ -227,42 +260,106 @@ export default class NotificationService {
         case 'PROMO':
         case 'PROMOTIONAL':
           console.log('Handling promotional notification:', data);
-          // Show promotional notification with image support
-          PushNotification.localNotification({
-            channelId: 'promotional-messages',
-            title: remoteMessage.notification?.title || 'Special Offer',
-            message: remoteMessage.notification?.body || 'Check out our latest offers',
-            playSound: true,
-            soundName: 'default',
-            // Image support
-            bigPictureUrl: data.image || null,
-            bigLargeIcon: data.image ? "ic_launcher" : null,
-            attachments: data.image ? [{ url: data.image }] : null,
-            // Other settings
-            priority: 'high',
-            importance: 'high',
-            userInfo: {
-              ...data,
-              type: 'PROMO',
-              id: `promo_${Date.now()}`,
-              navigateTo: data.navigateTo || 'Home'
-            }
-          });
+          // For iOS, ensure the notification payload has the correct structure for image display
+          if (Platform.OS === 'ios') {
+            // iOS requires a Notification Service Extension to handle images in background
+            // Log the full data to help with debugging
+            console.log('iOS promotional notification - full data:', JSON.stringify(remoteMessage));
+            
+            // For iOS 10+ we need to ensure the notification uses mutable-content flag
+            PushNotification.localNotification({
+              channelId: 'promotional-messages',
+              title: remoteMessage.notification?.title || 'Special Offer',
+              message: remoteMessage.notification?.body || 'Check out our latest offers',
+              playSound: true,
+              soundName: 'default',
+              // iOS specific properties for rich media
+              userInteraction: false,
+              category: 'PROMOTIONAL',
+              attachments: data.image ? [{ url: data.image, options: { typeHint: 'public.image' } }] : [],
+              // Other iOS flags
+              mutableContent: true,
+              // User info
+              userInfo: {
+                ...data,
+                type: 'PROMO',
+                id: `promo_${Date.now()}`,
+                navigateTo: data.navigateTo || 'Home',
+                imageUrl: data.image || null,
+                // Essential for iOS rich notifications
+                'media-url': data.image || null,
+                'fcm-options': { 
+                  'image': data.image || null 
+                }
+              }
+            });
+          } else {
+            // Android notification with image
+            PushNotification.localNotification({
+              channelId: 'promotional-messages',
+              title: remoteMessage.notification?.title || 'Special Offer',
+              message: remoteMessage.notification?.body || 'Check out our latest offers',
+              playSound: true,
+              soundName: 'default',
+              // Image support for Android
+              bigPictureUrl: data.image || null,
+              bigLargeIcon: data.image ? "ic_launcher" : null,
+              largeIconUrl: data.image || null,
+              // Other settings
+              priority: 'high',
+              importance: 'high',
+              userInfo: {
+                ...data,
+                type: 'PROMO',
+                id: `promo_${Date.now()}`,
+                navigateTo: data.navigateTo || 'Home',
+                imageUrl: data.image || null
+              }
+            });
+          }
           break;
         default:
           console.log('Handling general notification:', data);
-          // Show local notification
-          PushNotification.localNotification({
-            channelId: 'general-notifications',
-            title: remoteMessage.notification?.title || 'New Notification',
-            message: remoteMessage.notification?.body || 'You have a new notification',
-            playSound: true,
-            soundName: 'default',
-            // Check if there's an image in the payload
-            bigPictureUrl: data.image || null,
-            bigLargeIcon: data.image ? "ic_launcher" : null,
-            attachments: data.image ? [{ url: data.image }] : null,
-          });
+          // Check for iOS vs Android to handle platform-specific features
+          if (Platform.OS === 'ios' && data.image) {
+            console.log('iOS general notification with image:', data.image);
+            PushNotification.localNotification({
+              channelId: 'general-notifications',
+              title: remoteMessage.notification?.title || 'New Notification',
+              message: remoteMessage.notification?.body || 'You have a new notification',
+              playSound: true,
+              soundName: 'default',
+              // iOS specific for rich media
+              category: 'GENERAL',
+              attachments: [{ url: data.image, options: { typeHint: 'public.image' } }],
+              // Critical for iOS rich notifications
+              mutableContent: true,
+              userInfo: {
+                ...data,
+                'media-url': data.image,
+                'fcm-options': { 'image': data.image },
+                type: 'GENERAL',
+                id: `notification_${Date.now()}`
+              }
+            });
+          } else {
+            // Show local notification (Android or iOS without image)
+            PushNotification.localNotification({
+              channelId: 'general-notifications',
+              title: remoteMessage.notification?.title || 'New Notification',
+              message: remoteMessage.notification?.body || 'You have a new notification',
+              playSound: true,
+              soundName: 'default',
+              // Check if there's an image for Android
+              bigPictureUrl: data.image || null,
+              bigLargeIcon: data.image ? "ic_launcher" : null,
+              userInfo: {
+                ...data,
+                type: 'GENERAL',
+                id: `notification_${Date.now()}`
+              }
+            });
+          }
       }
     } catch (error) {
       console.error('Error handling notification:', error);
@@ -553,10 +650,50 @@ export default class NotificationService {
   static async clearAllNotifications(): Promise<void> {
     try {
       await AsyncStorage.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify([]));
-      PushNotification.cancelAllLocalNotifications();
+      PushNotification.cancelAllNotifications();
     } catch (error) {
       console.error('Error clearing notifications:', error);
     }
+  }
+  
+  // Helper method to create iOS-compatible rich notification payload
+  static formatIOSBackgroundImagePayload(title: string, body: string, imageUrl: string, data: any = {}): any {
+    return {
+      notification: {
+        title,
+        body,
+        sound: 'default',
+      },
+      data: {
+        ...data,
+        image: imageUrl,
+        // iOS background image notification requires these fields
+        'media-url': imageUrl,
+        'fcm-options': {
+          'image': imageUrl
+        },
+      },
+      android: {
+        notification: {
+          imageUrl,
+          sound: 'default',
+          priority: 'high',
+          channelId: 'promotional-messages'
+        }
+      },
+      apns: {
+        payload: {
+          aps: {
+            'mutable-content': 1, // Required for iOS images in background notifications
+            sound: 'default',
+            'content-available': 1 // Ensures background processing
+          }
+        },
+        fcm_options: {
+          image: imageUrl
+        }
+      }
+    };
   }
   
   // Send a chat notification to another user

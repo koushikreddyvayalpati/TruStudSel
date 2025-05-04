@@ -1427,7 +1427,7 @@ const FirebaseChatScreen = () => {
             style={styles.backButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Icon name="arrow-back" size={24} color={Platform.OS === 'android' ? '#333' : '#000'} />
+            <Icon name={Platform.OS === 'android' ? 'arrow-back' : 'chevron-back'} size={24} color={Platform.OS === 'android' ? '#333' : '#000'} />
           </TouchableOpacity>
         </View>
 
@@ -1598,6 +1598,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 1,
         shadowRadius: 3,
+        backgroundColor: '#f7b305',
       },
       android: {
         elevation: 4,

@@ -98,7 +98,7 @@ const App: React.FC = () => {
     const checkForInitialNotification = async () => {
       try {
         setIsCheckingNotification(true);
-        console.log('[App] Checking for initial notification before mounting app');
+        // console.log('[App] Checking for initial notification before mounting app');
         
         // Look for stored notification data
         const initialNotificationData = await AsyncStorage.getItem('INITIAL_NOTIFICATION');

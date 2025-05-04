@@ -119,7 +119,7 @@ const TextInput: React.FC<TextInputProps> = memo(({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   label: {
     fontSize: 14,

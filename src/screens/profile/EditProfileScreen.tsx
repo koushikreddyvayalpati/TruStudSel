@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 8,
-    backgroundColor: '',
+    backgroundColor: 'transparent',
     borderRadius: 12,
     ...Platform.select({
       ios: {

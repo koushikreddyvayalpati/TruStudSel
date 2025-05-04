@@ -701,7 +701,7 @@ const ProductsScreen = () => {
           onPress={() => navigation.goBack()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="arrow-back" size={24} color="#333" />
+          <Ionicons name={Platform.OS === 'android' ? 'arrow-back' : 'chevron-back'} size={24} color="#333" />
         </TouchableOpacity>
 
         <Text style={styles.headerTitle}>Product Details</Text>

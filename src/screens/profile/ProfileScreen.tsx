@@ -28,6 +28,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import the Zustand profile store
 import useProfileStore from '../../store/profileStore';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 // Constants
 const PROFILE_BANNER_HEIGHT = 120;
@@ -1428,7 +1429,7 @@ const ProfileScreen: React.FC = () => {
             onPress={handleGoBack}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <MaterialIcons name="arrow-back" size={24} color="white" />
+            <Ionicons name={Platform.OS === 'android' ? 'arrow-back' : 'chevron-back'} size={26} color="white" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>
             {isViewingSeller ? 'Seller Profile' : 'My Profile'}
@@ -1553,6 +1554,7 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingLeft: 0,
   },
   headerTitle: {
     fontSize: 20,
