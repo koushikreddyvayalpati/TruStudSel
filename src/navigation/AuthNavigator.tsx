@@ -63,7 +63,28 @@ const AuthNavigator: React.FC = () => {
   return (
     <Stack.Navigator
       initialRouteName={initialRoute}
-      screenOptions={{ headerShown: false }}
+      screenOptions={{
+        headerShown: false,
+        cardStyleInterpolator: ({ current: { progress } }) => ({
+          cardStyle: {
+            opacity: progress,
+          },
+        }),
+        transitionSpec: {
+          open: {
+            animation: 'timing',
+            config: {
+              duration: 200,
+            },
+          },
+          close: {
+            animation: 'timing',
+            config: {
+              duration: 150,
+            },
+          },
+        },
+      }}
     >
       <Stack.Screen
         name="GetStarted"

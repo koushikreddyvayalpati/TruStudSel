@@ -31,6 +31,7 @@ import { TextInput } from '../../components/common';
 import { useAuth } from '../../contexts/AuthContext';
 import LinearGradient from 'react-native-linear-gradient';
 import ImagePicker from 'react-native-image-crop-picker';
+import { launchCamera } from 'react-native-image-picker'; // Import for iOS camera
 
 // Import the Zustand store
 import usePostingStore from '../../store/postingStore';
@@ -175,6 +176,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
   const [photoPickerModalVisible, setPhotoPickerModalVisible] = useState(false);
   // Add state for city selector modal
   const [citySelectorVisible, setCitySelectorVisible] = useState(false);
+  const [cameraCooldown, setCameraCooldown] = useState(false);
 
   const routeParams = route.params || {};
   const { userUniversity = '', userCity = '', isEditMode = false, productToEdit = null } = routeParams;
@@ -288,6 +290,10 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
       return;
     }
 
+    // Add a cooldown for gallery access too, just like camera
+    if (cameraCooldown) return; // Reuse the same state to prevent rapid re-opening
+    setCameraCooldown(true);
+
     // --- Android Pre-Picker Setup --- 
     // On Android, hide modal and add delay *before* picker to prevent UI jump
     if (Platform.OS === 'android') {
@@ -327,11 +333,21 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
         multiple: false,
         freeStyleCropEnabled: true, 
         showCropFrame: true,
+        cropperChooseInitialCropArea: 'full',
+        avoidEmptySpaceAroundImage: true,
+        includeExif: true,
+        forceJpg: true,
         ...(Platform.OS === 'android' ? {
           cropperToolbarWidgetColor: '#ffffff',
           includeBase64: false,
           cropperTintColor: '#f7b305',
           cropperDisableFreeStyleCrop: false,
+          cropperInitialRectsPercentages: {
+            x: 0,
+            y: 0, 
+            width: 1,
+            height: 1
+          },
           cropperToolbarIconsColor: '#ffffff',
           forceJpg: true,
           showVerticallyScrollingCropArea: true,
@@ -398,6 +414,11 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
 
       console.log('[PostingScreen] Adding new gallery image to store:', JSON.stringify(newImage));
       addImage(newImage);
+      
+      // Reset cooldown after successful selection
+      InteractionManager.runAfterInteractions(() => {
+        setCameraCooldown(false);
+      });
 
     } catch (error: any) {
       console.error('[PostingScreen] Error during image selection/processing:', error, error.stack);
@@ -407,9 +428,18 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
       
       if (error.toString().includes('cancelled') || error.toString().includes('canceled')) {
         console.log('[PostingScreen] User canceled image picker/cropper');
+        // Reset cooldown immediately upon cancellation
+        InteractionManager.runAfterInteractions(() => {
+          setCameraCooldown(false);
+        });
         // No need to reset status bar if cancelled
         return; 
       }
+      
+      // Reset cooldown on error
+      InteractionManager.runAfterInteractions(() => {
+        setCameraCooldown(false);
+      });
       
       if (Platform.OS === 'ios') {
         // iOS specific error handling
@@ -456,10 +486,15 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
       // Ensure modal is hidden (redundant for success/error cases handled above, but safe)
       hidePhotoPickerModal();
     }
-  }, [images.length, addImage, hidePhotoPickerModal]);
+  }, [images.length, addImage, hidePhotoPickerModal, cameraCooldown]);
 
   // New function to handle camera image capture
   const handleCameraCapture = useCallback(async () => {
+    if (cameraCooldown) return; // Prevent rapid re-opening
+    setCameraCooldown(true);
+
+    setTimeout(() => setCameraCooldown(false), 1500); // 1.5 second cooldown
+
     console.log('[PostingScreen] Starting camera capture');
     if (images.length >= 5) {
       console.log('[PostingScreen] Maximum images limit reached');
@@ -471,6 +506,89 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
       hidePhotoPickerModal();
       await new Promise(resolve => setTimeout(resolve, 300));
 
+      // Platform-specific camera handling
+      if (Platform.OS === 'ios') {
+        // Use react-native-image-picker for iOS
+        console.log('[PostingScreen] Using native image picker for iOS');
+        
+        launchCamera({
+          mediaType: 'photo',
+          includeBase64: false,
+          maxHeight: 1200,
+          maxWidth: 1200,
+          quality: 0.7,
+          saveToPhotos: false, // Don't save to photo library automatically
+        }, (response) => {
+          if (response.didCancel) {
+            console.log('[PostingScreen] User cancelled camera');
+            // Ensure we properly handle the cancellation
+            InteractionManager.runAfterInteractions(() => {
+              // Reset modal state and cooldown immediately upon cancellation
+              setCameraCooldown(false);
+            });
+            return;
+          }
+          
+          if (response.errorCode) {
+            console.log('[PostingScreen] Camera error:', response.errorMessage);
+            
+            // Also reset the cooldown on error
+            InteractionManager.runAfterInteractions(() => {
+              setCameraCooldown(false);
+            });
+            
+            if (response.errorCode === 'camera_unavailable') {
+              Alert.alert('Camera Error', 'Camera is not available on this device');
+            } else if (response.errorCode === 'permission') {
+              Alert.alert(
+                'Camera Permission Required',
+                'To take photos, please allow camera access in your device settings.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { 
+                    text: 'Open Settings', 
+                    onPress: () => Linking.openURL('app-settings:') 
+                  }
+                ]
+              );
+            } else {
+              Alert.alert('Error', response.errorMessage || 'Failed to capture image');
+            }
+            return;
+          }
+          
+          // Successfully captured an image
+          if (response.assets && response.assets.length > 0) {
+            const asset = response.assets[0];
+            console.log('[PostingScreen] iOS camera captured image:', asset.uri);
+            
+            // Add the image to the store
+            if (asset.uri) {
+              const newImage = {
+                uri: asset.uri,
+                type: asset.type || 'image/jpeg',
+                name: `camera_${Date.now()}.jpg`,
+                fileSize: asset.fileSize || 0,
+              };
+              
+              console.log('[PostingScreen] Adding new iOS camera image to store:', JSON.stringify(newImage));
+              addImage(newImage);
+              
+              // Reset cooldown after successful capture
+              InteractionManager.runAfterInteractions(() => {
+                setCameraCooldown(false);
+              });
+            } else {
+              console.error('[PostingScreen] No URI in captured image');
+              Alert.alert('Error', 'Failed to process the captured image');
+            }
+          }
+        });
+        
+        return; // Exit early, the callback will handle the rest
+      }
+      
+      // Android: Use existing image-crop-picker implementation
       // --- Android StatusBar Handling --- 
       if (Platform.OS === 'android') {
         // Camera permission check
@@ -504,91 +622,89 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
         
         StatusBar.setBackgroundColor('#000000', true);
         StatusBar.setBarStyle('light-content', true);
-      }
-      // --- End Android StatusBar Handling ---
       
-      // On iOS, permissions are requested automatically by openCamera if needed.
-
-      const image = await ImagePicker.openCamera({
-        width: 1200,
-        height: 1200,
-        cropping: true,
-        cropperCircleOverlay: false,
-        compressImageQuality: 0.7,
-        mediaType: 'photo',
-        cropperToolbarTitle: 'Edit Photo',
-        cropperStatusBarColor: '#000000',
-        cropperToolbarColor: '#000000',
-        cropperToolbarWidgetColor: '#ffffff',
-        cropperActiveWidgetColor: '#f7b305',
-        hideBottomControls: false,
-        showCropGuidelines: true,
-        enableRotationGesture: true,
-        cropperChooseText: 'Done',
-        cropperCancelText: 'Cancel',
-        multiple: false,
-        freeStyleCropEnabled: true,
-        showCropFrame: true,
-        ...(Platform.OS === 'android' ? {
+        // Continue with the original implementation for Android
+        const image = await ImagePicker.openCamera({
+          width: 1200,
+          height: 1200,
+          cropping: true,
+          cropperCircleOverlay: false,
+          compressImageQuality: 0.7,
+          mediaType: 'photo',
+          cropperToolbarTitle: 'Edit Photo',
+          cropperStatusBarColor: '#000000',
+          cropperToolbarColor: '#000000',
           cropperToolbarWidgetColor: '#ffffff',
+          cropperActiveWidgetColor: '#f7b305',
+          hideBottomControls: false,
+          showCropGuidelines: true,
+          enableRotationGesture: true,
+          cropperChooseText: 'Done',
+          cropperCancelText: 'Cancel',
+          multiple: false,
+          freeStyleCropEnabled: true,
+          showCropFrame: true,
+          cropperChooseInitialCropArea: 'full',
+          avoidEmptySpaceAroundImage: true,
+          includeExif: true,
+          forceJpg: true,
+          cropperInitialRectsPercentages: {
+            x: 0,
+            y: 0, 
+            width: 1,
+            height: 1
+          },
           includeBase64: false,
           cropperTintColor: '#f7b305',
           cropperDisableFreeStyleCrop: false,
           cropperToolbarIconsColor: '#ffffff',
-          forceJpg: true,
           showVerticallyScrollingCropArea: true,
           cropperToolbarHeight: 56, 
           cropperButtonsHorizontalMargin: 16,
           cropperActiveControlsWidgetColor: '#f7b305',
-        } : {}),
-        ...(Platform.OS === 'ios' ? {
-          showsSelectedCount: false,
-          avoidEmptySpaceAroundImage: true,
-          autoScaleFontSize: true,
-          customButtonsIOS: [],
-          waitAnimationEnd: false,
-          useFrontCamera: false,
-          includeBase64: false,
-          cropping: true,
-          loadingLabelText: 'Processing...',
-          forceJpg: true,
-          maxFiles: 1,
-          width: 800,
-          height: 800,
-        } : {}),
-      });
+        });
 
-      console.log('[PostingScreen] Camera captured image:', image);
+        console.log('[PostingScreen] Android camera captured image:', image);
 
-      if (!image.path) {
-        console.error('[PostingScreen] Camera image has no path');
-        Alert.alert('Error', 'Failed to get image from camera');
-        return;
+        if (!image.path) {
+          console.error('[PostingScreen] Camera image has no path');
+          Alert.alert('Error', 'Failed to get image from camera');
+          return;
+        }
+
+        // Add the image to the store
+        const newImage = {
+          uri: image.path,
+          type: image.mime || 'image/jpeg',
+          name: `camera_${Date.now()}.jpg`,
+          fileSize: image.size,
+        };
+
+        console.log('[PostingScreen] Adding new camera image to store:', JSON.stringify(newImage));
+        addImage(newImage);
       }
-
-      // Add the image to the store
-      const newImage = {
-        uri: image.path,
-        type: image.mime || 'image/jpeg',
-        name: `camera_${Date.now()}.jpg`,
-        fileSize: image.size,
-      };
-
-      console.log('[PostingScreen] Adding new camera image to store:', JSON.stringify(newImage));
-      addImage(newImage);
 
     } catch (error: any) {
       // Check if user canceled the camera
       if (error.toString().includes('cancelled') || error.toString().includes('canceled')) {
         console.log('[PostingScreen] User canceled camera');
+        // Reset cooldown immediately upon cancellation
+        InteractionManager.runAfterInteractions(() => {
+          setCameraCooldown(false);
+        });
         return;
       }
       
       console.error('[PostingScreen] Error capturing image:', error, error.stack);
       
+      // Reset cooldown on error
+      InteractionManager.runAfterInteractions(() => {
+        setCameraCooldown(false);
+      });
+      
       if (Platform.OS === 'ios') {
         // iOS specific error handling
-        console.log('[PostingScreen] iOS camera error details:', error.code, error.message);
+        console.log('[PostingScreen] iOS error details:', error.code, error.message);
         
         // If there's a permissions issue
         if (error.message?.includes('permission') || error.message?.includes('denied') || error.message?.includes('restricted')) {
@@ -618,7 +734,7 @@ const PostingScreen: React.FC<PostingScreenProps> = ({ navigation, route }) => {
         });
       }
     }
-  }, [images.length, addImage, hidePhotoPickerModal]);
+  }, [images.length, addImage, hidePhotoPickerModal, cameraCooldown]);
 
   // Handle removing images - uses the store's removeImage function
   const handleRemoveImage = useCallback((index: number, isExisting: boolean) => {

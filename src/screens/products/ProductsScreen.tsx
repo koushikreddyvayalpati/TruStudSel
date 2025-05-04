@@ -27,6 +27,7 @@ import useProductDetailsStore from '../../store/productDetailsStore';
 import ReviewsSection from '../../components/reviews/ReviewsSection';
 import { SafeAreaView as SafeAreaViewContext } from 'react-native-safe-area-context';
 import { submitReport } from '../../api/reports';
+import ImageViewer from 'react-native-image-zoom-viewer';
 
 const { width, height } = Dimensions.get('window');
 
@@ -300,9 +301,11 @@ const SimilarProducts: React.FC<{
 // Image Zoom Modal Component
 const ImageZoomModal: React.FC<{
   visible: boolean;
-  imageUri: string;
+  images: string[];
+  currentIndex: number;
   onClose: () => void;
-}> = React.memo(({ visible, imageUri, onClose }) => {
+  onIndexChange: (index: number) => void;
+}> = React.memo(({ visible, images, currentIndex, onClose, onIndexChange }) => {
   return (
     <Modal
       visible={visible}
@@ -311,15 +314,43 @@ const ImageZoomModal: React.FC<{
       onRequestClose={onClose}
     >
       <View style={styles.modalBackground}>
-        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-          <Ionicons name="close" size={24} color="white" />
-        </TouchableOpacity>
-
-        <Image
-          source={{ uri: imageUri && imageUri.trim() !== '' ? imageUri : 'https://via.placeholder.com/300' }}
-          style={styles.zoomedImage}
-          resizeMode="contain"
-          {...(Platform.OS === 'ios' ? { defaultSource: { uri: 'https://via.placeholder.com/300' } } : {})}
+        <ImageViewer
+          imageUrls={images.map((img) => ({ url: img || 'https://via.placeholder.com/300' }))}
+          index={currentIndex}
+          onSwipeDown={onClose}
+          enableSwipeDown={true}
+          enableImageZoom={true}
+          useNativeDriver={true}
+          saveToLocalByLongPress={false}
+          onChange={(index) => {
+            if (index !== null && index !== undefined) {
+              onIndexChange(index as number);
+            }
+          }}
+          backgroundColor="rgba(0, 0, 0, 0.9)"
+          loadingRender={() => (
+            <ActivityIndicator size="large" color="#f7b305" />
+          )}
+          renderHeader={() => (
+            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+              <Ionicons name="close" size={24} color="white" />
+            </TouchableOpacity>
+          )}
+          menus={({ _cancel, _saveToLocal }) => (
+            <View style={{ display: 'none' }} />
+          )}
+          style={{ width: '100%', height: '100%' }}
+          flipThreshold={80}
+          maxOverflow={300}
+          swipeDownThreshold={50}
+          doubleClickInterval={300}
+          pageAnimateTime={200}
+          enablePreload={true}
+          renderIndicator={(currentIndex, allSize) => (
+            <View style={[styles.zoomPaginationContainer, { backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 15, paddingVertical: 5, borderRadius: 15 }]}>
+              <Text style={{ color: '#fff', fontSize: 16 }}>{`${currentIndex || 1} / ${allSize}`}</Text>
+            </View>
+          )}
         />
       </View>
     </Modal>
@@ -898,8 +929,10 @@ const ProductsScreen = () => {
 
       <ImageZoomModal
         visible={zoomVisible}
-        imageUri={selectedImage}
+        images={productImages}
+        currentIndex={productImages.indexOf(selectedImage)}
         onClose={closeZoom}
+        onIndexChange={(index) => handleImagePress(index)}
       />
 
       {/* Report Modal */}
@@ -1495,6 +1528,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
+    width: '100%',
+    height: '100%',
   },
   closeButton: {
     position: 'absolute',
@@ -1504,6 +1539,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     padding: 10,
     borderRadius: 25,
+    shadowColor: 'black',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   zoomedImage: {
     width: width,
@@ -2156,7 +2196,7 @@ const styles = StyleSheet.create({
   // Styles for Combined City and Date display
   locationDateContainer: {
     flexDirection: 'row',
-    alignItems: 'center', // Space before description
+    alignItems: 'center',
   },
   locationDateText: {
     fontSize: 14,
@@ -2178,5 +2218,61 @@ const styles = StyleSheet.create({
   similarProductListContainer: {
     paddingHorizontal: 16,
     paddingVertical: 8,
+  },
+  zoomPaginationContainer: {
+    position: 'absolute',
+    bottom: 30,
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  zoomPaginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    marginHorizontal: 4,
+  },
+  zoomActivePaginationDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#f7b305',
+  },
+  zoomNavButton: {
+    position: 'absolute',
+    width: width / 4,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    zIndex: 2,
+  },
+  zoomPrevButton: {
+    left: 0,
+  },
+  zoomNextButton: {
+    right: 0,
+  },
+  swipeInstructionContainer: {
+    position: 'absolute',
+    bottom: 80,
+    left: 0,
+    right: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    marginHorizontal: 50,
+  },
+  swipeInstructionText: {
+    fontSize: 14,
+    color: 'white',
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });

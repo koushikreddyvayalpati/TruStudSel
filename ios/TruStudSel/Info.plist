@@ -2,6 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>AMPLIFY_AUTH_REGION</key>
+	<string>$(AMPLIFY_AUTH_REGION)</string>
+	<key>AMPLIFY_AUTH_USER_POOL_ID</key>
+	<string>$(AMPLIFY_AUTH_USER_POOL_ID)</string>
+	<key>AMPLIFY_AUTH_USER_POOL_WEB_CLIENT_ID</key>
+	<string>$(AMPLIFY_AUTH_USER_POOL_WEB_CLIENT_ID)</string>
 	<key>API_URL</key>
 	<string>$(API_URL)</string>
 	<key>CFBundleDevelopmentRegion</key>
@@ -37,6 +43,18 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>FIREBASE_API_KEY</key>
+	<string>$(FIREBASE_API_KEY)</string>
+	<key>FIREBASE_APP_ID</key>
+	<string>$(FIREBASE_APP_ID)</string>
+	<key>FIREBASE_AUTH_DOMAIN</key>
+	<string>$(FIREBASE_AUTH_DOMAIN)</string>
+	<key>FIREBASE_MESSAGING_SENDER_ID</key>
+	<string>$(FIREBASE_MESSAGING_SENDER_ID)</string>
+	<key>FIREBASE_PROJECT_ID</key>
+	<string>$(FIREBASE_PROJECT_ID)</string>
+	<key>FIREBASE_STORAGE_BUCKET</key>
+	<string>$(FIREBASE_STORAGE_BUCKET)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>
@@ -52,6 +70,8 @@
 	<string></string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Allow access to your photo library to upload a profile picture.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Allow access to save photos to your library.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Ionicons.ttf</string>
@@ -74,6 +94,7 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
+		<string>processing</string>
 		<string>remote-notification</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
@@ -90,23 +111,5 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
-	<key>AMPLIFY_AUTH_REGION</key>
-	<string>$(AMPLIFY_AUTH_REGION)</string>
-	<key>AMPLIFY_AUTH_USER_POOL_ID</key>
-	<string>$(AMPLIFY_AUTH_USER_POOL_ID)</string>
-	<key>AMPLIFY_AUTH_USER_POOL_WEB_CLIENT_ID</key>
-	<string>$(AMPLIFY_AUTH_USER_POOL_WEB_CLIENT_ID)</string>
-	<key>FIREBASE_API_KEY</key>
-	<string>$(FIREBASE_API_KEY)</string>
-	<key>FIREBASE_AUTH_DOMAIN</key>
-	<string>$(FIREBASE_AUTH_DOMAIN)</string>
-	<key>FIREBASE_PROJECT_ID</key>
-	<string>$(FIREBASE_PROJECT_ID)</string>
-	<key>FIREBASE_STORAGE_BUCKET</key>
-	<string>$(FIREBASE_STORAGE_BUCKET)</string>
-	<key>FIREBASE_MESSAGING_SENDER_ID</key>
-	<string>$(FIREBASE_MESSAGING_SENDER_ID)</string>
-	<key>FIREBASE_APP_ID</key>
-	<string>$(FIREBASE_APP_ID)</string>
 </dict>
 </plist>

@@ -36,23 +36,21 @@ const OnboardingScreen2: React.FC<OnboardingScreen2Props> = ({ navigation }) => 
     markAsSeen();
   }, []);
 
-  const handleSkip = async () => {
-    try {
-      // If user skips, mark as having seen onboarding
-      await AsyncStorage.setItem('@has_seen_get_started', 'true');
-      await AsyncStorage.setItem('@has_seen_onboarding', 'true');
-      navigation.navigate('SignIn');
-    } catch (error) {
-      console.error('Error saving onboarding status:', error);
-      navigation.navigate('SignIn');
-    }
+  const handleSkip = () => {
+    // Navigate immediately for better performance
+    navigation.navigate('SignIn');
+    
+    // Update AsyncStorage in the background
+    AsyncStorage.setItem('@has_seen_get_started', 'true')
+      .then(() => AsyncStorage.setItem('@has_seen_onboarding', 'true'))
+      .catch(error => console.error('Error saving onboarding status:', error));
   };
 
-  const handleNext = async () => {
+  const handleNext = () => {
     navigation.navigate('Onboarding3');
   };
 
-  const handleBack = async () => {
+  const handleBack = () => {
     navigation.navigate('Onboarding');
   };
 
@@ -70,6 +68,7 @@ const OnboardingScreen2: React.FC<OnboardingScreen2Props> = ({ navigation }) => 
           source={require('../../../assets/image.jpg')}
           style={styles.image}
           resizeMode="contain"
+          fadeDuration={0}
         />
       </View>
 

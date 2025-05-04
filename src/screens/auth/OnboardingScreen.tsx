@@ -36,19 +36,19 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }) => {
     markAsSeen();
   }, []);
 
-  const handleSkip = async () => {
-    try {
-      // If user skips, mark as having seen onboarding
-      await AsyncStorage.setItem('@has_seen_get_started', 'true');
-      await AsyncStorage.setItem('@has_seen_onboarding', 'true');
-      navigation.navigate('SignIn');
-    } catch (error) {
-      console.error('Error saving onboarding status:', error);
-      navigation.navigate('SignIn');
-    }
+  const handleSkip = () => {
+    // Navigate immediately without waiting for AsyncStorage
+    navigation.navigate('SignIn');
+    
+    // Then update AsyncStorage in the background
+    AsyncStorage.setItem('@has_seen_get_started', 'true')
+      .catch(error => console.error('Error saving onboarding status:', error));
+    
+    AsyncStorage.setItem('@has_seen_onboarding', 'true')
+      .catch(error => console.error('Error saving onboarding status:', error));
   };
 
-  const handleNext = async () => {
+  const handleNext = () => {
     navigation.navigate('Onboarding2');
   };
 
@@ -66,6 +66,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }) => {
           source={require('../../../assets/pana.png')}
           style={styles.image}
           resizeMode="contain"
+          fadeDuration={0}
         />
       </View>
 

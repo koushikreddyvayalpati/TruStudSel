@@ -36,31 +36,27 @@ const OnboardingScreen3: React.FC<OnboardingScreen3Props> = ({ navigation }) => 
     markAsSeen();
   }, []);
 
-  const handleSkip = async () => {
-    try {
-      // If user skips, still mark as having seen onboarding
-      await AsyncStorage.setItem('@has_seen_get_started', 'true');
-      await AsyncStorage.setItem('@has_seen_onboarding', 'true');
-      navigation.navigate('SignIn');
-    } catch (error) {
-      console.error('Error saving onboarding status:', error);
-      navigation.navigate('SignIn');
-    }
+  const handleSkip = () => {
+    // Navigate immediately for better performance
+    navigation.navigate('SignIn');
+    
+    // Update AsyncStorage in the background
+    AsyncStorage.setItem('@has_seen_get_started', 'true')
+      .then(() => AsyncStorage.setItem('@has_seen_onboarding', 'true'))
+      .catch(error => console.error('Error saving onboarding status:', error));
   };
 
-  const handleNext = async () => {
-    try {
-      // Ensure both flags are set when completing onboarding
-      await AsyncStorage.setItem('@has_seen_get_started', 'true');
-      await AsyncStorage.setItem('@has_seen_onboarding', 'true');
-      navigation.navigate('SignIn');
-    } catch (error) {
-      console.error('Error saving onboarding status:', error);
-      navigation.navigate('SignIn');
-    }
+  const handleNext = () => {
+    // Navigate immediately for better performance
+    navigation.navigate('SignIn');
+    
+    // Update AsyncStorage in the background
+    AsyncStorage.setItem('@has_seen_get_started', 'true')
+      .then(() => AsyncStorage.setItem('@has_seen_onboarding', 'true'))
+      .catch(error => console.error('Error saving onboarding status:', error));
   };
 
-  const handleBack = async () => {
+  const handleBack = () => {
     navigation.navigate('Onboarding2');
   };
 
@@ -78,6 +74,7 @@ const OnboardingScreen3: React.FC<OnboardingScreen3Props> = ({ navigation }) => 
           source={require('../../../assets/onboard3.jpg')}
           style={styles.image}
           resizeMode="contain"
+          fadeDuration={0}
         />
       </View>
 

@@ -213,6 +213,8 @@ const SignInScreen: React.FC = () => {
                   source={require('../../../assets/Group.jpg')}
                   style={styles.logoImage}
                   resizeMode="contain"
+                  fadeDuration={0}
+                  defaultSource={require('../../../assets/Group.jpg')}
                 />
               )}
             </View>
