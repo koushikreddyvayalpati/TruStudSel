@@ -54,7 +54,10 @@ import { MainStackParamList } from '../../types/navigation.types';
 import { useSearch } from './home-search';
 
 // Import Zustand store
-import useProductStore from '../../store/productStore';
+import useProductStore, {
+  FEATURED_PRODUCTS_CACHE_KEY,
+  NEW_ARRIVALS_CACHE_KEY,
+} from '../../store/productStore';
 
 // Define types for better type safety
 interface Category {
@@ -78,7 +81,12 @@ interface HomescreenProps {
 
 // Cache constants with longer expiry for products
 const USER_PROFILE_CACHE_KEY = 'user_profile_cache_';
+const UNIVERSITY_PRODUCTS_CACHE_KEY = 'university_products_cache_';
+const CITY_PRODUCTS_CACHE_KEY = 'city_products_cache_';
 const USER_CACHE_EXPIRY_TIME = 15 * 60 * 1000; // 15 minutes
+const PRODUCTS_CACHE_EXPIRY_TIME = 5 * 60 * 1000; // 5 minutes
+// Add global refresh key
+const FORCE_REFRESH_KEY = 'force_refresh_flag';
 
 // Constants for search caching are imported from searchUtils.ts
 
@@ -474,40 +482,40 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
   
   // Add stub functions for filtering until full Zustand migration is complete
   // These will eventually be removed when migration is complete
-  const loadFilteredFeaturedProducts = async (_filters: any) => {
+  const loadFilteredFeaturedProducts = async (filters: any) => {
     console.log('[HomeScreen] loadFilteredFeaturedProducts is now a stub - will use Zustand in the future');
     return Promise.resolve();
   };
 
-  const loadFilteredNewArrivals = async (_filters: any) => {
+  const loadFilteredNewArrivals = async (filters: any) => {
     console.log('[HomeScreen] loadFilteredNewArrivals is now a stub - will use Zustand in the future');
     return Promise.resolve();
   };
 
-  const loadFilteredUniversityProducts = async (_filters: any) => {
+  const loadFilteredUniversityProducts = async (filters: any) => {
     console.log('[HomeScreen] loadFilteredUniversityProducts is now a stub - will use Zustand in the future');
     return Promise.resolve();
   };
 
-  const loadFilteredCityProducts = async (_filters: any) => {
+  const loadFilteredCityProducts = async (filters: any) => {
     console.log('[HomeScreen] loadFilteredCityProducts is now a stub - will use Zustand in the future');
     return Promise.resolve();
   };
 
   // Add these function stubs for the missing Zustand setters that are referenced
-  const setLoadingFeatured = (_isLoading: boolean) => {
+  const setLoadingFeatured = (isLoading: boolean) => {
     console.log('[HomeScreen] setLoadingFeatured is now a stub - will use Zustand in the future');
   };
 
-  const setLoadingNewArrivals = (_isLoading: boolean) => {
+  const setLoadingNewArrivals = (isLoading: boolean) => {
     console.log('[HomeScreen] setLoadingNewArrivals is now a stub - will use Zustand in the future');
   };
 
-  const setLoadingUniversity = (_isLoading: boolean) => {
+  const setLoadingUniversity = (isLoading: boolean) => {
     console.log('[HomeScreen] setLoadingUniversity is now a stub - will use Zustand in the future');
   };
 
-  const setLoadingCity = (_isLoading: boolean) => {
+  const setLoadingCity = (isLoading: boolean) => {
     console.log('[HomeScreen] setLoadingCity is now a stub - will use Zustand in the future');
   };
 
@@ -578,6 +586,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
     // Refresh state from store
     isRefreshing,
     error: productError,
+    interestedCategoryError,
 
     // Selected interest category
     selectedInterestCategory,
@@ -590,6 +599,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
     loadCityProducts,
     loadInterestedCategoryProducts,
     handleRefresh,
+    setError,
   } = useProductStore();
 
   // Load featured products immediately when component mounts - these don't require university/city
@@ -606,17 +616,6 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
 
   // Once university and city are loaded, load location-specific products
   useEffect(() => {
-    // Set default values for guest mode
-    if (isGuestMode) {
-      console.log('[HomeScreen] Setting default location for guest mode: Buffalo, SUNY at Buffalo');
-      if (!userUniversity) {
-        setUserUniversity("SUNY at Buffalo");
-      }
-      if (!cityFromContext) {
-        setUserCity("Buffalo");
-      }
-    }
-
     // Only proceed if we have either university or city
     if (userUniversity || userCity) {
       console.log(`[HomeScreen] Loading location-specific products for university: "${userUniversity}", city: "${userCity}"`);
@@ -634,8 +633,8 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
       // Load featured products with whatever location info we have
       loadFeaturedProducts(userUniversity, userCity);
       
-      // Also load products for interested category if we have one and NOT in guest mode
-      if (selectedInterestCategory && !isGuestMode) {
+      // Also load products for interested category if we have one
+      if (selectedInterestCategory) {
         loadInterestedCategoryProducts(selectedInterestCategory, userUniversity, userCity);
       }
     }
@@ -646,12 +645,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
     loadCityProducts,
     loadFeaturedProducts,
     loadInterestedCategoryProducts,
-    selectedInterestCategory,
-    loadNewArrivals,
-    isGuestMode,
-    cityFromContext,
-    setUserUniversity,
-    setUserCity
+    selectedInterestCategory
   ]);
 
   // Function to handle city selection (moved here after Zustand store initialization)
@@ -694,27 +688,21 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
     setUserCity
   ]);
 
+  // Function to reset location to default
+  const handleResetLocation = useCallback(() => {
+    const defaultCity = userProfileData?.city || user?.city || '';
+    
+    if (defaultCity && defaultCity !== cityFromContext) {
+      handleCitySelection(defaultCity);
+    } else {
+      // If already default or no default exists, just close the modal
+      setLocationModalVisible(false);
+      setCitySearchQuery('');
+    }
+  }, [cityFromContext, userProfileData?.city, user?.city, handleCitySelection]);
+
   // Modify the fetchUserProfile function to better log category selection
   const fetchUserProfile = useCallback(async () => {
-    // For guest mode, set default values and skip API call
-    if (isGuestMode) {
-      console.log('[HomeScreen] Guest mode detected, using default values');
-      setUserProfileData({
-        university: "SUNY at Buffalo",
-        city: "Buffalo",
-        productsCategoriesIntrested: ["electronics", "furniture", "books"]
-      });
-      
-      // Set university and city in shared context
-      setUserUniversity("SUNY at Buffalo");
-      setUserCity("Buffalo");
-      
-      // Don't set a selected category for guest users since we don't show the section
-      console.log('[HomeScreen] Guest mode - not setting interest category');
-      
-      return;
-    }
-
     if (!user?.email) {
       console.log('[HomeScreen] No user email available, skipping profile fetch');
       return;
@@ -888,23 +876,17 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
     } finally {
       setIsLoadingUserData(false);
     }
-  }, [user, setUserUniversity, setUserCity, setSelectedInterestCategory, isGuestMode]);
+  }, [user, setUserUniversity, setUserCity, setSelectedInterestCategory]);
 
   // Add logging to useEffect
   useEffect(() => {
-    // Skip in guest mode
-    if (isGuestMode) {
-      console.log('[HomeScreen] Skipping interest category products in guest mode');
-      return;
-    }
-    
     if (selectedInterestCategory) {
       console.log(`[HomeScreen] useEffect triggered to load interest products for: "${selectedInterestCategory}"`);
       loadInterestedCategoryProducts(selectedInterestCategory, userUniversity, userCity);
     } else {
       console.log('[HomeScreen] useEffect for interest products skipped: no category selected');
     }
-  }, [selectedInterestCategory, loadInterestedCategoryProducts, userUniversity, userCity, isGuestMode]);
+  }, [selectedInterestCategory, loadInterestedCategoryProducts, userUniversity, userCity]);
 
   // Load products when the component mounts
   useEffect(() => {
@@ -928,8 +910,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
       }
 
       // Also reload interested category products if we have a category
-      // but only if not in guest mode
-      if (selectedInterestCategory && !isGuestMode) {
+      if (selectedInterestCategory) {
         loadInterestedCategoryProducts(selectedInterestCategory, userUniversity, userCity);
       }
     }
@@ -942,7 +923,6 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
     loadCityProducts,
     selectedInterestCategory,
     loadInterestedCategoryProducts,
-    isGuestMode,
   ]);
 
   // Handle the refresh action with the Zustand store
@@ -1006,13 +986,13 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
   });
 
   // Total available product counts from server
-  const [totalFeaturedCount, _setTotalFeaturedCount] = useState<number>(0);
+  const [totalFeaturedCount, setTotalFeaturedCount] = useState<number>(0);
   const [totalNewArrivalsCount, _setTotalNewArrivalsCount] = useState<number>(0); // Prefix with _ to indicate unused
-  const [totalUniversityCount, _setTotalUniversityCount] = useState<number>(0);
+  const [totalUniversityCount, setTotalUniversityCount] = useState<number>(0);
   const [totalCityCount, _setTotalCityCount] = useState<number>(0); // Prefix with _ to indicate unused
 
   // Track if we're using server-side filtering
-  const [_usingServerFiltering, setUsingServerFiltering] = useState<boolean>(false);
+  const [usingServerFiltering, setUsingServerFiltering] = useState<boolean>(false);
 
   // Sort states
   const [selectedSort, setSelectedSort] = useState<string>('default');
@@ -1333,7 +1313,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
         categoryId: 0, // Using 0 for non-category specific sections
         categoryName: 'Featured Products',
         userUniversity: userUniversity,
-        userCity: isGuestMode ? "Buffalo" : cityFromContext, // Use Buffalo for guest mode
+        userCity: cityFromContext, // Use context value here too for consistency if needed
       });
     } else if (section === 'newArrivals') {
       console.log('[HomeScreen] Navigating to New Arrivals');
@@ -1350,17 +1330,16 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
         userUniversity: userUniversity,
       });
     } else if (section === 'city') {
-      const cityToUse = isGuestMode ? "Buffalo" : cityFromContext;
-      console.log('[HomeScreen] Navigating to City Products:', cityToUse);
-      // Use Buffalo for guest mode
+      console.log('[HomeScreen] Navigating to City Products:', cityFromContext);
+      // Use cityFromContext here for correct navigation params
       nav.navigate('CategoryProducts', {
         categoryId: 0,
-        categoryName: `${cityToUse} Products`, 
+        categoryName: `${cityFromContext} Products`, 
         userUniversity: userUniversity,
-        userCity: cityToUse, 
+        userCity: cityFromContext, 
       });
     }
-  }, [nav, cityFromContext, userUniversity, isGuestMode]); // Add isGuestMode to dependency array
+  }, [nav, cityFromContext, userUniversity]); // Update dependency array
 
   // Add missing handlers
   const handleProductPress = useCallback((product: Product) => {
@@ -1373,26 +1352,9 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
 
   const toggleWishlist = useCallback((id: string) => {
     // Wishlist is an account-based feature
-    if (isGuestMode) {
-      Alert.alert(
-        "Login Required",
-        "Please sign in to add to wishlist.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { 
-            text: "Sign In", 
-            onPress: () => {
-              if (guestNavigation) {
-                guestNavigation.navigate('GuestTabs', { screen: 'SignIn' });
-              }
-            }
-          }
-        ]
-      );
+    if (handleGuestAction("add to wishlist")) {
       return;
     }
-
-    // Toggle product in wishlist
     setWishlist(prev => {
       if (prev.includes(id)) {
         return prev.filter(itemId => itemId !== id);
@@ -1400,9 +1362,8 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
         return [...prev, id];
       }
     });
-  }, [isGuestMode, guestNavigation]);
+  }, [handleGuestAction]);
 
-  // Handle category press
   const handleCategoryPress = useCallback((category: Category) => {
     // Navigate to category products
     nav.navigate('CategoryProducts', {
@@ -1415,43 +1376,22 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
 
   // Add the message seller handler function
   const handleMessageSeller = useCallback((product: Product) => {
+    // Messaging is an account-based feature
+    if (handleGuestAction("message seller")) {
+      return;
+    }
     // Get seller information from the product
     const sellerName = product.sellerName || (product.seller && product.seller.name) || 'Seller';
     const sellerEmail = product.email || (product.seller && (product.seller as any).email);
-
-    // Messaging is an account-based feature
-    if (isGuestMode) {
-      Alert.alert(
-        "Login Required",
-        "Please sign in to message seller.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { 
-            text: "Sign In", 
-            onPress: () => {
-              if (guestNavigation) {
-                guestNavigation.navigate('GuestTabs', { screen: 'SignIn' });
-              }
-            }
-          }
-        ]
-      );
-      return;
-    }
-
     if (!sellerEmail) {
       Alert.alert('Error', 'Seller contact information is not available');
       return;
     }
-
-    console.log(`[HomeScreen] Messaging seller: ${sellerName} (${sellerEmail})`);
-
-    // Navigate to the Firebase Chat screen
     nav.navigate('FirebaseChatScreen', {
       recipientEmail: sellerEmail,
       recipientName: sellerName,
     });
-  }, [nav, isGuestMode, guestNavigation]);
+  }, [handleGuestAction, nav]);
 
   // Handle filter change events
   const handleFilterChange = useCallback((filterType: string, value: string | string[], sectionType: string) => {
@@ -1466,7 +1406,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
   }, []);
 
   // Add this close to other stub functions
-  const setShowFilterModal = (_show: boolean) => {
+  const setShowFilterModal = (show: boolean) => {
     console.log('[HomeScreen] setShowFilterModal is now a stub - will use direct state in the future');
   };
 
@@ -1526,7 +1466,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
   ]);
 
   // Test deep linking (for development purposes)
-  const _testDeepLink = async () => {
+  const testDeepLink = async () => {
     try {
       const url = 'trustudsel://product/12345';
       const supported = await Linking.canOpenURL(url);
@@ -1543,21 +1483,149 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
     }
   };
 
-  // Get the appropriate sort option label
-  const getSortOptionLabel = (sortId: string): string => {
-    const option = sortOptions.find(opt => opt.id === sortId);
-    return option ? option.label : 'Default';
+  // Extract feature toggle flags
+  const disableFeaturedProductsAPI = useProductStore(state => state.disableFeaturedProductsAPI);
+  const disableNewArrivalsAPI = useProductStore(state => state.disableNewArrivalsAPI);
+  
+  // Toggle functions for future use
+  const toggleFeaturedProductsAPI = useProductStore(state => state.toggleFeaturedProductsAPI);
+  const toggleNewArrivalsAPI = useProductStore(state => state.toggleNewArrivalsAPI);
+
+  // Create a function to handle guest actions
+  const handleGuestAction = useCallback((actionType: string) => {
+    // If in guest mode, show login prompt for account-based features
+    if (isGuestMode) {
+      Alert.alert(
+        "Login Required",
+        `Please sign in to ${actionType}.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Sign In", 
+            onPress: () => {
+              if (guestNavigation) {
+                guestNavigation.navigate('SignIn');
+              }
+            }
+          }
+        ]
+      );
+      return true; // Action was handled as guest
+    }
+    return false; // Not in guest mode, proceed normally
+  }, [isGuestMode, guestNavigation]);
+
+  // Handle product press - allow in guest mode
+  const handleProductPress = useCallback((product: Product) => {
+    // Allow viewing product details even as guest
+    nav.navigate('ProductInfoPage', { product });
+  }, [nav]);
+
+  // Handle wishlist toggle - requires login
+  const toggleWishlist = useCallback((id: string) => {
+    // Wishlist is an account-based feature
+    if (handleGuestAction("add to wishlist")) {
+      return;
+    }
+    setWishlist(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(itemId => itemId !== id);
+      } else {
+        return [...prev, id];
+      }
+    });
+  }, [handleGuestAction, setWishlist]);
+
+  // Handle category navigation
+  const handleCategoryPress = useCallback((category: Category) => {
+    // Navigate to category products
+    nav.navigate('CategoryProducts', {
+      categoryId: category.id,
+      categoryName: category.name,
+      userUniversity: userUniversity,
+      userCity: userCity,
+    });
+  }, [nav, userUniversity, userCity]);
+
+  // Handle message seller - requires login
+  const handleMessageSeller = useCallback((product: Product) => {
+    // Messaging is an account-based feature
+    if (handleGuestAction("message seller")) {
+      return;
+    }
+    // Get seller information from the product
+    const sellerName = product.sellerName || (product.seller && product.seller.name) || 'Seller';
+    const sellerEmail = product.email || (product.seller && (product.seller as any).email);
+    if (!sellerEmail) {
+      Alert.alert('Error', 'Seller contact information is not available');
+      return;
+    }
+    nav.navigate('FirebaseChatScreen', {
+      recipientEmail: sellerEmail,
+      recipientName: sellerName,
+    });
+  }, [handleGuestAction, nav]);
+
+  // Handle filter changes
+  const handleFilterChange = useCallback((filterType: string, value: string | string[], sectionType: string) => {
+    // Store the selected filters temporarily
+    setSelectedFilters(prev => ({
+      ...prev,
+      [filterType]: value,
+    }));
+    // Don't immediately apply filters, wait for user to press Apply
+    console.log(`[HomeScreen] Filter changed: ${filterType} = ${value} for ${sectionType}`);
+  }, []);
+
+  // Stub for modal show/hide
+  const setShowFilterModal = (show: boolean) => {
+    console.log('[HomeScreen] setShowFilterModal is now a stub - will use direct state in the future');
+  };
+
+  // Apply filters function
+  const applyFilters = useCallback(() => {
+    // Close the filter modal - only if we're using one
+    setFilterDropdownVisible(false);
+    if (Object.keys(selectedFilters).length === 0) {
+      console.log('[HomeScreen] No filters to apply');
+      return;
+    }
+    console.log('[HomeScreen] Applying filters:', selectedFilters);
+    // Instead of using the old filtering functions, we should use the Zustand store
+    // This is a stub for now - will be fully implemented later
+    console.log('[HomeScreen] Filters will be handled by Zustand store in future implementation');
+  }, [selectedFilters, setFilterDropdownVisible]);
+
+  // Helper for deep link testing
+  const testDeepLink = async () => {
+    try {
+      const url = 'trustudsel://product/12345';
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        // Open the deep link
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Not Supported', 'Deep linking is not supported on this device');
+      }
+    } catch (error) {
+      console.error('Error testing deep link:', error);
+      Alert.alert('Error', 'Could not open deep link');
+    }
   };
 
   // Extract feature toggle flags
   const disableFeaturedProductsAPI = useProductStore(state => state.disableFeaturedProductsAPI);
   const disableNewArrivalsAPI = useProductStore(state => state.disableNewArrivalsAPI);
   
-  // Modify the profile button press handler
+  // Toggle functions for future use
+  const toggleFeaturedProductsAPI = useProductStore(state => state.toggleFeaturedProductsAPI);
+  const toggleNewArrivalsAPI = useProductStore(state => state.toggleNewArrivalsAPI);
+
+  // Profile button handler
   const handleProfilePress = () => {
     if (isGuestMode) {
       if (guestNavigation) {
-        guestNavigation.navigate('GuestTabs', { screen: 'SignIn' });
+        guestNavigation.navigate('SignIn');
       }
     } else {
       nav.navigate('Profile', {});
@@ -1568,7 +1636,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
   return (
     <SafeAreaView
       style={[styles.safeArea, { backgroundColor: 'white' }]}
-      edges={['top', 'left', 'right']}
+      edges={Platform.OS === 'ios' ? ['top', 'bottom', 'left', 'right'] : ['bottom', 'left', 'right']}
     >
       <View style={styles.container}>
         {/* Top navigation bar with menu and profile */}
@@ -1576,28 +1644,10 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
           <TouchableOpacity
             style={styles.menuButton}
             onPress={() => {
-              if (isGuestMode) {
-                Alert.alert(
-                  "Guest Mode",
-                  "Sign in to access the menu.",
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    { 
-                      text: "Sign In", 
-                      onPress: () => {
-                        if (guestNavigation) {
-                          guestNavigation.navigate('GuestTabs', { screen: 'SignIn' });
-                        }
-                      }
-                    }
-                  ]
-                );
-              } else {
-                try {
-                  nav.dispatch(DrawerActions.openDrawer());
-                } catch (error) {
-                  console.warn('Failed to open drawer:', error);
-                }
+              try {
+                nav.dispatch(DrawerActions.openDrawer());
+              } catch (error) {
+                console.warn('Failed to open drawer:', error);
               }
             }}
             testID="menu-button"
@@ -1620,7 +1670,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
             >
               {isGuestMode ? (
                 <View style={[styles.profileCircle, { backgroundColor: '#f7b305' }]}>
-                  <MaterialIcons name="person" size={22} color="black" />
+                  <MaterialIcons name="person-outline" size={22} color="black" />
                 </View>
               ) : userProfileData?.userphoto ? (
                 <Image
@@ -1714,45 +1764,16 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
             <MaterialIcons name="location-on" size={18} color="#f7b305" />
             {/* Use cityFromContext directly for display */}
             <Text style={styles.locationText}>
-              {isGuestMode ? 
-                `Guest view: Buffalo` : 
-                (cityFromContext || 'Set your location')}
+              {cityFromContext || 'Set your location'}
             </Text>
-            {isGuestMode && (
-              <Text style={styles.guestLocationNote}>
-                (Default location)
-              </Text>
-            )}
           </View>
           
           <TouchableOpacity 
-            style={[
-              styles.changeLocationButton,
-              isGuestMode && styles.guestChangeLocationButton
-            ]}
-            onPress={() => {
-              if (isGuestMode) {
-                Alert.alert(
-                  "Guest Mode",
-                  "Sign in to change your location.",
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    { 
-                      text: "Sign In", 
-                      onPress: () => {
-                        if (guestNavigation) {
-                          guestNavigation.navigate('GuestTabs', { screen: 'SignIn' });
-                        }
-                      }
-                    }
-                  ]
-                );
-              } else {
-                setLocationModalVisible(true);
-              }
-            }}
+            style={styles.changeLocationButton}
+            onPress={() => setLocationModalVisible(true)}
           >
-            <Text style={styles.changeLocationText}>{isGuestMode ? "Login" : "Change"}</Text>
+            <Text style={styles.changeLocationText}>Change</Text>
+            {/* <MaterialIcons name="edit-location-alt" size={18} color="black" /> */}
           </TouchableOpacity>
         </View>
 
@@ -1956,11 +1977,11 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
               
 
               {/* City Products Section */}
-              {cityFromContext !== undefined || isGuestMode ? (
+              {cityFromContext !== undefined ? (
                 <ProductSection
-                  title={isGuestMode 
-                    ? "Buffalo Products"
-                    : (cityFromContext ? `${cityFromContext} Products` : <LocationNameShimmer />)
+                  title={cityFromContext 
+                    ? `${cityFromContext} Products`
+                    : <LocationNameShimmer />
                   }
                   data={(cityProductsState.length > 0 ? cityProductsState : cityProducts) as any}
                   wishlist={wishlist}
@@ -1972,7 +1993,7 @@ const HomeScreen: React.FC<HomescreenProps> = ({ navigation: propNavigation, isG
                 />
               ) : null}
               {/* Interested Category Products Section */}
-              {selectedInterestCategory && !isGuestMode && (
+              {selectedInterestCategory && (
                 <ProductSection
                   title="Products You May Like"
                   data={interestedCategoryProducts}
@@ -2137,7 +2158,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 5,
   },
   plainText: {
     fontSize: 16,
@@ -2623,7 +2644,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 0,
-    marginBottom: 8,
+    marginBottom: 7,
     paddingHorizontal: 4,
   },
   locationContainer: {
@@ -2799,7 +2820,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     ...Platform.select({
       ios: {
-        marginBottom: 10,
+        marginBottom: 0,
       },
       android: {
         marginBottom: 20,
@@ -2847,14 +2868,6 @@ const styles = StyleSheet.create({
   },
   seeAllButton: {
     padding: 5,
-  },
-  guestLocationNote: {
-    fontSize: 12,
-    color: '#999',
-    marginLeft: 5,
-  },
-  guestChangeLocationButton: {
-    backgroundColor: '#f7b305',
   },
 });
 

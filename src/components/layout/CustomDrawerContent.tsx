@@ -31,9 +31,14 @@ const CustomDrawerContent = (props: DrawerContentComponentProps) => {
   // Memoize the sign out handler to prevent unnecessary re-renders
   const handleSignOut = useCallback(async () => {
     try {
-      await signOut();
-      // Close drawer after signing out
+      // Close drawer before signing out to avoid navigation issues
       navigation.closeDrawer();
+      
+      // Sign out using the Auth context
+      await signOut();
+      
+      // Navigation will be handled by AppNavigator after authentication state changes
+      console.log('[CustomDrawerContent] Signed out successfully');
     } catch (error) {
       console.error('Error signing out:', error);
     }

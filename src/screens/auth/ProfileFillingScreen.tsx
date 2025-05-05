@@ -605,7 +605,7 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
         userphoto: profileImage || undefined,
       };
 
-      console.log('Sending profile data to API:', profileData);
+      // console.log('Sending profile data to API:', profileData);
 
       // Update user info in the auth context
       updateUserInfo({
@@ -642,20 +642,20 @@ const ProfileFillingScreen: React.FC<ProfileFillingScreenProps> = ({ route, navi
               setLoadingStep(3); // Taking to home
               // Final delay before navigation
               setTimeout(() => {
-                // In development, use DevSettings to reload the app
-                if (__DEV__ && DevSettings) {
-                  console.log('Reloading app to update navigation...');
-                  DevSettings.reload();
-                } else {
-                  // Navigate to SignIn Screen for security
-                  console.log('Navigating to SignIn screen...');
-                  navigation.dispatch(
-                    CommonActions.reset({
-                      index: 0,
-                      routes: [{ name: 'SignIn' }],
-                    })
-                  );
-                }
+                // Navigate to SignIn Screen for security
+                console.log('Navigating to SignIn screen...');
+                navigation.dispatch(
+                  CommonActions.reset({
+                    index: 0,
+                    routes: [{ 
+                      name: 'Guest',
+                      params: {
+                        screen: 'GuestTabs',
+                        params: { screen: 'SignIn' }
+                      }
+                    }],
+                  })
+                );
               }, 600);
             }, 600);
           }, 800);

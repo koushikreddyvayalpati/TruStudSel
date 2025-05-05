@@ -141,6 +141,17 @@ This app follows a clean architecture approach with a focus on separation of con
 - **Domain Layer**: Business logic in services and contexts
 - **Data Layer**: API services, local storage, and data management
 
+## Guest Browsing
+
+TruStudSel now supports guest browsing, allowing users to access non-account based features without requiring registration. Specifically:
+
+- Users can browse products and view product details without logging in
+- Account-based features (adding to cart, contacting sellers, adding to wishlist, etc.) still require registration
+- Users are prompted to sign in when trying to access account-based features
+- The app provides a clear "Sign In" button for guests to easily register or login
+
+This implementation complies with app store guidelines requiring that apps only request user registration for account-based features.
+
 ## Contributing
 
 Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.

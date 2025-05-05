@@ -122,6 +122,7 @@ interface ProductDetailsState {
   addProductToWishlist: (productId: string | number) => Promise<boolean>;
   removeProductFromWishlist: (productId: string | number) => Promise<boolean>;
   isCurrentUserSeller: () => boolean;
+  isGuestMode: () => boolean;
 }
 
 const useProductDetailsStore = create<ProductDetailsState>((set, get) => ({
@@ -167,15 +168,38 @@ const useProductDetailsStore = create<ProductDetailsState>((set, get) => ({
       });
     }
     
-    // If we have a productId, always fetch fresh data from the API
-    // This ensures we have complete and up-to-date product information
-    if (productId) {
+    // Check if we're in guest mode (no userEmail)
+    const { userEmail } = get();
+    const isGuestMode = !userEmail;
+    
+    // Only fetch from API if not in guest mode and we have a productId
+    if (productId && !isGuestMode) {
       console.log(`[ProductDetailsStore] Fetching fresh product data for ID: ${productId}`);
       get().fetchProductData(productId);
+    } else if (isGuestMode && productId) {
+      console.log(`[ProductDetailsStore] In guest mode - skipping API call for product ID: ${productId}`);
+      // Just use the product from route or a simple placeholder in guest mode
+      if (!productFromRoute) {
+        // Create a minimal placeholder if we don't have route product data
+        const placeholderProduct: ExtendedProduct = {
+          id: productId,
+          name: "Product Preview",
+          price: "0",
+          description: "Sign in to view full product details.",
+          image: "https://via.placeholder.com/300?text=Sign+In+To+View",
+          images: ["https://via.placeholder.com/300?text=Sign+In+To+View"],
+        };
+        set({
+          product: placeholderProduct,
+          productImages: get().getProductImages(placeholderProduct),
+        });
+      }
     } else if (productFromRoute && !productId) {
       // Only rely on route product data if no productId is provided
-      // and fetch similar products
-      get().fetchSimilarProducts();
+      // and fetch similar products only if not in guest mode
+      if (!isGuestMode) {
+        get().fetchSimilarProducts();
+      }
     }
   },
 
@@ -213,6 +237,13 @@ const useProductDetailsStore = create<ProductDetailsState>((set, get) => ({
     try {
       set({ isLoading: true });
 
+      // Skip API call if in guest mode
+      if (get().isGuestMode()) {
+        console.log('[ProductDetailsStore] Skipping API call in guest mode');
+        set({ isLoading: false });
+        return;
+      }
+
       // Convert productId to string to match the getProductById parameter type
       const productIdString = productId.toString();
       const fetchedProduct = await getProductById(productIdString);
@@ -240,12 +271,32 @@ const useProductDetailsStore = create<ProductDetailsState>((set, get) => ({
     }
   },
 
+  // Check if we're in guest mode (no userEmail)
+  isGuestMode: () => {
+    const { userEmail } = get();
+    return !userEmail;
+  },
+
   // Fetch similar products
   fetchSimilarProducts: async () => {
-    const { product } = get();
+    // Skip entirely in guest mode
+    if (get().isGuestMode()) {
+      console.log('[ProductDetailsStore] Skipping similar products in guest mode');
+      set({ loadingSimilarProducts: false, similarProductsData: [] });
+      return;
+    }
+    
+    const { product, userEmail } = get();
 
     // Only fetch if we have a valid product with category
     if (!product) {return;}
+    
+    // Skip API call if no user email (guest mode) - extra safety check
+    if (!userEmail) {
+      console.log('[ProductDetailsStore] Skipping similar products API call in guest mode');
+      set({ loadingSimilarProducts: false, similarProductsData: [] });
+      return;
+    }
 
     // Try to get category from the product
     const category = product.category || product.type;

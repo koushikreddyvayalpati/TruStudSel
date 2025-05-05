@@ -390,6 +390,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Clear recent searches cache
       await AsyncStorage.removeItem('recent_searches_cache');
       
+      // Set a flag to indicate we're signing out (will be used by AppNavigator)
+      await AsyncStorage.setItem('@just_signed_out', 'true');
+      
       // Clear user profile and products cache
       const keys = await AsyncStorage.getAllKeys();
       const userRelatedKeys = keys.filter(key => 

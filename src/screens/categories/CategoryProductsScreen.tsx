@@ -20,7 +20,7 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import types
-import { CategoryProductsScreenProps } from '../../types/navigation.types';
+import { CategoryProductsScreenProps as BaseCategoryProductsScreenProps } from '../../types/navigation.types';
 
 // Import API methods
 import { Product } from '../../api/products';
@@ -31,6 +31,12 @@ import { useAuth } from '../../contexts';
 
 // Import our new Zustand store
 import useCategoryStore from '../../store/categoryStore';
+
+// Extend the base props with our guest mode props
+interface CategoryProductsScreenProps extends BaseCategoryProductsScreenProps {
+  isGuestMode?: boolean;
+  guestNavigation?: any;
+}
 
 // Get device dimensions for responsive layouts
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -290,7 +296,12 @@ const LoadingOverlay: React.FC<{ visible: boolean, message: string }> = ({ visib
 };
 
 // Main component
-const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigation, route }) => {
+const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ 
+  navigation, 
+  route, 
+  isGuestMode = false, 
+  guestNavigation
+}) => {
   const { user } = useAuth();
   const { categoryName, categoryId, userUniversity: routeUniversity, userCity } = route.params;
 
@@ -403,8 +414,13 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
 
   // Handler for product press
   const handleProductPress = useCallback((product: Product) => {
-    navigation.navigate('ProductInfoPage', { product });
-  }, [navigation]);
+    navigation.navigate('ProductInfoPage', { 
+      product,
+      productId: product.id,
+      isGuestMode,
+      guestNavigation
+    });
+  }, [navigation, isGuestMode, guestNavigation]);
 
   // Handler for search input change
   const handleSearchChange = useCallback((text: string) => {
@@ -643,8 +659,38 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Add a message seller handler function similar to HomeScreen
+  // Create a function to handle guest actions
+  const handleGuestAction = useCallback((actionType: string) => {
+    // If in guest mode, show login prompt for account-based features
+    if (isGuestMode) {
+      Alert.alert(
+        "Login Required",
+        `Please sign in to ${actionType}.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Sign In", 
+            onPress: () => {
+              if (guestNavigation) {
+                // Navigate to the SignIn tab in the GuestTabNavigator
+                guestNavigation.navigate('GuestTabs', { screen: 'SignIn' });
+              }
+            }
+          }
+        ]
+      );
+      return true; // Action was handled as guest
+    }
+    return false; // Not in guest mode, proceed normally
+  }, [isGuestMode, guestNavigation]);
+
+  // Update the message seller handler function
   const handleMessageSeller = useCallback((product: Product) => {
+    // Check if user is in guest mode and handle accordingly
+    if (handleGuestAction("message this seller")) {
+      return;
+    }
+
     // Get seller information from the product
     const sellerName = product.sellerName || (product.seller && product.seller.name) || 'Seller';
     const sellerEmail = product.email || (product.seller && (product.seller as any).email);
@@ -661,7 +707,7 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
       recipientEmail: sellerEmail,
       recipientName: sellerName,
     });
-  }, [navigation]);
+  }, [navigation, handleGuestAction]);
 
   // Memoize renderItem function to optimize FlatList performance
   const renderItem = useCallback(({ item }: { item: Product }) => (
@@ -785,7 +831,7 @@ const CategoryProductsScreen: React.FC<CategoryProductsScreenProps> = ({ navigat
   return (
     <SafeAreaView
       style={{ flex: 1, backgroundColor: '#fff' }}
-      edges={Platform.OS === 'ios' ? ['top', 'bottom', 'left', 'right'] : ['bottom', 'left', 'right']}
+      edges={['top', 'left', 'right']}
     >
       <View style={styles.container}>
         {/* Header */}

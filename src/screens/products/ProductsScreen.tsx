@@ -357,7 +357,7 @@ const ImageZoomModal: React.FC<{
   );
 });
 
-const ProductsScreen = () => {
+const ProductsScreen = ({ isGuestMode, guestNavigation }: { isGuestMode?: boolean; guestNavigation?: any }) => {
   const navigation = useNavigation<ProductInfoScreenNavigationProp>();
   const route = useRoute<ProductInfoScreenRouteProp>();
   const { user } = useAuth();
@@ -394,6 +394,39 @@ const ProductsScreen = () => {
   const routeParams = route.params || {};
   const productFromRoute = routeParams.product;
   const productId = routeParams.productId;
+  
+  // Get guest mode from both props and route params
+  const isGuestModeFromRoute = routeParams.isGuestMode;
+  const guestNavigationFromRoute = routeParams.guestNavigation;
+  
+  // Use props if provided, otherwise use route params
+  const effectiveIsGuestMode = isGuestMode !== undefined ? isGuestMode : isGuestModeFromRoute;
+  const effectiveGuestNavigation = guestNavigation || guestNavigationFromRoute;
+
+  // Create a function to handle guest actions
+  const handleGuestAction = useCallback((actionType: string) => {
+    // If in guest mode, show login prompt for account-based features
+    if (effectiveIsGuestMode) {
+      Alert.alert(
+        "Login Required",
+        `Please sign in to ${actionType}.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Sign In", 
+            onPress: () => {
+              if (effectiveGuestNavigation) {
+                // Navigate to the SignIn tab in the GuestTabNavigator
+                effectiveGuestNavigation.navigate('GuestTabs', { screen: 'SignIn' });
+              }
+            }
+          }
+        ]
+      );
+      return true; // Action was handled as guest
+    }
+    return false; // Not in guest mode, proceed normally
+  }, [effectiveIsGuestMode, effectiveGuestNavigation]);
 
   // Check if this was opened from a deep link
   useEffect(() => {
@@ -405,28 +438,63 @@ const ProductsScreen = () => {
 
   // Set user email from context
   useEffect(() => {
-    if (user?.email) {
+    if (effectiveIsGuestMode) {
+      // For guest mode, explicitly set userEmail to null to prevent API calls
+      setUserEmail(null);
+    } else if (user?.email) {
       setUserEmail(user.email);
     }
-  }, [user?.email, setUserEmail]);
+  }, [user?.email, setUserEmail, effectiveIsGuestMode]);
 
   // Initialize product from route params or id
   useEffect(() => {
-    setProductFromRoute(productFromRoute as any, productId);
-  }, [setProductFromRoute, productFromRoute, productId]);
+    // For guest mode, only use the product data from route params
+    if (effectiveIsGuestMode) {
+      console.log('[ProductsScreen] In guest mode - showing limited info');
+      
+      // If we have product data from route, use it directly 
+      if (productFromRoute) {
+        setProductFromRoute(productFromRoute as any, productId);
+      } 
+      // Otherwise if we only have an ID, create a placeholder product
+      else if (productId) {
+        console.log('[ProductsScreen] In guest mode with only ID - creating placeholder');
+        const placeholderProduct = {
+          id: productId,
+          name: "Product Preview",
+          price: "0",
+          description: "Sign in to view full product details.",
+          image: "https://via.placeholder.com/300?text=Sign+In+To+View",
+          images: ["https://via.placeholder.com/300?text=Sign+In+To+View"],
+        };
+        setProductFromRoute(placeholderProduct as any, productId);
+      }
+    } else {
+      // Normal mode - set product from route params or fetch by ID if needed
+      setProductFromRoute(productFromRoute as any, productId);
+    }
+  }, [setProductFromRoute, productFromRoute, productId, effectiveIsGuestMode]);
 
-  // Check wishlist status when product changes
+  // Only check wishlist status when not in guest mode
   useEffect(() => {
-    checkWishlistStatus();
-  }, [checkWishlistStatus]);
+    if (!effectiveIsGuestMode) {
+      checkWishlistStatus();
+    }
+  }, [checkWishlistStatus, effectiveIsGuestMode]);
 
-  // Refresh wishlist cache when component mounts
+  // Only refresh wishlist cache when not in guest mode
   useEffect(() => {
-    refreshWishlistCache();
-  }, [refreshWishlistCache]);
+    if (!effectiveIsGuestMode) {
+      refreshWishlistCache();
+    }
+  }, [refreshWishlistCache, effectiveIsGuestMode]);
 
   // Memoize contact seller function
   const handleContactSeller = useCallback((method: string) => {
+    if (handleGuestAction("contact seller")) {
+      return;
+    }
+
     if (method === 'message') {
       try {
         // Get seller info from product attributes
@@ -452,7 +520,7 @@ const ProductsScreen = () => {
         Alert.alert('Error', 'Could not open chat screen.');
       }
     }
-  }, [navigation, product]);
+  }, [navigation, product, handleGuestAction]);
 
   // Memoize similar product press function
   const handleSimilarProductPress = useCallback((similarProduct: any) => {
@@ -462,6 +530,10 @@ const ProductsScreen = () => {
 
   // Memoize seller profile navigation
   const handleViewSellerProfile = useCallback(() => {
+    if (handleGuestAction("view seller profile")) {
+      return;
+    }
+
     try {
       // Get seller email from product
       const sellerEmail = product.email || product.seller?.email;
@@ -482,7 +554,27 @@ const ProductsScreen = () => {
       console.error('[ProductsScreen] Navigation error:', error);
       Alert.alert('Error', 'Could not view seller profile.');
     }
-  }, [navigation, product.email, product.seller?.email]);
+  }, [navigation, product.email, product.seller?.email, handleGuestAction]);
+
+  // Modify the handleToggleWishlist to check for guest mode
+  const handleToggleWishlist = useCallback(() => {
+    if (handleGuestAction("add to wishlist")) {
+      return;
+    }
+
+    // Call the store's toggleWishlist function
+    toggleWishlist();
+  }, [toggleWishlist, handleGuestAction]);
+
+  // Modify the handleAddToCart function
+  const handleAddToCart = useCallback(() => {
+    if (handleGuestAction("add to cart")) {
+      return;
+    }
+    
+    // Original function code would go here
+    Alert.alert("Add to Cart", "This feature is coming soon!");
+  }, [handleGuestAction]);
 
   // Content sections are memoized for better performance
   const renderDescriptionSection = useMemo(() => (
@@ -536,8 +628,13 @@ const ProductsScreen = () => {
     return null;
   }, []);
 
-  // Similar Products rendering section with loading state
+  // Render similar products section if not in guest mode and we have similar products
   const renderSimilarProductsSection = useMemo(() => {
+    // Don't show for guest users
+    if (effectiveIsGuestMode) {
+      return null;
+    }
+    
     // If loading, show loading indicator
     if (loadingSimilarProducts) {
       return (
@@ -564,7 +661,7 @@ const ProductsScreen = () => {
         onProductPress={handleSimilarProductPress}
       />
     );
-  }, [similarProductsData, loadingSimilarProducts, handleSimilarProductPress]);
+  }, [similarProductsData, loadingSimilarProducts, handleSimilarProductPress, effectiveIsGuestMode]);
 
   // Check if the current user is the seller of this product
   const isUserSeller = isCurrentUserSeller();
@@ -615,11 +712,14 @@ const ProductsScreen = () => {
     'Fake Product',
     'Offensive Content',
     'Other',
-
   ];
 
   // Function to handle reporting a product
   const handleReportProduct = async () => {
+    if (handleGuestAction("report this product")) {
+      return;
+    }
+
     if (!reportReason) {
       Alert.alert('Error', 'Please select a reason for reporting');
       return;
@@ -691,9 +791,9 @@ const ProductsScreen = () => {
   }
 
   return (
-    <SafeAreaViewContext 
+    <SafeAreaViewContext
       style={styles.safeArea}
-      edges={Platform.OS === 'ios' ? ['top', 'bottom', 'left', 'right'] : ['bottom', 'left', 'right']}
+      edges={['top', 'left', 'right']}
     >
       <View style={styles.header}>
         <TouchableOpacity
@@ -704,11 +804,18 @@ const ProductsScreen = () => {
           <Ionicons name={Platform.OS === 'android' ? 'arrow-back' : 'chevron-back'} size={24} color="#333" />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Product Details</Text>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle}>Product Details</Text>
+        </View>
 
         <TouchableOpacity
           style={styles.headerRight}
-          onPress={() => setReportModalVisible(true)}
+          onPress={() => {
+            if (handleGuestAction("report this product")) {
+              return;
+            }
+            setReportModalVisible(true);
+          }}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <MaterialIcons name="report" size={22} color="#e74c3c" />
@@ -778,10 +885,10 @@ const ProductsScreen = () => {
               )}
             </View>
 
-            {!isUserSeller && (
+            {!isUserSeller && !isGuestMode && (
               <TouchableOpacity
                 style={[styles.wishlistButton, isInWishlist && styles.wishlistActiveButton]}
-                onPress={toggleWishlist}
+                onPress={handleToggleWishlist}
               >
                 <FontAwesome
                   name={isInWishlist ? 'heart' : 'heart-o'}
@@ -820,74 +927,109 @@ const ProductsScreen = () => {
             <View style={styles.sellerSection}>
               <Text style={styles.sectionTitle}>Seller Information</Text>
 
-              <View style={styles.sellerProfileContainer}>
-                <View style={styles.sellerInfoContainer}>
-                  <View style={styles.profileImageWrapper}>
-                    <TouchableOpacity
-                      style={styles.profileCircle}
-                      onPress={handleViewSellerProfile}
-                    >
-                      <Text style={styles.profileText}>
+              {isGuestMode ? (
+                // Guest mode message instead of seller info
+                <View style={styles.guestModeContainer}>
+                  <MaterialIcons name="lock-outline" size={32} color="#f7b305" />
+                  <Text style={styles.guestModeTitle}>Sign in to contact the seller</Text>
+                  <Text style={styles.guestModeText}>
+                    Create an account or sign in to view seller details, contact the seller, and access more features.
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.guestModeSignInButton}
+                    onPress={() => {
+                      if (effectiveGuestNavigation) {
+                        effectiveGuestNavigation.navigate('GuestTabs', { screen: 'SignIn' });
+                      }
+                    }}
+                  >
+                    <Text style={styles.guestModeSignInText}>Sign In / Create Account</Text>
+                    <MaterialIcons name="login" size={18} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                // Regular seller info for logged in users
+                <View style={styles.sellerProfileContainer}>
+                  <View style={styles.sellerInfoContainer}>
+                    <View style={styles.profileImageWrapper}>
+                      <TouchableOpacity
+                        style={styles.profileCircle}
+                        onPress={handleViewSellerProfile}
+                      >
+                        <Text style={styles.profileText}>
+                          {(() => {
+                            const displayName = product.sellerName || product.seller?.name || '';
+                            return displayName ? displayName.charAt(0).toUpperCase() : 'S';
+                          })()}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.sellerDetails}>
+                      <Text style={styles.sellerName} numberOfLines={1}>
                         {(() => {
-                          const displayName = product.sellerName || product.seller?.name || '';
-                          return displayName ? displayName.charAt(0).toUpperCase() : 'S';
+                          const name = product.sellerName || product.seller?.name || 'Unknown Seller';
+                          return name.length > 14 ? `${name.substring(0, 14)}...` : name;
                         })()}
                       </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={styles.sellerDetails}>
-                    <Text style={styles.sellerName} numberOfLines={1}>
-                      {(() => {
-                        const name = product.sellerName || product.seller?.name || 'Unknown Seller';
-                        return name.length > 14 ? `${name.substring(0, 14)}...` : name;
-                      })()}
-                    </Text>
-                    <View style={styles.sellerMetaInfo}>
-                      {product.seller?.rating && (
-                        <View style={styles.sellerRatingContainer}>
-                          <RatingStars rating={product.seller.rating} />
-                          <Text style={styles.ratingText}>{product.seller.rating.toFixed(1)}</Text>
-                        </View>
-                      )}
-                      <View style={styles.sellerBadgeContainer}>
-                        <View style={styles.verifiedBadge}>
-                          <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
-                          <Text style={styles.verifiedText}>Verified</Text>
+                      <View style={styles.sellerMetaInfo}>
+                        {product.seller?.rating && (
+                          <View style={styles.sellerRatingContainer}>
+                            <RatingStars rating={product.seller.rating} />
+                            <Text style={styles.ratingText}>{product.seller.rating.toFixed(1)}</Text>
+                          </View>
+                        )}
+                        <View style={styles.sellerBadgeContainer}>
+                          <View style={styles.verifiedBadge}>
+                            <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
+                            <Text style={styles.verifiedText}>Verified</Text>
+                          </View>
                         </View>
                       </View>
                     </View>
+
+                    <TouchableOpacity
+                      style={styles.viewProfileButton}
+                      onPress={handleViewSellerProfile}
+                    >
+                      <Text style={styles.viewProfileText}>View Profile</Text>
+                      <Ionicons name="chevron-forward" size={16} color="#f7b305" />
+                    </TouchableOpacity>
                   </View>
 
                   <TouchableOpacity
-                    style={styles.viewProfileButton}
-                    onPress={handleViewSellerProfile}
+                    style={styles.contactSellerButton}
+                    onPress={() => handleContactSeller('message')}
                   >
-                    <Text style={styles.viewProfileText}>View Profile</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#f7b305" />
+                    <Ionicons name="chatbubble-outline" size={18} color="#FFF" />
+                    <Text style={styles.contactButtonText}>Message Seller</Text>
                   </TouchableOpacity>
                 </View>
-
-                <TouchableOpacity
-                  style={styles.contactSellerButton}
-                  onPress={() => handleContactSeller('message')}
-                >
-                  <Ionicons name="chatbubble-outline" size={18} color="#FFF" />
-                  <Text style={styles.contactButtonText}>Message Seller</Text>
-                </TouchableOpacity>
-              </View>
+              )}
             </View>
           )}
 
           {/* Always render ReviewsSection, pass isUserSeller prop */}
-          <ReviewsSection
-            sellerEmail={product.email ?? ''}
-            sellerName={product.sellerName ?? ''}
-            productId={route.params?.productId}
-            isUserSeller={isUserSeller}
-            onViewAllReviews={handleViewAllReviews}
-            onUpdateTotalReviews={handleUpdateTotalReviews}
-          />
+          {effectiveIsGuestMode ? (
+            <View style={styles.reviewsSection}>
+              <Text style={styles.sectionTitle}>Reviews</Text>
+              <View style={styles.guestModeContainer}>
+                <MaterialIcons name="star-outline" size={32} color="#f7b305" />
+                <Text style={styles.guestModeText}>
+                  Sign in to see seller reviews and ratings from other students.
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <ReviewsSection
+              sellerEmail={product.email ?? ''}
+              sellerName={product.sellerName ?? ''}
+              productId={route.params?.productId}
+              isUserSeller={isUserSeller}
+              onViewAllReviews={handleViewAllReviews}
+              onUpdateTotalReviews={handleUpdateTotalReviews}
+            />
+          )}
 
           {isUserSeller && (
             <View style={styles.ownProductContainer}>
@@ -1005,6 +1147,54 @@ const ProductsScreen = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Action buttons for Add to Cart/Contact Seller */}
+      <View style={styles.actionButtonsContainer}>
+        {isGuestMode ? (
+          // Single Sign In button for guest mode
+          <TouchableOpacity
+            style={styles.guestSignInButton}
+            onPress={() => {
+              if (effectiveGuestNavigation) {
+                effectiveGuestNavigation.navigate('GuestTabs', { screen: 'SignIn' });
+              }
+            }}
+            accessibilityLabel="Sign in to view all features"
+          >
+            <MaterialIcons name="login" size={22} color="#fff" style={{marginRight: 8}} />
+            <Text style={styles.guestSignInText}>Sign In to Access All Features</Text>
+          </TouchableOpacity>
+        ) : (
+          // Normal action buttons for authenticated users
+          product.email !== (user?.email || '') && (
+            <>
+              <TouchableOpacity
+                style={[
+                  styles.actionButton,
+                  { backgroundColor: '#f7b305' }
+                ]}
+                onPress={handleAddToCart}
+                accessibilityLabel="Add to cart"
+              >
+                <FontAwesome name="shopping-cart" size={20} color="#fff" />
+                <Text style={styles.actionButtonText}>Add to Cart</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.actionButton,
+                  { backgroundColor: '#4a6ee0' }
+                ]}
+                onPress={() => handleContactSeller('message')}
+                accessibilityLabel="Contact seller"
+              >
+                <MaterialIcons name="chat" size={20} color="#fff" />
+                <Text style={styles.actionButtonText}>Contact Seller</Text>
+              </TouchableOpacity>
+            </>
+          )
+        )}
+      </View>
     </SafeAreaViewContext>
   );
 };
@@ -1014,7 +1204,6 @@ export default ProductsScreen;
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: 'white',
   },
   loadingContainer: {
     flex: 1,
@@ -1056,13 +1245,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: Platform.OS === 'android' ? 8 : 10,
   },
+  headerTitleContainer: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    flex: 1,
     textAlign: 'center',
-    marginHorizontal: 10,
+  },
+  guestModeHeaderBadge: {
+    backgroundColor: '#f7b305',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 15,
+    marginTop: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  guestModeHeaderText: {
+    fontSize: 12,
+    color: 'white',
+    fontWeight: '600',
   },
   headerRight: {
     width: 40,
@@ -2274,5 +2481,100 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '500',
     textAlign: 'center',
+  },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 10,
+    paddingHorizontal: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#eeeeee',
+    backgroundColor: 'white',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#f7b305',
+    flex: 1,
+    marginHorizontal: 5,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  actionButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  guestModeContainer: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: 20,
+  },
+  guestModeTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  guestModeText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  guestModeSignInButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: '#f7b305',
+  },
+  guestModeSignInText: {
+    fontSize: 14,
+    color: 'white',
+    fontWeight: 'bold',
+    marginRight: 4,
+  },
+  guestSignInButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: 'black',
+    flex: 1,
+    marginHorizontal: 15,
+    marginVertical: 10,
+    marginBottom: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
+  },
+  guestSignInText: {
+    fontSize: 17,
+    color: 'white',
+    fontWeight: 'bold',
   },
 });

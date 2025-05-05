@@ -38,7 +38,11 @@ const OnboardingScreen3: React.FC<OnboardingScreen3Props> = ({ navigation }) => 
 
   const handleSkip = () => {
     // Navigate immediately for better performance
-    navigation.navigate('SignIn');
+    // Use type assertion to bypass TypeScript navigation type restrictions
+    (navigation as any).navigate('Guest', {
+      screen: 'GuestTabs',
+      params: { screen: 'SignIn' }
+    });
     
     // Update AsyncStorage in the background
     AsyncStorage.setItem('@has_seen_get_started', 'true')
@@ -48,7 +52,11 @@ const OnboardingScreen3: React.FC<OnboardingScreen3Props> = ({ navigation }) => 
 
   const handleNext = () => {
     // Navigate immediately for better performance
-    navigation.navigate('SignIn');
+    // Use type assertion to bypass TypeScript navigation type restrictions
+    (navigation as any).navigate('Guest', {
+      screen: 'GuestTabs',
+      params: { screen: 'SignIn' }
+    });
     
     // Update AsyncStorage in the background
     AsyncStorage.setItem('@has_seen_get_started', 'true')

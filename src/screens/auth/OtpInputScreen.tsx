@@ -473,7 +473,10 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
           [
             {
               text: 'OK',
-              onPress: () => navigation.navigate('SignIn'),
+              onPress: () => (navigation as any).navigate('Guest', {
+                screen: 'GuestTabs',
+                params: { screen: 'SignIn' }
+              }),
             },
           ]
         );

@@ -138,5 +138,23 @@
    <ArchiveAction
       buildConfiguration = "Release"
       revealArchiveInOrganizer = "YES">
+      <PreActions>
+         <ExecutionAction
+            ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
+            <ActionContent
+               title = "Run Script"
+               scriptText = "# Type a script or drag a script file from your workspace to insert its path.&#10;        # Set the path to your node executable&#10;        # You can find this by running `which node` in your terminal in the project root&#10;        # Example: export NODE_BINARY=&quot;/usr/local/bin/node&quot;&#10;        # --- !!! IMPORTANT: UPDATE THIS PATH !!! ---&#10;        export NODE_BINARY=&quot;/opt/homebrew/bin/node&quot; &#10;        # --- !!! IMPORTANT: UPDATE THIS PATH !!! ---&#10;        &#10;        # Set ENVFILE based on the build configuration&#10;        echo &quot;Build configuration: ${CONFIGURATION}&quot; # Add this line for debugging&#10;        if [ &quot;${CONFIGURATION}&quot; == &quot;Debug&quot; ]; then&#10;          export ENVFILE=&quot;.env.development&quot;&#10;          echo &quot;Using ENVFILE: ${ENVFILE}&quot; # Add this line for debugging&#10;        elif [ &quot;${CONFIGURATION}&quot; == &quot;Release&quot; ]; then&#10;          export ENVFILE=&quot;.env.production&quot;&#10;          echo &quot;Using ENVFILE: ${ENVFILE}&quot; # Add this line for debugging&#10;        elif [ &quot;${CONFIGURATION}&quot; == &quot;Staging&quot; ]; then # Example for Staging&#10;          export ENVFILE=&quot;.env.staging&quot;&#10;          echo &quot;Using ENVFILE: ${ENVFILE}&quot; # Add this line for debugging&#10;        else&#10;          export ENVFILE=&quot;.env.development&quot; # Default to development&#10;          echo &quot;Defaulting to ENVFILE: ${ENVFILE}&quot; # Add this line for debugging&#10;        fi&#10;        &#10;        # Run the react-native-config script&#10;        &quot;${SRCROOT}/../node_modules/react-native-config/ios/ReactNativeConfig/BuildXCConfig.rb&quot; &quot;${SRCROOT}/..&quot; &quot;${SRCROOT}/tmp.xcconfig&quot;&#10;">
+               <EnvironmentBuildable>
+                  <BuildableReference
+                     BuildableIdentifier = "primary"
+                     BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
+                     BuildableName = "TruStudSel.app"
+                     BlueprintName = "TruStudSel"
+                     ReferencedContainer = "container:TruStudSel.xcodeproj">
+                  </BuildableReference>
+               </EnvironmentBuildable>
+            </ActionContent>
+         </ExecutionAction>
+      </PreActions>
    </ArchiveAction>
 </Scheme>

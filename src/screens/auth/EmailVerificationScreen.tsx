@@ -68,7 +68,7 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
   // Function to log important actions for easier debugging
   const logDebug = (message: string, data?: any) => {
     if (data) {
-      console.log(`[${SCREEN_NAME}] ${message}`, data);
+      console.log(`[${SCREEN_NAME}] ${message}`);
     } else {
       console.log(`[${SCREEN_NAME}] ${message}`);
     }
@@ -253,7 +253,7 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ route
       {/* Fixed position back button */}
       <TouchableOpacity
         style={styles.fixedBackButton}
-        onPress={() => navigation.navigate('SignIn')}
+        onPress={() => navigation.goBack()}
         activeOpacity={0.7}
       >
         {Platform.OS === 'ios' ? (

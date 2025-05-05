@@ -38,7 +38,10 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }) => {
 
   const handleSkip = () => {
     // Navigate immediately without waiting for AsyncStorage
-    navigation.navigate('SignIn');
+    (navigation as any).navigate('Guest', {
+      screen: 'GuestTabs',
+      params: { screen: 'SignIn' }
+    });
     
     // Then update AsyncStorage in the background
     AsyncStorage.setItem('@has_seen_get_started', 'true')

@@ -1,7 +1,8 @@
-import React, { forwardRef, ForwardRefRenderFunction } from 'react';
+import React, { forwardRef, ForwardRefRenderFunction, useEffect } from 'react';
 import { NavigationContainer, LinkingOptions, NavigationContainerRef } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Linking } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import custom hooks
 import { useAuth } from '../contexts';
@@ -10,8 +11,8 @@ import { useAuth } from '../contexts';
 // Note: We considered using React.lazy() for code splitting here, but it led to 
 // compatibility issues with React Navigation. The performance gain would be minor 
 // compared to the complexity introduced.
-import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
+import GuestNavigator from './GuestNavigator';
 
 // Import status bar manager
 import { configureStatusBar } from '../utils/statusBarManager';
@@ -67,6 +68,18 @@ const AppNavigatorBase: ForwardRefRenderFunction<NavigationContainerRef<any>, Ap
             },
           },
         },
+        Guest: {
+          screens: {
+            GuestTabs: {
+              screens: {
+                BrowseHome: 'browse',
+                SignIn: 'signin',
+              }
+            },
+            ProductInfoPage: 'product/:id',
+            CategoryProducts: 'category/:categoryId',
+          }
+        },
       },
     },
     // Custom getInitialURL implementation
@@ -100,6 +113,58 @@ const AppNavigatorBase: ForwardRefRenderFunction<NavigationContainerRef<any>, Ap
     },
   };
 
+  // Check for sign out flag when authentication state changes
+  useEffect(() => {
+    if (!isAuthenticated && !loading) {
+      const checkSignOutFlag = async () => {
+        try {
+          const justSignedOut = await AsyncStorage.getItem('@just_signed_out');
+          if (justSignedOut === 'true') {
+            console.log('[AppNavigator] User just signed out, will navigate to SignIn tab');
+            // We need to wait until the navigation is ready and Guest navigator is mounted
+            // The navigation will happen in the onReady callback below
+          }
+        } catch (error) {
+          console.error('[AppNavigator] Error checking sign out flag:', error);
+        }
+      };
+      
+      checkSignOutFlag();
+    }
+  }, [isAuthenticated, loading]);
+
+  // Custom onReady handler to navigate to sign in after sign out
+  const handleNavigationReady = async () => {
+    // Call the original onReady if provided
+    if (onReady) {
+      onReady();
+    }
+    
+    // Check if we need to navigate to sign in
+    if (!isAuthenticated && !loading) {
+      try {
+        const justSignedOut = await AsyncStorage.getItem('@just_signed_out');
+        if (justSignedOut === 'true' && ref) {
+          console.log('[AppNavigator] Navigating to SignIn tab after sign out');
+          // Clear the flag
+          await AsyncStorage.removeItem('@just_signed_out');
+          
+          // Type safety check for the ref object
+          const navRef = ref as React.RefObject<NavigationContainerRef<any>>;
+          if (navRef.current) {
+            // Navigate to the SignIn tab
+            navRef.current.navigate('Guest', {
+              screen: 'GuestTabs',
+              params: { screen: 'SignIn' }
+            });
+          }
+        }
+      } catch (error) {
+        console.error('[AppNavigator] Error handling navigation after sign out:', error);
+      }
+    }
+  };
+
   // Show a loading screen if auth state is being determined
   if (loading) {
     return null; // You can add a splash screen or loading indicator here
@@ -109,7 +174,7 @@ const AppNavigatorBase: ForwardRefRenderFunction<NavigationContainerRef<any>, Ap
     <NavigationContainer 
       ref={ref}
       linking={linking}
-      onReady={onReady}
+      onReady={handleNavigationReady}
       onStateChange={(_state) => {
         // Configure status bar on every navigation state change
         // This ensures consistent appearance regardless of how screens are opened
@@ -128,8 +193,11 @@ const AppNavigatorBase: ForwardRefRenderFunction<NavigationContainerRef<any>, Ap
             } : undefined}
           />
         ) : (
-          // User is not signed in - show auth flow
-          <Stack.Screen name="Auth" component={AuthNavigator} />
+          // User is not signed in - show guest navigator with browse products capability
+          <Stack.Screen 
+            name="Guest" 
+            component={GuestNavigator}
+          />
         )}
       </Stack.Navigator>
     </NavigationContainer>

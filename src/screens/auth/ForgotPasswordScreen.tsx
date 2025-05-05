@@ -12,7 +12,6 @@ import {
   Image,
   Animated,
   Keyboard,
-  StatusBar,
 } from 'react-native';
 import { Auth } from 'aws-amplify';
 import { useNavigation } from '@react-navigation/native';
@@ -192,7 +191,7 @@ const ForgotPasswordScreen: React.FC = () => {
       setTimeout(() => {
         setLoading(false);
         Alert.alert('Success', 'Password reset successfully', [
-          { text: 'OK', onPress: () => navigation.navigate('SignIn') },
+          { text: 'OK', onPress: () => navigation.goBack() },
         ]);
       }, 1000);
 
@@ -248,7 +247,7 @@ const ForgotPasswordScreen: React.FC = () => {
                 } else {
                   // If on step 1, go back to SignIn
                   logDebug('Navigating to SignIn');
-                  navigation.navigate('SignIn');
+                  navigation.goBack();
                 }
               }}
               style={[styles.backButton, { zIndex: 999 }]}

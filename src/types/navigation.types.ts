@@ -69,7 +69,9 @@ export type MainStackParamList = {
         email?: string;
       };
     },
-    productId?: string
+    productId?: string,
+    isGuestMode?: boolean,
+    guestNavigation?: any
   };
   Wishlist: { wishlist: string[] };
   CategoryProducts: {
