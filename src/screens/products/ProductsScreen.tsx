@@ -28,6 +28,9 @@ import ReviewsSection from '../../components/reviews/ReviewsSection';
 import { SafeAreaView as SafeAreaViewContext } from 'react-native-safe-area-context';
 import { submitReport } from '../../api/reports';
 import ImageViewer from 'react-native-image-zoom-viewer';
+import DeviceInfo from 'react-native-device-info';
+
+const isTablet = DeviceInfo.isTablet();
 
 const { width, height } = Dimensions.get('window');
 
@@ -1641,7 +1644,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#eeeeee',
-    height: 240,
+    height: isTablet ? 300 : 240,
     position: 'relative',
     ...Platform.select({
       ios: {
@@ -1657,13 +1660,13 @@ const styles = StyleSheet.create({
   },
   similarProductImage: {
     width: '100%',
-    height: 140,
+    height: isTablet ? 200 : 140,
   },
   similarProductInfo: {
     padding: 12,
   },
   similarProductName: {
-    fontSize: 16,
+    fontSize: isTablet ? 18 : 16,
     color: '#333',
     marginBottom: 8,
     fontWeight: '500',

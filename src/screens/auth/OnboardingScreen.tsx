@@ -8,13 +8,16 @@ import {
   Dimensions,
   SafeAreaView,
   Platform,
+  PixelRatio,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OnboardingScreenNavigationProp } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
+import DeviceInfo from 'react-native-device-info';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
+const isTablet = DeviceInfo.isTablet(); 
 interface OnboardingScreenProps {
   navigation: OnboardingScreenNavigationProp;
 }
@@ -40,7 +43,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }) => {
     // Navigate immediately without waiting for AsyncStorage
     (navigation as any).navigate('Guest', {
       screen: 'GuestTabs',
-      params: { screen: 'SignIn' }
+      params: { screen: 'Home' }
     });
     
     // Then update AsyncStorage in the background
@@ -115,14 +118,14 @@ const styles = StyleSheet.create({
     })
   },
   pageIndicator: {
-    fontSize: 18,
+    fontSize: isTablet ? 25 : 18,
     fontWeight: '600',
     fontFamily: 'Montserrat',
     marginLeft: 10,
 
   },
   skipText: {
-    fontSize: 18,
+    fontSize: isTablet ? 25 : 18,
     fontWeight: '600',
     fontFamily: 'Montserrat',
     marginRight: 10,
@@ -144,14 +147,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
   },
   title: {
-    fontSize: 32,
+    fontSize: isTablet ? 60 : 32,
     fontWeight: '700',
     marginBottom: 16,
     textAlign: 'center',
     fontFamily: 'Montserrat',
+    marginTop: isTablet ? 8 : 0,
   },
   description: {
-    fontSize: 16,
+    fontSize: isTablet ? 25 : 16,
     textAlign: 'center',
     color: '#888',
     lineHeight: 24,
@@ -184,7 +188,7 @@ const styles = StyleSheet.create({
   },
   nextButtonText: {
     color: '#f7b305',
-    fontSize: 18,
+    fontSize: isTablet ? 25 : 18,
     fontWeight: '600',
     fontFamily: 'Montserrat',
   },

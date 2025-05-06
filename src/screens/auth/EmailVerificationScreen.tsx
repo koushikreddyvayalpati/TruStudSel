@@ -19,6 +19,9 @@ import { useTheme } from '../../hooks';
 import { TextInput } from '../../components/common';
 import Entypo from 'react-native-vector-icons/Entypo';
 import LinearGradient from 'react-native-linear-gradient';
+import DeviceInfo from 'react-native-device-info';
+
+const isTablet = DeviceInfo.isTablet();
 
 // For consistent logging in development
 const SCREEN_NAME = 'EmailVerification';
@@ -739,6 +742,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   contentContainer: {
+    marginTop: isTablet ? 30 : 0,
     padding: 20,
     paddingTop: Platform.OS === 'android' ? 35 : 35,
     flex: 1,
@@ -839,7 +843,7 @@ const styles = StyleSheet.create({
     marginBottom: Platform.OS === 'android' ? 15 : 0,
   },
   legalText: {
-    fontSize: 12,
+    fontSize: isTablet ? 18 : 12,
     textAlign: 'center',
     color: '#888',
     lineHeight: 18,

@@ -56,6 +56,10 @@ import { useSearch } from './home-search';
 // Import Zustand store
 import useProductStore from '../../store/productStore';
 
+import DeviceInfo from 'react-native-device-info';
+
+const isTablet = DeviceInfo.isTablet();
+
 // Define types for better type safety
 interface Category {
   id: number;
@@ -111,21 +115,21 @@ const CategoryItem: React.FC<{
   const renderIcon = () => {
     switch (item.icon) {
       case 'electronics':
-        return <Entypoicon name="game-controller" size={24} color="black" />;
+        return <Entypoicon name="game-controller" size={isTablet ? 30 : 24} color="black" />;
       case 'furniture':
-        return <Icon name="bed" size={24} color="black" />;
+        return <Icon name="bed" size={isTablet ? 30 : 24} color="black" />;
       case 'auto':
-        return <MaterialIcons name="directions-car" size={24} color="black" />;
+        return <MaterialIcons name="directions-car" size={isTablet ? 30 : 24} color="black" />;
       case 'fashion':
-        return <FontAwesome name="shopping-bag" size={24} color="black" />;
+        return <FontAwesome name="shopping-bag" size={isTablet ? 30 : 24} color="black" />;
       case 'sports':
-        return <MaterialIcons name="sports-cricket" size={24} color="black" />;
+        return <MaterialIcons name="sports-cricket" size={isTablet ? 30 : 24} color="black" />;
       case 'stationery':
-        return <MaterialIcons name="book" size={24} color="black" />;
+        return <MaterialIcons name="book" size={isTablet ? 30 : 24} color="black" />;
       case 'eventpass':
-        return <FontAwesome name="ticket" size={24} color="black" />;
+        return <FontAwesome name="ticket" size={isTablet ? 30 : 24} color="black" />;
       default:
-        return <Icon name="question" size={24} color="black" />;
+        return <Icon name="question" size={isTablet ? 30 : 24} color="black" />;
     }
   };
 
@@ -2074,7 +2078,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   truStudSelText: {
-    fontSize: 24,
+    fontSize: isTablet ? 30 : 24,
     fontFamily: 'Montserrat',
     fontWeight: '700',
   },
@@ -2082,9 +2086,9 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   profileCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: isTablet ? 45 : 38,
+    height: isTablet ? 45 : 38,
+    borderRadius: isTablet ? 22 : 19,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
@@ -2108,7 +2112,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     alignItems: 'center',
     paddingHorizontal: 15,
-    height: 40,
+    height: isTablet ? 50 : 40,
   },
   searchIcon: {
     marginRight: 8,
@@ -2137,10 +2141,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: isTablet ? 8 : 6,
   },
   plainText: {
-    fontSize: 16,
+    fontSize: isTablet ? 20 : 16,
     fontWeight: 'bold',
     fontFamily: 'Montserrat',
     marginLeft: 5,
@@ -2151,8 +2155,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   smallButton: {
-    paddingVertical: 2,
-    paddingHorizontal: 8,
+    paddingVertical: isTablet ? 5 : 2,
+    paddingHorizontal: isTablet ? 10 : 8,
     borderRadius: 20,
     marginLeft: 10,
     flexDirection: 'row',
@@ -2180,30 +2184,30 @@ const styles = StyleSheet.create({
     borderColor: '#e69b00',
   },
   buttonText: {
-    fontSize: 12,
+    fontSize: isTablet ? 16 : 12,
     fontWeight: '500',
     marginLeft: 5,
     marginRight: 5,
     color: '#333',
   },
   categoryContainer: {
-    height: 80,
+    height: isTablet ? 120 : 80,
     paddingTop: 0,
     paddingBottom: 0,
   },
   categoryItem: {
     alignItems: 'center',
     marginHorizontal: 0,
-    width: 65,
+    width: isTablet ? 100 : 65,
   },
   categoryCircleWrapper: {
     padding: 5,
     marginBottom: 0,
   },
   categoryCircle: {
-    width: 45,
-    height: 45,
-    borderRadius: 30,
+    width: isTablet ? 65 : 45,
+    height: isTablet ? 65 : 45,
+    borderRadius: isTablet ? 40 : 30,
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
@@ -2221,7 +2225,7 @@ const styles = StyleSheet.create({
     }),
   },
   categoryText: {
-    fontSize: 12,
+    fontSize: isTablet ? 18 : 12,
     textAlign: 'center',
     marginTop: 0,
   },
@@ -2236,7 +2240,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   seeAllText: {
-    fontSize: 14,
+    fontSize: isTablet ? 18 :14,
     color: '#f7b305',
   },
   productScrollView: {
@@ -2246,7 +2250,7 @@ const styles = StyleSheet.create({
     paddingRight: 20,
   },
   productCard: {
-    width: 150,
+    width: isTablet ? 200 : 150,
     marginRight: 15,
     borderRadius: 8,
     overflow: 'hidden',
@@ -2267,8 +2271,8 @@ const styles = StyleSheet.create({
     }),
   },
   productImagePlaceholder: {
-    width: 150,
-    height: 120,
+    width: isTablet ? 200 : 150,
+    height: isTablet ? 150 : 130,
     backgroundColor: '#e0e0e0',
   },
   productInfo: {
@@ -2623,7 +2627,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 0,
-    marginBottom: 8,
+    marginBottom: isTablet ? 10 : 8,
     paddingHorizontal: 4,
   },
   locationContainer: {
@@ -2631,19 +2635,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   locationText: {
-    fontSize: 14,
+    fontSize: isTablet ? 18 : 14,
     color: '#333',
     marginLeft: 4,
     fontWeight: '500',
   },
   changeLocationButton: {
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    paddingVertical: isTablet ? 5 : 3,
+    paddingHorizontal: isTablet ? 10 : 8,
     borderRadius: 12,
     backgroundColor: '#f0f0f0',
   },
   changeLocationText: {
-    fontSize: 12,
+    fontSize: isTablet ? 16 : 12,
     color: '#000',
     fontWeight: '600',
   },

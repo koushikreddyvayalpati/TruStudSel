@@ -24,6 +24,9 @@ import { MainStackParamList } from '../../types/navigation.types';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { API_URL } from '../../api/config';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import DeviceInfo from 'react-native-device-info';
+
+const isTablet = DeviceInfo.isTablet();
 
 // Add API base URL
 const API_BASE_URL = API_URL;
@@ -480,7 +483,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   productImage: {
-    height: '100%',
+    height: isTablet ? '200%': '100%',
     width: '100%',
   },
   wishlistBadge: {
@@ -496,19 +499,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   productInfo: {
+    marginTop: isTablet ? 130 : 0,
     padding: 10,
   },
   productName: {
-    fontSize: 16,
+    fontSize: isTablet ? 18 : 16,
     marginBottom: 5,
   },
   productPrice: {
-    fontSize: 18,
+    fontSize: isTablet ? 18 : 16,
     fontWeight: '700',
     marginBottom: 4,
   },
   addedDate: {
-    fontSize: 12,
+    fontSize: isTablet ? 18 : 12,
     fontStyle: 'italic',
     marginBottom: 8,
   },

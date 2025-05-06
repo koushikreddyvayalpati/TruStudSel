@@ -23,6 +23,10 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import Entypo from 'react-native-vector-icons/Entypo';
 
+import DeviceInfo from 'react-native-device-info';
+
+const isTablet = DeviceInfo.isTablet(); 
+
 const SignInScreen: React.FC = () => {
   const navigation = useNavigation<SignInScreenNavigationProp>();
   const [username, setUsername] = useState('');
@@ -629,7 +633,7 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
   logoText: {
-    fontSize: 32,
+    fontSize: isTablet ? 60 : 32,
     fontWeight: '700',
     color: '#f7b305',
     marginTop: Platform.OS === 'android' ? 10 : 20,
@@ -637,7 +641,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat',
   },
   tagline: {
-    fontSize: 18,
+    fontSize: isTablet ? 35 : 18,
     color: '#333',
     marginTop: 0,
     fontFamily: 'Montserrat',
@@ -645,13 +649,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   logoImage: {
-    width: 200,
-    height: 200,
+    width: isTablet ? 300 : 200,
+    height: isTablet ? 300 : 200,
     marginTop: 10,
 
   },
   formContainer: {
-    paddingHorizontal: 30,
+    paddingHorizontal: isTablet ? 70 : 30,
     marginTop: 0,
     paddingTop: 0,
     flex: 1,
@@ -672,13 +676,13 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     marginBottom: 5,
     marginTop: -2,
-    fontSize: 14,
+    fontSize: isTablet ? 20 : 14,
     fontWeight: '500',
   },
   loginButton: {
     backgroundColor: '#f7b305',
     borderRadius: 12,
-    padding: 18,
+    padding: isTablet ? 25 : 18,
     marginTop: 10,
     shadowColor: 'rgba(247,179,5,0.4)',
     shadowOffset: { width: 0, height: 4 },
@@ -691,7 +695,7 @@ const styles = StyleSheet.create({
   createAccountButton: {
     backgroundColor: 'black',
     borderRadius: 12,
-    padding: 18,
+    padding: isTablet ? 25 : 18,
     marginTop: 5,
     shadowColor: 'rgba(0,0,0,0.2)',
     shadowOffset: { width: 0, height: 4 },
@@ -704,7 +708,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: 'white',
     fontWeight: '700',
-    fontSize: 17,
+    fontSize: isTablet ? 25 : 17,
     textAlign: 'center',
     letterSpacing: 0.5,
   },
@@ -730,7 +734,7 @@ const styles = StyleSheet.create({
   dividerText: {
     marginHorizontal: 10,
     color: '#888',
-    fontSize: 14,
+    fontSize: isTablet ? 20 : 14,
     fontWeight: '500',
   },
   legalTextContainer: {
@@ -740,7 +744,7 @@ const styles = StyleSheet.create({
     marginBottom: Platform.OS === 'android' ? 15 : 0,
   },
   legalText: {
-    fontSize: 12,
+    fontSize: isTablet ? 18 : 12,
     textAlign: 'center',
     color: '#888',
     lineHeight: 18,
@@ -804,13 +808,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   privacyText: {
-    fontSize: 14,
+    fontSize: isTablet ? 20 : 14,
     lineHeight: 20,
     color: '#333',
     marginBottom: 15,
   },
   privacySectionTitle: {
-    fontSize: 18,
+    fontSize: isTablet ? 25 : 18,
     fontWeight: 'bold',
     marginTop: 20,
     marginBottom: 10,

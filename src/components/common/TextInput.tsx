@@ -13,6 +13,9 @@ import {
 } from 'react-native';
 import { colors } from '../../constants';
 import Entypo from 'react-native-vector-icons/Entypo';
+import DeviceInfo from 'react-native-device-info';
+
+const isTablet = DeviceInfo.isTablet();
 
 export type TextInputProps = RNTextInputProps & {
   label?: string;
@@ -122,7 +125,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   label: {
-    fontSize: 14,
+    fontSize: isTablet ? 20 : 14,
     fontWeight: '600',
     marginBottom: 8,
     color: colors.textPrimary,
@@ -135,7 +138,7 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
     borderRadius: 12,
     backgroundColor: '#f8f8f8',
-    height: 58,
+    height: isTablet ? 65 : 58,
     ...Platform.select({
       ios: {
         // Simplified shadow with fewer properties for better performance
@@ -179,7 +182,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: '100%',
     paddingHorizontal: 16,
-    fontSize: 16,
+    fontSize: isTablet ? 22 : 16,
     color: colors.textPrimary,
   },
   leftIcon: {

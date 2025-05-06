@@ -31,6 +31,9 @@ import { useAuth } from '../../contexts';
 
 // Import our new Zustand store
 import useCategoryStore from '../../store/categoryStore';
+import DeviceInfo from 'react-native-device-info';
+
+const isTablet = DeviceInfo.isTablet();
 
 // Extend the base props with our guest mode props
 interface CategoryProductsScreenProps extends BaseCategoryProductsScreenProps {
@@ -40,7 +43,7 @@ interface CategoryProductsScreenProps extends BaseCategoryProductsScreenProps {
 
 // Get device dimensions for responsive layouts
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const COLUMN_GAP = 10;
+const COLUMN_GAP = isTablet ? 20 : 10;
 const NUM_COLUMNS = 2;
 const PRODUCT_CARD_WIDTH = (SCREEN_WIDTH - (COLUMN_GAP * (NUM_COLUMNS + 1))) / NUM_COLUMNS;
 
@@ -139,7 +142,7 @@ const ProductItem = React.memo<{
             style={styles.messageButton}
             onPress={() => onMessageSeller(item)}
           >
-            <Icon name="comment" size={18} color="#f7b305" />
+            <Icon name="comment" size={isTablet ? 24 : 18} color="#f7b305" />
           </TouchableOpacity>
         )}
       </View>
@@ -1155,7 +1158,7 @@ const styles = StyleSheet.create({
   },
   productImagePlaceholder: {
     width: '100%',
-    height: 150,
+    height: isTablet ? 300 : 150,
     backgroundColor: '#f5f5f5',
   },
   productInfo: {
@@ -1164,18 +1167,18 @@ const styles = StyleSheet.create({
     minHeight: 80,
   },
   productName: {
-    fontSize: 14,
+    fontSize: isTablet ? 18 : 14,
     marginBottom: 5,
     color: '#333',
     fontWeight: '500',
   },
   productPrice: {
-    fontSize: 16,
+    fontSize: isTablet ? 20 : 16,
     fontWeight: 'bold',
     color: 'black',
   },
   productCondition: {
-    fontSize: 12,
+    fontSize: isTablet ? 18 : 12,
     color: '#666',
     marginTop: 2,
     textTransform: 'capitalize',
@@ -1442,8 +1445,8 @@ const styles = StyleSheet.create({
     right: 10,
     backgroundColor: 'rgba(255,255,255,0.9)',
     borderRadius: 15,
-    width: 30,
-    height: 30,
+    width: isTablet ? 40 : 30,
+    height: isTablet ? 40 : 30,
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -29,10 +29,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Import the Zustand profile store
 import useProfileStore from '../../store/profileStore';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import DeviceInfo from 'react-native-device-info';
+
+const isTablet = DeviceInfo.isTablet();
 
 // Constants
-const PROFILE_BANNER_HEIGHT = 120;
-const PROFILE_IMAGE_SIZE = 140;
+const PROFILE_BANNER_HEIGHT = isTablet ? 200 : 120;
+const PROFILE_IMAGE_SIZE = isTablet ? 200 : 140;
 const HEADER_MAX_HEIGHT = Platform.OS === 'ios' ? 60 : 56;
 const HEADER_MIN_HEIGHT = Platform.OS === 'ios' ? 60 : 56;
 const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;// Estimated post item height for better FlatList performance
@@ -442,7 +445,7 @@ const PostItem = React.memo(({
                 onPress={handleMarkAsSold}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <MaterialCommunityIcons name="briefcase-edit-outline" size={16} color="black" />
+                <MaterialCommunityIcons name="briefcase-edit-outline" size={isTablet ? 24 : 16} color="black" />
               </TouchableOpacity>
             )}
 
@@ -453,7 +456,7 @@ const PostItem = React.memo(({
                 onPress={handleDeletePress}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <MaterialCommunityIcons name="trash-can-outline" size={16} color="#666" />
+                <MaterialCommunityIcons name="trash-can-outline" size={isTablet ? 24 : 16} color="#666" />
               </TouchableOpacity>
             )}
           </View>
@@ -1611,7 +1614,7 @@ const styles = StyleSheet.create({
   profileImageWrapper: {
     alignSelf: 'center',
     marginTop: -PROFILE_IMAGE_SIZE / 2,
-    marginBottom: 8,
+    marginBottom: 0,
     position: 'relative',
     width: PROFILE_IMAGE_SIZE + 8, // Add some extra space for border
     height: PROFILE_IMAGE_SIZE + 8, // Add some extra space for border
@@ -1663,20 +1666,20 @@ const styles = StyleSheet.create({
     }),
   },
   profileInitial: {
-    fontSize: 34,
+    fontSize: isTablet ? 40 : 34,
     fontWeight: 'bold',
     color: 'white',
   },
   verifiedBadge: {
     position: 'absolute',
-    bottom: 6,
-    right: 6,
+    bottom: isTablet ? 25 : 18,
+    right: isTablet ? 25: 19,
     backgroundColor: 'transparent',
   },
   verifiedBadgeCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: isTablet ? 30 : 26,
+    height: isTablet ? 30 : 26,
+    borderRadius: isTablet ? 15 : 13,
     backgroundColor: '#4CAF50',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1765,7 +1768,7 @@ const styles = StyleSheet.create({
   userInfoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: isTablet ? 15 : 10,
     marginBottom: 0,
     width: '100%',
     borderBottomWidth: 1,
@@ -1782,7 +1785,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   userInfoText: {
-    fontSize: 15,
+    fontSize: isTablet ? 18 : 15,
     color: '#333',
     fontWeight: '500',
     flex: 1,
@@ -1947,7 +1950,7 @@ const styles = StyleSheet.create({
   },
   postImage: {
     width: '100%',
-    height: 160,
+    height: isTablet ? 300 : 160,
     borderTopLeftRadius: 14,
     borderTopRightRadius: 14,
   },
@@ -1963,7 +1966,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 8,
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: isTablet ? 20 : 16,
     color: '#ffffff',
     overflow: 'hidden',
     ...Platform.select({
@@ -1984,13 +1987,13 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   postCaption: {
-    fontSize: 16,
+    fontSize: isTablet ? 20 : 16,
     fontWeight: '600',
     color: '#222',
     marginBottom: 4,
   },
   postCondition: {
-    fontSize: 14,
+    fontSize: isTablet ? 20 : 14,
     color: '#666',
     fontWeight: '400',
   },

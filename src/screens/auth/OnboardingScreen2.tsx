@@ -8,12 +8,16 @@ import {
   Dimensions,
   SafeAreaView,
   Platform,
+  PixelRatio,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Onboarding2ScreenNavigationProp } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
+import DeviceInfo from 'react-native-device-info';
 
 const { width } = Dimensions.get('window');
+
+const isTablet = DeviceInfo.isTablet();
 
 interface OnboardingScreen2Props {
   navigation: Onboarding2ScreenNavigationProp;
@@ -40,7 +44,7 @@ const OnboardingScreen2: React.FC<OnboardingScreen2Props> = ({ navigation }) => 
     // Navigate immediately for better performance
     (navigation as any).navigate('Guest', {
       screen: 'GuestTabs',
-      params: { screen: 'SignIn' }
+      params: { screen: 'Home' }
     });
     
     // Update AsyncStorage in the background
@@ -124,13 +128,13 @@ const styles = StyleSheet.create({
     })
   },
   pageIndicator: {
-    fontSize: 18,
+    fontSize: isTablet ? 25 : 18,
     fontWeight: '600',
     fontFamily: 'Montserrat',
     marginLeft: 10,
   },
   skipText: {
-    fontSize: 18,
+    fontSize: isTablet ? 25 : 18,
     fontWeight: '600',
     fontFamily: 'Montserrat',
     marginRight: 10,
@@ -142,7 +146,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   image: {
-    marginTop: 30,
+    marginTop: isTablet ? 0 : 30,
     width: width * 0.8,
     height: width * 0.8,
   },
@@ -152,14 +156,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
   },
   title: {
-    fontSize: 32,
+    fontSize: isTablet ? 60 : 32,
     fontWeight: '700',
     marginBottom: 16,
     textAlign: 'center',
     fontFamily: 'Montserrat',
+    marginTop: isTablet ? 76 : 0,
   },
   description: {
-    fontSize: 16,
+    fontSize: isTablet ? 25 : 16,
     textAlign: 'center',
     color: '#888',
     lineHeight: 24,
@@ -191,7 +196,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     color: '#888',
-    fontSize: 18,
+    fontSize: isTablet ? 25 : 18,
     fontWeight: '600',
     fontFamily: 'Montserrat',
   },
@@ -202,7 +207,7 @@ const styles = StyleSheet.create({
   },
   nextButtonText: {
     color: '#f7b305',
-    fontSize: 18,
+    fontSize: isTablet ? 25 : 18,
     fontWeight: '600',
     fontFamily: 'Montserrat',
   },

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Image,
   Dimensions,
-  ImageBackground,
   StatusBar,
   Platform,
   SafeAreaView,
@@ -14,8 +13,21 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GetStartedScreenNavigationProp } from '../../types/navigation.types';
 import { useTheme } from '../../hooks';
+import DeviceInfo from 'react-native-device-info';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+
+// Determine if device is a tablet
+const isTablet = DeviceInfo.isTablet(); 
+
+// Responsive sizing based on screen size
+const scale = width / 390; // Base scale on typical phone width
+const moderateScale = (size: number, factor: number = 0.5) => {
+  if (isTablet) {
+    return size + (scale - 1) * size * factor * 0.7; // Reduce scaling factor for tablets
+  }
+  return size + (scale - 1) * size * factor;
+};
 
 interface GetStartedScreenProps {
   navigation: GetStartedScreenNavigationProp;
@@ -24,46 +36,43 @@ interface GetStartedScreenProps {
 const GetStartedScreen: React.FC<GetStartedScreenProps> = ({ navigation }) => {
   const { theme } = useTheme();
 
-  // Mark that user has seen get started screen when they view it
-  useEffect(() => {
-    const markAsSeen = async () => {
-      try {
-        await AsyncStorage.setItem('@has_seen_get_started', 'true');
-      } catch (error) {
-        console.error('Error saving onboarding status:', error);
-      }
-    };
-
-    markAsSeen();
-  }, []);
-
   const handleGetStarted = async () => {
-    // Navigate to the next screen
-    navigation.navigate('Onboarding');
+    try {
+      // Mark that user has seen get started screen when they click the button
+      await AsyncStorage.setItem('@has_seen_get_started', 'true');
+      
+      // Navigate to the next screen
+      navigation.navigate('Onboarding');
+    } catch (error) {
+      console.error('Error saving onboarding status:', error);
+      // Still navigate even if saving to AsyncStorage fails
+      navigation.navigate('Onboarding');
+    }
   };
 
 const Container = Platform.OS === 'ios' ? View : SafeAreaView;
   return (
     <Container style={[styles.container, { backgroundColor: theme.colors.background }]}>
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar
         barStyle="dark-content"
         backgroundColor="transparent"
         translucent={true}
       />
       <View style={styles.contentContainer}>
-        <Text style={[styles.title, { color: theme.colors.primary }]}>TruStudSel</Text>
-        <Text style={[styles.subtitle, { color: theme.colors.text }]}>Welcome's You</Text>
-        <Image
-          source={require('../../../assets/intro2.png')} // Update with your image path
-          style={styles.image}
-          resizeMode="cover"
-        />
-        <ImageBackground
-          //source={require('../../../assets/Yellow.png')}
-          style={styles.trustContainer}
-          resizeMode="cover"
-        >
+        <View style={styles.headerContainer}>
+          <Text style={[styles.title, { color: theme.colors.primary }]}>TruStudSel</Text>
+          <Text style={[styles.subtitle, { color: theme.colors.text }]}>Welcome's You</Text>
+        </View>
+        
+        <View style={styles.imageWrapper}>
+          <Image
+            source={require('../../../assets/intro2.png')}
+            style={styles.image}
+            resizeMode={isTablet ? 'stretch' : 'cover'}
+          />
+        </View>
+        
+        <View style={styles.trustContainer}>
           <Text style={styles.trustText}>True</Text>
           <Text style={styles.trustText}>Student</Text>
           <Text style={styles.trustText}>Sell</Text>
@@ -73,9 +82,8 @@ const Container = Platform.OS === 'ios' ? View : SafeAreaView;
           >
             <Text style={[styles.getStartedText, { color: theme.colors.buttonText }]}>Get Started</Text>
           </TouchableOpacity>
-        </ImageBackground>
+        </View>
       </View>
-    </View>
     </Container>
   );
 };
@@ -91,19 +99,19 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 60,
   },
   image: {
-    width: width * 1.1,
-    height: width * 0.85,
+    width: isTablet ? width * 1.1 : width * 1.1,
+    height: isTablet ? width * 0.55 : width * 0.85,
     marginTop: 10,
-    marginLeft: 10,
+    marginLeft: 10
   },
   title: {
-    fontSize: 44,
+    fontSize: isTablet ? 60 : 44,
     fontWeight: 700,
     fontFamily: 'Montserrat',
 
   },
   subtitle: {
-    fontSize: 34,
+    fontSize: isTablet ? 40 : 34,
     fontWeight: '700',
     marginBottom: 20,
     fontFamily: 'Montserrat',
@@ -117,7 +125,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f7b305',
   },
   trustText: {
-    fontSize: 40,
+    fontSize: isTablet ? 60 : 40,
     fontWeight: '700',
     color: 'black',
     marginBottom: 10,
@@ -129,8 +137,8 @@ const styles = StyleSheet.create({
     }),
   },
   getStartedButton: {
-    padding: 15,
-    borderRadius: 5,
+    padding: isTablet ? 20 : 15,
+    borderRadius: isTablet ? 20 : 10,
     marginTop: 20,
     width: width * 0.7,
     ...Platform.select({
@@ -140,7 +148,7 @@ const styles = StyleSheet.create({
     }),
   },
   getStartedText: {
-    fontSize: 22,
+    fontSize: isTablet ? 30 : 22,
     fontWeight: '600',
     textAlign: 'center',
     fontFamily: 'Montserrat',
