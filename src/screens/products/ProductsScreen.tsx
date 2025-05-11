@@ -1171,7 +1171,7 @@ const ProductsScreen = ({ isGuestMode, guestNavigation }: { isGuestMode?: boolea
           // Normal action buttons for authenticated users
           product.email !== (user?.email || '') && (
             <>
-              <TouchableOpacity
+              {/* <TouchableOpacity
                 style={[
                   styles.actionButton,
                   { backgroundColor: '#f7b305' }
@@ -1181,9 +1181,9 @@ const ProductsScreen = ({ isGuestMode, guestNavigation }: { isGuestMode?: boolea
               >
                 <FontAwesome name="shopping-cart" size={20} color="#fff" />
                 <Text style={styles.actionButtonText}>Add to Cart</Text>
-              </TouchableOpacity>
+              </TouchableOpacity> */}
 
-              <TouchableOpacity
+              {/* <TouchableOpacity
                 style={[
                   styles.actionButton,
                   { backgroundColor: '#4a6ee0' }
@@ -1193,7 +1193,7 @@ const ProductsScreen = ({ isGuestMode, guestNavigation }: { isGuestMode?: boolea
               >
                 <MaterialIcons name="chat" size={20} color="#fff" />
                 <Text style={styles.actionButtonText}>Contact Seller</Text>
-              </TouchableOpacity>
+              </TouchableOpacity> */}
             </>
           )
         )}

@@ -9,6 +9,8 @@ import {
   Modal,
   TextInput,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -166,7 +168,10 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
             animationType="slide"
             onRequestClose={() => setShowReviewForm(false)}
           >
-            <View style={styles.reviewFormModalContainer}>
+            <KeyboardAvoidingView 
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              style={styles.reviewFormModalContainer}
+            >
               <View style={styles.reviewFormContent}>
                 <View style={styles.reviewFormHeader}>
                   <Text style={styles.reviewFormTitle}>Write a Review</Text>
@@ -178,50 +183,56 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.ratingLabel}>Rating:</Text>
-                <View style={styles.ratingSelector}>
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <TouchableOpacity
-                      key={`star_${star}`}
-                      onPress={() => setReviewRating(star)}
-                      style={styles.ratingStar}
-                    >
-                      <Icon
-                        name={star <= reviewRating ? 'star' : 'star-o'}
-                        size={32}
-                        color="#f7b305"
-                      />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <Text style={styles.reviewCommentLabel}>Your Review:</Text>
-                <TextInput
-                  style={styles.reviewCommentInput}
-                  placeholder="Share your experience with this seller..."
-                  placeholderTextColor="#999"
-                  multiline
-                  textAlignVertical="top"
-                  value={reviewComment}
-                  onChangeText={setReviewComment}
-                />
-
-                <TouchableOpacity
-                  style={[
-                    styles.submitReviewButton,
-                    (!reviewComment.trim() || submittingReview) && styles.disabledButton,
-                  ]}
-                  onPress={handleSubmitReview}
-                  disabled={!reviewComment.trim() || submittingReview}
+                <ScrollView 
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                  contentContainerStyle={styles.formScrollContent}
                 >
-                  {submittingReview ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <Text style={styles.submitReviewButtonText}>Submit Review</Text>
-                  )}
-                </TouchableOpacity>
+                  <Text style={styles.ratingLabel}>Rating:</Text>
+                  <View style={styles.ratingSelector}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <TouchableOpacity
+                        key={`star_${star}`}
+                        onPress={() => setReviewRating(star)}
+                        style={styles.ratingStar}
+                      >
+                        <Icon
+                          name={star <= reviewRating ? 'star' : 'star-o'}
+                          size={32}
+                          color="#f7b305"
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={styles.reviewCommentLabel}>Your Review:</Text>
+                  <TextInput
+                    style={styles.reviewCommentInput}
+                    placeholder="Share your experience with this seller..."
+                    placeholderTextColor="#999"
+                    multiline
+                    textAlignVertical="top"
+                    value={reviewComment}
+                    onChangeText={setReviewComment}
+                  />
+
+                  <TouchableOpacity
+                    style={[
+                      styles.submitReviewButton,
+                      (!reviewComment.trim() || submittingReview) && styles.disabledButton,
+                    ]}
+                    onPress={handleSubmitReview}
+                    disabled={!reviewComment.trim() || submittingReview}
+                  >
+                    {submittingReview ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={styles.submitReviewButtonText}>Submit Review</Text>
+                    )}
+                  </TouchableOpacity>
+                </ScrollView>
               </View>
-            </View>
+            </KeyboardAvoidingView>
           </Modal>
         )}
       </View>
@@ -338,7 +349,10 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
           animationType="slide"
           onRequestClose={() => setShowReviewForm(false)}
         >
-          <View style={styles.reviewFormModalContainer}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.reviewFormModalContainer}
+          >
             <View style={styles.reviewFormContent}>
               <View style={styles.reviewFormHeader}>
                 <Text style={styles.reviewFormTitle}>Write a Review</Text>
@@ -350,50 +364,56 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.ratingLabel}>Rating:</Text>
-              <View style={styles.ratingSelector}>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <TouchableOpacity
-                    key={`star_${star}`}
-                    onPress={() => setReviewRating(star)}
-                    style={styles.ratingStar}
-                  >
-                    <Icon
-                      name={star <= reviewRating ? 'star' : 'star-o'}
-                      size={32}
-                      color="#f7b305"
-                    />
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <Text style={styles.reviewCommentLabel}>Your Review:</Text>
-              <TextInput
-                style={styles.reviewCommentInput}
-                placeholder="Share your experience with this seller..."
-                placeholderTextColor="#999"
-                multiline
-                textAlignVertical="top"
-                value={reviewComment}
-                onChangeText={setReviewComment}
-              />
-
-              <TouchableOpacity
-                style={[
-                  styles.submitReviewButton,
-                  (!reviewComment.trim() || submittingReview) && styles.disabledButton,
-                ]}
-                onPress={handleSubmitReview}
-                disabled={!reviewComment.trim() || submittingReview}
+              <ScrollView 
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={styles.formScrollContent}
               >
-                {submittingReview ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.submitReviewButtonText}>Submit Review</Text>
-                )}
-              </TouchableOpacity>
+                <Text style={styles.ratingLabel}>Rating:</Text>
+                <View style={styles.ratingSelector}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <TouchableOpacity
+                      key={`star_${star}`}
+                      onPress={() => setReviewRating(star)}
+                      style={styles.ratingStar}
+                    >
+                      <Icon
+                        name={star <= reviewRating ? 'star' : 'star-o'}
+                        size={32}
+                        color="#f7b305"
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.reviewCommentLabel}>Your Review:</Text>
+                <TextInput
+                  style={styles.reviewCommentInput}
+                  placeholder="Share your experience with this seller..."
+                  placeholderTextColor="#999"
+                  multiline
+                  textAlignVertical="top"
+                  value={reviewComment}
+                  onChangeText={setReviewComment}
+                />
+
+                <TouchableOpacity
+                  style={[
+                    styles.submitReviewButton,
+                    (!reviewComment.trim() || submittingReview) && styles.disabledButton,
+                  ]}
+                  onPress={handleSubmitReview}
+                  disabled={!reviewComment.trim() || submittingReview}
+                >
+                  {submittingReview ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={styles.submitReviewButtonText}>Submit Review</Text>
+                  )}
+                </TouchableOpacity>
+              </ScrollView>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
       )}
     </View>
@@ -620,6 +640,19 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
+    paddingBottom: 0,
+    maxHeight: '80%',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 5,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   reviewFormHeader: {
     flexDirection: 'row',
@@ -689,6 +722,9 @@ const styles = StyleSheet.create({
   allLoadedText: {
     fontSize: 14,
     color: '#666',
+  },
+  formScrollContent: {
+    paddingBottom: Platform.OS === 'ios' ? 30 : 20,
   },
 });
 
