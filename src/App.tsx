@@ -4,7 +4,7 @@
 import 'react-native-gesture-handler';
 import React, { useEffect, useRef, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Amplify } from 'aws-amplify';
+import { Amplify} from 'aws-amplify';
 import Config from 'react-native-config';
 import { NavigationContainerRef } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -87,6 +87,8 @@ const App: React.FC = () => {
   const [initialRoute, setInitialRoute] = useState<string | undefined>(undefined);
   const [initialParams, setInitialParams] = useState<any>(undefined);
   const [_isCheckingNotification, setIsCheckingNotification] = useState(true);
+
+  
 
   // Configure status bar immediately at app startup
   useEffect(() => {

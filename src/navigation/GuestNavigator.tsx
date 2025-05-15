@@ -242,7 +242,7 @@ const GuestTabNavigator = () => {
           marginTop: isTablet ? 5 : 0,
         },
         tabBarLabelStyle: {
-          fontSize: isTablet ? 0 : 0,
+          fontSize: isTablet ? 1 : 1,
           paddingBottom: isTablet ? 0 : 0,
           paddingTop: isTablet ? 0 : 0,
           fontWeight: isTablet ? '500' : 'normal',

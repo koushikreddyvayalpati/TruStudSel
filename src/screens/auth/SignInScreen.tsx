@@ -231,7 +231,7 @@ const SignInScreen: React.FC = () => {
                   style={styles.logoImage}
                   resizeMode="contain"
                   fadeDuration={0}
-                  defaultSource={require('../../../assets/Group.jpg')}
+                  {...(Platform.OS === 'ios' ? { defaultSource: require('../../../assets/Group.jpg') } : {})}
                 />
               )}
             </View>
@@ -622,6 +622,11 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,
     paddingBottom: 30,
+    ...Platform.select({
+      android: {
+        paddingTop: 0,
+      },
+    }),
   },
   logoContainer: {
     alignItems: 'center',
