@@ -172,6 +172,20 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
     console.log('Current OTP:', otpValue);
   }, [otpValue]);
 
+  // Focus the OTP input when the component mounts
+  useEffect(() => {
+    if (verificationStep === 'otp') {
+      // Delay focus to ensure the component is fully mounted
+      const focusTimeout = setTimeout(() => {
+        if (otpInputRef.current) {
+          otpInputRef.current.focus();
+        }
+      }, Platform.OS === 'android' ? 300 : 100);
+      
+      return () => clearTimeout(focusTimeout);
+    }
+  }, [verificationStep]);
+
   const handleVerifyCode = async () => {
     if (otpValue.length !== 6) {
       Alert.alert('Error', 'Please enter a valid 6-digit code');
@@ -263,17 +277,19 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
         {/* OTP Display */}
         <View style={styles.otpDisplayContainer}>
           {Array(6).fill(0).map((_, index) => (
-            <View
+            <TouchableOpacity
               key={index}
               style={[
                 styles.otpDigitDisplay,
                 getOtpBoxStyle(index),
               ]}
+              onPress={() => otpInputRef.current?.focus()}
+              activeOpacity={0.7}
             >
               <Text style={[styles.otpDigitText, { color: theme.colors.secondary }]}>
                 {index < otpValue.length ? otpValue[index] : ''}
               </Text>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
 
@@ -290,9 +306,20 @@ const OtpInputScreen: React.FC<OtpInputScreenProps> = ({ route, navigation }) =>
 
         {/* Tap area to focus input */}
         <TouchableOpacity
-          style={styles.tapToFocusArea}
-          activeOpacity={0.9}
-          onPress={() => otpInputRef.current?.focus()}
+          style={[
+            styles.tapToFocusArea,
+            Platform.OS === 'android' && styles.androidTapArea,
+          ]}
+          activeOpacity={0.7}
+          onPress={() => {
+            otpInputRef.current?.focus();
+            if (Platform.OS === 'android') {
+              // On Android, sometimes we need to force keyboard to show
+              setTimeout(() => {
+                otpInputRef.current?.focus();
+              }, 100);
+            }
+          }}
         >
           <Text style={styles.tapToFocusText}>
             Tap to enter code
@@ -877,7 +904,9 @@ const styles = StyleSheet.create({
   hiddenOtpInput: {
     position: 'absolute',
     opacity: 0,
-    height: 0,
+    height: Platform.OS === 'android' ? 45 : 0,
+    width: Platform.OS === 'android' ? '100%' : 0,
+    bottom: Platform.OS === 'android' ? 0 : undefined,
   },
   tapToFocusArea: {
     backgroundColor: 'rgba(245,245,245,0.5)',
@@ -889,6 +918,10 @@ const styles = StyleSheet.create({
   tapToFocusText: {
     color: '#888',
     fontSize: 14,
+  },
+  androidTapArea: {
+    paddingVertical: 20,
+    width: '100%',
   },
   passwordFormContainer: {
     width: '100%',
